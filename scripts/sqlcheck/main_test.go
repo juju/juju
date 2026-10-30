@@ -205,9 +205,18 @@ func (s *runSuite) TestMalformedGoSourceExitsTwo(c *tc.C) {
 func (s *runSuite) TestGitHubActionsAutoAnnotation(c *tc.C) {
 	c.Assert(os.WriteFile(filepath.Join(s.repo, "fixture.go"), []byte(fixtureGo), 0o644), tc.ErrorIsNil)
 	s.setenv(c, "GITHUB_ACTIONS", "true")
+	summary := filepath.Join(c.MkDir(), "summary.md")
+	s.setenv(c, "GITHUB_STEP_SUMMARY", summary)
 	line, col := fixtureViolationPos()
 	code, stdout := captureStdout(c, func() int { return run(nil) })
 	c.Check(code, tc.Equals, 1)
-	want := "::error file=fixture.go,line=" + strconv.Itoa(line) + ",col=" + strconv.Itoa(col) + "::LT01 stub spacing violation"
+	loc := "fixture.go:" + strconv.Itoa(line) + ":" + strconv.Itoa(col) + ":"
+	want := "::error file=fixture.go,line=" + strconv.Itoa(line) + ",col=" + strconv.Itoa(col) + "::" + loc + " LT01 stub spacing violation"
 	c.Check(strings.Contains(stdout, want), tc.IsTrue, tc.Commentf("stdout: %s", stdout))
+	// The run also appends the per-file Markdown report to the job
+	// summary.
+	data, err := os.ReadFile(summary)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(strings.Contains(string(data), "| `fixture.go` | 1 | LT01 (1) |"), tc.IsTrue,
+		tc.Commentf("summary: %s", data))
 }

@@ -4,6 +4,9 @@
 package main
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -129,8 +132,101 @@ func (s *reportSuite) TestGitHubAnnotationEscaping(c *tc.C) {
 	}
 	got := formatDiagnostic(d, true)
 	c.Check(strings.Contains(got, "::error file=foo.go,line=4,col=2::"), tc.IsTrue)
+	// The runner hides the command properties from the job log, so the
+	// location is repeated in the message itself.
+	c.Check(strings.HasPrefix(got, "::error file=foo.go,line=4,col=2::foo.go:4:2: CP01 "), tc.IsTrue)
 	c.Check(strings.Contains(got, "%0A"), tc.IsTrue)
 	c.Check(strings.Contains(got, "%25"), tc.IsTrue)
+}
+
+func (s *reportSuite) TestGitHubSummaryAggregatesPerFile(c *tc.C) {
+	diags := []Diagnostic{
+		{File: "a.go", Line: 1, Column: 1, Rule: "LT01", Message: "m1"},
+		{File: "a.go", Line: 2, Column: 1, Rule: "LT01", Message: "m2"},
+		{File: "a.go", Line: 3, Column: 1, Rule: "CP01", Message: "m3"},
+		{File: "b.go", Line: 9, Column: 1, Rule: "LT02", Message: "m4"},
+	}
+	var b strings.Builder
+	err := writeGitHubSummary(&b, 10, 2, diags, nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	got := b.String()
+	c.Check(strings.Contains(got, "Extracted 10 statement(s) from 2 file(s): 4 sqlfluff violation(s), 0 SQL site(s) not linted."), tc.IsTrue)
+	// The file with more violations sorts first; rules are ordered by
+	// count then name.
+	c.Check(strings.Contains(got, "| `a.go` | 3 | LT01 (2), CP01 (1) |\n"), tc.IsTrue)
+	c.Check(strings.Contains(got, "| `b.go` | 1 | LT02 (1) |\n"), tc.IsTrue)
+	c.Check(strings.Index(got, "`a.go`") < strings.Index(got, "`b.go`"), tc.IsTrue)
+}
+
+func (s *reportSuite) TestGitHubSummaryWithoutViolations(c *tc.C) {
+	var b strings.Builder
+	err := writeGitHubSummary(&b, 5, 2, nil, nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	got := b.String()
+	c.Check(strings.Contains(got, "No sqlfluff violations found."), tc.IsTrue)
+	c.Check(strings.Contains(got, "Extracted 5 statement(s) from 2 file(s): 0 sqlfluff violation(s), 0 SQL site(s) not linted."), tc.IsTrue)
+}
+
+func (s *reportSuite) TestGitHubSummaryListsSkips(c *tc.C) {
+	var b strings.Builder
+	err := writeGitHubSummary(&b, 1, 1, nil, []Skip{{
+		File:   "foo.go",
+		Line:   48,
+		Column: 35,
+		Reason: "could not reconstruct SQL: string is appended to at runtime",
+		Expr:   `q + "-1"`,
+	}}, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	got := b.String()
+	c.Check(strings.Contains(got, "| `foo.go:48:35` | could not reconstruct SQL: string is appended to at runtime `q + \"-1\"` |"), tc.IsTrue)
+}
+
+func (s *reportSuite) TestGitHubSummaryCapsRuleList(c *tc.C) {
+	var diags []Diagnostic
+	for _, rule := range []string{"R1", "R2", "R3", "R4", "R5", "R6"} {
+		diags = append(diags, Diagnostic{File: "a.go", Rule: rule})
+	}
+	var b strings.Builder
+	err := writeGitHubSummary(&b, 6, 1, diags, nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	got := b.String()
+	c.Check(strings.Contains(got, "| `a.go` | 6 | R1 (1), R2 (1), R3 (1), R4 (1), R5 (1), … +1 |\n"), tc.IsTrue)
+}
+
+func (s *reportSuite) TestGitHubSummaryCapsFileRows(c *tc.C) {
+	diags := make([]Diagnostic, 0, maxSummaryRows+1)
+	for i := 0; i <= maxSummaryRows; i++ {
+		diags = append(diags, Diagnostic{File: fmt.Sprintf("f%04d.go", i), Rule: "LT01"})
+	}
+	var b strings.Builder
+	err := writeGitHubSummary(&b, len(diags), len(diags), diags, nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	got := b.String()
+	c.Check(strings.Contains(got, "… and 1 more file(s) with violations."), tc.IsTrue)
+	c.Check(strings.Contains(got, "| `f0000.go` | 1 | LT01 (1) |\n"), tc.IsTrue)
+	c.Check(strings.Contains(got, "| `f1000.go` |"), tc.IsFalse)
+}
+
+func (s *reportSuite) TestAppendGitHubSummary(c *tc.C) {
+	path := filepath.Join(c.MkDir(), "summary.md")
+	c.Assert(os.WriteFile(path, []byte("before\n"), 0o600), tc.ErrorIsNil)
+	s.PatchEnvironment("GITHUB_STEP_SUMMARY", path)
+
+	err := appendGitHubSummary(2, 1, []Diagnostic{{
+		File: "a.go", Line: 3, Column: 1, Rule: "LT01", Message: "m",
+	}}, nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	data, err := os.ReadFile(path)
+	c.Assert(err, tc.ErrorIsNil)
+	got := string(data)
+	c.Check(strings.HasPrefix(got, "before\n"), tc.IsTrue)
+	c.Check(strings.Contains(got, "| `a.go` | 1 | LT01 (1) |\n"), tc.IsTrue)
+}
+
+func (s *reportSuite) TestAppendGitHubSummaryNoEnvironment(c *tc.C) {
+	s.PatchEnvironment("GITHUB_STEP_SUMMARY", "")
+	c.Check(appendGitHubSummary(0, 0, nil, nil, nil), tc.ErrorIsNil)
 }
 
 func (s *reportSuite) TestParseErrorIsMapped(c *tc.C) {

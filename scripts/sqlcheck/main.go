@@ -132,6 +132,11 @@ func run(args []string) int {
 		notes = checkTemplates(root)
 	}
 	fmt.Fprint(os.Stderr, writeSummary(len(pass.stmts), pass.nFiles, pass.skips, notes, len(pass.diags)))
+	if *github {
+		if err := appendGitHubSummary(len(pass.stmts), pass.nFiles, pass.diags, pass.skips, notes); err != nil {
+			fmt.Fprintf(os.Stderr, "sqlcheck: warning: %v\n", err)
+		}
+	}
 
 	if len(pass.diags) > 0 && !*reportOnly {
 		return 1
