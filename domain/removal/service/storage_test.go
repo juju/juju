@@ -1627,9 +1627,28 @@ func (s *storageSuite) TestExecuteJobForStorageAttachmentSuccess(c *tc.C) {
 
 	exp := s.modelState.EXPECT()
 	exp.GetStorageAttachmentLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
+	exp.CheckStorageAttachmentHasNoDyingChildren(gomock.Any(), j.EntityUUID).Return(true, nil)
 	exp.DeleteStorageAttachment(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String())
 
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestExecuteJobForStorageAttachmentDyingChildren verifies that a dead storage
+// attachment is kept, and its job retried, while its filesystem or volume
+// attachments are still being detached.
+func (s *storageSuite) TestExecuteJobForStorageAttachmentDyingChildren(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newStorageAttachmentJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetStorageAttachmentLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
+	exp.CheckStorageAttachmentHasNoDyingChildren(gomock.Any(), j.EntityUUID).Return(false, nil)
+
+	// The job is incomplete, so neither the storage attachment nor the job is
+	// deleted.
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIsNil)
 }

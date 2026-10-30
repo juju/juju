@@ -668,14 +668,10 @@ WHERE unit_uuid = $entityAssociationCount.uuid
 		return errors.Capture(err)
 	}
 
-	dyingFilesystemAttachmentCountStmt, err := st.Prepare(`
-SELECT    count(*) AS &entityAssociationCount.count
-FROM      unit AS u
-JOIN      storage_filesystem_attachment AS sfa ON sfa.net_node_uuid = u.net_node_uuid
-LEFT JOIN machine AS m ON m.net_node_uuid = u.net_node_uuid
-WHERE     u.uuid = $entityAssociationCount.uuid
-AND       m.uuid IS NULL
-AND       sfa.life_id = 1
+	storageAttachmentCountStmt, err := st.Prepare(`
+SELECT count(*) AS &entityAssociationCount.count
+FROM   storage_attachment
+WHERE  unit_uuid = $entityAssociationCount.uuid
 `, unitUUIDCount)
 	if err != nil {
 		return errors.Capture(err)
@@ -714,17 +710,17 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 			Add(removalerrors.RemovalJobIncomplete)
 	}
 
-	// Ensure that the storage provisioner has finished detaching any dying
-	// filesystem attachments otherwise those attachments may be stuck in a dying
-	// state.
+	// Ensure that the unit has no storage attachments. These are removed by
+	// their own removal jobs once the storage provisioner has detached the
+	// unit's filesystems and volumes, which it finds through the unit.
 	if !force {
-		var numDyingAttachments entityAssociationCount
-		err = tx.Query(ctx, dyingFilesystemAttachmentCountStmt, unitUUIDCount).Get(&numDyingAttachments)
+		var numStorageAttachments entityAssociationCount
+		err = tx.Query(ctx, storageAttachmentCountStmt, unitUUIDCount).Get(&numStorageAttachments)
 		if err != nil {
-			return errors.Errorf("getting dying filesystem attachment count: %w", err)
-		} else if numDyingAttachments.Count > 0 {
-			return errors.Errorf("unit still has %d dying filesystem attachment(s), waiting for detach",
-				numDyingAttachments.Count).
+			return errors.Errorf("getting storage attachment count: %w", err)
+		} else if numStorageAttachments.Count > 0 {
+			return errors.Errorf("unit still has %d storage attachment(s), waiting for storage removal",
+				numStorageAttachments.Count).
 				Add(removalerrors.RemovalJobIncomplete)
 		}
 	}

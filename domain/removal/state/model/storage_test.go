@@ -202,6 +202,92 @@ func (s *storageSuite) TestDeleteStorageAttachmentSuccess(c *tc.C) {
 	c.Check(row.Scan(&dummy), tc.ErrorIs, sql.ErrNoRows)
 }
 
+func (s *storageSuite) TestCheckStorageAttachmentHasNoDyingChildrenNoChildren(c *tc.C) {
+	_, saUUID := s.addAppUnitStorage(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	detached, err := st.CheckStorageAttachmentHasNoDyingChildren(c.Context(), saUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(detached, tc.IsTrue)
+}
+
+func (s *storageSuite) TestCheckStorageAttachmentHasNoDyingChildrenNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	detached, err := st.CheckStorageAttachmentHasNoDyingChildren(
+		c.Context(), "some-storage-attachment-uuid")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(detached, tc.IsTrue)
+}
+
+func (s *storageSuite) TestCheckStorageAttachmentHasNoDyingChildrenFilesystemAttachment(c *tc.C) {
+	siUUID, saUUID := s.addAppUnitStorage(c)
+	fsUUID, fsaUUID := s.addAttachedFilesystem(c)
+	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// An alive attachment is not being detached, so it is not waited on.
+	detached, err := st.CheckStorageAttachmentHasNoDyingChildren(c.Context(), saUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(detached, tc.IsTrue)
+
+	s.setFilesystemAttachmentLife(c, fsaUUID, 1)
+
+	detached, err = st.CheckStorageAttachmentHasNoDyingChildren(c.Context(), saUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(detached, tc.IsFalse)
+
+	s.setFilesystemAttachmentLife(c, fsaUUID, 2)
+
+	detached, err = st.CheckStorageAttachmentHasNoDyingChildren(c.Context(), saUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(detached, tc.IsTrue)
+}
+
+func (s *storageSuite) TestCheckStorageAttachmentHasNoDyingChildrenVolumeAttachment(c *tc.C) {
+	siUUID, saUUID := s.addAppUnitStorage(c)
+	volUUID, vaUUID := s.addAttachedVolume(c)
+	s.addStorageInstanceVolume(c, siUUID, volUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.setVolumeAttachmentLife(c, vaUUID, 1)
+
+	detached, err := st.CheckStorageAttachmentHasNoDyingChildren(c.Context(), saUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(detached, tc.IsFalse)
+
+	s.setVolumeAttachmentLife(c, vaUUID, 2)
+
+	detached, err = st.CheckStorageAttachmentHasNoDyingChildren(c.Context(), saUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(detached, tc.IsTrue)
+}
+
+// TestCheckStorageAttachmentHasNoDyingChildrenOtherNetNode verifies that a
+// dying attachment of the same filesystem on another net node, which belongs
+// to another unit or machine, is not waited on.
+func (s *storageSuite) TestCheckStorageAttachmentHasNoDyingChildrenOtherNetNode(c *tc.C) {
+	siUUID, saUUID := s.addAppUnitStorage(c)
+	fsUUID := s.addFilesystem(c)
+	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
+
+	ctx := c.Context()
+	_, err := s.DB().ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", "other-net-node-uuid")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(ctx, "INSERT INTO storage_filesystem_attachment (uuid, storage_filesystem_uuid, net_node_uuid, life_id, provision_scope_id) VALUES (?, ?, ?, ?, ?)",
+		"other-fsa-uuid", fsUUID, "other-net-node-uuid", 1, indeterminateProvisioningScope())
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	detached, err := st.CheckStorageAttachmentHasNoDyingChildren(ctx, saUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(detached, tc.IsTrue)
+}
+
 func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeNotFound(c *tc.C) {
 	siUUID := "some-storage-instance-uuid"
 
