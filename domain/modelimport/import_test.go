@@ -294,6 +294,46 @@ func (s *importSuite) TestTransformLegacyCharmContainerMountNullKey(c *tc.C) {
 		`.*charm container mount 3 for charm "charm-uuid" has no container key`)
 }
 
+// TestImportLegacyCharmManifestBase preserves all base fields through legacy
+// decode, transform, persistence and export, including unset attributes.
+func (s *importSuite) TestImportLegacyCharmManifestBase(c *tc.C) {
+	s.bootstrapModel(c)
+	bases := []v4_0_12.CharmManifestBase{
+		{CharmUUID: "charm-uuid", ArrayIndex: 0, NestedArrayIndex: 0, Risk: "stable"},
+		{CharmUUID: "charm-uuid", ArrayIndex: 0, NestedArrayIndex: 1, OsID: new(int64(0)),
+			Track: new("22.04"), Risk: "edge", Branch: new("test"), ArchitectureID: new(int64(0))},
+		{CharmUUID: "charm-uuid", ArrayIndex: 1, NestedArrayIndex: 0, Risk: "stable"},
+	}
+	payload, err := s.transformLegacy(c, v4_0_12.ModelExport{
+		ModelAgent:        []v4_0_12.ModelAgent{{ModelUUID: s.ModelUUID()}},
+		Charm:             []v4_0_12.Charm{{UUID: "charm-uuid", Revision: 1, ReferenceName: "foo"}},
+		CharmManifestBase: bases,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(modelimport.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), &payload), tc.ErrorIsNil)
+	exported, err := exportstate.NewState(s.TxnRunnerFactory()).Export(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	want := make([]v4_1_0.CharmManifestBase, len(bases))
+	for i, base := range bases {
+		want[i] = v4_1_0.CharmManifestBase(base)
+	}
+	c.Check(exported.CharmManifestBase, tc.SameContents, want)
+}
+
+// TestTransformLegacyCharmManifestBaseDuplicatePosition verifies that the
+// diagnostic survives the production transformer, before any import writes.
+func (s *importSuite) TestTransformLegacyCharmManifestBaseDuplicatePosition(c *tc.C) {
+	for _, track := range []*string{nil, new("24.04")} {
+		_, err := s.transformLegacy(c, v4_0_12.ModelExport{
+			CharmManifestBase: []v4_0_12.CharmManifestBase{
+				{CharmUUID: "charm-uuid", ArrayIndex: 2, NestedArrayIndex: 3, Risk: "stable"},
+				{CharmUUID: "charm-uuid", ArrayIndex: 2, NestedArrayIndex: 3, Risk: "stable", Track: track},
+			},
+		})
+		c.Check(err, tc.ErrorMatches, `.*duplicate charm manifest base position \(2, 3\) for charm "charm-uuid"`)
+	}
+}
+
 func (s *importSuite) bootstrapModel(c *tc.C) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, `

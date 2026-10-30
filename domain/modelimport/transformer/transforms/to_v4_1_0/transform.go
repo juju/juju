@@ -29,6 +29,8 @@ type Deltas interface {
 	CharmConfig(ctx context.Context, src []v4_0_12.CharmConfig, model *v4_0_12.ModelExport) ([]v4_1_0.CharmConfig, error)
 	// CharmContainerMount: struct shape changed in 4.1.0.
 	CharmContainerMount(ctx context.Context, src []v4_0_12.CharmContainerMount, model *v4_0_12.ModelExport) ([]v4_1_0.CharmContainerMount, error)
+	// CharmManifestBase: constraints changed in 4.1.0.
+	CharmManifestBase(ctx context.Context, src []v4_0_12.CharmManifestBase, model *v4_0_12.ModelExport) ([]v4_1_0.CharmManifestBase, error)
 	// Constraint: struct shape changed in 4.1.0.
 	Constraint(ctx context.Context, src []v4_0_12.Constraint, model *v4_0_12.ModelExport) ([]v4_1_0.Constraint, error)
 	// Machine: struct shape changed in 4.1.0.
@@ -338,11 +340,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 		dst.CharmHash = make([]v4_1_0.CharmHash, len(src.CharmHash))
 		for i := range src.CharmHash {
 			dst.CharmHash[i] = v4_1_0.CharmHash(src.CharmHash[i])
-		}
-
-		dst.CharmManifestBase = make([]v4_1_0.CharmManifestBase, len(src.CharmManifestBase))
-		for i := range src.CharmManifestBase {
-			dst.CharmManifestBase[i] = v4_1_0.CharmManifestBase(src.CharmManifestBase[i])
 		}
 
 		dst.CharmMetadata = make([]v4_1_0.CharmMetadata, len(src.CharmMetadata))
@@ -1223,6 +1220,10 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 
 		if dst.CharmContainerMount, err = d.CharmContainerMount(ctx, src.CharmContainerMount, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("CharmContainerMount delta: %w", err)
+		}
+
+		if dst.CharmManifestBase, err = d.CharmManifestBase(ctx, src.CharmManifestBase, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("CharmManifestBase delta: %w", err)
 		}
 
 		if dst.Constraint, err = d.Constraint(ctx, src.Constraint, &src); err != nil {

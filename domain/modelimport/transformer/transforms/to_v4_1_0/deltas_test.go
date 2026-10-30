@@ -449,6 +449,47 @@ func (s *deltasSuite) TestCharmContainerMountRejectsNullKey(c *tc.C) {
 	c.Check(got, tc.IsNil)
 }
 
+// TestCharmManifestBasePreservesRows covers nullable attributes and positions
+// distinguished by either index or the charm UUID.
+func (s *deltasSuite) TestCharmManifestBasePreservesRows(c *tc.C) {
+	src := []v4_0_12.CharmManifestBase{
+		{CharmUUID: "charm-a", ArrayIndex: 0, NestedArrayIndex: 0, Risk: "stable"},
+		{CharmUUID: "charm-a", ArrayIndex: 0, NestedArrayIndex: 1, OsID: new(int64(0)),
+			Track: new("22.04"), Risk: "edge", Branch: new("test"), ArchitectureID: new(int64(0))},
+		{CharmUUID: "charm-a", ArrayIndex: 1, NestedArrayIndex: 0, Risk: "stable"},
+		{CharmUUID: "charm-b", ArrayIndex: 0, NestedArrayIndex: 0, Risk: "stable"},
+	}
+	got, err := deltas{}.CharmManifestBase(c.Context(), src, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	want := make([]v4_1_0.CharmManifestBase, len(src))
+	for i, base := range src {
+		want[i] = v4_1_0.CharmManifestBase(base)
+	}
+	c.Check(got, tc.DeepEquals, want)
+}
+
+// TestCharmManifestBaseRejectsDuplicatePosition checks both identical rows and
+// rows whose descriptive attributes differed under the legacy key.
+func (s *deltasSuite) TestCharmManifestBaseRejectsDuplicatePosition(c *tc.C) {
+	base := v4_0_12.CharmManifestBase{
+		CharmUUID: "charm-a", ArrayIndex: 2, NestedArrayIndex: 3, Risk: "stable",
+	}
+	for _, track := range []*string{nil, new("24.04")} {
+		duplicate := base
+		duplicate.Track = track
+		got, err := deltas{}.CharmManifestBase(c.Context(), []v4_0_12.CharmManifestBase{base, duplicate}, nil)
+		c.Check(err, tc.ErrorMatches, `duplicate charm manifest base position \(2, 3\) for charm "charm-a"`)
+		c.Check(got, tc.IsNil)
+	}
+}
+
+func (s *deltasSuite) TestCharmManifestBaseEmpty(c *tc.C) {
+	got, err := deltas{}.CharmManifestBase(c.Context(), nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.NotNil)
+	c.Check(got, tc.HasLen, 0)
+}
+
 // TestCharmContainerMountEmpty verifies that a model without container mounts
 // produces an empty, non-nil slice, as the generated copy of other tables does.
 func (s *deltasSuite) TestCharmContainerMountEmpty(c *tc.C) {
