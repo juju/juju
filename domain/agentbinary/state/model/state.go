@@ -192,8 +192,8 @@ ON CONFLICT (version, architecture_id) DO NOTHING
 			return errors.Capture(err)
 		}
 		if rows == 0 {
-			// Resolve the conflict without a constraint error, which would
-			// abort a PostgreSQL transaction. Never overwrite an agent binary.
+			// This version and architecture are already registered. Compare
+			// the object UUIDs without overwriting the immutable agent binary.
 			existingAgentBinary, err := s.getAgentBinary(
 				ctx, tx, agentBinary.Version, agentBinary.ArchitectureID,
 			)
