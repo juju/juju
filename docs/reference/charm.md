@@ -37,7 +37,7 @@ The charm database schema is the set of records that the {ref}`model database <d
     - A reference name is not empty.
     - The architecture, when present, is one of `amd64`, `arm64`, `ppc64el`, `s390x`, and `riscv64`. The charm of a remote application has none.
     - The source is one of `local`, `charmhub`, and `cmr`.
-    - Only an insertion or a deletion alters a charm's records: the database refuses a change to the row of any of them except the charm itself, its download information, its tags, its categories, and its storage properties.
+    - Only an insertion or a deletion alters a charm's records: the database refuses an update to any of them except the charm itself, its download information, its tags, its categories, and its storage properties.
 - **Metadata:** What the author declared about the charm: its name, summary, description, minimum Juju version, the user it runs as (`default`, `root`, `sudoer`, or `non-root`), and its `assumes` expression (the conditions that the model must satisfy). Terms, tags, and categories are lists of free-form values in their own records.
 
   (charm-taxonomy-by-role)=
