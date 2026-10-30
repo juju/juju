@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/agentbinary"
 	agentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
-	jujudb "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -149,6 +148,7 @@ WHERE  name = $architectureRecord.name
 	insertStmt, err := s.Prepare(`
 INSERT INTO agent_binary_store (*)
 VALUES ($agentBinaryRecord.*)
+ON CONFLICT (version, architecture_id) DO NOTHING
 `, agentBinaryRecord{})
 	if err != nil {
 		return errors.Capture(err)
@@ -183,15 +183,17 @@ VALUES ($agentBinaryRecord.*)
 			ObjectStoreUUID: arg.ObjectStoreUUID.String(),
 			ArchitectureID:  archVal.ID,
 		}
-		err = tx.Query(ctx, insertStmt, agentBinary).Run()
-		if jujudb.IsErrConstraintPrimaryKey(err) {
-			// There must be an agent version for this version and arch already.
-			// We do not want to overwrite this value as it could result in a
-			// security risk.
-
-			// We want to check if the supplied SHA is a different value.
-			// If it is, we want to return the agentbinaryerrors.AgentBinaryImmutable error.
-			// The agent binary is immutable once it is uploaded.
+		var outcome sqlair.Outcome
+		if err := tx.Query(ctx, insertStmt, agentBinary).Get(&outcome); err != nil {
+			return errors.Capture(err)
+		}
+		rows, err := outcome.Result().RowsAffected()
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if rows == 0 {
+			// This version and architecture are already registered. Compare
+			// the object UUIDs without overwriting the immutable agent binary.
 			existingAgentBinary, err := s.getAgentBinary(
 				ctx, tx, agentBinary.Version, agentBinary.ArchitectureID,
 			)
@@ -208,9 +210,6 @@ VALUES ($agentBinaryRecord.*)
 			return errors.New(
 				"agent binary already exists",
 			).Add(agentbinaryerrors.AlreadyExists)
-		}
-		if err != nil {
-			return errors.Capture(err)
 		}
 		return nil
 	})
