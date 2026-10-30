@@ -6,6 +6,7 @@ package dbaccessor
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"slices"
 	"sync/atomic"
@@ -52,6 +53,184 @@ func (s *trackedDBWorkerSuite) TestWorkerStartup(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
+}
+
+func (s *trackedDBWorkerSuite) TestWorkerClosesPoolOnForeignKeysPragmaFailure(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	db := openTrackerTestDB(c, sqlite3.SQLITE_PRAGMA)
+	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(db, nil)
+
+	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
+	c.Check(err, tc.ErrorMatches, `setting foreign keys pragma: .*not authorized`)
+	c.Check(w, tc.IsNil)
+	c.Check(db.PingContext(c.Context()), tc.ErrorMatches, "sql: database is closed")
+}
+
+func (s *trackedDBWorkerSuite) TestWorkerClosesPoolOnModelMetadataFailure(c *tc.C) {
+	s.testWorkerClosesPoolOnModelInitialisationFailure(c, sqlite3.SQLITE_SELECT)
+}
+
+func (s *trackedDBWorkerSuite) TestWorkerClosesPoolOnModelMigrationFailure(c *tc.C) {
+	s.testWorkerClosesPoolOnModelInitialisationFailure(c, sqlite3.SQLITE_CREATE_TABLE)
+}
+
+func (s *trackedDBWorkerSuite) testWorkerClosesPoolOnModelInitialisationFailure(c *tc.C, deniedOperation int) {
+	defer s.setupMocks(c).Finish()
+	s.expectClock()
+
+	db := openTrackerTestDB(c, deniedOperation)
+	s.dbApp.EXPECT().Open(gomock.Any(), "model").Return(db, nil)
+
+	w, err := NewTrackedDBWorker(c.Context(), s.dbApp, "model",
+		WithClock(s.clock), WithLogger(s.logger), WithMetricsCollector(NewMetricsCollector()))
+	c.Check(err, tc.ErrorMatches, ".*not authorized.*")
+	c.Check(w, tc.IsNil)
+	c.Check(db.PingContext(c.Context()), tc.ErrorMatches, "sql: database is closed")
+}
+
+func (s *trackedDBWorkerSuite) TestWorkerRetainsInitialisedModelPool(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectClock()
+	defer s.expectTimer(0)()
+
+	_, db := s.OpenDB(c)
+	s.dbApp.EXPECT().Open(gomock.Any(), "model").Return(db, nil)
+
+	w, err := NewTrackedDBWorker(c.Context(), s.dbApp, "model",
+		WithClock(s.clock), WithLogger(s.logger), WithMetricsCollector(NewMetricsCollector()))
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	c.Check(readTableNames(c, w), SliceContains, "change_log")
+	c.Assert(db.PingContext(c.Context()), tc.ErrorIsNil)
+
+	workertest.CleanKill(c, w)
+	c.Check(db.PingContext(c.Context()), tc.ErrorMatches, "sql: database is closed")
+}
+
+func (s *trackedDBWorkerSuite) TestVerifyDatabaseClosesFailedReplacementPools(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectClock()
+
+	_, first := s.OpenDB(c)
+	_, second := s.OpenDB(c)
+	gomock.InOrder(
+		s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(first, nil),
+		s.dbApp.EXPECT().Open(gomock.Any(), "controller").DoAndReturn(func(context.Context, string) (*sql.DB, error) {
+			c.Check(first.PingContext(c.Context()), tc.ErrorMatches, "sql: database is closed")
+			return second, nil
+		}),
+	)
+
+	pingErr := errors.New("ping failed")
+	w := &trackedDBWorker{
+		dbApp: s.dbApp, namespace: "controller", clock: s.clock, logger: s.logger, report: &report{},
+		pingDBFunc: func(context.Context, *sql.DB) error { return pingErr },
+	}
+	db, err := w.ensureDBAliveAndOpenIfRequired(c.Context(), s.DB())
+	c.Check(err, tc.ErrorIs, pingErr)
+	c.Check(db, tc.IsNil)
+	c.Check(first.PingContext(c.Context()), tc.ErrorMatches, "sql: database is closed")
+	c.Check(second.PingContext(c.Context()), tc.ErrorMatches, "sql: database is closed")
+	c.Assert(s.DB().PingContext(c.Context()), tc.ErrorIsNil)
+}
+
+func (s *trackedDBWorkerSuite) TestVerifyDatabaseClosesReplacementOnReopenFailure(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectClock()
+
+	_, replacement := s.OpenDB(c)
+	openErr := errors.New("open failed")
+	gomock.InOrder(
+		s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(replacement, nil),
+		s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(nil, openErr),
+	)
+
+	w := &trackedDBWorker{
+		dbApp: s.dbApp, namespace: "controller", clock: s.clock, logger: s.logger, report: &report{},
+		pingDBFunc: func(context.Context, *sql.DB) error { return errors.New("ping failed") },
+	}
+	db, err := w.ensureDBAliveAndOpenIfRequired(c.Context(), s.DB())
+	c.Check(err, tc.ErrorIs, openErr)
+	c.Check(db, tc.IsNil)
+	c.Check(replacement.PingContext(c.Context()), tc.ErrorMatches, "sql: database is closed")
+	c.Assert(s.DB().PingContext(c.Context()), tc.ErrorIsNil)
+}
+
+func (s *trackedDBWorkerSuite) TestVerifyDatabaseKeepsCallerOwnedPool(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectClock()
+
+	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil).Times(DefaultVerifyAttempts - 1)
+	pingErr := errors.New("ping failed")
+	w := &trackedDBWorker{
+		dbApp: s.dbApp, namespace: "controller", clock: s.clock, logger: s.logger, report: &report{},
+		pingDBFunc: func(context.Context, *sql.DB) error { return pingErr },
+	}
+	db, err := w.ensureDBAliveAndOpenIfRequired(c.Context(), s.DB())
+	c.Check(err, tc.ErrorIs, pingErr)
+	c.Check(db, tc.IsNil)
+	c.Assert(s.DB().PingContext(c.Context()), tc.ErrorIsNil)
+}
+
+func (s *trackedDBWorkerSuite) TestVerifyDatabaseClosesReplacementOnCancellation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectClock()
+
+	_, replacement := s.OpenDB(c)
+	gomock.InOrder(
+		s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(replacement, nil),
+		s.dbApp.EXPECT().Open(gomock.Any(), "controller").DoAndReturn(func(ctx context.Context, _ string) (*sql.DB, error) {
+			return nil, ctx.Err()
+		}),
+	)
+
+	ctx, cancel := context.WithCancel(c.Context())
+	defer cancel()
+	w := &trackedDBWorker{
+		dbApp: s.dbApp, namespace: "controller", clock: s.clock, logger: s.logger, report: &report{},
+		pingDBFunc: func(ctx context.Context, db *sql.DB) error {
+			if db == replacement {
+				cancel()
+				return ctx.Err()
+			}
+			return errors.New("ping failed")
+		},
+	}
+	db, err := w.ensureDBAliveAndOpenIfRequired(ctx, s.DB())
+	c.Check(err, tc.ErrorIs, context.Canceled)
+	c.Check(db, tc.IsNil)
+	c.Check(replacement.PingContext(c.Context()), tc.ErrorMatches, "sql: database is closed")
+	c.Assert(s.DB().PingContext(c.Context()), tc.ErrorIsNil)
+}
+
+func (s *trackedDBWorkerSuite) TestVerifyDatabaseTransfersSuccessfulReplacementPool(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectClock()
+
+	_, failed := s.OpenDB(c)
+	_, replacement := s.OpenDB(c)
+	gomock.InOrder(
+		s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(failed, nil),
+		s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(replacement, nil),
+	)
+
+	w := &trackedDBWorker{
+		dbApp: s.dbApp, namespace: "controller", clock: s.clock, logger: s.logger, report: &report{},
+		pingDBFunc: func(ctx context.Context, db *sql.DB) error {
+			if db == replacement {
+				return db.PingContext(ctx)
+			}
+			return errors.New("ping failed")
+		},
+	}
+	db, err := w.ensureDBAliveAndOpenIfRequired(c.Context(), s.DB())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(db, tc.Equals, replacement)
+	c.Check(failed.PingContext(c.Context()), tc.ErrorMatches, "sql: database is closed")
+	c.Assert(replacement.PingContext(c.Context()), tc.ErrorIsNil)
+	c.Assert(s.DB().PingContext(c.Context()), tc.ErrorIsNil)
 }
 
 func (s *trackedDBWorkerSuite) TestWorkerReport(c *tc.C) {
@@ -506,6 +685,36 @@ func (s *trackedDBWorkerSuite) ensureDBReplaced(c *tc.C) {
 	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for startup")
 	}
+}
+
+// openTrackerTestDB denies one SQLite operation to inject a startup failure
+// without closing the pool before the worker has taken ownership of it.
+func openTrackerTestDB(c *tc.C, deniedOperation int) *sql.DB {
+	db := sql.OpenDB(trackerTestConnector{&sqlite3.SQLiteDriver{
+		ConnectHook: func(conn *sqlite3.SQLiteConn) error {
+			conn.RegisterAuthorizer(func(operation int, _, _, _ string) int {
+				if operation == deniedOperation {
+					return sqlite3.SQLITE_DENY
+				}
+				return sqlite3.SQLITE_OK
+			})
+			return nil
+		},
+	}})
+	c.Cleanup(func() { _ = db.Close() })
+	return db
+}
+
+type trackerTestConnector struct {
+	driver *sqlite3.SQLiteDriver
+}
+
+func (c trackerTestConnector) Connect(context.Context) (driver.Conn, error) {
+	return c.driver.Open(":memory:")
+}
+
+func (c trackerTestConnector) Driver() driver.Driver {
+	return c.driver
 }
 
 func readTableNames(c *tc.C, w coredatabase.TxnRunner) []string {
