@@ -12,25 +12,39 @@
 // Colour means ownership (orange = Juju, grey = outside Juju); a cloud
 // badge marks an entity as deployed on a node from a cloud. See the
 // ggarch SKILL.md "Visual grammar".
+//
+// One node id names one thing. The architecture entities that a database
+// table also names carry the arch_ prefix (arch_user, arch_cloud,
+// arch_controller, arch_model, arch_application, arch_charm); the record of
+// the same name has the bare table name as its id. Section comments in the
+// nodes, edges and behaviours blocks say which page or figure a group of
+// declarations came from.
 
 model "Juju" {
 
   nodes {
+    // ----------------------------------------------------------------------
+    // The architecture: actors, software and entities. The ids arch_user,
+    // arch_cloud, arch_controller, arch_model, arch_application and arch_charm
+    // are the architecture entities; the database schemas below declare the
+    // rows of the same names as user, cloud, controller, model, application
+    // and charm.
+    // ----------------------------------------------------------------------
     // Actors and systems around Juju.
     // Before Juju enters the story the person is an SRE; from "The insight"
     // on, the same person is a Juju user (the account the controller knows).
     sre      [type: person,        label: "SRE"]
-    user     [type: person,        label: "User"]
+    arch_user [type: person,        label: "User"]
     client   [type: juju-software, label: "Client"]
     charmhub [type: external,      label: "Charmhub"]
-    cloud    [type: external,      label: "Cloud"]
+    arch_cloud [type: external,      label: "Cloud"]
     clouds   [type: external,      label: "Clouds\n(AWS, MAAS, OpenStack,\nKubernetes, …)",
-              collective: cloud]
+              collective: arch_cloud]
 
-    controller [type: juju-software, label: "Controller"]
+    arch_controller [type: juju-software, label: "Controller"]
 
     ssh_controller [type: juju-software, label: "Controller",
-                    abstracts: "controller"] {
+                    abstracts: "arch_controller"] {
       ssh_gateway [type: juju-software,
                    label: "SSH tunnel server\n(port 17022)"]
       ssh_session [type: juju-software, label: "Target SSH server\n(virtual host key)"]
@@ -57,11 +71,11 @@ model "Juju" {
     // model lives on a cloud (the cloud badge), because that is where its
     // workers get nodes from. A unit is a node with the unit agent, the
     // charm and the workload on it.
-    model [type: entity, label: "Model", deployed: true] {
-      application [type: entity, label: "Application"] {
+    arch_model [type: entity, label: "Model", deployed: true] {
+      arch_application [type: entity, label: "Application"] {
         unit_node [type: node, label: "Unit"] {
           unit_agent [type: juju-software, label: "Unit agent"]
-          charm      [type: charm,         label: "Charm"]
+          arch_charm [type: charm,         label: "Charm"]
           workload   [type: workload,      label: "Workload"]
         }
       }
@@ -93,203 +107,12 @@ model "Juju" {
       ha_dqlite   [type: database, label: "Dqlite node"]
     }
     ha_callers [type: juju-software, label: "Clients and agents"]
-  }
 
-  edges {
-    // The problem
-    sre  -> bare_applications [type: control, label: "operates"]
-
-    // The insight
-    user         -> juju              [type: api,     label: "declares intent to"]
-    juju         -> bare_applications [type: control, label: "operates"]
-
-    // The topology: declare a goal state, persist it, reconcile with it
-    user         -> client       [type: api,    label: "declares goal state to"]
-    client       -> controller   [type: api,    label: "persists goal state in"]
-    controller   -> clouds       [type: api,    label: "gets nodes from"]
-    controller   -> charmhub     [type: api,    label: "gets charms from"]
-
-    // The topology
-    unit_agent -> controller [type: stream,  label: "reconciles state with"]
-    unit_agent -> charm      [type: control, label: "runs"]
-    charm      -> workload   [type: control, label: "operates"]
-
-    // The steps
-    client     -> client     [type: api,    label: "saves to"]
-    client     -> cloud      [type: api,    label: "gets a node from"]
-    controller -> cloud      [type: api,    label: "gets nodes from"]
-    agent_foo  -> controller [type: stream, label: "watches"]
-    agent_bar  -> controller [type: stream, label: "watches"]
-
-    // The tutorial: the unit agents of the chat applications watch the
-    // controller, as every unit agent does.
-    mattermost -> controller [type: stream, label: "unit agents watch"]
-    postgresql -> controller [type: stream, label: "unit agents watch"]
-    certs      -> controller [type: stream, label: "unit agents watch"]
-
-    client -> ssh_gateway [type: stream, label: "outer SSH tunnel"]
-    client -> ssh_session [type: stream, label: "inner SSH session"]
-    client -> ssh_api [type: api, label: "fetches expected host keys"]
-    ssh_gateway -> ssh_session [type: ipc, label: "forwards inner SSH"]
-    ssh_session -> ssh_target [type: stream, label: "proxies session"]
-    ssh_controller -> ssh_k8s_api [type: stream, label: "exec stream"]
-    ssh_k8s_api -> ssh_container [type: stream, label: "executes in"]
-    ssh_session -> ssh_db [type: api, label: "1. stores tunnel request"]
-    ssh_machine_agent -> ssh_db [type: stream, label: "2. observes request via API"]
-    ssh_machine_agent -> ssh_api [type: stream, label: "3. opens reverse tunnel"]
-    ssh_session -> ssh_machine_server [type: stream, label: "4. SSH over reverse tunnel"]
-
-    // High availability
-    ha_callers  -> ha_api      [type: api,     label: "connect to any"]
-    ha_api      -> ha_dbworker [type: ipc,     label: "gets databases from"]
-    ha_dbworker -> ha_dqlite   [type: control, label: "runs and clusters"]
-    ha_dqlite   -> ha_dqlite   [type: stream,  label: "Raft", pairing: mesh]
-  }
-
-  behaviours {
-    behaviour "add-cloud" {
-      user   -> client: call "juju add-cloud"
-      client -> client: self "save the cloud definition"
-      client -> user:   return "cloud added"
-    }
-    behaviour "add-credential" {
-      user   -> client: call "juju add-credential"
-      client -> client: self "save the credential"
-      client -> user:   return "credential added"
-    }
-    behaviour "bootstrap" {
-      user       -> client:     call "juju bootstrap"
-      client     -> cloud:      call "get a node"
-      cloud      -> client:     return "node ready"
-      client     -> controller: call "install and start the controller"
-      controller -> controller: self "initialize the database"
-      controller -> client:     return "API ready"
-    }
-    // Kubernetes clouds: one command adds the cluster and its credential from
-    // the kubeconfig, and the cluster runs the controller and the application
-    // pods, so there is no node to get and nothing to install by hand.
-    behaviour "add-k8s" {
-      user   -> client: call "juju add-k8s"
-      client -> client: self "save the cloud and its credential"
-      client -> user:   return "cloud added"
-    }
-    behaviour "bootstrap-k8s" {
-      user       -> client:     call "juju bootstrap"
-      client     -> cloud:      call "create the controller StatefulSet"
-      cloud      -> client:     return "created"
-      client     -> controller: call "wait for the API"
-      controller -> controller: self "initialize the database"
-      controller -> client:     return "API ready"
-    }
-    behaviour "add-model" {
-      user       -> client:     call "juju add-model"
-      client     -> controller: call "declare the model"
-      controller -> controller: self "persist it in the database"
-      controller -> client:     return "model ready"
-    }
-    behaviour "deploy" {
-      user       -> client:     call "juju deploy foo"
-      client     -> controller: call "declare the application"
-      controller -> controller: self "persist it in the database"
-      controller -> charmhub:   call "get the charm"
-      controller -> cloud:      call "get a node"
-      cloud      -> controller: return "node ready"
-      controller -> unit_agent: async "watcher fires"
-      unit_agent -> controller: call "fetch the current state"
-      unit_agent -> charm:      call "run the install hook"
-      unit_agent -> controller: call "report the result"
-    }
-    behaviour "deploy-k8s" {
-      user       -> client:     call "juju deploy foo"
-      client     -> controller: call "declare the application"
-      controller -> controller: self "persist it in the database"
-      controller -> charmhub:   call "get the charm"
-      controller -> cloud:      call "create the application's pods"
-      cloud      -> controller: return "pods created"
-      controller -> unit_agent: async "watcher fires"
-      unit_agent -> controller: call "fetch the current state"
-      unit_agent -> charm:      call "run the install hook"
-      unit_agent -> controller: call "report the result"
-    }
-    behaviour "config" {
-      user       -> client:     call "juju config foo key=value"
-      client     -> controller: call "declare the new value"
-      controller -> controller: self "persist it in the database"
-      controller -> unit_agent: async "watcher fires"
-      unit_agent -> controller: call "fetch the current state"
-      unit_agent -> charm:      call "run the config-changed hook"
-      unit_agent -> controller: call "report the result"
-    }
-    behaviour "integrate" {
-      user       -> client:     call "juju integrate foo bar"
-      client     -> controller: call "declare the integration"
-      controller -> controller: self "persist it in the database"
-      controller -> agent_foo:  async "watcher fires"
-      controller -> agent_bar:  async "watcher fires"
-      agent_foo  -> controller: call "fetch state, run relation hooks"
-      agent_bar  -> controller: call "fetch state, run relation hooks"
-    }
-  }
-
-  style { extends: juju }
-}
-
-diagram "The problem" from "Juju" {
-  // The user and the applications, which run on nodes from clouds (the
-  // cloud badge). The clouds themselves are a detail of "The topology".
-  select {
-    nodes: sre bare_applications
-    edges: type control
-    sizing: uniform
-  }
-  positions {
-    sre               left-of bare_applications gap: 120
-    sre               align-middle bare_applications
-  }
-}
-
-diagram "The insight" from "Juju" {
-  select {
-    nodes: user juju bare_applications
-    edges: type api type control
-    sizing: uniform
-  }
-  positions {
-    user              left-of juju gap: 100
-    user              align-middle juju
-    bare_applications right-of juju gap: 100
-    bare_applications align-middle juju
-  }
-}
-
-diagram "The topology" from "Juju" {
-  select {
-    nodes: user client controller clouds charmhub model
-    edges: type api type stream type control
-  }
-  positions {
-    user     left-of client gap: 90
-    user     align-middle client
-    client   left-of controller gap: 90
-    client   align-middle controller
-    clouds   above controller gap: 110
-    clouds   align-centre controller
-    charmhub below controller gap: 110
-    charmhub align-centre controller
-    model    right-of controller gap: 120
-    model    align-middle controller
-  }
-}
-
-// Scaffolded from the 4.1 controller DDL: ggarch scaffold controller.ddl --db controller --tables user_public_ssh_key,model_authorized_keys
-// The records of the controller database and the model databases, one model.
-// Merged from the per-page schemas (each view keeps its own selection and
-// marks other pages' records with context:); the fields come from the home
-// schema of each record, which the DDL scaffold had filled.
-model "JujuSchema" {
-
-  nodes {
-
+    // ----------------------------------------------------------------------
+    // The database schemas: one record per table of the controller and model
+    // databases (the ids are the table names). Each diagram selects its own
+    // tables and marks the other pages' records with context:.
+    // ----------------------------------------------------------------------
     architecture [type: record, label: "Architecture",
                  ground: "controller:architecture"] {
       fields {
@@ -2505,9 +2328,174 @@ model "JujuSchema" {
       }
     }
 
+    // ----------------------------------------------------------------------
+    // From the page model "SSHKeyImport": nodes.
+    // ----------------------------------------------------------------------
+    ik_client     [type: juju-software, label: "Client"]
+    ik_controller [type: juju-software, label: "Controller"]
+    ik_source     [type: external, label: "Launchpad or GitHub"]
+    ik_database   [type: database, label: "Controller database"]
+
+    // ----------------------------------------------------------------------
+    // From the page model "SSHConnect": nodes.
+    // ----------------------------------------------------------------------
+    sc_client   [type: juju-software, label: "Client"]
+    sc_tunnel   [type: juju-software, label: "SSH tunnel server"]
+    sc_ctl_db   [type: database, label: "Controller database"]
+    sc_model_db [type: database, label: "Model database"]
+    sc_target   [type: juju-software, label: "Target SSH server"]
+    sc_api      [type: juju-software, label: "API server"]
+    sc_agent    [type: juju-software, label: "Machine agent"]
+    sc_sshd     [type: external, label: "Machine SSH server"]
+
+    // ----------------------------------------------------------------------
+    // From the page model "MigrationPhases": nodes.
+    // ----------------------------------------------------------------------
+    mg_quiesce [label: "quiesce"]
+    mg_import [label: "import"]
+    mg_validation [label: "validation"]
+    mg_success [label: "success"]
+    mg_logtransfer [label: "log-transfer"]
+    mg_reap [label: "reap"]
+    mg_reapfailed [label: "reap-failed"]
+    mg_done [label: "done"]
+    mg_abort [label: "abort"]
+    mg_abortdone [label: "abort-done"]
+
+    // ----------------------------------------------------------------------
+    // From the page model "MigrationSequence": nodes.
+    // ----------------------------------------------------------------------
+    ms_client     [type: juju-software, label: "Client"]
+    ms_source     [type: juju-software, label: "Source controller"]
+    ms_target     [type: juju-software, label: "Target controller"]
+    ms_agents     [type: juju-software, label: "Model agents"]
+    ms_cloud      [type: external, label: "Cloud"]
+
+    // ----------------------------------------------------------------------
+    // From the page model "ControllerBootstrap": nodes.
+    // ----------------------------------------------------------------------
+    bs_client   [type: juju-software, label: "Client"]
+    bs_cloud    [type: external, label: "Cloud"]
+    bs_machine  [type: juju-software, label: "Controller machine"]
+    bs_db       [type: database, label: "Controller database"]
+    bs_charmhub [type: external, label: "Charmhub"]
+
+    // ----------------------------------------------------------------------
+    // From the page model "MachineProvisioning": nodes.
+    // ----------------------------------------------------------------------
+    pv_provisioner [type: juju-software, label: "Compute provisioner"]
+    pv_db          [type: database, label: "Model database"]
+    pv_cloud       [type: external, label: "Cloud"]
+    pv_agent       [type: juju-software, label: "Machine agent"]
+
+    // ----------------------------------------------------------------------
+    // From the page model "TaskStatusChanges": nodes.
+    // ----------------------------------------------------------------------
+    ts_pending   [label: "pending"]
+    ts_running   [label: "running"]
+    ts_cancelled [label: "cancelled"]
+    ts_aborting  [label: "aborting"]
+    ts_completed [label: "completed"]
+    ts_failed    [label: "failed"]
+    ts_aborted   [label: "aborted"]
+
+    // ----------------------------------------------------------------------
+    // From the page model "ActionRun": nodes.
+    // ----------------------------------------------------------------------
+    ar_client     [type: juju-software, label: "Client"]
+    ar_controller [type: juju-software, label: "Controller"]
+    ar_agent      [type: juju-software, label: "Unit agent"]
+    ar_charm      [type: workload, label: "Charm action code"]
+
+    // ----------------------------------------------------------------------
+    // From the page model "RelationStatuses": nodes.
+    // ----------------------------------------------------------------------
+    rs_joining [label: "joining"]
+    rs_joined [label: "joined"]
+    rs_suspending [label: "suspending"]
+    rs_suspended [label: "suspended"]
+
+    // ----------------------------------------------------------------------
+    // From the page model "RelationSettingsSharing": nodes.
+    // ----------------------------------------------------------------------
+    rss_agent_a [type: juju-software, label: "Unit agent of unit A"]
+    rss_ctl     [type: juju-software, label: "Controller"]
+    rss_db      [type: database, label: "Model database"]
+    rss_agent_b [type: juju-software, label: "Unit agent of unit B"]
+
+    // ----------------------------------------------------------------------
+    // From the page model "UnitResourceFetch": nodes.
+    // ----------------------------------------------------------------------
+    urf_agent [type: juju-software, label: "Unit agent"]
+    urf_ctl   [type: juju-software, label: "Controller"]
+    urf_hub   [type: external, label: "Charmhub"]
+
+    // ----------------------------------------------------------------------
+    // From the page model "UpgradeStateChanges": nodes.
+    // ----------------------------------------------------------------------
+    us_created     [label: "created"]
+    us_started     [label: "started"]
+    us_dbcompleted [label: "db-completed"]
+    us_stepsdone   [label: "steps-completed"]
+    us_error       [label: "error"]
   }
 
   edges {
+    // ----------------------------------------------------------------------
+    // The architecture: edges.
+    // ----------------------------------------------------------------------
+    // The problem
+    sre  -> bare_applications [type: control, label: "operates"]
+
+    // The insight
+    arch_user    -> juju              [type: api,     label: "declares intent to"]
+    juju         -> bare_applications [type: control, label: "operates"]
+
+    // The topology: declare a goal state, persist it, reconcile with it
+    arch_user    -> client       [type: api,    label: "declares goal state to"]
+    client       -> arch_controller [type: api,    label: "persists goal state in"]
+    arch_controller -> clouds       [type: api,    label: "gets nodes from"]
+    arch_controller -> charmhub     [type: api,    label: "gets charms from"]
+
+    // The topology
+    unit_agent -> arch_controller [type: stream,  label: "reconciles state with"]
+    unit_agent -> arch_charm [type: control, label: "runs"]
+    arch_charm -> workload   [type: control, label: "operates"]
+
+    // The steps
+    client     -> client     [type: api,    label: "saves to"]
+    client     -> arch_cloud [type: api,    label: "gets a node from"]
+    arch_controller -> arch_cloud [type: api,    label: "gets nodes from"]
+    agent_foo  -> arch_controller [type: stream, label: "watches"]
+    agent_bar  -> arch_controller [type: stream, label: "watches"]
+
+    // The tutorial: the unit agents of the chat applications watch the
+    // controller, as every unit agent does.
+    mattermost -> arch_controller [type: stream, label: "unit agents watch"]
+    postgresql -> arch_controller [type: stream, label: "unit agents watch"]
+    certs      -> arch_controller [type: stream, label: "unit agents watch"]
+
+    client -> ssh_gateway [type: stream, label: "outer SSH tunnel"]
+    client -> ssh_session [type: stream, label: "inner SSH session"]
+    client -> ssh_api [type: api, label: "fetches expected host keys"]
+    ssh_gateway -> ssh_session [type: ipc, label: "forwards inner SSH"]
+    ssh_session -> ssh_target [type: stream, label: "proxies session"]
+    ssh_controller -> ssh_k8s_api [type: stream, label: "exec stream"]
+    ssh_k8s_api -> ssh_container [type: stream, label: "executes in"]
+    ssh_session -> ssh_db [type: api, label: "1. stores tunnel request"]
+    ssh_machine_agent -> ssh_db [type: stream, label: "2. observes request via API"]
+    ssh_machine_agent -> ssh_api [type: stream, label: "3. opens reverse tunnel"]
+    ssh_session -> ssh_machine_server [type: stream, label: "4. SSH over reverse tunnel"]
+
+    // High availability
+    ha_callers  -> ha_api      [type: api,     label: "connect to any"]
+    ha_api      -> ha_dbworker [type: ipc,     label: "gets databases from"]
+    ha_dbworker -> ha_dqlite   [type: control, label: "runs and clusters"]
+    ha_dqlite   -> ha_dqlite   [type: stream,  label: "Raft", pairing: mesh]
+
+    // ----------------------------------------------------------------------
+    // The database schemas: edges.
+    // ----------------------------------------------------------------------
     agent_binary_store.architecture_id -> architecture.id [type: data]
     agent_binary_store.object_store_uuid -> object_store_metadata.uuid [type: data]
     agent_version.stream_id -> agent_stream.id [type: data]
@@ -2762,41 +2750,221 @@ model "JujuSchema" {
     user_password.user_uuid -> user_authentication.user_uuid [type: data]
     user_public_ssh_key.fingerprint_hash_algorithm_id -> ssh_fingerprint_hash_algorithm.id [type: data]
     user_public_ssh_key.user_uuid -> user.uuid [type: data]
-  }
 
-  style { extends: juju }
-
-}
-
-
-// Importing SSH keys: the chronology of one import, happy path. Each step
-// cites the 4.1 code that performs it:
-//   1 apiserver/facades/client/keymanager/keymanager.go:271 (ImportKeys)
-//   2 keymanager.go:272-277 (checkCanWrite, ChangeAllowed)
-//   3 keymanager.go:298 (GetUserByName)
-//   4 domain/keymanager/service/service.go:276 -> internal/ssh/importer/importer.go:35-62
-//     (resolver by scheme: "gh" and "lp", importer.go:61-65)
-//   5 service.go:298-312 (parse each key; reserved comment refused)
-//   6 service.go:324 -> domain/keymanager/state/state.go:309-313
-//     (INSERT ... ON CONFLICT DO NOTHING into model_authorized_keys)
-//   7 keymanager.go:321-380 (one ErrorResult per key source)
-model "SSHKeyImport" {
-
-  nodes {
-    ik_client     [type: juju-software, label: "Client"]
-    ik_controller [type: juju-software, label: "Controller"]
-    ik_source     [type: external, label: "Launchpad or GitHub"]
-    ik_database   [type: database, label: "Controller database"]
-  }
-
-  edges {
+    // ----------------------------------------------------------------------
+    // From the page model "SSHKeyImport": edges.
+    // ----------------------------------------------------------------------
     ik_client     -> ik_controller [type: api]
     ik_controller -> ik_controller [type: api]
     ik_controller -> ik_source     [type: api]
     ik_controller -> ik_database   [type: api]
+
+    // ----------------------------------------------------------------------
+    // From the page model "SSHConnect": edges.
+    // ----------------------------------------------------------------------
+    sc_client -> sc_tunnel   [type: stream]
+    sc_tunnel -> sc_ctl_db   [type: api]
+    sc_tunnel -> sc_model_db [type: api]
+    sc_tunnel -> sc_client   [type: stream]
+    sc_target -> sc_model_db [type: api]
+    sc_agent  -> sc_model_db [type: api]
+    sc_agent  -> sc_agent    [type: api]
+    sc_agent  -> sc_api      [type: stream]
+    sc_api    -> sc_target   [type: ipc]
+    sc_agent  -> sc_sshd     [type: stream]
+    sc_target -> sc_sshd     [type: stream]
+    sc_target -> sc_target   [type: api]
+
+    // ----------------------------------------------------------------------
+    // From the page model "MigrationPhases": edges.
+    // ----------------------------------------------------------------------
+    mg_quiesce -> mg_import [type: control]
+    mg_quiesce -> mg_abort [type: control]
+    mg_import -> mg_validation [type: control]
+    mg_import -> mg_abort [type: control]
+    mg_validation -> mg_success [type: control]
+    mg_validation -> mg_abort [type: control]
+    mg_success -> mg_logtransfer [type: control]
+    mg_logtransfer -> mg_reap [type: control]
+    mg_reap -> mg_done [type: control]
+    mg_reap -> mg_reapfailed [type: control]
+    mg_abort -> mg_abortdone [type: control]
+
+    // ----------------------------------------------------------------------
+    // From the page model "MigrationSequence": edges.
+    // ----------------------------------------------------------------------
+    ms_client -> ms_source [type: api]
+    ms_source -> ms_target [type: api]
+    ms_source -> ms_agents [type: api]
+    ms_agents -> ms_source [type: api]
+    ms_agents -> ms_target [type: api]
+    ms_target -> ms_cloud  [type: api]
+    ms_source -> ms_source [type: api]
+
+    // ----------------------------------------------------------------------
+    // From the page model "ControllerBootstrap": edges.
+    // ----------------------------------------------------------------------
+    bs_client  -> bs_cloud    [type: api]
+    bs_client  -> bs_machine  [type: stream]
+    bs_machine -> bs_db       [type: api]
+    bs_machine -> bs_charmhub [type: api]
+    bs_machine -> bs_machine  [type: api]
+
+    // ----------------------------------------------------------------------
+    // From the page model "MachineProvisioning": edges.
+    // ----------------------------------------------------------------------
+    pv_provisioner -> pv_db          [type: api]
+    pv_provisioner -> pv_cloud       [type: api]
+    pv_cloud       -> pv_agent       [type: control]
+    pv_agent       -> pv_db          [type: api]
+
+    // ----------------------------------------------------------------------
+    // From the page model "TaskStatusChanges": edges.
+    // ----------------------------------------------------------------------
+    ts_pending  -> ts_running   [type: control]
+    ts_pending  -> ts_cancelled [type: control]
+    ts_running  -> ts_aborting  [type: control]
+    ts_running  -> ts_completed [type: control]
+    ts_running  -> ts_failed    [type: control]
+    ts_aborting -> ts_aborted   [type: control]
+    ts_aborting -> ts_completed [type: control]
+    ts_aborting -> ts_failed    [type: control]
+
+    // ----------------------------------------------------------------------
+    // From the page model "ActionRun": edges.
+    // ----------------------------------------------------------------------
+    ar_client     -> ar_controller [type: api]
+    ar_agent      -> ar_controller [type: api]
+    ar_agent      -> ar_charm      [type: control]
+
+    // ----------------------------------------------------------------------
+    // From the page model "RelationStatuses": edges.
+    // ----------------------------------------------------------------------
+    rs_joining -> rs_joined [type: control]
+    rs_joining -> rs_suspending [type: control]
+    rs_joining -> rs_suspended [type: control]
+    rs_joined -> rs_suspending [type: control]
+    rs_joined -> rs_suspended [type: control]
+    rs_suspending -> rs_joining [type: control]
+    rs_suspending -> rs_joined [type: control]
+    rs_suspending -> rs_suspended [type: control]
+    rs_suspended -> rs_joining [type: control]
+    rs_suspended -> rs_joined [type: control]
+
+    // ----------------------------------------------------------------------
+    // From the page model "RelationSettingsSharing": edges.
+    // ----------------------------------------------------------------------
+    rss_agent_a -> rss_ctl     [type: api]
+    rss_ctl     -> rss_db      [type: api]
+    rss_ctl     -> rss_agent_b [type: stream]
+    rss_agent_b -> rss_ctl     [type: api]
+    rss_agent_b -> rss_agent_b [type: api]
+
+    // ----------------------------------------------------------------------
+    // From the page model "UnitResourceFetch": edges.
+    // ----------------------------------------------------------------------
+    urf_agent -> urf_ctl [type: api]
+    urf_ctl   -> urf_hub [type: api]
+
+    // ----------------------------------------------------------------------
+    // From the page model "UpgradeStateChanges": edges.
+    // ----------------------------------------------------------------------
+    us_created     -> us_started     [type: control]
+    us_started     -> us_dbcompleted [type: control]
+    us_started     -> us_error       [type: control]
+    us_dbcompleted -> us_stepsdone   [type: control]
   }
 
   behaviours {
+    // ----------------------------------------------------------------------
+    // The architecture: behaviours.
+    // ----------------------------------------------------------------------
+    behaviour "add-cloud" {
+      arch_user -> client: call "juju add-cloud"
+      client -> client: self "save the cloud definition"
+      client -> arch_user:   return "cloud added"
+    }
+    behaviour "add-credential" {
+      arch_user -> client: call "juju add-credential"
+      client -> client: self "save the credential"
+      client -> arch_user:   return "credential added"
+    }
+    behaviour "bootstrap" {
+      arch_user  -> client:     call "juju bootstrap"
+      client     -> arch_cloud:      call "get a node"
+      arch_cloud -> client:     return "node ready"
+      client     -> arch_controller: call "install and start the controller"
+      arch_controller -> arch_controller: self "initialize the database"
+      arch_controller -> client:     return "API ready"
+    }
+    // Kubernetes clouds: one command adds the cluster and its credential from
+    // the kubeconfig, and the cluster runs the controller and the application
+    // pods, so there is no node to get and nothing to install by hand.
+    behaviour "add-k8s" {
+      arch_user -> client: call "juju add-k8s"
+      client -> client: self "save the cloud and its credential"
+      client -> arch_user:   return "cloud added"
+    }
+    behaviour "bootstrap-k8s" {
+      arch_user  -> client:     call "juju bootstrap"
+      client     -> arch_cloud:      call "create the controller StatefulSet"
+      arch_cloud -> client:     return "created"
+      client     -> arch_controller: call "wait for the API"
+      arch_controller -> arch_controller: self "initialize the database"
+      arch_controller -> client:     return "API ready"
+    }
+    behaviour "add-model" {
+      arch_user  -> client:     call "juju add-model"
+      client     -> arch_controller: call "declare the model"
+      arch_controller -> arch_controller: self "persist it in the database"
+      arch_controller -> client:     return "model ready"
+    }
+    behaviour "deploy" {
+      arch_user  -> client:     call "juju deploy foo"
+      client     -> arch_controller: call "declare the application"
+      arch_controller -> arch_controller: self "persist it in the database"
+      arch_controller -> charmhub:   call "get the charm"
+      arch_controller -> arch_cloud:      call "get a node"
+      arch_cloud -> arch_controller: return "node ready"
+      arch_controller -> unit_agent: async "watcher fires"
+      unit_agent -> arch_controller: call "fetch the current state"
+      unit_agent -> arch_charm:      call "run the install hook"
+      unit_agent -> arch_controller: call "report the result"
+    }
+    behaviour "deploy-k8s" {
+      arch_user  -> client:     call "juju deploy foo"
+      client     -> arch_controller: call "declare the application"
+      arch_controller -> arch_controller: self "persist it in the database"
+      arch_controller -> charmhub:   call "get the charm"
+      arch_controller -> arch_cloud:      call "create the application's pods"
+      arch_cloud -> arch_controller: return "pods created"
+      arch_controller -> unit_agent: async "watcher fires"
+      unit_agent -> arch_controller: call "fetch the current state"
+      unit_agent -> arch_charm:      call "run the install hook"
+      unit_agent -> arch_controller: call "report the result"
+    }
+    behaviour "config" {
+      arch_user  -> client:     call "juju config foo key=value"
+      client     -> arch_controller: call "declare the new value"
+      arch_controller -> arch_controller: self "persist it in the database"
+      arch_controller -> unit_agent: async "watcher fires"
+      unit_agent -> arch_controller: call "fetch the current state"
+      unit_agent -> arch_charm:      call "run the config-changed hook"
+      unit_agent -> arch_controller: call "report the result"
+    }
+    behaviour "integrate" {
+      arch_user  -> client:     call "juju integrate foo bar"
+      client     -> arch_controller: call "declare the integration"
+      arch_controller -> arch_controller: self "persist it in the database"
+      arch_controller -> agent_foo:  async "watcher fires"
+      arch_controller -> agent_bar:  async "watcher fires"
+      agent_foo  -> arch_controller: call "fetch state, run relation hooks"
+      agent_bar  -> arch_controller: call "fetch state, run relation hooks"
+    }
+
+    // ----------------------------------------------------------------------
+    // From the page model "SSHKeyImport": behaviours.
+    // ----------------------------------------------------------------------
     behaviour "import-ssh-keys" {
       ik_client     -> ik_controller: call "import keys from a source (lp:<name> or gh:<name>)"
       ik_controller -> ik_controller: self "check access and the change block, then find the user"
@@ -2807,12 +2975,248 @@ model "SSHKeyImport" {
       ik_database   -> ik_controller: return "done"
       ik_controller -> ik_client:     return "one result per source"
     }
+
+    // ----------------------------------------------------------------------
+    // From the page model "SSHConnect": behaviours.
+    // ----------------------------------------------------------------------
+    behaviour "connect-authorize" {
+      sc_client -> sc_tunnel:   call "open an SSH connection as the Juju user, presenting a key"
+      sc_tunnel -> sc_ctl_db:   call "read the user's stored keys"
+      sc_ctl_db -> sc_tunnel:   return "keys"
+      sc_client -> sc_tunnel:   call "once the key is accepted, ask for a channel to the virtual hostname of the target"
+      sc_tunnel -> sc_ctl_db:   call "check the user's access to the model and that the key is authorized on it"
+      sc_ctl_db -> sc_tunnel:   return "allowed"
+      sc_tunnel -> sc_model_db: call "read the target's virtual host key, creating it on first use"
+      sc_model_db -> sc_tunnel: return "host key"
+      sc_tunnel -> sc_client:   return "channel open; the client runs the inner SSH handshake with the target SSH server over it"
+    }
+    behaviour "connect-tunnel" {
+      sc_target   -> sc_model_db: call "store a connection request with a one-time public key and a 60 second expiry"
+      sc_agent    -> sc_model_db: call "watch for requests, and read the one that names this machine"
+      sc_model_db -> sc_agent:    return "the request"
+      sc_agent    -> sc_agent:    self "authorize the one-time key"
+      sc_agent    -> sc_api:      call "open a tunnel, authenticated as the machine"
+      sc_api      -> sc_target:   call "hand the tunnel to the waiting target SSH server"
+      sc_agent    -> sc_sshd:     call "pipe the tunnel to the local SSH server"
+      sc_target   -> sc_sshd:     call "log in as ubuntu with the one-time key, checking the machine's host keys"
+      sc_sshd     -> sc_target:   return "session"
+      sc_target   -> sc_target:   self "pass the user's session, port forwards, and file transfers through"
+    }
+
+    // ----------------------------------------------------------------------
+    // From the page model "MigrationPhases": behaviours.
+    // ----------------------------------------------------------------------
+    behaviour "migration-phase" {
+      mg_quiesce -> mg_import: call "next phase"
+      mg_import -> mg_validation: call "next phase"
+      mg_validation -> mg_success: call "next phase"
+      mg_success -> mg_logtransfer: call "next phase"
+      mg_logtransfer -> mg_reap: call "next phase"
+      mg_reap -> mg_done: call "next phase"
+      mg_reap -> mg_reapfailed: call "next phase"
+      mg_validation -> mg_abort: call "abort"
+      mg_import -> mg_abort: call "abort"
+      mg_quiesce -> mg_abort: call "abort"
+      mg_abort -> mg_abortdone: call "next phase"
+    }
+
+    // ----------------------------------------------------------------------
+    // From the page model "MigrationSequence": behaviours.
+    // ----------------------------------------------------------------------
+    behaviour "migration-request" {
+      ms_client -> ms_source: call "request the migration"
+      ms_source -> ms_source: self "check access and run the source prechecks"
+      ms_source -> ms_target: call "connect, and run the target prechecks"
+      ms_target -> ms_source: return "ok"
+      ms_source -> ms_client: return "migration ID"
+    }
+    behaviour "migration-quiesce-import" {
+      ms_source -> ms_agents: call "quiesce: stop work and report"
+      ms_agents -> ms_source: return "ready"
+      ms_source -> ms_target: call "run the prechecks again"
+      ms_target -> ms_source: return "ok"
+      ms_source -> ms_target: call "import: send the model, charms, agent binaries, and resources"
+      ms_target -> ms_source: return "model imported, not active"
+    }
+    behaviour "migration-validation" {
+      ms_source -> ms_agents: call "validation: connect to the target and report"
+      ms_agents -> ms_target: call "log in and validate"
+      ms_agents -> ms_source: return "validated"
+      ms_source -> ms_target: call "check the machines, then activate the model"
+      ms_target -> ms_cloud: call "list the model's machines"
+      ms_cloud -> ms_target: return "instances"
+      ms_target -> ms_source: return "machines match, model prepared"
+    }
+    behaviour "migration-success-reap" {
+      ms_source -> ms_agents: call "success: report, then switch to the target"
+      ms_agents -> ms_source: return "reported"
+      ms_source -> ms_target: call "take over the cloud resources"
+      ms_source -> ms_target: call "log-transfer: copy the model's logs"
+      ms_source -> ms_source: self "reap: remove the model and keep a redirect record"
+    }
+
+    // ----------------------------------------------------------------------
+    // From the page model "ControllerBootstrap": behaviours.
+    // ----------------------------------------------------------------------
+    behaviour "bootstrap-machine" {
+      bs_client  -> bs_cloud:    call "start an instance"
+      bs_cloud   -> bs_client:   return "instance"
+      bs_client  -> bs_machine:  call "wait for SSH, then run the configure script: download the agent, write its configuration"
+      bs_machine -> bs_db:       call "start the first database node and write the controller, admin user, cloud, credential, and controller model records"
+      bs_machine -> bs_machine:  self "start the machine agent as a service"
+      bs_machine -> bs_machine:  self "bootstrap worker: seed users and storage pools, discover spaces, deploy the controller charm"
+      bs_machine -> bs_charmhub: call "fetch the controller charm, unless the client supplied one"
+      bs_charmhub -> bs_machine: return "charm"
+      bs_machine -> bs_db:       call "record the controller application and that bootstrap is complete"
+      bs_client  -> bs_machine:  call "poll the API address that the cloud reported until it answers"
+    }
+
+    // ----------------------------------------------------------------------
+    // From the page model "MachineProvisioning": behaviours.
+    // ----------------------------------------------------------------------
+    behaviour "provision-machine" {
+      pv_provisioner -> pv_db:          call "see a new machine and read its provisioning information"
+      pv_provisioner -> pv_db:          call "set the instance status to allocating"
+      pv_provisioner -> pv_cloud:       call "start an instance, trying each availability zone, up to ten attempts"
+      pv_cloud       -> pv_provisioner: return "instance"
+      pv_provisioner -> pv_db:          call "record the instance ID, hardware, and nonce"
+      pv_cloud       -> pv_agent:       async "the instance downloads and starts the machine agent"
+      pv_agent       -> pv_db:          call "log in, which records its presence, and report the status started"
+    }
+
+    // ----------------------------------------------------------------------
+    // From the page model "TaskStatusChanges": behaviours.
+    // ----------------------------------------------------------------------
+    behaviour "task-status" {
+      ts_pending  -> ts_running:   call "agent starts the task"
+      ts_pending  -> ts_cancelled: call "cancel"
+      ts_running  -> ts_aborting:  call "cancel"
+      ts_running  -> ts_completed: call "agent reports success"
+      ts_running  -> ts_failed:    call "agent reports failure"
+      ts_aborting -> ts_aborted:   call "agent reports the abort"
+      ts_aborting -> ts_completed: call "agent reports success"
+      ts_aborting -> ts_failed:    call "agent reports failure"
+    }
+
+    // ----------------------------------------------------------------------
+    // From the page model "ActionRun": behaviours.
+    // ----------------------------------------------------------------------
+    behaviour "run-action" {
+      ar_client     -> ar_controller: call "enqueue the action on a unit"
+      ar_controller -> ar_controller: self "store the operation and one pending task per unit"
+      ar_controller -> ar_client:     return "operation and task IDs"
+      ar_controller -> ar_agent:      async "notify of the pending task"
+      ar_agent      -> ar_controller: call "get the task, then mark it running"
+      ar_agent      -> ar_charm:      call "run the action with its parameters"
+      ar_charm      -> ar_agent:      return "progress messages, results, and failure"
+      ar_agent      -> ar_controller: call "log progress, then record status, results, and message"
+    }
+
+    // ----------------------------------------------------------------------
+    // From the page model "RelationStatuses": behaviours.
+    // ----------------------------------------------------------------------
+    behaviour "relation-status" {
+      rs_joining -> rs_joined: call "change status"
+      rs_joining -> rs_suspending: call "change status"
+      rs_joining -> rs_suspended: call "change status"
+      rs_joined -> rs_suspending: call "change status"
+      rs_joined -> rs_suspended: call "change status"
+      rs_suspending -> rs_joining: call "change status"
+      rs_suspending -> rs_joined: call "change status"
+      rs_suspending -> rs_suspended: call "change status"
+      rs_suspended -> rs_joining: call "change status"
+      rs_suspended -> rs_joined: call "change status"
+    }
+
+    // ----------------------------------------------------------------------
+    // From the page model "RelationSettingsSharing": behaviours.
+    // ----------------------------------------------------------------------
+    behaviour "sharing-relation-settings" {
+      rss_agent_a -> rss_ctl:     call "the hook of unit A ends: commit its relation settings"
+      rss_ctl     -> rss_db:      call "store the settings and their hash in one transaction"
+      rss_ctl     -> rss_agent_b: async "watcher: the settings of unit A have a new version"
+      rss_agent_b -> rss_ctl:     call "read the settings of unit A"
+      rss_ctl     -> rss_agent_b: return "the settings"
+      rss_agent_b -> rss_agent_b: self "run the relation-changed hook"
+    }
+
+    // ----------------------------------------------------------------------
+    // From the page model "UnitResourceFetch": behaviours.
+    // ----------------------------------------------------------------------
+    behaviour "fetching-unit-resource" {
+      urf_agent -> urf_ctl:   call "a hook runs resource-get: ask for the resource by name"
+      urf_ctl   -> urf_ctl:   self "find the stored content"
+      urf_ctl   -> urf_hub:   call "download the revision"
+      urf_hub   -> urf_ctl:   return "the content"
+      urf_ctl   -> urf_ctl:   self "store the content and who retrieved it"
+      urf_ctl   -> urf_agent: return "the content and its fingerprint"
+      urf_ctl   -> urf_ctl:   self "record that the unit uses the resource"
+      urf_agent -> urf_ctl:   call "get the resource's details"
+      urf_agent -> urf_agent: self "check the fingerprint and write the file"
+    }
+
+    // ----------------------------------------------------------------------
+    // From the page model "UpgradeStateChanges": behaviours.
+    // ----------------------------------------------------------------------
+    behaviour "upgrade-state" {
+      us_created     -> us_started:     call "every node registered"
+      us_started     -> us_dbcompleted: call "schema patches applied"
+      us_started     -> us_error:       call "the database part fails"
+      us_dbcompleted -> us_stepsdone:   call "the last node finishes its steps"
+    }
   }
 
   style { extends: juju }
 }
 
-diagram "SSH key database schema" from "JujuSchema" {
+diagram "The problem" from "Juju" {
+  // The user and the applications, which run on nodes from clouds (the
+  // cloud badge). The clouds themselves are a detail of "The topology".
+  select {
+    nodes: sre bare_applications
+    edges: type control
+    sizing: uniform
+  }
+  positions {
+    sre               left-of bare_applications gap: 120
+    sre               align-middle bare_applications
+  }
+}
+
+diagram "The insight" from "Juju" {
+  select {
+    nodes: arch_user juju bare_applications
+    edges: type api type control
+    sizing: uniform
+  }
+  positions {
+    arch_user         left-of juju gap: 100
+    arch_user         align-middle juju
+    bare_applications right-of juju gap: 100
+    bare_applications align-middle juju
+  }
+}
+
+diagram "The topology" from "Juju" {
+  select {
+    nodes: arch_user client arch_controller clouds charmhub arch_model
+    edges: type api type stream type control
+  }
+  positions {
+    arch_user left-of client gap: 90
+    arch_user align-middle client
+    client   left-of arch_controller gap: 90
+    client   align-middle arch_controller
+    clouds   above arch_controller gap: 110
+    clouds   align-centre arch_controller
+    charmhub below arch_controller gap: 110
+    charmhub align-centre arch_controller
+    arch_model right-of arch_controller gap: 120
+    arch_model align-middle arch_controller
+  }
+}
+
+diagram "SSH key database schema" from "Juju" {
   select {
     nodes: user user_public_ssh_key ssh_fingerprint_hash_algorithm model_authorized_keys model
            context: model user
@@ -2838,15 +3242,22 @@ diagram "SSH key database schema" from "JujuSchema" {
   }
 }
 
-sequence "Importing SSH keys" from "SSHKeyImport" {
+// Importing SSH keys: the chronology of one import, happy path. Each step
+// cites the 4.1 code that performs it:
+//   1 apiserver/facades/client/keymanager/keymanager.go:271 (ImportKeys)
+//   2 keymanager.go:272-277 (checkCanWrite, ChangeAllowed)
+//   3 keymanager.go:298 (GetUserByName)
+//   4 domain/keymanager/service/service.go:276 -> internal/ssh/importer/importer.go:35-62
+//     (resolver by scheme: "gh" and "lp", importer.go:61-65)
+//   5 service.go:298-312 (parse each key; reserved comment refused)
+//   6 service.go:324 -> domain/keymanager/state/state.go:309-313
+//     (INSERT ... ON CONFLICT DO NOTHING into model_authorized_keys)
+//   7 keymanager.go:321-380 (one ErrorResult per key source)
+sequence "Importing SSH keys" from "Juju" {
   select { behaviour: "import-ssh-keys" }
 }
 
-// Scaffolded by tools/build_page_schema.py from the 4.1 controller DDL.
-
-
-
-diagram "Cloud database schema" from "JujuSchema" {
+diagram "Cloud database schema" from "Juju" {
   select {
     nodes: cloud cloud_type cloud_region cloud_ca_cert cloud_auth_type model cloud_credential
            context: cloud_credential model
@@ -2884,64 +3295,64 @@ diagram "Cloud database schema" from "JujuSchema" {
 // the user who logs in, and the applications the controller operates.
 diagram "Tutorial setup" from "Juju" {
   select {
-    nodes: client controller cloud charmhub
+    nodes: client arch_controller arch_cloud charmhub
     edges: type api
-    except: client -> cloud
+    except: client -> arch_cloud
     except: client -> client
     labels: hidden
     sizing: uniform
   }
   positions {
-    client   left-of controller gap: 100
-    client   align-middle controller
-    cloud    above controller gap: 80
-    cloud    align-centre controller
-    charmhub below controller gap: 80
-    charmhub align-centre controller
+    client   left-of arch_controller gap: 100
+    client   align-middle arch_controller
+    arch_cloud above arch_controller gap: 80
+    arch_cloud align-centre arch_controller
+    charmhub below arch_controller gap: 80
+    charmhub align-centre arch_controller
   }
 }
 
 diagram "Tutorial user" from "Juju" {
   select {
-    nodes: user client controller cloud charmhub
+    nodes: arch_user client arch_controller arch_cloud charmhub
     edges: type api
-    except: client -> cloud
+    except: client -> arch_cloud
     except: client -> client
     labels: hidden
     sizing: uniform
   }
   positions {
-    user     left-of client gap: 100
-    user     align-middle client
-    client   left-of controller gap: 100
-    client   align-middle controller
-    cloud    above controller gap: 80
-    cloud    align-centre controller
-    charmhub below controller gap: 80
-    charmhub align-centre controller
+    arch_user left-of client gap: 100
+    arch_user align-middle client
+    client   left-of arch_controller gap: 100
+    client   align-middle arch_controller
+    arch_cloud above arch_controller gap: 80
+    arch_cloud align-centre arch_controller
+    charmhub below arch_controller gap: 80
+    charmhub align-centre arch_controller
   }
 }
 
 diagram "Tutorial deployment" from "Juju" {
   select {
-    nodes: user client controller cloud charmhub mattermost postgresql certs
+    nodes: arch_user client arch_controller arch_cloud charmhub mattermost postgresql certs
     edges: type api type stream
-    except: client -> cloud
+    except: client -> arch_cloud
     except: client -> client
     labels: hidden
     sizing: uniform
   }
   positions {
-    user       left-of client gap: 80
-    user       align-middle client
-    client     left-of controller gap: 80
-    client     align-middle controller
-    cloud      above controller gap: 80
-    cloud      align-centre controller
-    charmhub   below controller gap: 80
-    charmhub   align-centre controller
-    postgresql right-of controller gap: 120
-    postgresql align-middle controller
+    arch_user  left-of client gap: 80
+    arch_user  align-middle client
+    client     left-of arch_controller gap: 80
+    client     align-middle arch_controller
+    arch_cloud above arch_controller gap: 80
+    arch_cloud align-centre arch_controller
+    charmhub   below arch_controller gap: 80
+    charmhub   align-centre arch_controller
+    postgresql right-of arch_controller gap: 120
+    postgresql align-middle arch_controller
     mattermost above postgresql gap: 30
     mattermost align-centre postgresql
     certs      below postgresql gap: 30
@@ -2950,14 +3361,23 @@ diagram "Tutorial deployment" from "Juju" {
 }
 
 sequence "juju add-cloud"      from "Juju" { select { behaviour: "add-cloud" } }
+
 sequence "juju add-credential" from "Juju" { select { behaviour: "add-credential" } }
+
 sequence "juju bootstrap"      from "Juju" { select { behaviour: "bootstrap" } }
+
 sequence "juju add-k8s"        from "Juju" { select { behaviour: "add-k8s" } }
+
 sequence "juju bootstrap (Kubernetes)" from "Juju" { select { behaviour: "bootstrap-k8s" } }
+
 sequence "juju add-model"      from "Juju" { select { behaviour: "add-model" } }
+
 sequence "juju deploy"         from "Juju" { select { behaviour: "deploy" } }
+
 sequence "juju deploy (Kubernetes)" from "Juju" { select { behaviour: "deploy-k8s" } }
+
 sequence "juju config"         from "Juju" { select { behaviour: "config" } }
+
 sequence "juju integrate"      from "Juju" { select { behaviour: "integrate" } }
 
 diagram "SSH proxy connections" from "Juju" {
@@ -2994,13 +3414,7 @@ diagram "SSH proxy Kubernetes" from "Juju" {
   }
 }
 
-// Scaffolded by tools/build_page_schema.py from the 4.1 controller and model DDL;
-// the key algorithm lookup tables (ssh_key_algorithm_type, in both databases) and
-// the neighbours of machine and unit are left out of the model, and their
-// foreign key columns with them.
-
-
-diagram "SSH server database schema" from "JujuSchema" {
+diagram "SSH server database schema" from "Juju" {
   select {
     nodes: machine unit machine_ssh_host_key machine_virtual_ssh_host_key unit_virtual_ssh_host_key ssh_connection_request
            context: machine unit
@@ -3057,77 +3471,15 @@ diagram "SSH server database schema" from "JujuSchema" {
 //     ubuntu with the ephemeral key, check the machine's reported host keys)
 //   internal/worker/sshserver/handlers/machine (session, port forwarding,
 //     and SFTP pass through)
-model "SSHConnect" {
-
-  nodes {
-    sc_client   [type: juju-software, label: "Client"]
-    sc_tunnel   [type: juju-software, label: "SSH tunnel server"]
-    sc_ctl_db   [type: database, label: "Controller database"]
-    sc_model_db [type: database, label: "Model database"]
-    sc_target   [type: juju-software, label: "Target SSH server"]
-    sc_api      [type: juju-software, label: "API server"]
-    sc_agent    [type: juju-software, label: "Machine agent"]
-    sc_sshd     [type: external, label: "Machine SSH server"]
-  }
-
-  edges {
-    sc_client -> sc_tunnel   [type: stream]
-    sc_tunnel -> sc_ctl_db   [type: api]
-    sc_tunnel -> sc_model_db [type: api]
-    sc_tunnel -> sc_client   [type: stream]
-    sc_target -> sc_model_db [type: api]
-    sc_agent  -> sc_model_db [type: api]
-    sc_agent  -> sc_agent    [type: api]
-    sc_agent  -> sc_api      [type: stream]
-    sc_api    -> sc_target   [type: ipc]
-    sc_agent  -> sc_sshd     [type: stream]
-    sc_target -> sc_sshd     [type: stream]
-    sc_target -> sc_target   [type: api]
-  }
-
-  behaviours {
-    behaviour "connect-authorize" {
-      sc_client -> sc_tunnel:   call "open an SSH connection as the Juju user, presenting a key"
-      sc_tunnel -> sc_ctl_db:   call "read the user's stored keys"
-      sc_ctl_db -> sc_tunnel:   return "keys"
-      sc_client -> sc_tunnel:   call "once the key is accepted, ask for a channel to the virtual hostname of the target"
-      sc_tunnel -> sc_ctl_db:   call "check the user's access to the model and that the key is authorized on it"
-      sc_ctl_db -> sc_tunnel:   return "allowed"
-      sc_tunnel -> sc_model_db: call "read the target's virtual host key, creating it on first use"
-      sc_model_db -> sc_tunnel: return "host key"
-      sc_tunnel -> sc_client:   return "channel open; the client runs the inner SSH handshake with the target SSH server over it"
-    }
-    behaviour "connect-tunnel" {
-      sc_target   -> sc_model_db: call "store a connection request with a one-time public key and a 60 second expiry"
-      sc_agent    -> sc_model_db: call "watch for requests, and read the one that names this machine"
-      sc_model_db -> sc_agent:    return "the request"
-      sc_agent    -> sc_agent:    self "authorize the one-time key"
-      sc_agent    -> sc_api:      call "open a tunnel, authenticated as the machine"
-      sc_api      -> sc_target:   call "hand the tunnel to the waiting target SSH server"
-      sc_agent    -> sc_sshd:     call "pipe the tunnel to the local SSH server"
-      sc_target   -> sc_sshd:     call "log in as ubuntu with the one-time key, checking the machine's host keys"
-      sc_sshd     -> sc_target:   return "session"
-      sc_target   -> sc_target:   self "pass the user's session, port forwards, and file transfers through"
-    }
-  }
-
-  style { extends: juju }
-}
-
-sequence "Connecting to a machine: authorization" from "SSHConnect" {
+sequence "Connecting to a machine: authorization" from "Juju" {
   select { behaviour: "connect-authorize" }
 }
 
-sequence "Connecting to a machine: reverse tunnel" from "SSHConnect" {
+sequence "Connecting to a machine: reverse tunnel" from "Juju" {
   select { behaviour: "connect-tunnel" }
 }
 
-// Scaffolded by tools/build_page_schema.py from the 4.1 controller and model DDL;
-// the model database nodes are renamed (model_copy, model_db_life) because
-// both databases have a table named model.
-
-
-diagram "Model database schema" from "JujuSchema" {
+diagram "Model database schema" from "Juju" {
   select {
     nodes: model model_type cloud cloud_region cloud_credential model_copy model_constraint model_life
            context: cloud cloud_credential cloud_region
@@ -3172,55 +3524,7 @@ diagram "Model database schema" from "JujuSchema" {
 // The phases of a model migration and the changes the code allows
 // (core/migration/phase.go, validTransitions). Labels are the names the
 // controller stores (model_migration_phase).
-model "MigrationPhases" {
-
-  nodes {
-    mg_quiesce [label: "quiesce"]
-    mg_import [label: "import"]
-    mg_validation [label: "validation"]
-    mg_success [label: "success"]
-    mg_logtransfer [label: "log-transfer"]
-    mg_reap [label: "reap"]
-    mg_reapfailed [label: "reap-failed"]
-    mg_done [label: "done"]
-    mg_abort [label: "abort"]
-    mg_abortdone [label: "abort-done"]
-  }
-
-  behaviours {
-    behaviour "migration-phase" {
-      mg_quiesce -> mg_import: call "next phase"
-      mg_import -> mg_validation: call "next phase"
-      mg_validation -> mg_success: call "next phase"
-      mg_success -> mg_logtransfer: call "next phase"
-      mg_logtransfer -> mg_reap: call "next phase"
-      mg_reap -> mg_done: call "next phase"
-      mg_reap -> mg_reapfailed: call "next phase"
-      mg_validation -> mg_abort: call "abort"
-      mg_import -> mg_abort: call "abort"
-      mg_quiesce -> mg_abort: call "abort"
-      mg_abort -> mg_abortdone: call "next phase"
-    }
-  }
-
-  edges {
-    mg_quiesce -> mg_import [type: control]
-    mg_quiesce -> mg_abort [type: control]
-    mg_import -> mg_validation [type: control]
-    mg_import -> mg_abort [type: control]
-    mg_validation -> mg_success [type: control]
-    mg_validation -> mg_abort [type: control]
-    mg_success -> mg_logtransfer [type: control]
-    mg_logtransfer -> mg_reap [type: control]
-    mg_reap -> mg_done [type: control]
-    mg_reap -> mg_reapfailed [type: control]
-    mg_abort -> mg_abortdone [type: control]
-  }
-
-  style { extends: juju }
-}
-
-state "Model migration phase" from "MigrationPhases" {
+state "Model migration phase" from "Juju" {
   select { behaviour: "migration-phase" }
 }
 
@@ -3234,84 +3538,23 @@ state "Model migration phase" from "MigrationPhases" {
 //   machines: checkTargetMachines (CheckMachines); activate: activateModel
 //   cloud resources: transferResources (AdoptResources)
 //   reap: doREAP (MarkModelAsGone)
-model "MigrationSequence" {
-
-  nodes {
-    ms_client     [type: juju-software, label: "Client"]
-    ms_source     [type: juju-software, label: "Source controller"]
-    ms_target     [type: juju-software, label: "Target controller"]
-    ms_agents     [type: juju-software, label: "Model agents"]
-    ms_cloud      [type: external, label: "Cloud"]
-  }
-
-  edges {
-    ms_client -> ms_source [type: api]
-    ms_source -> ms_target [type: api]
-    ms_source -> ms_agents [type: api]
-    ms_agents -> ms_source [type: api]
-    ms_agents -> ms_target [type: api]
-    ms_target -> ms_cloud  [type: api]
-    ms_source -> ms_source [type: api]
-  }
-
-  behaviours {
-    behaviour "migration-request" {
-      ms_client -> ms_source: call "request the migration"
-      ms_source -> ms_source: self "check access and run the source prechecks"
-      ms_source -> ms_target: call "connect, and run the target prechecks"
-      ms_target -> ms_source: return "ok"
-      ms_source -> ms_client: return "migration ID"
-    }
-    behaviour "migration-quiesce-import" {
-      ms_source -> ms_agents: call "quiesce: stop work and report"
-      ms_agents -> ms_source: return "ready"
-      ms_source -> ms_target: call "run the prechecks again"
-      ms_target -> ms_source: return "ok"
-      ms_source -> ms_target: call "import: send the model, charms, agent binaries, and resources"
-      ms_target -> ms_source: return "model imported, not active"
-    }
-    behaviour "migration-validation" {
-      ms_source -> ms_agents: call "validation: connect to the target and report"
-      ms_agents -> ms_target: call "log in and validate"
-      ms_agents -> ms_source: return "validated"
-      ms_source -> ms_target: call "check the machines, then activate the model"
-      ms_target -> ms_cloud: call "list the model's machines"
-      ms_cloud -> ms_target: return "instances"
-      ms_target -> ms_source: return "machines match, model prepared"
-    }
-    behaviour "migration-success-reap" {
-      ms_source -> ms_agents: call "success: report, then switch to the target"
-      ms_agents -> ms_source: return "reported"
-      ms_source -> ms_target: call "take over the cloud resources"
-      ms_source -> ms_target: call "log-transfer: copy the model's logs"
-      ms_source -> ms_source: self "reap: remove the model and keep a redirect record"
-    }
-  }
-
-  style { extends: juju }
-}
-
-sequence "Migration request" from "MigrationSequence" {
+sequence "Migration request" from "Juju" {
   select { behaviour: "migration-request" }
 }
 
-sequence "Migration quiesce and import" from "MigrationSequence" {
+sequence "Migration quiesce and import" from "Juju" {
   select { behaviour: "migration-quiesce-import" }
 }
 
-sequence "Migration validation" from "MigrationSequence" {
+sequence "Migration validation" from "Juju" {
   select { behaviour: "migration-validation" }
 }
 
-sequence "Migration success and reap" from "MigrationSequence" {
+sequence "Migration success and reap" from "Juju" {
   select { behaviour: "migration-success-reap" }
 }
 
-// Scaffolded by tools/build_page_schema.py from the 4.1 controller DDL.
-
-
-
-diagram "Controller database schema" from "JujuSchema" {
+diagram "Controller database schema" from "Juju" {
   select {
     nodes: controller_node controller_node_agent_version controller_node_password controller_agent_address controller_client_address controller_peer_address
     edges: type data
@@ -3355,43 +3598,7 @@ diagram "Controller database schema" from "JujuSchema" {
 //   internal/worker/bootstrap/fresh.go:219-302 (seed, ReloadSpaces, deploy the
 //     controller charm, set the flag); internal/bootstrap/deployer.go:224-298
 //     (local charm first, Charmhub fallback)
-model "ControllerBootstrap" {
-
-  nodes {
-    bs_client   [type: juju-software, label: "Client"]
-    bs_cloud    [type: external, label: "Cloud"]
-    bs_machine  [type: juju-software, label: "Controller machine"]
-    bs_db       [type: database, label: "Controller database"]
-    bs_charmhub [type: external, label: "Charmhub"]
-  }
-
-  edges {
-    bs_client  -> bs_cloud    [type: api]
-    bs_client  -> bs_machine  [type: stream]
-    bs_machine -> bs_db       [type: api]
-    bs_machine -> bs_charmhub [type: api]
-    bs_machine -> bs_machine  [type: api]
-  }
-
-  behaviours {
-    behaviour "bootstrap-machine" {
-      bs_client  -> bs_cloud:    call "start an instance"
-      bs_cloud   -> bs_client:   return "instance"
-      bs_client  -> bs_machine:  call "wait for SSH, then run the configure script: download the agent, write its configuration"
-      bs_machine -> bs_db:       call "start the first database node and write the controller, admin user, cloud, credential, and controller model records"
-      bs_machine -> bs_machine:  self "start the machine agent as a service"
-      bs_machine -> bs_machine:  self "bootstrap worker: seed users and storage pools, discover spaces, deploy the controller charm"
-      bs_machine -> bs_charmhub: call "fetch the controller charm, unless the client supplied one"
-      bs_charmhub -> bs_machine: return "charm"
-      bs_machine -> bs_db:       call "record the controller application and that bootstrap is complete"
-      bs_client  -> bs_machine:  call "poll the API address that the cloud reported until it answers"
-    }
-  }
-
-  style { extends: juju }
-}
-
-sequence "Bootstrapping a controller" from "ControllerBootstrap" {
+sequence "Bootstrapping a controller" from "Juju" {
   select { behaviour: "bootstrap-machine" }
 }
 
@@ -3415,11 +3622,7 @@ diagram "Controller high availability" from "Juju" {
   }
 }
 
-// Scaffolded by tools/build_page_schema.py from the 4.1 controller DDL; the
-// neighbours of the model are trimmed to its key.
-
-
-diagram "Secret backend database schema" from "JujuSchema" {
+diagram "Secret backend database schema" from "Juju" {
   select {
     nodes: model model_secret_backend secret_backend secret_backend_type secret_backend_config secret_backend_rotation secret_backend_reference
            context: model
@@ -3455,11 +3658,7 @@ diagram "Secret backend database schema" from "JujuSchema" {
   }
 }
 
-// Scaffolded by tools/build_page_schema.py from the 4.1 model DDL and trimmed to
-// the twelve records that the page draws.
-
-
-diagram "Machine database schema" from "JujuSchema" {
+diagram "Machine database schema" from "Juju" {
   select {
     nodes: machine machine_status machine_cloud_instance machine_cloud_instance_status machine_placement machine_parent machine_platform machine_agent_presence block_device
     edges: type data
@@ -3508,54 +3707,11 @@ diagram "Machine database schema" from "JujuSchema" {
 //   domain/machine/state/machine_cloud_instance.go:160-322 (record once)
 //   internal/worker/machiner/machiner.go:96-102 (started);
 //   apiserver/observer/agentpresence.go:105-143 (login sets presence)
-model "MachineProvisioning" {
-
-  nodes {
-    pv_provisioner [type: juju-software, label: "Compute provisioner"]
-    pv_db          [type: database, label: "Model database"]
-    pv_cloud       [type: external, label: "Cloud"]
-    pv_agent       [type: juju-software, label: "Machine agent"]
-  }
-
-  edges {
-    pv_provisioner -> pv_db          [type: api]
-    pv_provisioner -> pv_cloud       [type: api]
-    pv_cloud       -> pv_agent       [type: control]
-    pv_agent       -> pv_db          [type: api]
-  }
-
-  behaviours {
-    behaviour "provision-machine" {
-      pv_provisioner -> pv_db:          call "see a new machine and read its provisioning information"
-      pv_provisioner -> pv_db:          call "set the instance status to allocating"
-      pv_provisioner -> pv_cloud:       call "start an instance, trying each availability zone, up to ten attempts"
-      pv_cloud       -> pv_provisioner: return "instance"
-      pv_provisioner -> pv_db:          call "record the instance ID, hardware, and nonce"
-      pv_cloud       -> pv_agent:       async "the instance downloads and starts the machine agent"
-      pv_agent       -> pv_db:          call "log in, which records its presence, and report the status started"
-    }
-  }
-
-  style { extends: juju }
-}
-
-sequence "Provisioning a machine" from "MachineProvisioning" {
+sequence "Provisioning a machine" from "Juju" {
   select { behaviour: "provision-machine" }
 }
 
-// Scaffolded by tools/build_page_schema.py from the 4.1 model DDL; the subnet is a
-// context record trimmed to its keys.
-
-
-// Scaffolded by tools/build_page_schema.py from the 4.1 model DDL; the space is a
-// context record trimmed to its key.
-
-
-// Scaffolded by tools/build_page_schema.py from the 4.1 model DDL; the subnet is a
-// context record trimmed to its key.
-
-
-diagram "Space database schema" from "JujuSchema" {
+diagram "Space database schema" from "Juju" {
   select {
     nodes: space provider_space subnet
            context: subnet
@@ -3579,7 +3735,7 @@ diagram "Space database schema" from "JujuSchema" {
   }
 }
 
-diagram "Subnet database schema" from "JujuSchema" {
+diagram "Subnet database schema" from "Juju" {
   select {
     nodes: subnet provider_subnet provider_network provider_network_subnet space
            context: space
@@ -3609,7 +3765,7 @@ diagram "Subnet database schema" from "JujuSchema" {
   }
 }
 
-diagram "Zone database schema" from "JujuSchema" {
+diagram "Zone database schema" from "Juju" {
   select {
     nodes: availability_zone availability_zone_subnet subnet
            context: subnet
@@ -3633,11 +3789,7 @@ diagram "Zone database schema" from "JujuSchema" {
   }
 }
 
-// Scaffolded by tools/build_page_schema.py from the 4.1 controller DDL; the cloud, user,
-// and model are context records trimmed to their keys.
-
-
-diagram "Credential database schema" from "JujuSchema" {
+diagram "Credential database schema" from "Juju" {
   select {
     nodes: cloud_credential cloud_credential_attribute auth_type cloud user model
            context: cloud model user
@@ -3671,9 +3823,7 @@ diagram "Credential database schema" from "JujuSchema" {
   }
 }
 
-
-
-diagram "User database schema" from "JujuSchema" {
+diagram "User database schema" from "Juju" {
   select {
     nodes: user user_authentication user_password user_activation_key permission model_last_login model
            context: model
@@ -3709,14 +3859,7 @@ diagram "User database schema" from "JujuSchema" {
   }
 }
 
-// Action database schema, scaffolded by hand from the 4.1 model DDL
-// (operation .. operation_task_status_value). The link records
-// operation_action, operation_unit_task, operation_machine_task and
-// operation_task_output hold keys only and are left out; the task edges to
-// unit, machine and charm action stand for them.
-
-
-diagram "Action database schema" from "JujuSchema" {
+diagram "Action database schema" from "Juju" {
   select {
     nodes: operation operation_parameter operation_task operation_task_status operation_task_status_value operation_task_log unit machine charm_action
            context: charm_action machine unit
@@ -3765,46 +3908,7 @@ diagram "Action database schema" from "JujuSchema" {
 //     running -> aborting)
 //   internal/worker/uniter/runner/context/context.go:1771-1786 (finalizeAction:
 //     completed, failed, or aborted when the task was aborting)
-model "TaskStatusChanges" {
-
-  nodes {
-    ts_pending   [label: "pending"]
-    ts_running   [label: "running"]
-    ts_cancelled [label: "cancelled"]
-    ts_aborting  [label: "aborting"]
-    ts_completed [label: "completed"]
-    ts_failed    [label: "failed"]
-    ts_aborted   [label: "aborted"]
-  }
-
-  behaviours {
-    behaviour "task-status" {
-      ts_pending  -> ts_running:   call "agent starts the task"
-      ts_pending  -> ts_cancelled: call "cancel"
-      ts_running  -> ts_aborting:  call "cancel"
-      ts_running  -> ts_completed: call "agent reports success"
-      ts_running  -> ts_failed:    call "agent reports failure"
-      ts_aborting -> ts_aborted:   call "agent reports the abort"
-      ts_aborting -> ts_completed: call "agent reports success"
-      ts_aborting -> ts_failed:    call "agent reports failure"
-    }
-  }
-
-  edges {
-    ts_pending  -> ts_running   [type: control]
-    ts_pending  -> ts_cancelled [type: control]
-    ts_running  -> ts_aborting  [type: control]
-    ts_running  -> ts_completed [type: control]
-    ts_running  -> ts_failed    [type: control]
-    ts_aborting -> ts_aborted   [type: control]
-    ts_aborting -> ts_completed [type: control]
-    ts_aborting -> ts_failed    [type: control]
-  }
-
-  style { extends: juju }
-}
-
-state "Task status" from "TaskStatusChanges" {
+state "Task status" from "Juju" {
   select { behaviour: "task-status" }
 }
 
@@ -3815,48 +3919,11 @@ state "Task status" from "TaskStatusChanges" {
 //   4 uniter.go:1264-1285 (BeginActions -> StartTask)
 //   5 internal/worker/uniter/runner/jujuc/action-log.go:44-46 -> uniter.go:1338-1360
 //   6 runner/context/context.go:1771-1827 (finalizeAction) -> uniter.go:1309-1335
-model "ActionRun" {
-
-  nodes {
-    ar_client     [type: juju-software, label: "Client"]
-    ar_controller [type: juju-software, label: "Controller"]
-    ar_agent      [type: juju-software, label: "Unit agent"]
-    ar_charm      [type: workload, label: "Charm action code"]
-  }
-
-  edges {
-    ar_client     -> ar_controller [type: api]
-    ar_agent      -> ar_controller [type: api]
-    ar_agent      -> ar_charm      [type: control]
-  }
-
-  behaviours {
-    behaviour "run-action" {
-      ar_client     -> ar_controller: call "enqueue the action on a unit"
-      ar_controller -> ar_controller: self "store the operation and one pending task per unit"
-      ar_controller -> ar_client:     return "operation and task IDs"
-      ar_controller -> ar_agent:      async "notify of the pending task"
-      ar_agent      -> ar_controller: call "get the task, then mark it running"
-      ar_agent      -> ar_charm:      call "run the action with its parameters"
-      ar_charm      -> ar_agent:      return "progress messages, results, and failure"
-      ar_agent      -> ar_controller: call "log progress, then record status, results, and message"
-    }
-  }
-
-  style { extends: juju }
-}
-
-sequence "Running actions" from "ActionRun" {
+sequence "Running actions" from "Juju" {
   select { behaviour: "run-action" }
 }
 
-// Offer database schema. Hand-trimmed from the 4.1 DDL (experiments/e11): the
-// join table offer_endpoint is left out because it holds only keys, the
-// permission lookup tables are left out and their foreign keys dropped,
-// and the relation and user are context records trimmed to their keys.
-
-
-diagram "Offer database schema" from "JujuSchema" {
+diagram "Offer database schema" from "Juju" {
   select {
     nodes: offer offer_connection relation permission user
            context: relation user
@@ -3889,15 +3956,7 @@ diagram "Offer database schema" from "JujuSchema" {
   }
 }
 
-// Scaffolded by tools/build_page_schema.py from the 4.1 model DDL and trimmed to
-// the records that the page draws. The key-only record secret and the lookups
-// secret_rotate_policy, secret_role, secret_grant_subject_type, and
-// secret_grant_scope_type are left out of the figure, so their fk flags are dropped.
-// secret_unit_consumer.secret_id references secret(id) in the DDL; the figure
-// draws it to the secret metadata, which every secret has.
-
-
-diagram "Secret database schema" from "JujuSchema" {
+diagram "Secret database schema" from "Juju" {
   select {
     nodes: application unit secret_metadata secret_application_owner secret_unit_owner secret_model_owner secret_unit_consumer secret_permission secret_rotation secret_revision secret_content secret_value_ref secret_revision_expire secret_revision_obsolete
            context: application unit
@@ -3955,13 +4014,7 @@ diagram "Secret database schema" from "JujuSchema" {
   }
 }
 
-// Scaffolded by tools/build_page_schema.py from the 4.1 model DDL.
-// Key-only records (the unit, the application endpoint, the life and scope
-// lookups, the departed units, and the ingress and egress CIDRs) are left
-// out and described in the page text.
-
-
-diagram "Relation database schema" from "JujuSchema" {
+diagram "Relation database schema" from "Juju" {
   select {
     nodes: relation relation_endpoint relation_unit relation_unit_setting relation_application_setting relation_status relation_status_type relation_unit_setting_archive
     edges: type data
@@ -4003,47 +4056,7 @@ diagram "Relation database schema" from "JujuSchema" {
 // ordinary statuses (domain/status/status.go:186-211, the leader unit's
 // SetRelationStatus). Broken is allowed from every status, and error
 // (with a message) from every status; they are described in the caption.
-model "RelationStatuses" {
-
-  nodes {
-    rs_joining [label: "joining"]
-    rs_joined [label: "joined"]
-    rs_suspending [label: "suspending"]
-    rs_suspended [label: "suspended"]
-  }
-
-  behaviours {
-    behaviour "relation-status" {
-      rs_joining -> rs_joined: call "change status"
-      rs_joining -> rs_suspending: call "change status"
-      rs_joining -> rs_suspended: call "change status"
-      rs_joined -> rs_suspending: call "change status"
-      rs_joined -> rs_suspended: call "change status"
-      rs_suspending -> rs_joining: call "change status"
-      rs_suspending -> rs_joined: call "change status"
-      rs_suspending -> rs_suspended: call "change status"
-      rs_suspended -> rs_joining: call "change status"
-      rs_suspended -> rs_joined: call "change status"
-    }
-  }
-
-  edges {
-    rs_joining -> rs_joined [type: control]
-    rs_joining -> rs_suspending [type: control]
-    rs_joining -> rs_suspended [type: control]
-    rs_joined -> rs_suspending [type: control]
-    rs_joined -> rs_suspended [type: control]
-    rs_suspending -> rs_joining [type: control]
-    rs_suspending -> rs_joined [type: control]
-    rs_suspending -> rs_suspended [type: control]
-    rs_suspended -> rs_joining [type: control]
-    rs_suspended -> rs_joined [type: control]
-  }
-
-  style { extends: juju }
-}
-
-state "Relation status" from "RelationStatuses" {
+state "Relation status" from "Juju" {
   select { behaviour: "relation-status" }
 }
 
@@ -4061,43 +4074,11 @@ state "Relation status" from "RelationStatuses" {
 //     (newRelationUnitsWatcher), uniter.go:2026 (WatchRelationUnits)
 //   step 4 and 5: uniter.go:1955 (ReadRemoteSettings), :1972-2018
 //   step 6: the relation-changed hook (docs/reference/hook.md)
-model "RelationSettingsSharing" {
-
-  nodes {
-    rss_agent_a [type: juju-software, label: "Unit agent of unit A"]
-    rss_ctl     [type: juju-software, label: "Controller"]
-    rss_db      [type: database, label: "Model database"]
-    rss_agent_b [type: juju-software, label: "Unit agent of unit B"]
-  }
-
-  edges {
-    rss_agent_a -> rss_ctl     [type: api]
-    rss_ctl     -> rss_db      [type: api]
-    rss_ctl     -> rss_agent_b [type: stream]
-    rss_agent_b -> rss_ctl     [type: api]
-    rss_agent_b -> rss_agent_b [type: api]
-  }
-
-  behaviours {
-    behaviour "sharing-relation-settings" {
-      rss_agent_a -> rss_ctl:     call "the hook of unit A ends: commit its relation settings"
-      rss_ctl     -> rss_db:      call "store the settings and their hash in one transaction"
-      rss_ctl     -> rss_agent_b: async "watcher: the settings of unit A have a new version"
-      rss_agent_b -> rss_ctl:     call "read the settings of unit A"
-      rss_ctl     -> rss_agent_b: return "the settings"
-      rss_agent_b -> rss_agent_b: self "run the relation-changed hook"
-    }
-  }
-
-  style { extends: juju }
-}
-
-sequence "Sharing relation settings" from "RelationSettingsSharing" {
+sequence "Sharing relation settings" from "Juju" {
   select { behaviour: "sharing-relation-settings" }
 }
 
-
-diagram "Change log database schema" from "JujuSchema" {
+diagram "Change log database schema" from "Juju" {
   select {
     nodes: change_log change_log_edit_type change_log_namespace
     edges: type data
@@ -4119,13 +4100,8 @@ diagram "Change log database schema" from "JujuSchema" {
          style: "solid", color: "#E95420", padding: 24]
   }
 }
-// Hand-written from the 4.1 model DDL (the scaffold cannot read the quoted
-// table name "constraint"). Key-only records are left out and described in
-// the page text: the model, the application, the machine, and the container
-// type lookup.
 
-
-diagram "Constraint database schema" from "JujuSchema" {
+diagram "Constraint database schema" from "Juju" {
   select {
     nodes: constraint constraint_tag constraint_space constraint_zone model_constraint application_constraint machine_constraint space
            context: application_constraint machine_constraint model_constraint space
@@ -4163,18 +4139,8 @@ diagram "Constraint database schema" from "JujuSchema" {
          style: "solid", color: "#E95420", padding: 24]
   }
 }
-// Scaffolded by tools/build_page_schema.py from the 4.1 model DDL and trimmed
-// to the records that the page draws. The lookups (charm_source,
-// charm_relation_role, charm_relation_scope, charm_resource_kind,
-// charm_config_type, charm_run_as_kind), the architecture and os lookups, and
-// the object store record are left out of the figure, so their fk flags are
-// dropped. charm_storage, charm_device, charm_extra_binding, charm_hash,
-// charm_download_info, charm_term, charm_tag, and charm_category are described
-// in the page text. The unit record also points to its charm and is described
-// in the page text.
 
-
-diagram "Charm database schema" from "JujuSchema" {
+diagram "Charm database schema" from "Juju" {
   select {
     nodes: application charm charm_metadata charm_relation charm_manifest_base charm_config charm_action charm_resource charm_container
            context: application
@@ -4215,20 +4181,8 @@ diagram "Charm database schema" from "JujuSchema" {
          style: "solid", color: "#E95420", padding: 24]
   }
 }
-// Scaffolded by tools/build_page_schema.py from the 4.1 model DDL and trimmed to
-// the records that the page draws. The lookups resource_origin_type,
-// resource_state, resource_retrieved_by_type, and charm_resource_kind are left
-// out of the figure, so their fk flags are dropped. resource.charm_uuid and
-// resource.charm_resource_name together reference charm_resource(charm_uuid,
-// name) in the DDL (fk_charm_resource); the figure draws one edge. The same
-// holds for unit_resource (fk_resource_uuid on resource_uuid and
-// charm_resource_name).
-// charm_resource.charm_uuid carries uk only so that the single drawn edge reads
-// 1 at the charm resource end: the real key is (charm_uuid, name), and a
-// resource refers to exactly one charm resource by that pair.
 
-
-diagram "Resource database schema" from "JujuSchema" {
+diagram "Resource database schema" from "Juju" {
   select {
     nodes: application application_resource pending_application_resource charm_resource resource resource_retrieved_by unit unit_resource resource_file_store object_store_metadata resource_image_store resource_container_image_metadata_store
            context: application charm_resource object_store_metadata unit
@@ -4299,47 +4253,11 @@ diagram "Resource database schema" from "JujuSchema" {
 //   step 7: api/agent/uniter/resource.go:73, apiserver/facades/agent/
 //     resourceshookcontext/unitfacade.go:106 (GetResourceInfo),
 //     internal/worker/uniter/runner/context/resources/context.go:46-56
-model "UnitResourceFetch" {
-
-  nodes {
-    urf_agent [type: juju-software, label: "Unit agent"]
-    urf_ctl   [type: juju-software, label: "Controller"]
-    urf_hub   [type: external, label: "Charmhub"]
-  }
-
-  edges {
-    urf_agent -> urf_ctl [type: api]
-    urf_ctl   -> urf_hub [type: api]
-  }
-
-  behaviours {
-    behaviour "fetching-unit-resource" {
-      urf_agent -> urf_ctl:   call "a hook runs resource-get: ask for the resource by name"
-      urf_ctl   -> urf_ctl:   self "find the stored content"
-      urf_ctl   -> urf_hub:   call "download the revision"
-      urf_hub   -> urf_ctl:   return "the content"
-      urf_ctl   -> urf_ctl:   self "store the content and who retrieved it"
-      urf_ctl   -> urf_agent: return "the content and its fingerprint"
-      urf_ctl   -> urf_ctl:   self "record that the unit uses the resource"
-      urf_agent -> urf_ctl:   call "get the resource's details"
-      urf_agent -> urf_agent: self "check the fingerprint and write the file"
-    }
-  }
-
-  style { extends: juju }
-}
-
-sequence "Fetching a resource for a unit" from "UnitResourceFetch" {
+sequence "Fetching a resource for a unit" from "Juju" {
   select { behaviour: "fetching-unit-resource" }
 }
-// Application database schema views: scaffolded from the 4.1 model DDL
-// (ggarch scaffold --tables application,...) and trimmed to the records each
-// view draws. The lookups life, os, architecture, and password_hash_algorithm,
-// the storage directive record (storage page), and the unit records are left
-// out and described in the page text; their fk flags are dropped.
 
-
-diagram "Application database schema" from "JujuSchema" {
+diagram "Application database schema" from "Juju" {
   select {
     nodes: application application_status workload_status_value application_platform application_channel application_agent charm space
            context: charm space
@@ -4378,7 +4296,7 @@ diagram "Application database schema" from "JujuSchema" {
   }
 }
 
-diagram "Application configuration database schema" from "JujuSchema" {
+diagram "Application configuration database schema" from "Juju" {
   select {
     nodes: application application_config charm_config_type application_config_hash application_setting application_constraint constraint device_constraint device_constraint_attribute
            context: constraint
@@ -4420,7 +4338,7 @@ diagram "Application configuration database schema" from "JujuSchema" {
   }
 }
 
-diagram "Application endpoint database schema" from "JujuSchema" {
+diagram "Application endpoint database schema" from "Juju" {
   select {
     nodes: application application_endpoint charm_relation application_extra_endpoint charm_extra_binding space
            context: charm_extra_binding charm_relation space
@@ -4453,7 +4371,7 @@ diagram "Application endpoint database schema" from "JujuSchema" {
   }
 }
 
-diagram "Application exposure database schema" from "JujuSchema" {
+diagram "Application exposure database schema" from "Juju" {
   select {
     nodes: application application_endpoint application_exposed_endpoint_space application_exposed_endpoint_cidr
     edges: type data
@@ -4479,7 +4397,7 @@ diagram "Application exposure database schema" from "JujuSchema" {
   }
 }
 
-diagram "Application scale database schema" from "JujuSchema" {
+diagram "Application scale database schema" from "Juju" {
   select {
     nodes: application application_scale application_k8s_resources_managed k8s_service net_node operator_status
            context: net_node
@@ -4511,11 +4429,8 @@ diagram "Application scale database schema" from "JujuSchema" {
          style: "solid", color: "#E95420", padding: 24]
   }
 }
-// Unit database schema (4.1 model DDL). The life, status, resolve mode, and pod status lookups,
-// the network node, and the password hash algorithm are described in the page text.
 
-
-diagram "Unit database schema" from "JujuSchema" {
+diagram "Unit database schema" from "Juju" {
   select {
     nodes: unit application charm unit_principal unit_agent_presence unit_agent_status unit_agent_version unit_resolved unit_state unit_state_charm unit_state_relation unit_workload_status unit_workload_version k8s_pod k8s_pod_port k8s_pod_status
            context: application charm
@@ -4579,8 +4494,7 @@ diagram "Unit database schema" from "JujuSchema" {
   }
 }
 
-
-diagram "External controller database schema" from "JujuSchema" {
+diagram "External controller database schema" from "Juju" {
   select {
     nodes: external_controller external_controller_address external_model
     edges: type data
@@ -4602,11 +4516,8 @@ diagram "External controller database schema" from "JujuSchema" {
          style: "solid", color: "#E95420", padding: 24]
   }
 }
-// Scaffolded by tools/build_page_schema.py from the 4.1 controller DDL; the cloud
-// and cloud region are context records trimmed to their keys.
 
-
-diagram "Model defaults database schema" from "JujuSchema" {
+diagram "Model defaults database schema" from "Juju" {
   select {
     nodes: cloud_defaults cloud cloud_region cloud_region_defaults
            context: cloud cloud_region
@@ -4632,9 +4543,6 @@ diagram "Model defaults database schema" from "JujuSchema" {
          style: "solid", color: "#E95420", padding: 24]
   }
 }
-// Scaffolded by tools/build_page_schema.py from the 4.1 controller DDL; the
-// controller node is a context record trimmed to its key.
-
 
 // Upgrade state changes, from the 4.1 code:
 //   domain/upgrade/state/state.go:220-268 (StartUpgrade: created -> started)
@@ -4642,41 +4550,11 @@ diagram "Model defaults database schema" from "JujuSchema" {
 //   domain/upgrade/state/state.go:285-300 (SetDBUpgradeFailed: started -> error)
 //   domain/upgrade/state/state.go:308-387 (SetControllerDone: db-completed ->
 //     steps-completed when every node is done)
-model "UpgradeStateChanges" {
-
-  nodes {
-    us_created     [label: "created"]
-    us_started     [label: "started"]
-    us_dbcompleted [label: "db-completed"]
-    us_stepsdone   [label: "steps-completed"]
-    us_error       [label: "error"]
-  }
-
-  behaviours {
-    behaviour "upgrade-state" {
-      us_created     -> us_started:     call "every node registered"
-      us_started     -> us_dbcompleted: call "schema patches applied"
-      us_started     -> us_error:       call "the database part fails"
-      us_dbcompleted -> us_stepsdone:   call "the last node finishes its steps"
-    }
-  }
-
-  edges {
-    us_created     -> us_started     [type: control]
-    us_started     -> us_dbcompleted [type: control]
-    us_started     -> us_error       [type: control]
-    us_dbcompleted -> us_stepsdone   [type: control]
-  }
-
-  style { extends: juju }
-
-}
-
-state "Upgrade state" from "UpgradeStateChanges" {
+state "Upgrade state" from "Juju" {
   select { behaviour: "upgrade-state" }
 }
 
-diagram "Controller upgrade database schema" from "JujuSchema" {
+diagram "Controller upgrade database schema" from "Juju" {
   select {
     nodes: upgrade_info upgrade_state_type upgrade_info_controller_node controller_node
            context: controller_node
@@ -4702,12 +4580,8 @@ diagram "Controller upgrade database schema" from "JujuSchema" {
          style: "solid", color: "#E95420", padding: 24]
   }
 }
-// Scaffolded by tools/build_page_schema.py from the 4.1 model DDL; the object
-// store metadata and the shared architecture lookup are context records
-// trimmed to their keys.
 
-
-diagram "Agent version database schema" from "JujuSchema" {
+diagram "Agent version database schema" from "Juju" {
   select {
     nodes: agent_version agent_stream agent_binary_store object_store_metadata architecture
            context: architecture object_store_metadata
@@ -4739,8 +4613,7 @@ diagram "Agent version database schema" from "JujuSchema" {
   }
 }
 
-
-diagram "Lease database schema" from "JujuSchema" {
+diagram "Lease database schema" from "Juju" {
   select {
     nodes: lease lease_type lease_pin
     edges: type data
@@ -4763,8 +4636,7 @@ diagram "Lease database schema" from "JujuSchema" {
   }
 }
 
-
-diagram "Image metadata database schema" from "JujuSchema" {
+diagram "Image metadata database schema" from "Juju" {
   select {
     nodes: cloud_image_metadata architecture
            context: architecture
@@ -4785,8 +4657,7 @@ diagram "Image metadata database schema" from "JujuSchema" {
   }
 }
 
-
-diagram "Model migration database schema" from "JujuSchema" {
+diagram "Model migration database schema" from "Juju" {
   select {
     nodes: model_migration_export model_migration_phase model_migration_export_phase model_migration_export_status model_migration_export_minion_sync model_migration_export_offer model_migration_export_target_auth external_controller
            context: external_controller
@@ -4824,14 +4695,8 @@ diagram "Model migration database schema" from "JujuSchema" {
          style: "solid", color: "#E95420", padding: 24]
   }
 }
-// Scaffolded by tools/build_page_schema.py from the 4.1 model and controller
-// DDL, then merged: the stored-object tables exist in the controller database
-// and in each model database, the backend tables only in the controller
-// database. The agent binary, the file resource, the task output, and the life
-// lookup belong to other pages and are drawn trimmed, as context records.
 
-
-diagram "Object store database schema" from "JujuSchema" {
+diagram "Object store database schema" from "Juju" {
   select {
     nodes: object_store_metadata object_store_metadata_path object_store_placement agent_binary_store resource_file_store operation_task_output object_store_backend object_store_backend_type object_store_backend_s3_config object_store_drain_info object_store_drain_phase_type life
            context: agent_binary_store life operation_task_output resource_file_store
@@ -4887,17 +4752,8 @@ diagram "Object store database schema" from "JujuSchema" {
          style: "solid", color: "#E95420", padding: 24]
   }
 }
-// Scaffolded by tools/build_page_schema.py from the 4.1 model DDL and trimmed
-// to the records that the page draws. The machine, unit, Kubernetes service,
-// and subnet are context records trimmed to the parts that point here; the
-// machine, unit, and subnet pages and the application page (for the
-// Kubernetes service) own them. The lookups (link_layer_device_type,
-// virtual_port_type, ip_address_type, ip_address_origin, ip_address_scope,
-// ip_address_config_type, network_address_scope) are left out of the figure
-// and listed in the page text.
 
-
-diagram "Link-layer device database schema" from "JujuSchema" {
+diagram "Link-layer device database schema" from "Juju" {
   select {
     nodes: machine unit k8s_service net_node fqdn_link fqdn hostname_link hostname link_layer_device parent dns_search_domain dns_server route ip_address provider_device_mark provider_address_mark subnet
            context: k8s_service machine subnet unit
@@ -4968,6 +4824,7 @@ diagram "Link-layer device database schema" from "JujuSchema" {
          style: "solid", color: "#E95420", padding: 24]
   }
 }// Scaffolded by tools/build_page_schema.py from the 4.1 model DDL, then
+
 // trimmed to the records the page draws: the key-only records (the
 // statuses and their value lookups, the plan attributes, and the machine
 // volume and machine filesystem links) are left out and described in the
@@ -4977,7 +4834,7 @@ diagram "Link-layer device database schema" from "JujuSchema" {
 // The view of the connected core: the five groups of the page read
 // left-to-right, the directives and pools, the instances, the mirrored
 // volume and filesystem chains, and the attachments to machines.
-diagram "Storage database schema" from "JujuSchema" {
+diagram "Storage database schema" from "Juju" {
   select {
     nodes: application application_storage_directive block_device charm_storage model_storage_pool net_node storage_attachment storage_filesystem storage_filesystem_attachment storage_instance storage_instance_filesystem storage_instance_volume storage_kind storage_pool storage_pool_attribute storage_unit_owner storage_volume storage_volume_attachment storage_volume_attachment_plan unit unit_storage_directive
            context: application block_device charm_storage net_node unit
