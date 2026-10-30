@@ -676,13 +676,20 @@ func (w *dbReplWorker) changeStream(ctx context.Context) {
 	err := w.currentDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		changelogRows = nil
 
+		// Select the latest row explicitly instead of relying on SQLite's
+		// bare-column MAX behaviour for the other displayed fields.
 		rows, err := tx.QueryContext(ctx, `
-SELECT MAX(c.id), t.edit_type, n.namespace, changed, created_at
-FROM change_log AS c
+WITH latest AS (
+    SELECT MAX(id) AS id
+    FROM change_log
+    WHERE id > ?
+    GROUP BY namespace_id, changed
+)
+SELECT c.id, t.edit_type, n.namespace, c.changed, c.created_at
+FROM latest
+JOIN change_log AS c ON c.id = latest.id
 JOIN change_log_edit_type AS t ON c.edit_type_id = t.id
 JOIN change_log_namespace AS n ON c.namespace_id = n.id
-WHERE c.id > ?
-GROUP BY c.namespace_id, c.changed
 ORDER BY c.id;
 `, 0)
 		if err != nil {
