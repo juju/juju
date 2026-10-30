@@ -66,6 +66,13 @@ The SSH host keys of the target are verified. The ` + "`--no-host-key-checks`" +
 can be used to disable these checks. Use of this option is not recommended as
 it opens up the possibility of a man-in-the-middle attack.
 
+Use ` + "`--print-keys`" + ` to print the controller SSH jump server and target virtual
+host key SHA256 fingerprints without opening an SSH session. The keys are
+retrieved through the authenticated Juju API and can be used to verify the trust prompts
+when using an alternative client like OpenSSH.
+The ` + "`--print-keys`" + ` option cannot be combined with ` + "`--direct`" + ` or
+` + "`--show-command`" + `.
+
 The default identity known to Juju and used by this command is ` + "`~/.ssh/id_ed25519`" + `.
 For models on a machine cloud, an appropriate SSH key must be added to the model first.
 
@@ -97,6 +104,10 @@ Connect to the leader mysql unit:
 Connect to a specific mysql unit:
 
     juju ssh mysql/0
+
+Print the controller and virtual host key fingerprints for a mysql unit:
+
+    juju ssh --print-keys mysql/0
 
 Connect to a jenkins unit as user jenkins:
 
@@ -206,6 +217,7 @@ type sshCommand struct {
 	pty         autoBoolValue
 	jump        bool
 	direct      bool
+	printKeys   bool
 
 	retryStrategy          retry.CallArgs
 	publicKeyRetryStrategy retry.CallArgs
@@ -217,6 +229,7 @@ func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.pty, "pty", "Enable pseudo-tty allocation")
 	c.sshJump.SetFlags(f)
 	f.BoolVar(&c.direct, "direct", false, "Connect directly to the target (for Juju 3 controllers)")
+	f.BoolVar(&c.printKeys, "print-keys", false, "Print SHA256 fingerprints of the controller and virtual host keys")
 }
 
 func (c *sshCommand) Info() *cmd.Info {
@@ -245,6 +258,12 @@ func (c *sshCommand) Init(args []string) (err error) {
 
 	if c.sshJump.showCommand && !c.jump {
 		return errors.New("--show-command cannot be used with --direct")
+	}
+	if c.printKeys && c.direct {
+		return errors.New("--print-keys cannot be used with --direct")
+	}
+	if c.printKeys && c.sshJump.showCommand {
+		return errors.New("--print-keys cannot be used with --show-command")
 	}
 	// The jump provider is transparent to the model type. The container flag is
 	// registered by the embedded sshContainer, so propagate its value to the
@@ -306,6 +325,10 @@ func (c *sshCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer c.provider.cleanupRun()
+
+	if c.printKeys {
+		return c.sshJump.printHostKeys(ctx, ctx.Stdout)
+	}
 
 	target, err := c.provider.resolveTarget(ctx, c.provider.getTarget())
 	if err != nil {
