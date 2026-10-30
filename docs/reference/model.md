@@ -197,15 +197,7 @@ The caller, the rules, and the errors are:
 See also: {ref}`Juju | Migrate a model <migrate-a-model>`, {ref}`Terraform Provider for Juju | Migrate a model <tfjuju:migrate-a-model>`
 ```
 
-```{ggarch}
-:file: ../juju.ggarch
-:slides: Model migration phase | Migration request | Migration quiesce and import | Migration validation | Migration success and reap
-:caption: A migration runs the same phases in the same order every time: the source and the target check the request, the agents quiesce, the target imports the model, the agents validate against the target, and the agents switch to the target before the source removes the model.
-:slide-captions: A migration starts in quiesce and moves through import, validation, success, log-transfer, and reap to done. A failure in quiesce, import, or validation moves it to abort and then to abort-done, with the model still on the source controller. A failure when reap removes the model from the source ends in reap-failed, and the model is already live on the target. No other change of phase is allowed. | The client asks the source controller for a migration. The source checks the caller's access and runs its prechecks, the target runs its prechecks, and the source answers with a migration ID. The rest runs without the client. | In `quiesce`, the model's agents stop their work and report that they are ready, and the prechecks run again. In `import`, the source sends the model, its charms, agent binaries, and resources to the target, which holds the model inactive. | In `validation`, the agents log in to the target and report. The target checks the model's machines against the cloud and prepares to activate the model. A failure up to here aborts the migration. | In `success`, the agents report and switch to the target, and the target takes over the cloud resources. The source then copies the logs and removes the model, keeping a redirect record.
-:alt: Five slides. The first is a state diagram of ten phases. A row of quiesce, import, validation, success, log-transfer, and reap, each leading to the next. Reap leads to done and to reap-failed. Quiesce, import, and validation each also lead to abort, which leads to abort-done. The other four are sequence diagrams. The first has the client, the source controller, and the target controller: the client requests the migration, the source runs its prechecks, the target runs its prechecks, and the source returns a migration ID. The second has the source, the model agents, and the target: the agents quiesce and report ready, the prechecks run again, and the source sends the model to the target. The third has the source, the agents, the target, and the cloud: the agents log in to the target and report, and the target checks the machines against the cloud and is prepared to activate the model. The fourth has the source, the agents, and the target: the agents report and switch to the target, the target takes over the cloud resources, the source copies the logs, and removes the model.
-```
-
-Migrating models moves a model from one {ref}`controller <controller>`, the source, to another, the target. The source controller drives the migration through a sequence of phases. The model's {ref}`agents <agent>` take part in several of them.
+Migrating models moves a model from one {ref}`controller <controller>`, the source, to another, the target, through the phases of a {ref}`model migration <model-migration>`. When the call returns, the migration has an ID and the rest runs without the client.
 
 The caller, the rules, and the errors are:
 
@@ -214,12 +206,6 @@ The caller, the rules, and the errors are:
   - The source and the target both run prechecks (checks that a model can be migrated, such as that every machine is alive) before the model is quiesced and again when the model is stable. A request can ask for the prechecks only.
   - Every user with access to the model must exist on the target, unless the request skips the user checks. When external users (those with an `@` in their name) have access, the two controllers must also use the same identity provider URL (the address of the service that authenticates external users).
   - The target must run Juju 4.1 or later, because an older controller cannot import a model in the format that the source sends.
-  - Each phase writes a status message, which the model's details report as the migration status.
-  - In `quiesce` and `validation`, an agent that reports failure, or that does not report within the `migration-agent-wait-time` controller configuration, aborts the migration.
-  - A migration cannot be aborted after `validation`. A failure in `quiesce`, `import`, or `validation` aborts it: the source removes the imported copy from the target and the migration ends in `abort-done`, with the model still on the source.
-  - The target holds an imported model inactive until the migration activates it. When the source removes the model, it keeps a redirect record with the target's addresses and the model's users, so that agents that were offline learn where the model went.
-  - The source copies the model's logs to the target in `log-transfer`, unless the controller forwards logs to [Loki](https://grafana.com/oss/loki/).
-  - A migration that fails to remove the model from the source ends in `reap-failed`. The model is already live on the target.
 - *Errors:* A precheck that fails when the migration is requested is returned as the call's error, with a prefix such as `source prechecks failed:`. A failure after that becomes the migration's status, `aborted, removing model from target controller: <reason>`, where the reason is one of the messages below. An error raised while the target imports the model has the prefix `model data transfer failed, failed to import model into target controller`, followed by a colon and the message. The messages are:
   - **`model is <life>`**, **`model is being imported as part of another migration`**, and **`model has revoked credentials`**: *Trigger:* The model is dying or dead, is itself being imported, or has a {ref}`credential <credential>` that was revoked. *Remediation:* Wait for the removal or import to finish, or set a valid credential.
   - **`cannot initiate migration as the users granted access to the model do not exist on the destination controller…`** and **`cannot initiate migration as external users have been granted access to the model and the two controllers have different identity provider configurations…`**: *Trigger:* A user of the model is missing on the target, or external users have access and the identity providers differ. Both messages list the users involved. *Remediation:* Add the users to the target, or remove them from the model.
@@ -237,6 +223,8 @@ The caller, the rules, and the errors are:
   - **`machine sanity check failed, <n> error(s) found`**: *Trigger:* After the transfer, the target's machines differ from what the cloud reports. *Remediation:* Reconcile the cloud and Juju, then retry.
   - **`<step>, timed out waiting for agents to report`** and **`<step>, some agents reported failure`**: *Trigger:* Agents did not report in time or reported an error. *Remediation:* Raise `migration-agent-wait-time`, or read the agents' logs.
   - **`removing exported model failed: <reason>`**: *Trigger:* The source copy could not be removed after the model went live on the target. *Remediation:* Use the model on the target controller, where it is already live; only the source's copy remains.
+
+The phases of a migration — what happens in each, who drives them, and the records the move leaves behind — are described on the {ref}`model migration <model-migration>` page.
 
 (model-destroying)=
 ### Destroying models
