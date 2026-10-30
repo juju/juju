@@ -39,7 +39,7 @@ The external controller database schema is the set of records that the controlle
 (external-controller-change-streams)=
 ## External controller change streams
 
-External controller change streams are the notifications that tell the workers of the controller that an external controller record has changed. The worker that keeps the records current holds the watcher: when the stream names a controller that the worker does not follow yet, the worker starts one follower for that controller; when the stream names a controller that it already follows, the worker stops that follower (see {ref}`refreshing external controller addresses <external-controller-refreshing>`). A worker that calls a remote relation reads the record of the controller that hosts the model it calls, at the moment it connects.
+External controller change streams are the changes to external controller records that the workers of the controller follow. The worker that keeps the records current holds the watcher: when the stream names a controller that the worker does not follow yet, the worker starts one follower for that controller; when the stream names a controller that it already follows, the worker stops that follower (see {ref}`refreshing external controller addresses <external-controller-refreshing>`). A worker that calls a remote relation reads the record of the controller that hosts the model it calls, at the moment it connects.
 
 (external-controller-calls)=
 ## External controller calls

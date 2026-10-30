@@ -66,7 +66,7 @@ By default, it will fetch the logs from the main container `charm` container. Wh
 (log-change-streams)=
 ## Log change streams
 
-Log change streams are the notifications that tell an agent that the model's logging configuration or the controller's log forwarding endpoint changed. An agent calls `WatchLoggingConfig` with its own tag; the watcher fires on any change to the model configuration. An agent calls `WatchControllerLokiConfig` (in version 2 of the `Logger` facade) with its own tag to hear that the log forwarding endpoint changed.
+Log change streams are the changes that an agent follows: the model's logging configuration or the controller's log forwarding endpoint. An agent calls `WatchLoggingConfig` with its own tag; the watcher fires on any change to the model configuration. An agent calls `WatchControllerLokiConfig` (in version 2 of the `Logger` facade) with its own tag to hear that the log forwarding endpoint changed.
 
 (log-calls)=
 ## Log calls

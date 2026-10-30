@@ -43,7 +43,7 @@ The offer database schema is the set of records that the offering model keeps ab
 (offer-change-streams)=
 ## Offer change streams
 
-Offer change streams are the notifications that tell a consuming model that the status of an offer has changed. A change stream is delivered through a {ref}`watcher <watcher>`. The consuming side calls `WatchOfferStatus` on the offering controller with the offer's UUID and the macaroon that the offering side issued. The answer holds the offer's current status (the status, its message, its data, and when it was set). The watcher then fires when the display status of the offered application changes, and when the offer is deleted.
+Offer change streams are the changes that a consuming model follows: the status of an offer. A change stream is delivered through a {ref}`watcher <watcher>`. The consuming side calls `WatchOfferStatus` on the offering controller with the offer's UUID and the macaroon that the offering side issued. The answer holds the offer's current status (the status, its message, its data, and when it was set). The watcher then fires when the display status of the offered application changes, and when the offer is deleted.
 
 The errors of the call are:
 

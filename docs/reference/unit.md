@@ -85,7 +85,7 @@ The records that other pages own refer to a unit: its {ref}`application <applica
 (unit-change-streams)=
 ## Unit change streams
 
-Unit change streams are the notifications that the {ref}`agent <agent>` of a unit follows, so that it can run the {ref}`hooks <hook>` of its charm at the right time. A change stream is delivered through a {ref}`watcher <watcher>`. The streams that belong to the unit itself are:
+Unit change streams are the changes that the {ref}`agent <agent>` of a unit follows, so that it can run the {ref}`hooks <hook>` of its charm at the right time. A change stream is delivered through a {ref}`watcher <watcher>`. The streams that belong to the unit itself are:
 
 - **Unit record:** `WatchUnit` reports a change of the unit's own record, of its principal, and of its resolved marker. The unit agent then reads the life of the unit again.
 - **Resolved marker:** `WatchUnitResolveMode` reports that a client set or cleared the resolved marker of the unit. The unit agent then reads the marker.

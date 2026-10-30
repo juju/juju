@@ -38,7 +38,7 @@ The telemetry database schema is the set of records that the {ref}`controller da
 (telemetry-change-streams)=
 ## Telemetry change streams
 
-Telemetry change streams are the notifications that tell the agents of a model that the tracing or the log forwarding configuration has changed. Each agent watches the configurations for its own tag: an agent calls `WatchControllerTracingConfig` to hear that the workload tracing configuration changed, and `WatchControllerLokiConfig` to hear that the log forwarding configuration changed. A {ref}`unit agent <unit-agent>` reads the charm tracing configuration when it builds the context of its unit, and passes it to the charm in the environment variables `JUJU_CHARM_TRACE_CONFIG_HTTP`, `JUJU_CHARM_TRACE_CONFIG_GRPC`, and `JUJU_CHARM_TRACE_CONFIG_CA_CERT`, so the charm needs no integration with the collector.
+Telemetry change streams are the changes to the tracing and the log forwarding configuration that the agents of a model follow. Each agent watches the configurations for its own tag: an agent calls `WatchControllerTracingConfig` to hear that the workload tracing configuration changed, and `WatchControllerLokiConfig` to hear that the log forwarding configuration changed. A {ref}`unit agent <unit-agent>` reads the charm tracing configuration when it builds the context of its unit, and passes it to the charm in the environment variables `JUJU_CHARM_TRACE_CONFIG_HTTP`, `JUJU_CHARM_TRACE_CONFIG_GRPC`, and `JUJU_CHARM_TRACE_CONFIG_CA_CERT`, so the charm needs no integration with the collector.
 
 (telemetry-calls)=
 ## Telemetry calls

@@ -40,7 +40,7 @@ The controller upgrade database schema is the set of records that the controller
 (controller-upgrade-change-streams)=
 ## Controller upgrade change streams
 
-Controller upgrade change streams are the notifications that tell the {ref}`agents <agent>` of the controller nodes that the upgrade records changed. A node's agent calls `WatchForUpgradeState` to hear that the upgrade reached a state, and `WatchForUpgradeReady` to hear that every node of the controller has registered for the upgrade, which is the moment the database part can start.
+Controller upgrade change streams are the changes that the {ref}`agents <agent>` of the controller nodes follow: the upgrade records. A node's agent calls `WatchForUpgradeState` to hear that the upgrade reached a state, and `WatchForUpgradeReady` to hear that every node of the controller has registered for the upgrade, which is the moment the database part can start.
 
 (controller-upgrade-calls)=
 ## Controller upgrade calls

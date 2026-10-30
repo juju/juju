@@ -51,7 +51,7 @@ The records, with the rules that apply to each, are:
 (cloud-change-streams)=
 ## Cloud change streams
 
-Cloud change streams are the notifications that tell the agent of a model on a Kubernetes cloud that the model's cloud spec has changed. The cloud spec is the cloud's definition and region together with the model's {ref}`credential <credential>`. The agent follows it through the `WatchCloudSpecsChanges` method of the {ref}`CAAS agent facade <agent-facades>` (a group of related API methods) and applies a change without restarting, when the cloud type supports that.
+Cloud change streams are the changes that the agent of a model on a Kubernetes cloud follows: the model's cloud spec. The cloud spec is the cloud's definition and region together with the model's {ref}`credential <credential>`. The agent follows it through the `WatchCloudSpecsChanges` method of the {ref}`CAAS agent facade <agent-facades>` (a group of related API methods) and applies a change without restarting, when the cloud type supports that.
 
 (cloud-calls)=
 ## Cloud calls

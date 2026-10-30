@@ -122,7 +122,7 @@ The names below are the names that the {ref}`engine report <agent-workers>` uses
 (controller-change-streams)=
 ## Controller change streams
 
-Controller change streams are the notifications that tell the controller's workers and the agents of every model that something about the controller has changed, so that nothing has to poll. A change stream is delivered through a {ref}`watcher <watcher>`. The controller's configuration, its set of nodes, and its API addresses each have one:
+Controller change streams are the changes that the controller's workers and the agents of every model follow, so that nothing has to poll. A change stream is delivered through a {ref}`watcher <watcher>`. The controller's configuration, its set of nodes, and its API addresses each have one:
 
 - **Controller configuration:** Workers follow the controller configuration. They react to the keys that concern them: `api-address-setter` follows `juju-mgmt-space`. The audit configuration and agent configuration workers follow their own keys.
 - **Controller nodes:** `api-address-setter` follows the set of controller nodes and publishes the API addresses again when a node joins, leaves, or changes address.

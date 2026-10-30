@@ -39,7 +39,7 @@ The agent version database schema is the set of records that the databases keep 
 (agent-version-change-streams)=
 ## Agent version change streams
 
-Agent version change streams are the notifications that tell the agents of a model that the target version has changed. A machine agent calls `WatchAPIVersion` for its machine; a {ref}`unit agent <unit-agent>` calls it for its unit. When the watcher fires, the agent asks for the binaries of the new target version and swaps its own binary for one of them.
+Agent version change streams are the changes that the agents of a model follow: the model's target agent version. A machine agent calls `WatchAPIVersion` for its machine; a {ref}`unit agent <unit-agent>` calls it for its unit. When the watcher fires, the agent asks for the binaries of the new target version and swaps its own binary for one of them.
 
 (agent-version-calls)=
 ## Agent version calls

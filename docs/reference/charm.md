@@ -159,7 +159,7 @@ Charms are also described by what they do for their workload and by how their au
 (charm-change-streams)=
 ## Charm change streams
 
-Charm change streams are the notifications that tell the {ref}`workers <model-agent>` of a model that an application needs a charm that the archive of an application's charm is not yet stored. A stream is delivered through a {ref}`watcher <watcher>`. The stream of applications with a pending charm carries the UUID of an application when a record of the application changes while the application's charm is not available and comes from Charmhub or from a local archive. Its first notification lists every application with a pending charm at that moment. Juju uses it to download charms (see {ref}`downloading pending charms <charm-downloading-pending>`).
+Charm change streams are the changes that the {ref}`workers <model-agent>` of a model follow: an application needs a charm whose archive is not yet stored. A stream is delivered through a {ref}`watcher <watcher>`. The stream of applications with a pending charm carries the UUID of an application when a record of the application changes while the application's charm is not available and comes from Charmhub or from a local archive. Its first notification lists every application with a pending charm at that moment. Juju uses it to download charms (see {ref}`downloading pending charms <charm-downloading-pending>`).
 
 (charm-calls)=
 ## Charm calls

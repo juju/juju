@@ -56,7 +56,7 @@ A change is a row in the table `change_log`. Its edit type and change namespace 
 (database-change-streams)=
 ## Database change streams
 
-Database change streams are the notifications that tell the workers of a controller that rows of a database have changed. A trigger on each watched table (a table whose changes the change log records) writes a change to the change log when a row is created, updated, or deleted. Each controller node reads the change log and merges the changes that have the same change namespace and row identifier into one. It then sends every subscriber the edit type, the change namespace, and the row identifier. A subscriber reads the database for the current data, because the notification does not contain it.
+Database change streams are the changes to the rows of a database that the workers of a controller follow. A trigger on each watched table (a table whose changes the change log records) writes a change to the change log when a row is created, updated, or deleted. Each controller node reads the change log and merges the changes that have the same change namespace and row identifier into one. It then sends every subscriber the edit type, the change namespace, and the row identifier. A subscriber reads the database for the current data, because the notification does not contain it.
 
 The change log is pruned. Each controller node records in its watermark how far it has read. About every five seconds, a worker that trims the change log deletes the changes up to the lowest `lower_bound` of all watermarks. When the watermarks lie outside the last ten minutes, it logs the warning `watermarks "<controller ID>" are outside of window, check logs to see if the change stream is keeping up`.
 

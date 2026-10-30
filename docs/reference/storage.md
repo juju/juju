@@ -122,7 +122,7 @@ An attachment puts a volume or a filesystem on the network node of a machine or 
 (storage-change-streams)=
 ## Storage change streams
 
-Storage change streams are the notifications that tell the agents of a model what happened to its storage, so that each agent acts when its part is due. A change stream is delivered through a {ref}`watcher <watcher>`. The streams carry:
+Storage change streams are the changes that the agents of a model follow in its storage, so that each agent acts when its part is due. A change stream is delivered through a {ref}`watcher <watcher>`. The streams carry:
 
 - **A unit's attachments:** A unit agent calls `WatchUnitStorageAttachments` to hear that a storage of its unit enters, changes, or leaves, and `WatchStorageAttachments` to hear that one attachment's details change. The agent runs the {ref}`storage-attached <hook-storage-attached>` hook for a newly attached storage. It runs the {ref}`storage-detaching <hook-storage-detaching>` hook for one that is being taken away.
 - **Block devices:** A machine agent calls `WatchBlockDevices` to hear that the disks of one of its machines changed, so that it can match them to the volumes it attaches.

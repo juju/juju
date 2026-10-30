@@ -67,7 +67,7 @@ The charm resource database schema is the set of records that the {ref}`model da
 (charm-resource-change-streams)=
 ## Charm resource change streams
 
-Charm resource change streams are the notifications that tell a unit agent that the resources of its application have changed. The stream carries one kind of change:
+Charm resource change streams are the changes that a unit agent follows: the resources of its application. The stream carries one kind of change:
 
 - **Application changes:** A unit agent calls `WatchApplication` to hear that its application changed, which includes a new charm URL and a higher charm modified version. Uploading a resource for an application raises its charm modified version (see {ref}`uploading resources <charm-resource-uploading>`). The unit agent then runs the {ref}`upgrade-charm <hook-upgrade-charm>` hook, which is the place for a charm to fetch its resources again.
 
