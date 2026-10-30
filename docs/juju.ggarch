@@ -3129,7 +3129,7 @@ sequence "Connecting to a machine: reverse tunnel" from "SSHConnect" {
 
 diagram "Model database schema" from "JujuSchema" {
   select {
-    nodes: model model_type cloud cloud_region cloud_credential model_migration_export model_migration_phase model_copy model_constraint model_life model_migrating
+    nodes: model model_type cloud cloud_region cloud_credential model_copy model_constraint model_life
            context: cloud cloud_credential cloud_region
     edges: type data
     except: model -> life
@@ -3147,33 +3147,24 @@ diagram "Model database schema" from "JujuSchema" {
     cloud_credential align-centre cloud
     model_type above model gap: 60
     model_type align-centre model
-    model_migration_export below model gap: 60
-    model_migration_export align-centre model
-    model_migration_phase right-of model_migration_export gap: 70
-    model_migration_phase align-middle model_migration_export
-    model_copy right-of model gap: 359
+    model_copy right-of model gap: 120
     model_copy align-middle model
     model_constraint above model_copy gap: 60
     model_constraint align-centre model_copy
     model_life below model_copy gap: 60
     model_life align-centre model_copy
-    model_migrating right-of model_copy gap: 70
-    model_migrating align-middle model_copy
     model_type same-size model
     cloud same-size model
     cloud_region same-size model
     cloud_credential same-size model
-    model_migration_export same-size model
-    model_migration_phase same-size model
     model_copy same-size model
     model_constraint same-size model
     model_life same-size model
-    model_migrating same-size model
   }
   annotations {
-    box [nodes: "cloud cloud_region cloud_credential model model_type model_migration_export model_migration_phase", label: "Controller database",
+    box [nodes: "cloud cloud_region cloud_credential model model_type", label: "Controller database",
          style: "solid", color: "#E95420", padding: 24]
-    box [nodes: "model_copy model_constraint model_life model_migrating", label: "Model database",
+    box [nodes: "model_copy model_constraint model_life", label: "Model database",
          style: "solid", color: "#E95420", padding: 24]
   }
 }
