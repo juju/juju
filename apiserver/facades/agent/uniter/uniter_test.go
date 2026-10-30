@@ -851,25 +851,30 @@ func (s *uniterSuite) TestCharmURL(c *tc.C) {
 		{Tag: "application-foo"},
 		{Tag: "application-bar"},
 	}}
-	locator := domaincharm.CharmLocator{
+	unitLocator := domaincharm.CharmLocator{
 		Source:       domaincharm.CharmHubSource,
 		Revision:     42,
 		Architecture: architecture.AMD64,
 	}
+	applicationLocator := domaincharm.CharmLocator{
+		Source:       domaincharm.CharmHubSource,
+		Revision:     43,
+		Architecture: architecture.AMD64,
+	}
 	// Arrange: expected unit calls
-	s.expectGetCharmLocatorByApplicationName(c, "mysql", locator, nil)
+	s.expectGetCharmLocatorByUnitName(c, "mysql/0", unitLocator, nil)
 
-	s.expectGetCharmLocatorByApplicationName(c, "wordpress", locator, nil)
+	s.expectGetCharmLocatorByUnitName(c, "wordpress/0", unitLocator, nil)
 
 	boom := internalerrors.New("boom")
-	s.expectGetCharmLocatorByApplicationName(c, "foo", locator, boom)
+	s.expectGetCharmLocatorByUnitName(c, "foo/42", unitLocator, boom)
 
 	// Arrange: expected application calls
 	s.expectShouldAllowCharmUpgradeOnError(c, "mysql", true, nil)
-	s.expectGetCharmLocatorByApplicationName(c, "mysql", locator, nil)
+	s.expectGetCharmLocatorByApplicationName(c, "mysql", applicationLocator, nil)
 
 	s.expectShouldAllowCharmUpgradeOnError(c, "wordpress", false, nil)
-	s.expectGetCharmLocatorByApplicationName(c, "wordpress", locator, nil)
+	s.expectGetCharmLocatorByApplicationName(c, "wordpress", applicationLocator, nil)
 
 	s.expectShouldAllowCharmUpgradeOnError(c, "foo", false, boom)
 	s.badTag = names.NewApplicationTag("bar")
@@ -884,8 +889,8 @@ func (s *uniterSuite) TestCharmURL(c *tc.C) {
 			{Result: "ch:amd64/-42", Ok: true},
 			{Result: "ch:amd64/-42", Ok: true},
 			{Error: apiservererrors.ServerError(boom)},
-			{Result: "ch:amd64/-42", Ok: true},
-			{Result: "ch:amd64/-42", Ok: false},
+			{Result: "ch:amd64/-43", Ok: true},
+			{Result: "ch:amd64/-43", Ok: false},
 			{Error: apiservererrors.ServerError(boom)},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
@@ -969,6 +974,10 @@ func (s *uniterSuite) TestSetCharmCharmNotFound(c *tc.C) {
 
 func (s *uniterSuite) expectGetCharmLocatorByApplicationName(c *tc.C, appName string, charmLocator domaincharm.CharmLocator, err error) {
 	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), appName).Return(charmLocator, err)
+}
+
+func (s *uniterSuite) expectGetCharmLocatorByUnitName(c *tc.C, unitName string, charmLocator domaincharm.CharmLocator, err error) {
+	s.applicationService.EXPECT().GetCharmLocatorByUnitName(gomock.Any(), coreunit.Name(unitName)).Return(charmLocator, err)
 }
 
 func (s *uniterSuite) expectShouldAllowCharmUpgradeOnError(c *tc.C, appName string, v bool, err error) {
