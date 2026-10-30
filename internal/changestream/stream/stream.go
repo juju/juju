@@ -469,13 +469,22 @@ const (
 	// transactions are inserted in that order.
 	// If the namespace is later deleted, you'll no longer locate that during
 	// a select.
+	// Only the latest change for each namespace and changed value is
+	// returned. The latest ids are selected explicitly and joined back to
+	// the change log by primary key, so that every column of an event comes
+	// from the same row. This does not rely on SQLite returning the bare
+	// columns of a MAX aggregate from the row holding the maximum.
 	selectQuery = `
-SELECT MAX(c.id), c.edit_type_id, n.namespace, changed, created_at
+WITH latest AS (
+	SELECT MAX(c.id) AS id
 	FROM change_log c
-		JOIN change_log_edit_type t ON c.edit_type_id = t.id
-		JOIN change_log_namespace n ON c.namespace_id = n.id
 	WHERE c.id > ?
 	GROUP BY c.namespace_id, c.changed
+)
+SELECT c.id, c.edit_type_id, n.namespace, c.changed, c.created_at
+	FROM latest l
+		JOIN change_log c ON c.id = l.id
+		JOIN change_log_namespace n ON c.namespace_id = n.id
 	ORDER BY c.id;
 `
 )
