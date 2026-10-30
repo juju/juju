@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
@@ -211,7 +212,7 @@ func (st *State) UnsetExposeSettings(ctx context.Context, appID coreapplication.
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if exposedEndpoints.IsEmpty() {
-			return st.unsetAllExposedEndpoints(ctx, tx, appID)
+			return st.deleteAllExposure(ctx, tx, appID)
 		}
 		return st.unsetExposedEndpoints(ctx, tx, appID, exposedEndpoints.Values()...)
 	})
@@ -252,22 +253,22 @@ func (st *State) MergeExposeSettings(ctx context.Context, appID coreapplication.
 	return errors.Capture(err)
 }
 
-func (st *State) unsetAllExposedEndpoints(ctx context.Context, tx *sqlair.TX, appID coreapplication.UUID) error {
+func (st *State) deleteAllExposure(ctx context.Context, tx *sqlair.TX, appID coreapplication.UUID) error {
 	applicationID := entityUUID{UUID: appID.String()}
 
-	queries := []string{
-		`DELETE FROM application_exposed_cidr WHERE application_uuid = $entityUUID.uuid`,
-		`DELETE FROM application_exposed_space WHERE application_uuid = $entityUUID.uuid`,
-		`DELETE FROM application_exposed_endpoint_cidr WHERE application_uuid = $entityUUID.uuid`,
-		`DELETE FROM application_exposed_endpoint_space WHERE application_uuid = $entityUUID.uuid`,
-	}
-	for _, query := range queries {
+	for _, table := range []string{
+		"application_exposed_cidr",
+		"application_exposed_space",
+		"application_exposed_endpoint_cidr",
+		"application_exposed_endpoint_space",
+	} {
+		query := fmt.Sprintf(`DELETE FROM %s WHERE application_uuid = $entityUUID.uuid`, table)
 		stmt, err := st.Prepare(query, applicationID)
 		if err != nil {
-			return errors.Errorf("preparing unset exposed query %q: %w", query, err)
+			return errors.Errorf("preparing exposure deletion from %s: %w", table, err)
 		}
 		if err := tx.Query(ctx, stmt, applicationID).Run(); err != nil {
-			return errors.Errorf("running unset exposed query %q: %w", query, err)
+			return errors.Errorf("deleting exposure from %s: %w", table, err)
 		}
 	}
 

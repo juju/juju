@@ -722,7 +722,7 @@ BEGIN SELECT RAISE(ABORT, 'exposure deletion failed'); END`, table))
 
 		err = s.state.UnsetExposeSettings(c.Context(), appID, set.NewStrings())
 		c.Check(err, tc.ErrorMatches, fmt.Sprintf(
-			`.*running unset exposed query "DELETE FROM %s WHERE .*exposure deletion failed.*`, table))
+			`.*deleting exposure from %s: .*exposure deletion failed.*`, table))
 		got, err := s.state.GetExposedEndpoints(c.Context(), appID)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(got, tc.DeepEquals, exposed)

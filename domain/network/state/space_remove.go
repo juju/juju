@@ -180,14 +180,17 @@ WHERE space = $space.name`, spaceToDelete)
 func (st *State) resetExposedSpaceReferences(ctx context.Context, tx *sqlair.TX, spaceToDelete space) error {
 	alphaUUID := entityUUID{UUID: network.AlphaSpaceId.String()}
 
-	dedupeQueries := []string{`
+	dedupeQueries := []struct {
+		table string
+		query string
+	}{{"application_exposed_space", `
 DELETE FROM application_exposed_space
 WHERE space_uuid = $space.uuid
 AND EXISTS (
     SELECT 1 FROM application_exposed_space AS a
     WHERE a.application_uuid = application_exposed_space.application_uuid
     AND a.space_uuid = $entityUUID.uuid
-)`, `
+)`}, {"application_exposed_endpoint_space", `
 DELETE FROM application_exposed_endpoint_space
 WHERE space_uuid = $space.uuid
 AND EXISTS (
@@ -195,20 +198,20 @@ AND EXISTS (
     WHERE a.application_uuid = application_exposed_endpoint_space.application_uuid
     AND a.application_endpoint_uuid = application_exposed_endpoint_space.application_endpoint_uuid
     AND a.space_uuid = $entityUUID.uuid
-)`}
+)`}}
 	for _, query := range dedupeQueries {
-		stmt, err := st.Prepare(query, spaceToDelete, alphaUUID)
+		stmt, err := st.Prepare(query.query, spaceToDelete, alphaUUID)
 		if err != nil {
-			return errors.Capture(err)
+			return errors.Errorf("preparing duplicate exposure deletion from %s: %w", query.table, err)
 		}
 		if err := tx.Query(ctx, stmt, spaceToDelete, alphaUUID).Run(); err != nil {
-			return errors.Capture(err)
+			return errors.Errorf("deleting duplicate exposure from %s: %w", query.table, err)
 		}
 	}
 
-	for _, table := range []string{"application_exposed_space", "application_exposed_endpoint_space"} {
-		if err := st.resetSpaceReference(ctx, tx, table, spaceToDelete); err != nil {
-			return errors.Capture(err)
+	for _, query := range dedupeQueries {
+		if err := st.resetSpaceReference(ctx, tx, query.table, spaceToDelete); err != nil {
+			return errors.Errorf("resetting exposure references in %s: %w", query.table, err)
 		}
 	}
 	return nil

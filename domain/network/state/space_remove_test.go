@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/canonical/sqlair"
@@ -242,6 +243,59 @@ func (s *spaceDeleteSuite) TestDeleteSpaceResetExposedSpacesAlreadyExposedToAlph
 		tc.SameContents, []string{alphaUUID})
 	c.Check(s.selectDistinctValues(c, "space_uuid", "application_exposed_endpoint_space"),
 		tc.SameContents, []string{alphaUUID})
+}
+
+// TestDeleteSpaceExposureFailureIdentifiesTable verifies that failures in
+// either exposure scope identify the table and roll back deduplication and
+// earlier changes to application bindings.
+func (s *spaceDeleteSuite) TestDeleteSpaceExposureFailureIdentifiesTable(c *tc.C) {
+	toDeleteUUID := s.addSpaceWithName(c, "toDelete")
+	alphaUUID := network.AlphaSpaceId.String()
+	charmUUID := s.addCharm(c)
+	charmRelationUUID := s.addCharmRelation(c, corecharm.ID(charmUUID),
+		charm.Relation{Name: "ep1", Role: charm.RoleProvider, Scope: charm.ScopeGlobal})
+
+	for _, alreadyExposedToAlpha := range []bool{true, false} {
+		appUUID := s.addApplication(c, charmUUID, toDeleteUUID)
+		epUUID := s.addApplicationEndpoint(c, application.UUID(appUUID), charmRelationUUID, "")
+		s.addApplicationExposedSpace(c, appUUID, toDeleteUUID)
+		s.addApplicationExposedEndpoint(c, appUUID, epUUID, toDeleteUUID)
+		if alreadyExposedToAlpha {
+			s.addApplicationExposedSpace(c, appUUID, alphaUUID)
+			s.addApplicationExposedEndpoint(c, appUUID, epUUID, alphaUUID)
+		}
+	}
+
+	for _, table := range []string{"application_exposed_space", "application_exposed_endpoint_space"} {
+		for _, operation := range []struct {
+			sql     string
+			message string
+		}{
+			{"DELETE", "deleting duplicate exposure from"},
+			{"UPDATE", "resetting exposure references in"},
+		} {
+			s.query(c, fmt.Sprintf(`
+CREATE TRIGGER fail_exposure_change BEFORE %s ON %s
+BEGIN SELECT RAISE(ABORT, 'exposure change failed'); END`, operation.sql, table))
+
+			err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
+				return s.state.deleteSpace(ctx, tx, "toDelete")
+			})
+			c.Check(err, tc.ErrorMatches, fmt.Sprintf(
+				`.*%s %s: .*exposure change failed.*`, operation.message, table))
+			c.Check(s.selectDistinctValues(c, "space_uuid", "application"),
+				tc.SameContents, []string{toDeleteUUID})
+			for _, exposedTable := range []string{"application_exposed_space", "application_exposed_endpoint_space"} {
+				s.checkRowCount(c, exposedTable, 3)
+				c.Check(s.selectDistinctValues(c, "space_uuid", exposedTable),
+					tc.SameContents, []string{alphaUUID, toDeleteUUID})
+			}
+			c.Check(s.selectDistinctValues(c, "name", "space"),
+				tc.SameContents, []string{network.AlphaSpaceName.String(), "toDelete"})
+
+			s.query(c, `DROP TRIGGER fail_exposure_change`)
+		}
+	}
 }
 
 // TestDeleteSpaceMoveSubnets tests that subnets associated with a deleted space

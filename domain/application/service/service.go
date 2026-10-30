@@ -766,8 +766,10 @@ func (s *WatchableService) WatchApplicationExposed(ctx context.Context, name str
 			eventsource.EqualsPredicate(uuid.String()),
 		))
 	}
+	// Guard against alternative ApplicationState implementations returning no
+	// namespaces, rather than panicking when selecting the required filter.
 	if len(filters) == 0 {
-		return nil, errors.Errorf("no namespaces to watch for application %q exposed changes", name)
+		return nil, errors.Errorf("no namespaces configured for watching exposure changes for application %q", name)
 	}
 	return s.watcherFactory.NewNotifyWatcher(
 		ctx,

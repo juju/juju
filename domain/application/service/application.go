@@ -374,6 +374,7 @@ type ApplicationState interface {
 	// NamespaceForWatchApplicationExposed returns the namespace identifiers
 	// for application exposed changes. These are the tables holding exposure
 	// on all endpoints and on specific endpoints, to both spaces and CIDRs.
+	// Implementations must return at least one namespace.
 	NamespaceForWatchApplicationExposed() []string
 
 	// NamespaceForWatchUnitForLegacyUniter returns the namespace identifiers
