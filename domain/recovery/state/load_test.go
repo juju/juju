@@ -87,6 +87,12 @@ VALUES ('machine1', '0', 'node1', 0, NULL),
 	execSQL(c, s.DB(), `INSERT INTO machine_status (machine_uuid, status_id, data, updated_at)
 VALUES ('machine1', 0, NULL, NULL), ('machine2', 1, ?, NULL), ('machine3', 2, ?, ?)`,
 		[]byte{}, []byte{0, 128, 255}, updated)
+	// Integer status IDs and nullable metadata must survive recovery, not
+	// merely the migration importer.
+	execSQL(c, s.DB(), `INSERT INTO relation (uuid, relation_id, life_id, scope_id)
+VALUES ('joining', 0, 0, 0), ('joined', 1, 0, 0)`)
+	execSQL(c, s.DB(), `INSERT INTO relation_status (relation_uuid, relation_status_type_id, message, updated_at)
+VALUES ('joining', 0, NULL, NULL), ('joined', 1, 'joined', ?)`, updated)
 	execSQL(c, s.DB(), `INSERT INTO removal (uuid, removal_type_id, entity_uuid, force, scheduled_for)
 VALUES ('removal1', 0, 'entity1', FALSE, ?), ('removal2', 0, 'entity2', TRUE, ?)`, updated, updated)
 	exporter := exportmodel.NewState(s.TxnRunnerFactory())
@@ -97,6 +103,7 @@ VALUES ('removal1', 0, 'entity1', FALSE, ?), ('removal2', 0, 'entity2', TRUE, ?)
 	dump, err := service.DecodeModelDump(data)
 	c.Assert(err, tc.ErrorIsNil)
 	execSQL(c, s.DB(), `DELETE FROM sequence`)
+	execSQL(c, s.DB(), `DELETE FROM relation_status`)
 	execSQL(c, s.DB(), `DELETE FROM removal`)
 	// No placement exists on a fresh model database. The caller supplies its
 	// target explicitly, without needing a pre-existing blob to infer it.
@@ -113,6 +120,11 @@ VALUES ('removal1', 0, 'entity1', FALSE, ?), ('removal2', 0, 'entity2', TRUE, ?)
 	c.Check(after.ObjectStoreMetadata, tc.DeepEquals, before.ObjectStoreMetadata)
 	c.Check(after.Machine, tc.SameContents, before.Machine)
 	c.Check(after.MachineStatus, tc.SameContents, before.MachineStatus)
+	c.Check(after.RelationStatus, tc.SameContents, before.RelationStatus)
+	c.Check(after.RelationStatusType, tc.SameContents, before.RelationStatusType)
+	checkString(c, s.DB(),
+		`SELECT group_concat(DISTINCT typeof(relation_status_type_id)) FROM relation_status`, "integer")
+	checkString(c, s.DB(), `SELECT group_concat(DISTINCT typeof(id)) FROM relation_status_type`, "integer")
 	c.Assert(before.Removal, tc.HasLen, 2)
 	c.Check(after.Removal, tc.SameContents, before.Removal)
 	checkString(c, s.DB(), `SELECT group_concat(uuid || '=' || CAST(force AS TEXT)) FROM (SELECT uuid, force FROM removal ORDER BY uuid)`, "removal1=0,removal2=1")

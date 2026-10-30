@@ -597,7 +597,7 @@ INSERT INTO charm_config_type VALUES
 CREATE TABLE charm_config (
     charm_uuid TEXT NOT NULL,
     "key" TEXT NOT NULL,
-    type_id TEXT,
+    type_id INT,
     default_value TEXT,
     description TEXT,
     CONSTRAINT fk_charm_config_charm
