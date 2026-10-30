@@ -264,10 +264,10 @@ func (st *State) unsetAllExposedEndpoints(ctx context.Context, tx *sqlair.TX, ap
 	for _, query := range queries {
 		stmt, err := st.Prepare(query, applicationID)
 		if err != nil {
-			return errors.Errorf("preparing unset exposed query: %w", err)
+			return errors.Errorf("preparing unset exposed query %q: %w", query, err)
 		}
 		if err := tx.Query(ctx, stmt, applicationID).Run(); err != nil {
-			return errors.Errorf("unsetting all exposed endpoints of application %q: %w", appID, err)
+			return errors.Errorf("running unset exposed query %q: %w", query, err)
 		}
 	}
 

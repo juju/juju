@@ -689,6 +689,52 @@ func (s *exposedStateSuite) setUpEndpointWithSuffix(c *tc.C, appID coreapplicati
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// TestUnsetExposeSettingsFailureIdentifiesQuery verifies that each deletion
+// failure names its table and rolls back deletions from preceding tables.
+func (s *exposedStateSuite) TestUnsetExposeSettingsFailureIdentifiesQuery(c *tc.C) {
+	appID := s.createIAASApplication(c, "foo", life.Alive)
+	s.setUpEndpoint(c, appID)
+	exposed := map[string]application.ExposedEndpoint{
+		"": {
+			ExposeToSpaceIDs: set.NewStrings("space0-uuid"),
+			ExposeToCIDRs:    set.NewStrings("192.168.0.0/24"),
+		},
+		"endpoint0": {
+			ExposeToSpaceIDs: set.NewStrings("space0-uuid"),
+			ExposeToCIDRs:    set.NewStrings("10.0.0.0/24"),
+		},
+	}
+	c.Assert(s.state.MergeExposeSettings(c.Context(), appID, exposed), tc.ErrorIsNil)
+
+	for _, table := range []string{
+		"application_exposed_cidr",
+		"application_exposed_space",
+		"application_exposed_endpoint_cidr",
+		"application_exposed_endpoint_space",
+	} {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, fmt.Sprintf(`
+CREATE TRIGGER fail_exposure_delete BEFORE DELETE ON %s
+BEGIN SELECT RAISE(ABORT, 'exposure deletion failed'); END`, table))
+			return err
+		})
+		c.Assert(err, tc.ErrorIsNil)
+
+		err = s.state.UnsetExposeSettings(c.Context(), appID, set.NewStrings())
+		c.Check(err, tc.ErrorMatches, fmt.Sprintf(
+			`.*running unset exposed query "DELETE FROM %s WHERE .*exposure deletion failed.*`, table))
+		got, err := s.state.GetExposedEndpoints(c.Context(), appID)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(got, tc.DeepEquals, exposed)
+
+		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, `DROP TRIGGER fail_exposure_delete`)
+			return err
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}
+}
+
 func (s *exposedStateSuite) createExposedEndpointSpace(c *tc.C, appID coreapplication.UUID) {
 	s.createExposedEndpointSpaceWithSuffix(c, appID, "0")
 }
