@@ -27,7 +27,7 @@ func NextValue(ctx context.Context, preparer domain.Preparer, tx *sqlair.TX, nam
 	}
 	updateStmt, err := preparer.Prepare(`
 INSERT INTO sequence (namespace, value) VALUES ($sequence.namespace, 0)
-ON CONFLICT DO UPDATE SET value = value + 1
+ON CONFLICT (namespace) DO UPDATE SET value = sequence.value + 1
 `, seq)
 	if err != nil {
 		return 0, errors.Capture(err)
@@ -93,7 +93,7 @@ func NextNValues(
 
 	updateStmt, err := preparer.Prepare(`
 INSERT INTO sequence (*) VALUES ($sequence.*)
-ON CONFLICT DO UPDATE SET value = value + $count.n
+ON CONFLICT (namespace) DO UPDATE SET value = sequence.value + $count.n
 `, sequence{}, count{})
 	if err != nil {
 		return nil, errors.Capture(err)
