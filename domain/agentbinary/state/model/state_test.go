@@ -141,6 +141,62 @@ func (s *modelStateSuite) TestAddErrorObjectStoreUUIDNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, agentbinaryerrors.ObjectNotFound)
 }
 
+func (s *modelStateSuite) TestAddConflictTransactionUsable(c *tc.C) {
+	archID := s.addArchitecture(c, "amd64")
+	original, _ := addObjectStore(c, s.TxnRunner())
+	different, _ := addObjectStore(c, s.TxnRunner())
+	arg := agentbinary.RegisterAgentBinaryArg{
+		Version: "4.0.0", Arch: "amd64", ObjectStoreUUID: original,
+	}
+	c.Assert(s.state.RegisterAgentBinary(c.Context(), arg), tc.ErrorIsNil)
+
+	probe, err := sqlair.Prepare(`
+INSERT INTO agent_binary_store (*)
+VALUES ($agentBinaryRecord.*)
+`, agentBinaryRecord{})
+	c.Assert(err, tc.ErrorIsNil)
+	runner := &conflictCheckingRunner{
+		TxnRunner: s.TxnRunner(),
+		check: func(ctx context.Context, tx *sqlair.TX) {
+			err := tx.Query(ctx, probe, agentBinaryRecord{
+				Version: "4.0.1", ArchitectureID: archID, ObjectStoreUUID: original.String(),
+			}).Run()
+			c.Assert(err, tc.ErrorIsNil)
+		},
+	}
+	state := NewModelState(func(context.Context) (database.TxnRunner, error) {
+		return runner, nil
+	})
+	for _, test := range []struct {
+		object objectstore.UUID
+		err    error
+	}{
+		{original, agentbinaryerrors.AlreadyExists},
+		{different, agentbinaryerrors.AgentBinaryImmutable},
+	} {
+		arg.ObjectStoreUUID = test.object
+		c.Check(state.RegisterAgentBinary(c.Context(), arg), tc.ErrorIs, test.err)
+		c.Check(s.getAgentBinaryRecord(c, "4.0.0", archID).ObjectStoreUUID, tc.Equals, original.String())
+	}
+	arg.Version = "4.0.1"
+	c.Assert(s.state.RegisterAgentBinary(c.Context(), arg), tc.ErrorIsNil)
+	c.Check(s.getAgentBinaryRecord(c, "4.0.1", archID).ObjectStoreUUID, tc.Equals, different.String())
+}
+
+// conflictCheckingRunner probes the same transaction before its rollback.
+type conflictCheckingRunner struct {
+	database.TxnRunner
+	check func(context.Context, *sqlair.TX)
+}
+
+func (r *conflictCheckingRunner) Txn(ctx context.Context, fn func(context.Context, *sqlair.TX) error) error {
+	return r.TxnRunner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := fn(ctx, tx)
+		r.check(ctx, tx)
+		return err
+	})
+}
+
 func (s *modelStateSuite) addArchitecture(c *tc.C, name string) int {
 	runner := s.TxnRunner()
 
