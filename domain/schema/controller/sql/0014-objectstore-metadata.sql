@@ -90,7 +90,7 @@ CREATE TABLE object_store_backend_s3_config (
 );
 
 CREATE TABLE object_store_drain_phase_type (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     type TEXT
 );
 

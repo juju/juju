@@ -1,5 +1,5 @@
 CREATE TABLE change_log_edit_type (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     edit_type TEXT
 );
 
@@ -14,7 +14,7 @@ INSERT INTO change_log_edit_type VALUES
 (4, 'delete');
 
 CREATE TABLE change_log_namespace (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     namespace TEXT,
     description TEXT
 );

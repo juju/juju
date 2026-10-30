@@ -1,5 +1,5 @@
 CREATE TABLE upgrade_state_type (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     type TEXT
 );
 

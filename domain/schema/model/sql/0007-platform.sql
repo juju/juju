@@ -1,5 +1,5 @@
 CREATE TABLE os (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL
 );
 
@@ -10,7 +10,7 @@ INSERT INTO os VALUES
 (0, 'ubuntu');
 
 CREATE TABLE architecture (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL
 );
 

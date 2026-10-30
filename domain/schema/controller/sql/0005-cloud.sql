@@ -3,7 +3,7 @@
 -- changes to this table during a major/minor release. Changes to the cloud
 -- table will cause undefined behaviour in the provider tracker.
 CREATE TABLE cloud_type (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     type TEXT NOT NULL
 );
 
@@ -26,7 +26,7 @@ INSERT INTO cloud_type VALUES
 (9, 'vsphere');
 
 CREATE TABLE auth_type (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     type TEXT
 );
 

@@ -1,5 +1,5 @@
 CREATE TABLE block_command_type (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name_type TEXT NOT NULL
 );
 

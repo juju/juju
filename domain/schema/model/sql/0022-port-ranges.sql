@@ -1,5 +1,5 @@
 CREATE TABLE protocol (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     protocol TEXT NOT NULL
 );
 

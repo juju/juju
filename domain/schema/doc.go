@@ -42,6 +42,11 @@
 // cross-minor migration path does not justify rewriting an applied schema file
 // within a released major.minor series.
 //
+// Lookup IDs use INT PRIMARY KEY NOT NULL. In SQLite, INT PRIMARY KEY does
+// not alias the rowid and does not imply NOT NULL. INTEGER PRIMARY KEY does
+// alias the rowid and allocates an ID when NULL is inserted; retain that type
+// only for keys that rely on this allocation, rather than fixed lookup IDs.
+//
 // There are parts of the schema that should never be updated in a patch/build
 // release. The provider tracker requires that the underlying schema is never
 // changed. Changing the schema will lead to undefined behavior and data loss.
