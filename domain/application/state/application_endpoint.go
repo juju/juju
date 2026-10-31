@@ -1039,7 +1039,7 @@ WITH ep_names AS (
 SELECT &charmRelationUUID.*
 FROM charm_relation
 WHERE charm_uuid = $applicationAndCharmUUID.charm_uuid
-AND name NOT IN ep_names
+AND name NOT IN (SELECT ep.name FROM ep_names AS ep)
 	`, charmRelationUUID{}, applicationAndCharmUUID{})
 	if err != nil {
 		return errors.Capture(err)
