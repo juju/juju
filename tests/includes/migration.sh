@@ -49,6 +49,8 @@ bootstrap_controller_36() {
 	START_TIME=$(date +%s)
 	echo "====> Bootstrapping juju 3.6 controller ${name} (${cloud_region})"
 	file="${TEST_DIR}/${name}-bootstrap36.log"
+	# A failed bootstrap can still leave a controller and cloud instances.
+	echo "${name}" >>"${TEST_DIR}/mig36-controllers"
 
 	local bootstrap_args=()
 	if [[ -n ${BOOTSTRAP_ARCH:-} ]]; then
@@ -68,7 +70,6 @@ bootstrap_controller_36() {
 		cat "${file}"
 		exit 1
 	fi
-	echo "${name}" >>"${TEST_DIR}/mig36-controllers"
 
 	# Keep the migration logging explicit: --model-default only guarantees
 	# defaults for hosted models.
@@ -318,12 +319,12 @@ destroy_controller_36() {
 		return
 	fi
 
-	local name output chk
+	local name output
 
 	name=${1}
 
 	# shellcheck disable=SC2086
-	OUT=$(${JUJU_36} controllers --format=json 2>/dev/null | yq 'select(.controllers) | .controllers | keys | .[]' | grep "^${name}$" || true)
+	OUT=$(${JUJU_36} controllers --format=json 2>/dev/null | yq 'select(.controllers) | .controllers | keys | .[]' | grep -Fx "${name}" || true)
 	# shellcheck disable=SC2181
 	if [[ -z ${OUT} ]]; then
 		return
@@ -338,16 +339,23 @@ destroy_controller_36() {
 
 	output="${TEST_DIR}/${name}-destroy36.log"
 	echo "====> Destroying juju 3.6 controller ($(green "${name}"))"
-	timeout "${DESTROY_TIMEOUT}" "${JUJU_36}" destroy-controller \
-		--destroy-all-models --destroy-storage --no-prompt "${name}" >"${output}" 2>&1 || true
-
-	chk=$(cat "${output}" | grep -i "ERROR" || true)
-	if [[ -n ${chk} ]]; then
-		printf '\nFound some issues destroying juju 3.6 controller\n'
+	if ! timeout "${DESTROY_TIMEOUT}" "${JUJU_36}" destroy-controller \
+		--destroy-all-models --destroy-storage --no-prompt "${name}" >"${output}" 2>&1; then
+		echo "====> Destroy failed for ${name}; trying --force"
 		cat "${output}"
+		if ! timeout "${DESTROY_TIMEOUT}" "${JUJU_36}" destroy-controller \
+			--destroy-all-models --destroy-storage --force --no-prompt "${name}" >>"${output}" 2>&1; then
+			echo "====> Forced destroy failed for ${name}; trying kill-controller"
+			if ! timeout "${DESTROY_TIMEOUT}" "${JUJU_36}" kill-controller -t 0 \
+				--no-prompt "${name}" >>"${output}" 2>&1; then
+				cat "${output}"
+				return 1
+			fi
+		fi
 	fi
 
-	sed -i "/^${name}$/d" "${TEST_DIR}/mig36-controllers" 2>/dev/null || true
+	grep -Fvx "${name}" "${TEST_DIR}/mig36-controllers" >"${TEST_DIR}/mig36-controllers.remaining" || true
+	mv "${TEST_DIR}/mig36-controllers.remaining" "${TEST_DIR}/mig36-controllers"
 	echo "====> Destroyed juju 3.6 controller ($(green "${name}"))"
 }
 
@@ -377,15 +385,26 @@ remove_controller_offers_36() {
 # tracked, with the 3.6 client. Registered as a clean-up function by every
 # migration scenario.
 cleanup_mig_controllers_36() {
+	if [[ -n ${SKIP_DESTROY} ]]; then
+		echo "====> Keeping juju 3.6 controllers (SKIP_DESTROY set)"
+		return
+	fi
+	local failed=0 name
 	if [[ -f "${TEST_DIR}/mig36-controllers" ]]; then
 		echo "====> Cleaning up juju 3.6 controllers"
 		while read -r name; do
 			[[ -z ${name} ]] && continue
-			destroy_controller_36 "${name}"
-		done <"${TEST_DIR}/mig36-controllers"
-		rm -f "${TEST_DIR}/mig36-controllers" || true
+			if ! destroy_controller_36 "${name}"; then
+				echo "====> Failed to clean up juju 3.6 controller ${name}" >&2
+				failed=1
+			fi
+		done < <(sort -u "${TEST_DIR}/mig36-controllers")
+		if [[ ${failed} -eq 0 ]]; then
+			rm -f "${TEST_DIR}/mig36-controllers"
+		fi
 	fi
 	echo "====> Completed cleaning up juju 3.6 controllers"
+	return "${failed}"
 }
 
 # mig_writes_get returns the continuous-writes counter of the

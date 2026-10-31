@@ -106,7 +106,6 @@ To do so, just specify a controller name and pass it though.
 ./main.sh -l <local-controller-name> deploy
 ```
 
-Note: because you're using a local controller, you don't get the same guarantees
-of setup and cleanup that you can with letting the test suite do that for you.
-So if you expect everything to be cleaned up and leave no trace, then don't use
-this method of bootstrapping.
+The suite removes models it creates on the local controller when the job
+finishes, including after a test failure. The local controller itself is kept.
+Set `SKIP_DESTROY` to keep test-created models and controllers for inspection.
