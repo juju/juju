@@ -11,7 +11,8 @@ check_storage_account_type_controller() {
 		cloud_region="${cloud}"
 	fi
 
-	bs_cmd=(juju bootstrap "${cloud_region}" "${controller_name}" --show-log)
+	bs_cmd=(juju bootstrap "${cloud_region}" "${controller_name}" --show-log
+		--bootstrap-constraints="${PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS}")
 	if [[ -n ${constraints} ]]; then
 		# Split raw flag into string and append each element to bs_cmd.
 		read -r -a constraint_args <<<"$constraints"
