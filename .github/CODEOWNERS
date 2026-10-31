@@ -1,31 +1,11 @@
-# By default the following will be the code owners for everything in the repo,
-# unless a later match takes precedence.
-*                                             @manadart @SimonRichardson
-
-# Application (and charm) domain packages
-/core/charm/**                                @SimonRichardson @nvinuesa
-/internal/charm/**                            @SimonRichardson @nvinuesa
-/domain/application/**                        @SimonRichardson @nvinuesa
-/internal/worker/asynccharmdownloader/**      @SimonRichardson
-
-# Network domain packages
-/domain/network/**                            @manadart @nvinuesa
-
-# External controller domain packages
-/domain/externalcontroller/**                 @manadart @nvinuesa
-
-# Resource domain packages
-/core/resource/**                             @manadart @gfouillet
-/domain/resource/**                           @manadart @gfouillet
-/internal/resource/**                         @manadart @gfouillet
-
-# Relation domain packages
-/core/relation/**                             @manadart @gfouillet
-/domain/relation/**                           @manadart @gfouillet
-
-# Removal
-/internal/worker/removal/**                   @manadart
-/domain/removal/**                            @manadart
-
-# Docs
-/docs                                         @tmihoc
+/internal/worker/dbaccessor/**                @SimonRichardson @manadart
+/internal/worker/changestream/**              @SimonRichardson @manadart
+/internal/changestream/**                     @SimonRichardson @manadart
+/internal/database/**                         @SimonRichardson @manadart
+/internal/worker/lease/**                     @SimonRichardson @manadart
+/internal/worker/leadership/**                @SimonRichardson @manadart
+/internal/lease/**                            @SimonRichardson @manadart
+/internal/worker/removal/**                   @SimonRichardson @manadart
+/internal/worker/objectstore/**               @SimonRichardson @manadart
+/internal/objectstore/**                      @SimonRichardson @manadart
+/domain/objectstore/**                        @SimonRichardson @manadart
