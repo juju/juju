@@ -210,15 +210,51 @@ juju_add_model() {
 	output=${4}
 
 	OUT=$(juju controllers --format=json | yq '.controllers | .["${bootstrapped_name}"] | .cloud' | grep "${cloud}" || true)
+	echo "${controller}:${model}" >>"${TEST_DIR}/models"
 	if [[ -n ${OUT} ]]; then
 		juju add-model --show-log -c "${controller}" "${model}" 2>&1 | OUTPUT "${output}"
+		if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
+			return 1
+		fi
 	else
 		juju add-model --show-log -c "${controller}" "${model}" "${cloud}" 2>&1 | OUTPUT "${output}"
+		if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
+			return 1
+		fi
 	fi
 
 	post_add_model "${controller}" "${model}"
+}
 
-	echo "${model}" >>"${TEST_DIR}/models"
+# Clean up models added to a reused controller without destroying the
+# controller itself. The controller:model names avoid depending on the current
+# model, which may have changed during a test.
+cleanup_models() {
+	if [[ -n ${SKIP_DESTROY} ]]; then
+		return
+	fi
+	local name output failed=0
+	if [[ -f "${TEST_DIR}/models" ]]; then
+		while read -r name; do
+			[[ -z ${name} ]] && continue
+			output="${TEST_DIR}/${name//:/-}-destroy-model.log"
+			if ! timeout "${DESTROY_TIMEOUT}" juju destroy-model --no-prompt --destroy-storage "${name}" >"${output}" 2>&1; then
+				echo "====> Destroy failed for model ${name}; trying --force"
+				cat "${output}"
+				if ! timeout "${DESTROY_TIMEOUT}" juju destroy-model --no-prompt --destroy-storage --force "${name}" >>"${output}" 2>&1; then
+					cat "${output}"
+					failed=1
+					continue
+				fi
+			fi
+			grep -Fvx "${name}" "${TEST_DIR}/models" >"${TEST_DIR}/models.remaining" || true
+			mv "${TEST_DIR}/models.remaining" "${TEST_DIR}/models"
+		done < <(sort -u "${TEST_DIR}/models")
+		if [[ ${failed} -eq 0 ]]; then
+			rm -f "${TEST_DIR}/models"
+		fi
+	fi
+	return "${failed}"
 }
 
 add_model() {
@@ -289,11 +325,16 @@ juju_bootstrap() {
 	pre_bootstrap
 
 	command="juju bootstrap ${base} ${cloud_region} ${name} --model-default mode= ${BOOTSTRAP_ADDITIONAL_ARGS}"
+	# Bootstrap can create cloud resources before returning an error. Track the
+	# name first so the EXIT cleanup can destroy a partially created controller.
+	echo "${name}" >>"${TEST_DIR}/jujus"
 	# We run the command through the bash interpreter here to avoid some
 	# weird shell expansion behaviour when using --config and other arguments
 	# with white space.
 	bash -c "exec ${command} $*" 2>&1 | OUTPUT "${output}"
-	echo "${name}" >>"${TEST_DIR}/jujus"
+	if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
+		return 1
+	fi
 
 	if [[ ${BOOTSTRAP_PROVIDER} != "k8s" ]]; then
 		juju switch "${name}:controller"
@@ -547,15 +588,20 @@ destroy_controller() {
 		return
 	fi
 
-	local name
+	local name output
 
 	name=${1}
 	shift
 
 	# shellcheck disable=SC2034
-	OUT=$(juju controllers --format=json | yq 'select(.controllers) | .controllers | keys | .[]' | grep "${name}" || true)
+	OUT=$(juju controllers --format=json | yq 'select(.controllers) | .controllers | keys | .[]' | grep -Fx "${name}" || true)
 	# shellcheck disable=SC2181
 	if [[ -z ${OUT} ]]; then
+		# A failed bootstrap may have left no registered controller. There is
+		# nothing for the client to destroy in that case.
+		if [[ -f "${TEST_DIR}/jujus" ]] && grep -Fxq "${name}" "${TEST_DIR}/jujus"; then
+			return 0
+		fi
 		OUT=$(juju models --format=json | yq -r '.models | .[] | .["short-name"]' | grep "^${name}$" || true)
 		if [[ -z ${OUT} ]]; then
 			echo "====> ERROR Destroy controller/model. Unable to locate $(red "${name}")"
@@ -570,8 +616,6 @@ destroy_controller() {
 		return
 	fi
 
-	set +e
-
 	echo "====> Introspection gathering"
 	introspect_controller "${name}" || true
 	echo "====> Introspection gathered"
@@ -582,8 +626,6 @@ destroy_controller() {
 	echo "====> Removing offers"
 	remove_controller_offers "${name}"
 	echo "====> Removed offers"
-
-	set_verbosity
 
 	output="${TEST_DIR}/${name}-destroy-controller.log"
 
@@ -599,7 +641,7 @@ destroy_controller() {
 			# A sentinel file is used to signal the background loops to stop
 			# when this function returns.
 			local resolve_sentinel
-			resolve_sentinel=$(mktemp -p ${TEST_DIR})
+			resolve_sentinel=$(mktemp -p "${TEST_DIR}")
 			while IFS= read -r model_uuid; do
 				(
 					while [[ -f ${resolve_sentinel} ]]; do
@@ -614,26 +656,28 @@ destroy_controller() {
 			trap "rm -f ${resolve_sentinel}" RETURN
 		fi
 
-		echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models --destroy-storage --no-prompt % 2>&1 | OUTPUT "${output}"
+		if ! timeout "${DESTROY_TIMEOUT}" juju destroy-controller --destroy-all-models --destroy-storage --no-prompt "${name}" >"${output}" 2>&1; then
+			echo "====> Destroy failed for ${name}; trying --force"
+			cat "${output}"
+			if ! timeout "${DESTROY_TIMEOUT}" juju destroy-controller --destroy-all-models --destroy-storage --force --no-prompt "${name}" >>"${output}" 2>&1; then
+				echo "====> Forced destroy failed for ${name}; trying kill-controller"
+				if ! timeout "${DESTROY_TIMEOUT}" juju kill-controller -t 0 --no-prompt "${name}" >>"${output}" 2>&1; then
+					cat "${output}"
+					return 1
+				fi
+			fi
+		fi
 	else
-		echo "${name}" | xargs -I % timeout "${DESTROY_TIMEOUT}" juju kill-controller -t 0 --no-prompt % 2>&1 | OUTPUT "${output}" || true
+		if ! timeout "${DESTROY_TIMEOUT}" juju kill-controller -t 0 --no-prompt "${name}" >"${output}" 2>&1; then
+			cat "${output}"
+			return 1
+		fi
 	fi
 
-	set +e
-	CHK=$(cat "${output}" | grep -i "ERROR" || true)
-	if [[ -n ${CHK} ]]; then
-		printf '\nFound some issues destroying controller\n'
-		cat "${output}"
-		# WARNING. This is a workaround for broken teardown process,
-		# where the model is not destroyed properly. This is a known issue
-		# and exit code will be reverted once the Clean-up infrastructure will
-		# be fixed. That will help to be move focus on issues in CI tests,
-		# rather than on the teardown.
-		#		exit 1
+	if [[ -f "${TEST_DIR}/jujus" ]]; then
+		grep -Fvx "${name}" "${TEST_DIR}/jujus" >"${TEST_DIR}/jujus.remaining" || true
+		mv "${TEST_DIR}/jujus.remaining" "${TEST_DIR}/jujus"
 	fi
-	set_verbosity
-
-	sed -i "/^${name}$/d" "${TEST_DIR}/jujus"
 	echo "====> Destroyed juju ($(green "${name}"))"
 }
 
@@ -641,15 +685,27 @@ destroy_controller() {
 # knows about. This is for internal use only and shouldn't be used by any of the
 # tests directly.
 cleanup_jujus() {
+	if [[ -n ${SKIP_DESTROY} ]]; then
+		echo "====> Keeping jujus (SKIP_DESTROY set)"
+		return
+	fi
+	local failed=0 juju_name
 	if [[ -f "${TEST_DIR}/jujus" ]]; then
 		echo "====> Cleaning up jujus"
 
 		while read -r juju_name; do
-			CLEANUP=true destroy_controller "${juju_name}"
-		done <"${TEST_DIR}/jujus"
-		rm -f "${TEST_DIR}/jujus" || true
+			[[ -z ${juju_name} ]] && continue
+			if ! CLEANUP=true destroy_controller "${juju_name}"; then
+				echo "====> Failed to clean up juju ${juju_name}" >&2
+				failed=1
+			fi
+		done < <(sort -u "${TEST_DIR}/jujus")
+		if [[ ${failed} -eq 0 ]]; then
+			rm -f "${TEST_DIR}/jujus"
+		fi
 	fi
 	echo "====> Completed cleaning up jujus"
+	return "${failed}"
 }
 
 introspect_controller() {
