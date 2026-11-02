@@ -12,6 +12,7 @@ import (
 	"os"
 
 	"github.com/juju/tc"
+	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/api/jujuclient/jujuclienttesting"
@@ -25,30 +26,6 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/rpc/params"
 )
-
-// MetaResultString is the expected output of running dumpMetadata() on
-// s.metaresult.
-var MetaResultString = `
-
-backup format version: 0 
-juju version:          0.0.0 
-base:                   
-
-controller UUID:       
-model UUID:             
-machine ID:             
-created on host:        
-
-checksum:              sha256-3d355aabca47fd9136cc478ed30a28086334dcc474a52e990778ad2e664b2259 
-checksum format:       SHA-256 
-size (B):              0 
-stored:                0001-01-01 00:00:00 +0000 UTC 
-started:               0001-01-01 00:00:00 +0000 UTC 
-finished:              0001-01-01 00:00:00 +0000 UTC 
-
-notes:                  
-
-`[1:]
 
 type BaseBackupsSuite struct {
 	jujutesting.FakeJujuXDGDataHomeSuite
@@ -109,6 +86,16 @@ func (s *BaseBackupsSuite) checkArchive(c *tc.C) {
 	data, err := io.ReadAll(archive)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(data), tc.Equals, s.data)
+}
+
+// readAssertion decodes the assertion file saved beside the archive.
+func (s *BaseBackupsSuite) readAssertion(c *tc.C, filename string) backups.Assertion {
+	data, err := os.ReadFile(filename)
+	c.Assert(err, tc.ErrorIsNil)
+	var assertion backups.Assertion
+	err = yaml.Unmarshal(data, &assertion)
+	c.Assert(err, tc.ErrorIsNil)
+	return assertion
 }
 
 // TODO (hml) 2018-05-01

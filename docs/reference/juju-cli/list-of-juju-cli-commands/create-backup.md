@@ -37,6 +37,15 @@ the download fails and no archive is kept. An interrupted transfer
 leaves no archive on either side: re-run the command to create the
 backup again.
 
+Once the archive is verified and saved, the backup summary is written
+beside it as an unsigned YAML assertion file, named by appending
+".assert" to the archive filename. The assertion records the archive's
+SHA-256 checksum together with the backup metadata. On success the
+command prints nothing.
+
+Recovering a controller from a backup needs both files, the archive
+and its assertion: see "juju recover &lt;backup-file&gt; &lt;assertion-file&gt;".
+
 The model config attribute `backup-dir` only serves as scratch space
 during backup creation; no archive is kept there once the command
 finishes.
@@ -51,5 +60,3 @@ archive is not a single point-in-time snapshot of the whole controller.
 Create the backup during a quiet window, when models are not being
 deployed, destroyed or upgraded, so that concurrent changes cannot
 produce an inconsistent archive.
-
-Use `--verbose` to see extra information about backup.

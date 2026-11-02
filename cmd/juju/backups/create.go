@@ -6,7 +6,6 @@ package backups
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -38,6 +37,15 @@ the download fails and no archive is kept. An interrupted transfer
 leaves no archive on either side: re-run the command to create the
 backup again.
 
+Once the archive is verified and saved, the backup summary is written
+beside it as an unsigned YAML assertion file, named by appending
+".assert" to the archive filename. The assertion records the archive's
+SHA-256 checksum together with the backup metadata. On success the
+command prints nothing.
+
+Recovering a controller from a backup needs both files, the archive
+and its assertion: see "juju recover <backup-file> <assertion-file>".
+
 The model config attribute ` + "`backup-dir`" + ` only serves as scratch space
 during backup creation; no archive is kept there once the command
 finishes.
@@ -52,8 +60,6 @@ archive is not a single point-in-time snapshot of the whole controller.
 Create the backup during a quiet window, when models are not being
 deployed, destroyed or upgraded, so that concurrent changes cannot
 produce an inconsistent archive.
-
-Use ` + "`--verbose`" + ` to see extra information about backup.
 `
 
 const createExamples = `
@@ -87,16 +93,12 @@ func (c *createCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *createCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CommandBase.SetFlags(f)
+	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.Filename, "filename", notset, "Download to this file")
-	c.fs = f
 }
 
 // Init implements Command.Init.
 func (c *createCommand) Init(args []string) error {
-	if err := c.CommandBase.Init(args); err != nil {
-		return err
-	}
 	notes, err := cmd.ZeroOrOneArgs(args)
 	if err != nil {
 		return err
@@ -135,14 +137,14 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 	if err := c.writeArchive(ctx, archive, result.Checksum, result.ChecksumFormat, filename); err != nil {
 		return errors.Trace(err)
 	}
-	// Print the metadata only after the archive is verified and
-	// written, so a scripted consumer never sees a plausible
-	// report for a backup that was not delivered.
-	if !c.quiet {
-		fmt.Fprintln(ctx.Stdout, c.metadata(&result))
+	// The assertion is written only after the archive is verified and
+	// saved, so an assertion never describes an archive that was not
+	// delivered.
+	data, err := c.metadata(&result)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	ctx.Infof("Downloaded to %v", filename)
-	return nil
+	return c.writeAssertion(data, filename+".assert")
 }
 
 func (c *createCommand) decideFilename(filename string, timestamp time.Time) string {
@@ -205,6 +207,35 @@ func (c *createCommand) writeArchive(ctx *cmd.Context, stream io.Reader, checksu
 		return errors.Errorf(
 			"checksum mismatch for downloaded backup %q (renamed to %q for inspection)",
 			archiveFilename, corruptName)
+	}
+	return nil
+}
+
+// writeAssertion saves the marshalled assertion summary beside the
+// verified archive. A short write or a failed close fails the command
+// and removes the partial file, so no assertion survives for an
+// archive it does not describe; the verified archive itself is kept.
+func (c *createCommand) writeAssertion(data []byte, filename string) error {
+	file, err := c.Filesystem().Create(filename)
+	if err != nil {
+		return errors.Annotatef(err, "while creating local assertion file %v", filename)
+	}
+	n, writeErr := file.Write(data)
+	if writeErr == nil && n < len(data) {
+		// A truncated assertion could not be parsed, so treat a
+		// short write as a failure.
+		writeErr = io.ErrShortWrite
+	}
+	closeErr := file.Close()
+	if writeErr != nil || closeErr != nil {
+		// The assertion is incomplete: remove it so it cannot be
+		// mistaken for a usable one. The removal is best effort: the
+		// write or close failure is the more useful error.
+		_ = c.Filesystem().RemoveAll(filename)
+		if writeErr != nil {
+			return errors.Annotatef(writeErr, "while writing local assertion file %v", filename)
+		}
+		return errors.Annotatef(closeErr, "while closing local assertion file %v", filename)
 	}
 	return nil
 }

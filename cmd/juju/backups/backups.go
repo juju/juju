@@ -4,17 +4,19 @@
 package backups
 
 import (
-	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
-	"text/template"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/gnuflag"
+	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/api/client/backups"
 	"github.com/juju/juju/cmd/modelcmd"
+	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/rpc/params"
 )
@@ -33,10 +35,6 @@ type APIClient interface {
 // CommandBase is the base type for backups sub-commands.
 type CommandBase struct {
 	modelcmd.ModelCommandBase
-
-	fs      *gnuflag.FlagSet
-	verbose bool
-	quiet   bool
 }
 
 // NewAPIClient returns a client for the backups api endpoint.
@@ -47,28 +45,6 @@ func (c *CommandBase) NewAPIClient(ctx context.Context) (APIClient, error) {
 // NewGetAPI returns a client for the backups api endpoint.
 func (c *CommandBase) NewGetAPI(ctx context.Context) (APIClient, error) {
 	return getAPI(ctx, c)
-}
-
-// SetFlags implements Command.SetFlags.
-func (c *CommandBase) SetFlags(f *gnuflag.FlagSet) {
-	c.ModelCommandBase.SetFlags(f)
-	c.fs = f
-}
-
-// Init implements Command.SetFlags.
-func (c *CommandBase) Init(args []string) error {
-	c.fs.Visit(func(flag *gnuflag.Flag) {
-		if flag.Name == "verbose" {
-			c.verbose = true
-		}
-	})
-
-	c.fs.Visit(func(flag *gnuflag.Flag) {
-		if flag.Name == "quiet" {
-			c.quiet = true
-		}
-	})
-	return nil
 }
 
 var newAPIClient = func(ctx context.Context, c *CommandBase) (APIClient, error) {
@@ -89,65 +65,91 @@ var getAPI = func(ctx context.Context, c *CommandBase) (APIClient, error) {
 	return client, nil
 }
 
-const backupMetadataTemplate = `
-backup format version: {{.FormatVersion}} 
-juju version:          {{.JujuVersion}} 
-base:                  {{.Base}} 
-
-controller UUID:       {{.ControllerUUID}}{{if (gt .HANodes 1)}} 
-controllers in HA:     {{.HANodes}}{{end}}
-model UUID:            {{.ModelUUID}} 
-machine ID:            {{.MachineID}} 
-created on host:       {{.Hostname}} 
-
-checksum:              {{.Checksum}} 
-checksum format:       {{.ChecksumFormat}} 
-size (B):              {{.Size}} 
-stored:                {{.Stored}} 
-started:               {{.Started}} 
-finished:              {{.Finished}} 
-
-notes:                 {{.Notes}} 
-`
-
-type MetadataParams struct {
-	FormatVersion  int64
-	Checksum       string
-	ChecksumFormat string
-	Size           int64
-	Stored         time.Time
-	Started        time.Time
-	Finished       time.Time
-	Notes          string
-	ControllerUUID string
-	HANodes        int64
-	ModelUUID      string
-	MachineID      string
-	Hostname       string
-	JujuVersion    semversion.Number
-	Base           string
+// Assertion records the summary of a created backup archive: the
+// metadata the controller reported alongside the archive, saved to a
+// local "<archive>.assert" file. The assertion is unsigned YAML; its
+// checksum is the archive's SHA-256 digest, which recovery verifies
+// against the archive before use. The format version is the archive
+// format version, not a version of the assertion itself.
+type Assertion struct {
+	FormatVersion  int64             `yaml:"format-version"`
+	Checksum       string            `yaml:"checksum"`
+	ChecksumFormat string            `yaml:"checksum-format"`
+	Size           int64             `yaml:"size"`
+	Stored         time.Time         `yaml:"stored"`
+	Started        time.Time         `yaml:"started"`
+	Finished       time.Time         `yaml:"finished"`
+	Notes          string            `yaml:"notes"`
+	ControllerUUID string            `yaml:"controller-uuid"`
+	HANodes        int64             `yaml:"ha-nodes"`
+	ModelUUID      string            `yaml:"model-uuid"`
+	MachineID      string            `yaml:"machine-id"`
+	Hostname       string            `yaml:"hostname"`
+	JujuVersion    semversion.Number `yaml:"juju-version"`
+	Base           string            `yaml:"base"`
 }
 
-func (c *CommandBase) metadata(result *params.BackupsMetadataResult) string {
-	m := MetadataParams{
-		result.FormatVersion,
-		result.Checksum,
-		result.ChecksumFormat,
-		result.Size,
-		result.Stored,
-		result.Started,
-		result.Finished,
-		result.Notes,
-		result.ControllerUUID,
-		result.HANodes,
-		result.Model,
-		result.Machine,
-		result.Hostname,
-		result.Version,
-		result.Base,
+func (c *CommandBase) metadata(result *params.BackupsMetadataResult) ([]byte, error) {
+	a := Assertion{
+		FormatVersion:  result.FormatVersion,
+		Checksum:       corebackups.ChecksumSHA256(result.Checksum),
+		ChecksumFormat: result.ChecksumFormat,
+		Size:           result.Size,
+		Stored:         result.Stored,
+		Started:        result.Started,
+		Finished:       result.Finished,
+		Notes:          result.Notes,
+		ControllerUUID: result.ControllerUUID,
+		HANodes:        result.HANodes,
+		ModelUUID:      result.Model,
+		MachineID:      result.Machine,
+		Hostname:       result.Hostname,
+		JujuVersion:    result.Version,
+		Base:           result.Base,
 	}
-	t := template.Must(template.New("template").Parse(backupMetadataTemplate))
-	content := bytes.Buffer{}
-	_ = t.Execute(&content, m)
-	return content.String()
+	return yaml.Marshal(a)
+}
+
+// ReadAssertion reads and validates a backup assertion from r. The
+// assertion must be exactly one YAML document with only known keys,
+// and must record a SHA-256 checksum in the current checksum format:
+// recovery refuses an assertion that cannot pin the archive's digest.
+// Empty input and null documents are rejected as empty assertions.
+// The remaining metadata is descriptive and is not validated here.
+func ReadAssertion(r io.Reader) (*Assertion, error) {
+	decoder := yaml.NewDecoder(r)
+	decoder.KnownFields(true)
+	var assertion *Assertion
+	if err := decoder.Decode(&assertion); err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil, errors.New("backup assertion is empty")
+		}
+		return nil, errors.Annotate(err, "cannot parse backup assertion")
+	}
+	if assertion == nil {
+		return nil, errors.New("backup assertion is empty")
+	}
+	var extra Assertion
+	if err := decoder.Decode(&extra); err != nil {
+		if !errors.Is(err, io.EOF) {
+			return nil, errors.Annotate(err, "cannot parse backup assertion")
+		}
+	} else {
+		return nil, errors.New("backup assertion must contain exactly one YAML document")
+	}
+	if assertion.ChecksumFormat != corebackups.ChecksumFormatSHA256 {
+		return nil, errors.Errorf(
+			"unsupported backup assertion checksum format %q", assertion.ChecksumFormat)
+	}
+	// The checksum is the archive's SHA-256 digest in the canonical
+	// prefixed form; the digest itself is 64 hexadecimal characters,
+	// optionally carrying the "sha256-" prefix. An unusable checksum
+	// must fail here: an empty expected digest would make recovery
+	// skip the archive comparison altogether.
+	decoded, err := hex.DecodeString(strings.TrimPrefix(assertion.Checksum, "sha256-"))
+	if err != nil || len(decoded) != sha256.Size {
+		return nil, errors.New(
+			"backup assertion checksum must be a SHA-256 checksum: 64 hexadecimal characters")
+	}
+	return assertion, nil
 }
