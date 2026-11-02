@@ -774,6 +774,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			LeaseManagerName:    leaseManagerName,
 			DomainServicesName:  domainServicesName,
 			ObjectStoreName:     objectStoreFacadeName,
+			ProviderTrackerName: providerTrackerName,
 			ControllerUUID:      config.ControllerUUID,
 			ControllerModelUUID: config.ControllerModelUUID,
 			ControllerNodeID:    config.ControllerID,

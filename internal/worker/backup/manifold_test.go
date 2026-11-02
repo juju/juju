@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/internal/services"
 )
 
@@ -28,7 +29,7 @@ func TestManifoldSuite(t *testing.T) { tc.Run(t, &manifoldSuite{}) }
 func manifoldConfig(c *tc.C) ManifoldConfig {
 	worker := workerConfig(c)
 	return ManifoldConfig{
-		LeaseManagerName: "leases", DomainServicesName: "services", ObjectStoreName: "objects",
+		LeaseManagerName: "leases", DomainServicesName: "services", ObjectStoreName: "objects", ProviderTrackerName: "providers",
 		ControllerUUID: worker.ControllerUUID, ControllerModelUUID: worker.ControllerModelUUID,
 		ControllerNodeID:  worker.ControllerNodeID,
 		ControllerTag:     names.NewControllerAgentTag("0"),
@@ -40,14 +41,15 @@ func manifoldConfig(c *tc.C) ManifoldConfig {
 
 func manifoldResources() map[string]any {
 	return map[string]any{
-		"leases":   leaseManagerStub{},
-		"services": servicesGetterStub{},
-		"objects":  objectGetterStub{},
+		"leases":    leaseManagerStub{},
+		"services":  servicesGetterStub{},
+		"objects":   objectGetterStub{},
+		"providers": providerFactoryStub{},
 	}
 }
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
-	c.Check(Manifold(manifoldConfig(c)).Inputs, tc.SameContents, []string{"leases", "services", "objects"})
+	c.Check(Manifold(manifoldConfig(c)).Inputs, tc.SameContents, []string{"leases", "services", "objects", "providers"})
 }
 
 func (s *manifoldSuite) TestStartAndOutputDeferServicesUntilCreation(c *tc.C) {
@@ -167,4 +169,8 @@ type objectGetterStub struct {
 
 func (s objectGetterStub) GetObjectStore(ctx context.Context, namespace string) (objectstore.ObjectStore, error) {
 	return s.get(ctx, namespace)
+}
+
+type providerFactoryStub struct {
+	providertracker.ProviderFactory
 }

@@ -23,7 +23,9 @@ import (
 	"gopkg.in/yaml.v3"
 
 	corebackups "github.com/juju/juju/core/backups"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
@@ -53,6 +55,7 @@ type backupsSuite struct {
 	controllerNodes  *MockControllerNodeLister
 	modelServices    *MockModelExportDomainServices
 	modelExport      *MockModelExportService
+	machineService   *MockMachineService
 
 	// Object stores the creator streams referenced objects from. The
 	// default empty stores satisfy models whose exports reference no
@@ -97,6 +100,12 @@ func (s *backupsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.controllerNodes = NewMockControllerNodeLister(ctrl)
 	s.modelServices = NewMockModelExportDomainServices(ctrl)
 	s.modelExport = NewMockModelExportService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
+
+	// The controller machine's base resolves through the model services:
+	// every machine-tagged Create test records it in the archive metadata.
+	s.modelServices.EXPECT().Machine().Return(s.machineService).AnyTimes()
+	s.machineService.EXPECT().GetMachineBase(gomock.Any(), machine.Name("0")).Return(corebase.MustParseBaseFromString("ubuntu@24.04"), nil).AnyTimes()
 
 	c.Cleanup(func() {
 		s.controllerExport = nil
@@ -105,6 +114,7 @@ func (s *backupsSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.controllerNodes = nil
 		s.modelServices = nil
 		s.modelExport = nil
+		s.machineService = nil
 	})
 
 	return ctrl
@@ -754,4 +764,40 @@ func (s *stubObjectStore) GetBySHA256Prefix(_ context.Context, sha256 string) (i
 		SHA384: hex.EncodeToString(sha384sum[:]),
 		Size:   int64(len(content)),
 	}, nil
+}
+
+// TestCreateMachineBaseFailure verifies that a failure resolving the
+// controller machine's base aborts Create before an archive is published.
+func (s *backupsSuite) TestCreateMachineBaseFailure(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	s.expectFilesToBackUp(c, backupDir)
+	s.expectModelConfig(c, backupDir)
+	s.expectControllerExport()
+	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{s.modelUUID}, nil)
+	s.modelServices.EXPECT().Export().Return(s.modelExport)
+	s.modelExport.EXPECT().Export(gomock.Any()).Return(&domainexport.ModelExport{
+		Version: domainexport.LatestSupportedPayloadVersion(),
+		Payload: &modelv4_1_0.ModelExport{},
+	}, nil)
+
+	// The controller model resolves to services whose machine base lookup
+	// fails; the workload model export is unaffected.
+	ctrl := gomock.NewController(c)
+	failing := NewMockMachineService(ctrl)
+	failing.EXPECT().GetMachineBase(gomock.Any(), machine.Name("0")).Return(corebase.Base{}, errors.New("base unavailable"))
+	failingServices := NewMockModelExportDomainServices(ctrl)
+	failingServices.EXPECT().Machine().Return(failing)
+	modelServicesFor := ModelServicesForFunc(func(_ context.Context, modelUUID coremodel.UUID) (ModelExportDomainServices, error) {
+		if modelUUID == s.controllerModelUUID {
+			return failingServices, nil
+		}
+		return s.modelServices, nil
+	})
+
+	_, _, cleanup, err := s.newCreator(c, modelServicesFor).Create(c.Context(), "")
+	c.Check(err, tc.ErrorMatches, "recording controller base for recovery: base unavailable")
+	c.Check(cleanup, tc.IsNil)
+	s.assertNoArchive(c, backupDir)
 }

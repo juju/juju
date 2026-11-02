@@ -14,11 +14,16 @@ import (
 
 	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/environs"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // LocalValues contains the current controller filesystem paths.
@@ -32,6 +37,7 @@ type ManifoldConfig struct {
 	LeaseManagerName    string
 	DomainServicesName  string
 	ObjectStoreName     string
+	ProviderTrackerName string
 	ControllerUUID      string
 	ControllerModelUUID string
 	ControllerNodeID    string
@@ -55,6 +61,9 @@ func (c ManifoldConfig) Validate() error {
 	}
 	if c.ControllerTag == nil {
 		return errors.NotValidf("nil ControllerTag")
+	}
+	if c.ProviderTrackerName == "" {
+		return errors.NotValidf("empty ProviderTrackerName")
 	}
 	if c.ControllerNodeID == "" {
 		return errors.NotValidf("empty ControllerNodeID")
@@ -81,6 +90,7 @@ func Manifold(c ManifoldConfig) dependency.Manifold {
 			c.LeaseManagerName,
 			c.DomainServicesName,
 			c.ObjectStoreName,
+			c.ProviderTrackerName,
 		},
 		Start: func(_ context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := c.Validate(); err != nil {
@@ -105,6 +115,10 @@ func Manifold(c ManifoldConfig) dependency.Manifold {
 			if err := getter.Get(c.ObjectStoreName, &objectStores); err != nil {
 				return nil, err
 			}
+			var providerFactory providertracker.ProviderFactory
+			if err := getter.Get(c.ProviderTrackerName, &providerFactory); err != nil {
+				return nil, err
+			}
 
 			return c.NewWorker(Config{
 				LeaseManager:        leaseManager,
@@ -112,10 +126,11 @@ func Manifold(c ManifoldConfig) dependency.Manifold {
 				ControllerModelUUID: c.ControllerModelUUID,
 				ControllerNodeID:    c.ControllerNodeID,
 				CreateArchive: archiveGenerator{
-					config:         c,
-					paths:          paths,
-					domainServices: domainServices,
-					objectStores:   objectStores,
+					config:          c,
+					paths:           paths,
+					domainServices:  domainServices,
+					objectStores:    objectStores,
+					providerFactory: providerFactory,
 				},
 				Clock:  c.Clock,
 				Logger: c.Logger,
@@ -141,10 +156,11 @@ func output(in worker.Worker, out any) error {
 // archiveGenerator resolves request-scoped services after acquiring the lease.
 // This keeps worker startup independent of model and object-store readiness.
 type archiveGenerator struct {
-	config         ManifoldConfig
-	paths          LocalValues
-	domainServices services.DomainServicesGetter
-	objectStores   objectstore.ObjectStoreGetter
+	config          ManifoldConfig
+	paths           LocalValues
+	domainServices  services.DomainServicesGetter
+	objectStores    objectstore.ObjectStoreGetter
+	providerFactory providertracker.ProviderFactory
 }
 
 // Create creates a backup archive and returns its metadata, its path, and a
@@ -172,21 +188,50 @@ func (g archiveGenerator) Create(ctx context.Context, notes string) (*corebackup
 		return g.objectStores.GetObjectStore(ctx, modelUUID)
 	})
 
+	// Kubernetes controllers record their substrate from the provider: the
+	// archived controller charm's base is the recovery base.
+	kubernetesProvisioning := func(ctx context.Context) (*corebackups.KubernetesProvisioning, error) {
+		spec, err := controllerServices.ModelProvider().GetCloudSpec(ctx)
+		if err != nil {
+			return nil, err
+		}
+		cfg, err := controllerServices.Config().ModelConfig(ctx)
+		if err != nil {
+			return nil, err
+		}
+		controllerUUID, err := uuid.UUIDFromString(g.config.ControllerUUID)
+		if err != nil {
+			return nil, err
+		}
+		provider, err := g.providerFactory.EphemeralProviderFromConfig(ctx, providertracker.EphemeralProviderConfig{
+			ModelType: coremodel.CAAS, ModelConfig: cfg, CloudSpec: spec, ControllerUUID: controllerUUID,
+		})
+		if err != nil {
+			return nil, err
+		}
+		reader, ok := provider.(environs.ControllerBackupProvisioning)
+		if !ok {
+			return nil, internalerrors.Errorf("provider cannot record controller provisioning").Add(coreerrors.NotSupported)
+		}
+		return reader.ControllerBackupProvisioning(ctx, g.config.ControllerNodeID)
+	}
+
 	creator, err := NewCreator(CreatorConfig{
-		MachineTag:            g.config.ControllerTag,
-		ControllerUUID:        g.config.ControllerUUID,
-		ControllerModelUUID:   coremodel.UUID(g.config.ControllerModelUUID),
-		DataDir:               g.paths.DataDir,
-		LogDir:                g.paths.LogDir,
-		ControllerExport:      controllerServices.ControllerExport(),
-		ModelServicesFor:      modelServicesFor,
-		ModelConfig:           controllerServices.Config(),
-		Controller:            controllerServices.Controller(),
-		ControllerNodes:       controllerServices.ControllerNode(),
-		ControllerObjectStore: controllerStore,
-		ObjectStoreForModel:   modelObjectStoreFor,
-		Clock:                 g.config.Clock,
-		Logger:                g.config.Logger,
+		MachineTag:             g.config.ControllerTag,
+		ControllerUUID:         g.config.ControllerUUID,
+		ControllerModelUUID:    coremodel.UUID(g.config.ControllerModelUUID),
+		DataDir:                g.paths.DataDir,
+		LogDir:                 g.paths.LogDir,
+		KubernetesProvisioning: kubernetesProvisioning,
+		ControllerExport:       controllerServices.ControllerExport(),
+		ModelServicesFor:       modelServicesFor,
+		ModelConfig:            controllerServices.Config(),
+		Controller:             controllerServices.Controller(),
+		ControllerNodes:        controllerServices.ControllerNode(),
+		ControllerObjectStore:  controllerStore,
+		ObjectStoreForModel:    modelObjectStoreFor,
+		Clock:                  g.config.Clock,
+		Logger:                 g.config.Logger,
 	})
 	if err != nil {
 		return nil, "", nil, err
@@ -198,3 +243,5 @@ func (g archiveGenerator) Create(ctx context.Context, notes string) (*corebackup
 type modelExportDomainServices struct{ domainServices services.DomainServices }
 
 func (s modelExportDomainServices) Export() ModelExportService { return s.domainServices.Export() }
+
+func (s modelExportDomainServices) Machine() MachineService { return s.domainServices.Machine() }

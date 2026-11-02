@@ -120,6 +120,10 @@ type Metadata struct {
 
 	// Controller contains metadata about the controller where the backup was taken.
 	Controller ControllerMetadata
+
+	// Kubernetes is the observed source controller substrate, when applicable.
+	Kubernetes        *KubernetesProvisioning `json:",omitempty"`
+	DatabaseSizeBytes int64                   `json:",omitempty"`
 }
 
 // ControllerMetadata contains controller specific metadata.
@@ -197,6 +201,8 @@ type flatMetadata struct {
 	HANodes                     int64
 	ControllerMachineID         string
 	ControllerMachineInstanceID string
+	Kubernetes                  *KubernetesProvisioning `json:",omitempty"`
+	DatabaseSizeBytes           int64                   `json:",omitempty"`
 }
 
 func (m *Metadata) flat() flatMetadata {
@@ -214,6 +220,8 @@ func (m *Metadata) flat() flatMetadata {
 		ControllerMachineID:         m.Controller.MachineID,
 		ControllerMachineInstanceID: m.Controller.MachineInstanceID,
 		HANodes:                     m.Controller.HANodes,
+		Kubernetes:                  m.Kubernetes,
+		DatabaseSizeBytes:           m.DatabaseSizeBytes,
 	}
 	stored := m.Stored()
 	if stored != nil {
@@ -239,6 +247,8 @@ func (flat *flatMetadata) inflate() (*Metadata, error) {
 		meta.Finished = &flat.Finished
 	}
 	meta.Notes = flat.Notes
+	meta.Kubernetes = flat.Kubernetes
+	meta.DatabaseSizeBytes = flat.DatabaseSizeBytes
 	meta.Origin = Origin{
 		Model:    flat.ModelUUID,
 		Machine:  flat.Machine,

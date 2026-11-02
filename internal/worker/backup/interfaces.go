@@ -7,6 +7,8 @@ import (
 	"context"
 	"io"
 
+	"github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	domainexport "github.com/juju/juju/domain/export"
@@ -25,10 +27,20 @@ type ModelExportService interface {
 	Export(ctx context.Context) (*domainexport.ModelExport, error)
 }
 
-// ModelExportDomainServices provides access to the model export service.
+// MachineService provides the machine base lookup used to record the
+// controller machine's base in the archive metadata.
+type MachineService interface {
+	// GetMachineBase returns the base for the given machine.
+	GetMachineBase(ctx context.Context, mName machine.Name) (base.Base, error)
+}
+
+// ModelExportDomainServices provides access to the model export and
+// machine services.
 type ModelExportDomainServices interface {
 	// Export returns the model export service.
 	Export() ModelExportService
+	// Machine returns the machine service.
+	Machine() MachineService
 }
 
 // ModelServicesForFunc returns the export services for a given model UUID.

@@ -16,6 +16,7 @@ import (
 	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	coreversion "github.com/juju/juju/core/version"
 	domainexport "github.com/juju/juju/domain/export"
@@ -29,6 +30,7 @@ import (
 type Creator struct {
 	controllerUUID      string
 	controllerModelUUID coremodel.UUID
+	machineTag          names.Tag
 	machineID           string
 	dataDir             string
 	logDir              string
@@ -42,26 +44,29 @@ type Creator struct {
 	controllerObjectStore ReadObjectStore
 	objectStoreForModel   ObjectStoreForModelFunc
 
+	kubernetesProvisioning func(context.Context) (*corebackups.KubernetesProvisioning, error)
+
 	clock  clock.Clock
 	logger corelogger.Logger
 }
 
 // CreatorConfig supplies the dependencies needed to create backup archives.
 type CreatorConfig struct {
-	MachineTag            names.Tag
-	ControllerUUID        string
-	ControllerModelUUID   coremodel.UUID
-	DataDir               string
-	LogDir                string
-	ControllerExport      ControllerExportService
-	ModelServicesFor      ModelServicesForFunc
-	ModelConfig           ModelConfigService
-	Controller            ControllerModelLister
-	ControllerNodes       ControllerNodeLister
-	ControllerObjectStore ReadObjectStore
-	ObjectStoreForModel   ObjectStoreForModelFunc
-	Clock                 clock.Clock
-	Logger                corelogger.Logger
+	MachineTag             names.Tag
+	ControllerUUID         string
+	ControllerModelUUID    coremodel.UUID
+	DataDir                string
+	LogDir                 string
+	KubernetesProvisioning func(context.Context) (*corebackups.KubernetesProvisioning, error)
+	ControllerExport       ControllerExportService
+	ModelServicesFor       ModelServicesForFunc
+	ModelConfig            ModelConfigService
+	Controller             ControllerModelLister
+	ControllerNodes        ControllerNodeLister
+	ControllerObjectStore  ReadObjectStore
+	ObjectStoreForModel    ObjectStoreForModelFunc
+	Clock                  clock.Clock
+	Logger                 corelogger.Logger
 }
 
 // Validate checks that archive creation dependencies are complete.
@@ -117,20 +122,22 @@ func NewCreator(cfg CreatorConfig) (*Creator, error) {
 		return nil, err
 	}
 	return &Creator{
-		controllerUUID:        cfg.ControllerUUID,
-		controllerModelUUID:   cfg.ControllerModelUUID,
-		machineID:             cfg.MachineTag.Id(),
-		dataDir:               cfg.DataDir,
-		logDir:                cfg.LogDir,
-		controllerExport:      cfg.ControllerExport,
-		modelServicesFor:      cfg.ModelServicesFor,
-		modelConfig:           cfg.ModelConfig,
-		controller:            cfg.Controller,
-		controllerNodes:       cfg.ControllerNodes,
-		controllerObjectStore: cfg.ControllerObjectStore,
-		objectStoreForModel:   cfg.ObjectStoreForModel,
-		clock:                 cfg.Clock,
-		logger:                cfg.Logger,
+		controllerUUID:         cfg.ControllerUUID,
+		controllerModelUUID:    cfg.ControllerModelUUID,
+		machineTag:             cfg.MachineTag,
+		machineID:              cfg.MachineTag.Id(),
+		dataDir:                cfg.DataDir,
+		logDir:                 cfg.LogDir,
+		controllerExport:       cfg.ControllerExport,
+		modelServicesFor:       cfg.ModelServicesFor,
+		modelConfig:            cfg.ModelConfig,
+		controller:             cfg.Controller,
+		controllerNodes:        cfg.ControllerNodes,
+		controllerObjectStore:  cfg.ControllerObjectStore,
+		objectStoreForModel:    cfg.ObjectStoreForModel,
+		kubernetesProvisioning: cfg.KubernetesProvisioning,
+		clock:                  cfg.Clock,
+		logger:                 cfg.Logger,
 	}, nil
 }
 
@@ -323,16 +330,31 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 	// the error is intentionally not fatal.
 	hostname, _ := os.Hostname()
 
+	machineBase, err := c.machineBase(ctx)
+	if err != nil {
+		return nil, "", nil, errors.Errorf("recording controller base for recovery: %w", err)
+	}
 	meta := corebackups.NewMetadata(c.clock.Now())
+	if _, machine := c.machineTag.(names.MachineTag); !machine {
+		if c.kubernetesProvisioning == nil {
+			return nil, "", nil, errors.New("missing Kubernetes provisioning reader")
+		}
+		meta.Kubernetes, err = c.kubernetesProvisioning(ctx)
+		if err != nil {
+			return nil, "", nil, errors.Errorf("recording Kubernetes provisioning: %w", err)
+		}
+	}
+	meta.DatabaseSizeBytes, err = corebackups.DatabaseSize(c.dataDir)
+	if err != nil {
+		return nil, "", nil, errors.Errorf("recording source database capacity: %w", err)
+	}
 	meta.Notes = notes
 	meta.Origin = corebackups.Origin{
 		Model:    c.controllerModelUUID.String(),
 		Machine:  c.machineID,
 		Hostname: hostname,
 		Version:  coreversion.Current,
-		// TODO(backups): resolve the controller machine's base when a cheap,
-		// verified lookup path is available to this worker.
-		Base: "",
+		Base:     machineBase,
 	}
 	meta.Controller = corebackups.ControllerMetadata{
 		UUID:              c.controllerUUID,
@@ -371,4 +393,25 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 	completed = true
 	cleanup := func() { _ = os.RemoveAll(tmpDir) }
 	return meta, filename, cleanup, nil
+}
+
+// machineBase resolves the controller machine's base for the archive
+// metadata. Machine recovery requires this value. Kubernetes controllers
+// have no machine and take their base from the archived controller charm.
+func (c *Creator) machineBase(ctx context.Context) (string, error) {
+	if _, ok := c.machineTag.(names.MachineTag); !ok {
+		return "", nil
+	}
+	services, err := c.modelServicesFor(ctx, c.controllerModelUUID)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	machineBase, err := services.Machine().GetMachineBase(ctx, machine.Name(c.machineID))
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	if machineBase.Empty() {
+		return "", errors.New("controller machine base is empty")
+	}
+	return machineBase.String(), nil
 }
