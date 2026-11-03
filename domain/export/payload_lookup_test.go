@@ -6,17 +6,21 @@ package export
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/juju/tc"
 	"gopkg.in/yaml.v3"
 
+	controllerschema "github.com/juju/juju/core/database/schema"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
 	ctrlv4_1_0 "github.com/juju/juju/domain/export/types/controller/v4_1_0"
 	v4_0_12 "github.com/juju/juju/domain/export/types/v4_0_12"
 	v4_1_0 "github.com/juju/juju/domain/export/types/v4_1_0"
+	"github.com/juju/juju/domain/schema"
+	databasetesting "github.com/juju/juju/internal/database/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -214,4 +218,74 @@ func (s *lookupPayloadSuite) TestUnrelatedIDsAndScalarsUnchanged(c *tc.C) {
 			c.Assert(err, tc.ErrorIsNil, tc.Commentf("%s", data))
 		}
 	}
+}
+
+type lookupPayloadSchemaSuite struct {
+	coretesting.BaseSuite
+	databasetesting.DqliteSuite
+}
+
+func TestLookupPayloadSchemaSuite(t *testing.T) {
+	tc.Run(t, &lookupPayloadSchemaSuite{})
+}
+
+func (s *lookupPayloadSchemaSuite) SetUpSuite(c *tc.C) {
+	s.BaseSuite.SetUpSuite(c)
+	s.DqliteSuite.SetUpSuite(c)
+}
+
+func (s *lookupPayloadSchemaSuite) TearDownSuite(c *tc.C) {
+	s.DqliteSuite.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
+}
+
+func (s *lookupPayloadSchemaSuite) SetUpTest(c *tc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.DqliteSuite.SetUpTest(c)
+}
+
+func (s *lookupPayloadSchemaSuite) TearDownTest(c *tc.C) {
+	s.DqliteSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
+}
+
+// The decoder covers keys changed in 4.1.0, not previously non-NULL keys
+// or model changestream lookups excluded from import.
+func (s *lookupPayloadSchemaSuite) TestModelLookupIDInventory(c *tc.C) {
+	s.checkLookupIDInventory(c, schema.ModelDDL(), modelLookupIDTablesV410,
+		"change_log_edit_type", "change_log_namespace",
+		"relation_status_type", "removal_type", "storage_pool_origin")
+}
+
+func (s *lookupPayloadSchemaSuite) TestControllerLookupIDInventory(c *tc.C) {
+	s.checkLookupIDInventory(c, schema.ControllerDDL(), controllerLookupIDTablesV410,
+		"model_migration_import_phase_type", "model_migration_phase",
+		"object_store_backend_type", "secret_backend_origin")
+}
+
+func (s *lookupPayloadSchemaSuite) checkLookupIDInventory(
+	c *tc.C, ddl *controllerschema.Schema, lookupTables string, excluded ...string,
+) {
+	_, err := ddl.Ensure(c.Context(), s.TxnRunner())
+	c.Assert(err, tc.ErrorIsNil)
+	rows, err := s.DB().QueryContext(c.Context(), `
+SELECT m.name
+FROM sqlite_master AS m
+JOIN pragma_table_info(m.name) AS p
+WHERE m.type = 'table' AND p.name = 'id' AND p.type = 'INT' AND p.pk = 1
+AND (SELECT COUNT(*) FROM pragma_table_info(m.name) AS k WHERE k.pk > 0) = 1
+ORDER BY m.name`)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { c.Check(rows.Close(), tc.ErrorIsNil) }()
+	var actual []string
+	for rows.Next() {
+		var table string
+		c.Assert(rows.Scan(&table), tc.ErrorIsNil)
+		actual = append(actual, table)
+	}
+	c.Assert(rows.Err(), tc.ErrorIsNil)
+
+	expected := append(strings.Fields(lookupTables), excluded...)
+	slices.Sort(expected)
+	c.Check(actual, tc.DeepEquals, expected)
 }
