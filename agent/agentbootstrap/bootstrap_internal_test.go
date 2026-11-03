@@ -28,7 +28,8 @@ func TestBootstrapInternalSuite(t *testing.T) {
 
 func (*bootstrapInternalSuite) TestBootstrapMachineAddressesReachDqlite(c *tc.C) {
 	addresses := network.NewMachineAddresses([]string{"10.0.0.1"}).AsProviderAddresses()
-	var gotAddresses network.ProviderAddresses
+	const bindAddress = "192.168.1.10"
+	var gotBindAddress string
 	bootstrap, err := NewAgentBootstrap(AgentBootstrapArgs{
 		AdminUser:                 names.NewLocalUserTag("admin"),
 		AgentConfig:               stubAgentConfig{dataDir: c.MkDir()},
@@ -36,13 +37,19 @@ func (*bootstrapInternalSuite) TestBootstrapMachineAddressesReachDqlite(c *tc.C)
 		BootstrapMachineAddresses: addresses,
 		BootstrapDqlite: func(
 			_ context.Context, manager database.BootstrapNodeManager,
-			bootstrapAddresses network.ProviderAddresses, _ model.UUID,
+			resolvedBindAddress string, _ model.UUID,
 			_ corelogger.Logger,
 			_ ...database.BootstrapOpt,
 		) error {
 			c.Check(manager, tc.NotNil)
-			gotAddresses = bootstrapAddresses
+			gotBindAddress = resolvedBindAddress
 			return nil
+		},
+		DqliteBindAddressResolver: func(
+			_ context.Context, gotAddresses network.ProviderAddresses,
+		) (string, error) {
+			c.Check(gotAddresses, tc.DeepEquals, addresses)
+			return bindAddress, nil
 		},
 		Logger: loggertesting.WrapCheckLog(c),
 	})
@@ -50,7 +57,7 @@ func (*bootstrapInternalSuite) TestBootstrapMachineAddressesReachDqlite(c *tc.C)
 
 	err = bootstrap.initialiseDqlite(c.Context(), tc.Must0(c, model.NewUUID))
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(gotAddresses, tc.DeepEquals, addresses)
+	c.Check(gotBindAddress, tc.Equals, bindAddress)
 }
 
 type stubAgentConfig struct {

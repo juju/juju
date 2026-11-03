@@ -49,12 +49,12 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// DqliteInitialiserFunc is a function that initialises the Dqlite database
-// for the controller.
+// DqliteInitialiserFunc initialises the controller's Dqlite database using the
+// supplied local bind identity.
 type DqliteInitialiserFunc func(
 	ctx context.Context,
 	mgr database.BootstrapNodeManager,
-	bootstrapAddresses corenetwork.ProviderAddresses,
+	bindAddress string,
 	modelUUID coremodel.UUID,
 	logger logger.Logger,
 	options ...database.BootstrapOpt,
@@ -77,6 +77,7 @@ type AgentBootstrap struct {
 	agentConfig               agent.ConfigSetter
 	bootstrapDqlite           DqliteInitialiserFunc
 	bootstrapMachineAddresses corenetwork.ProviderAddresses
+	dqliteBindAddressResolver DqliteBindAddressResolverFunc
 
 	stateInitialisationParams instancecfg.StateInitializationParams
 
@@ -95,6 +96,7 @@ type AgentBootstrapArgs struct {
 	BootstrapMachineAddresses corenetwork.ProviderAddresses
 	StateInitialisationParams instancecfg.StateInitializationParams
 	BootstrapDqlite           DqliteInitialiserFunc
+	DqliteBindAddressResolver DqliteBindAddressResolverFunc
 	Logger                    logger.Logger
 }
 
@@ -111,6 +113,9 @@ func (a *AgentBootstrapArgs) validate() error {
 
 	if a.BootstrapDqlite == nil {
 		return jujuerrors.NotValidf("bootstrap dqlite")
+	}
+	if a.DqliteBindAddressResolver == nil {
+		return jujuerrors.NotValidf("Dqlite bind address resolver")
 	}
 	if a.Logger == nil {
 		return jujuerrors.NotValidf("logger")
@@ -130,6 +135,7 @@ func NewAgentBootstrap(args AgentBootstrapArgs) (*AgentBootstrap, error) {
 		agentConfig:               args.AgentConfig,
 		bootstrapDqlite:           args.BootstrapDqlite,
 		bootstrapMachineAddresses: args.BootstrapMachineAddresses,
+		dqliteBindAddressResolver: args.DqliteBindAddressResolver,
 		clock:                     clock.WallClock,
 		logger:                    args.Logger,
 		stateInitialisationParams: args.StateInitialisationParams,
@@ -290,6 +296,13 @@ func (b *AgentBootstrap) initialiseDqlite(
 	ctx context.Context, controllerModelUUID coremodel.UUID,
 	options ...database.BootstrapOpt,
 ) error {
+	bindAddress, err := b.dqliteBindAddressResolver(
+		ctx, b.bootstrapMachineAddresses,
+	)
+	if err != nil {
+		return errors.Errorf("determining Dqlite bind address: %w", err)
+	}
+
 	agentInfo, _ := b.agentConfig.ControllerAgentInfo()
 	nodeManagerCfg := database.NodeManagerConfig{
 		DataDir:              b.agentConfig.DataDir(),
@@ -302,7 +315,7 @@ func (b *AgentBootstrap) initialiseDqlite(
 		database.NewNodeManager(
 			nodeManagerCfg, b.logger, coredatabase.NoopSlowQueryLogger{},
 		),
-		b.bootstrapMachineAddresses,
+		bindAddress,
 		controllerModelUUID,
 		b.logger,
 		options...,
