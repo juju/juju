@@ -114,11 +114,11 @@ func decodeLookupPayload[T any](lookupTables string) PayloadDecodeFunc {
 	return func(data []byte) (any, error) {
 		var document yaml.Node
 		if err := yaml.Unmarshal(data, &document); err != nil {
-			return nil, errors.Capture(err)
+			return nil, errors.Errorf("decoding lookup payload YAML: %w", err).Add(coreerrors.NotValid)
 		}
 		var tables map[string]yaml.Node
 		if err := document.Decode(&tables); err != nil {
-			return nil, errors.Capture(err)
+			return nil, errors.Errorf("decoding lookup payload tables: %w", err).Add(coreerrors.NotValid)
 		}
 		for table := range strings.FieldsSeq(lookupTables) {
 			node, ok := tables[table]
@@ -129,17 +129,18 @@ func decodeLookupPayload[T any](lookupTables string) PayloadDecodeFunc {
 				ID *int64 `yaml:"id"`
 			}
 			if err := node.Decode(&rows); err != nil {
-				return nil, errors.Errorf("decoding table %q: %w", table, err)
+				return nil, errors.Errorf("decoding table %q: %w", table, err).Add(coreerrors.NotValid)
 			}
 			for i, row := range rows {
 				if row == nil || row.ID == nil {
-					return nil, errors.Errorf("table %q row %d: id must be present and non-NULL", table, i)
+					return nil, errors.Errorf("table %q row %d: id must be present and non-NULL", table, i).
+						Add(coreerrors.NotValid)
 				}
 			}
 		}
 		var out T
 		if err := document.Decode(&out); err != nil {
-			return nil, errors.Capture(err)
+			return nil, errors.Errorf("decoding lookup payload: %w", err).Add(coreerrors.NotValid)
 		}
 		return out, nil
 	}

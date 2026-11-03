@@ -220,6 +220,25 @@ func (s *lookupPayloadSuite) TestUnrelatedIDsAndScalarsUnchanged(c *tc.C) {
 	}
 }
 
+func (s *lookupPayloadSuite) TestDecoderErrorsAreNotValidWithoutOuterWrapper(c *tc.C) {
+	for _, decode := range []PayloadDecodeFunc{
+		decodeLookupPayload[v4_1_0.ModelExport](modelLookupIDTablesV410),
+		decodeLookupPayload[ctrlv4_1_0.ControllerExport](controllerLookupIDTablesV410),
+	} {
+		for _, data := range []string{
+			"\t: invalid YAML",
+			"[]",
+			"life: [{id: null}]",
+			"life: [{id: invalid}]",
+			"life: [{id: 0}]\narchitecture: 42",
+			"life: [{id: 0}]\nchange_log: 42",
+		} {
+			_, err := decode([]byte(data))
+			c.Assert(err, tc.ErrorIs, coreerrors.NotValid, tc.Commentf("%s", data))
+		}
+	}
+}
+
 type lookupPayloadSchemaSuite struct {
 	coretesting.BaseSuite
 	databasetesting.DqliteSuite
