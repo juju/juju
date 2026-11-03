@@ -112,22 +112,27 @@ const (
 	proxyConnectionRetryDelay  = time.Second
 )
 
-// isRetryableProxyError matches the transient etcd leader-change error.
-// Kubernetes may return this as an internal server error or as an error
-// wrapped by the port-forwarding implementation.
+// Retry only etcd leader-change errors reported in issue #21324.
+// Other transient etcd errors, such as request timeouts, are deliberately
+// out of scope for this change.
 func isRetryableProxyError(err error) bool {
-	cause := errors.Cause(err)
-
-	if apierrors.IsInternalError(cause) {
-		return strings.Contains(cause.Error(), retryableProxyError)
-	}
+	var message string
 
 	var portForwardErr *kubernetes.PortForwardError
-	if stderrors.As(cause, &portForwardErr) {
-		return portForwardErr.Err != nil &&
-			strings.Contains(portForwardErr.Err.Error(), retryableProxyError)
+	if stderrors.As(err, &portForwardErr) {
+		if portForwardErr.Err == nil {
+			return false
+		}
+		message = portForwardErr.Err.Error()
+	} else {
+		cause := errors.Cause(err)
+		if !apierrors.IsInternalError(cause) {
+			return false
+		}
+		message = cause.Error()
 	}
-	return false
+
+	return strings.Contains(message, retryableProxyError)
 }
 
 func (p *Proxier) Start(ctx context.Context) (err error) {
