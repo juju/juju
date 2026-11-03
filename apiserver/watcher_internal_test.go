@@ -53,10 +53,8 @@ func (s *allWatcherSuite) assertTranslateApplicationWithStatus(c *gc.C, t DeltaT
 func (s *allWatcherSuite) TestTranslateAction(c *gc.C) {
 	t := newAllWatcherDeltaTranslater()
 	input := &multiwatcher.ActionInfo{
-		ModelUUID:  testing.ModelTag.Id(),
-		ID:         "2",
-		Parameters: map[string]interface{}{"foo": "bar"},
-		Results:    map[string]interface{}{"done": true},
+		ModelUUID: testing.ModelTag.Id(),
+		ID:        "2",
 	}
 	output := t.TranslateAction(input)
 	c.Assert(output, jc.DeepEquals, &params.ActionInfo{

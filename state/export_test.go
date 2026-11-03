@@ -923,10 +923,8 @@ func PrimeUnitStatusHistory(
 }
 
 // PrimeOperations generates operations and tasks to be pruned.
-// The method pads each entry with a 1MB string. This should allow us to infer the
-// approximate size of the entry and limit the number of entries that
-// must be generated for size related tests.
-func PrimeOperations(c *gc.C, age time.Time, unit *Unit, count, actionsPerOperation int) {
+// Each action has a message of messageSize bytes for size-related tests.
+func PrimeOperations(c *gc.C, age time.Time, unit *Unit, count, actionsPerOperation, messageSize int) {
 	operationsCollection, closer, err := unit.st.db().GetCollection(operationsC)
 	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
@@ -937,8 +935,7 @@ func PrimeOperations(c *gc.C, age time.Time, unit *Unit, count, actionsPerOperat
 	operationsCollectionWriter := operationsCollection.Writeable()
 	actionCollectionWriter := actionCollection.Writeable()
 
-	const numBytes = 1 * 500 * 1000
-	var padding [numBytes]byte
+	padding := string(make([]byte, messageSize))
 	var operationDocs []interface{}
 	var actionDocs []interface{}
 	for i := 0; i < count; i++ {
@@ -962,7 +959,7 @@ func PrimeOperations(c *gc.C, age time.Time, unit *Unit, count, actionsPerOperat
 				Completed: age,
 				Operation: operationID,
 				Status:    ActionCompleted,
-				Message:   string(padding[:numBytes]),
+				Message:   padding,
 			})
 		}
 	}

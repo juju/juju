@@ -410,12 +410,10 @@ type ActionInfo struct {
 	ID             string
 	Receiver       string
 	Name           string
-	Parameters     map[string]interface{}
 	Parallel       bool
 	ExecutionGroup string
 	Status         string
 	Message        string
-	Results        map[string]interface{}
 	Enqueued       time.Time
 	Started        time.Time
 	Completed      time.Time
@@ -434,18 +432,6 @@ func (i *ActionInfo) EntityID() EntityID {
 // Clone returns a clone of the EntityInfo.
 func (i *ActionInfo) Clone() EntityInfo {
 	clone := *i
-	if i.Parameters != nil {
-		clone.Parameters = map[string]interface{}{}
-		for k, v := range i.Parameters {
-			clone.Parameters[k] = v
-		}
-	}
-	if i.Results != nil {
-		clone.Results = map[string]interface{}{}
-		for k, v := range i.Results {
-			clone.Results[k] = v
-		}
-	}
 	return &clone
 }
 
