@@ -115,18 +115,14 @@ ORDER BY m.name`)
 
 	// INTEGER PRIMARY KEY retains its rowid allocation semantics.
 	s.assertExecSQL(c, `INSERT INTO change_log_namespace (id, namespace) VALUES (999, 'lookup-test')`)
+	var id int64
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		var id int64
-		err := tx.QueryRowContext(ctx, `
+		return tx.QueryRowContext(ctx, `
 INSERT INTO change_log (id, edit_type_id, namespace_id, changed)
 VALUES (NULL, 1, 999, 'lookup-test') RETURNING id`).Scan(&id)
-		if err != nil {
-			return err
-		}
-		c.Check(id, tc.GreaterThan, int64(0))
-		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(id, tc.GreaterThan, int64(0))
 }
 
 var modelLookupPrimaryKeyTables = []string{
