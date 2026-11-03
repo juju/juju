@@ -332,7 +332,6 @@ type MockCloudAccessServiceMockRecorder struct {
 	createPermissionExpects                  []*gomock.Call2_2[context.Context, permission.UserAccessSpec, permission.UserAccess, error]
 	readAllAccessForUserAndObjectTypeExpects []*gomock.Call3_2[context.Context, user.Name, permission.ObjectType, []permission.UserAccess, error]
 	readAllUserAccessForTargetExpects        []*gomock.Call2_2[context.Context, permission.ID, []permission.UserAccess, error]
-	readUserAccessLevelForTargetExpects      []*gomock.Call3_2[context.Context, user.Name, permission.ID, permission.Access, error]
 	updatePermissionExpects                  []*gomock.Call2_1[context.Context, access.UpdatePermissionArgs, error]
 }
 
@@ -419,24 +418,6 @@ func (mr *MockCloudAccessServiceMockRecorder) ReadAllUserAccessForTarget(ctx, ta
 
 // MockCloudAccessServiceReadAllUserAccessForTargetCall is the typed call wrapper for ReadAllUserAccessForTarget.
 type MockCloudAccessServiceReadAllUserAccessForTargetCall = gomock.Call2_2[context.Context, permission.ID, []permission.UserAccess, error]
-
-// ReadUserAccessLevelForTarget mocks base method.
-func (m *MockCloudAccessService) ReadUserAccessLevelForTarget(ctx context.Context, subject user.Name, target permission.ID) (permission.Access, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.readUserAccessLevelForTargetExpects, m.ctrl, m, "ReadUserAccessLevelForTarget", ctx, subject, target)
-}
-
-// ReadUserAccessLevelForTarget indicates an expected call of ReadUserAccessLevelForTarget.
-func (mr *MockCloudAccessServiceMockRecorder) ReadUserAccessLevelForTarget(ctx, subject, target any) *MockCloudAccessServiceReadUserAccessLevelForTargetCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[context.Context, user.Name, permission.ID, permission.Access, error](mr.mock.ctrl.T, mr.mock, "ReadUserAccessLevelForTarget", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(subject), gomock.EnsureMatcher(target))
-	mr.readUserAccessLevelForTargetExpects = append(mr.readUserAccessLevelForTargetExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockCloudAccessServiceReadUserAccessLevelForTargetCall is the typed call wrapper for ReadUserAccessLevelForTarget.
-type MockCloudAccessServiceReadUserAccessLevelForTargetCall = gomock.Call3_2[context.Context, user.Name, permission.ID, permission.Access, error]
 
 // UpdatePermission mocks base method.
 func (m *MockCloudAccessService) UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error {
