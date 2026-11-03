@@ -52,6 +52,10 @@ type allWatcherStateCollection struct {
 	// subsidiary is true if the collection is used only
 	// to modify a primary entity.
 	subsidiary bool
+
+	// projection selects the document fields that the
+	// allWatcher reads. It is nil when all fields are read.
+	projection bson.M
 }
 
 // makeAllWatcherCollectionInfo returns a name indexed map of
@@ -78,6 +82,8 @@ func makeAllWatcherCollectionInfo(collNames []string) map[string]allWatcherState
 			collection.docType = reflect.TypeOf(backingCharm{})
 		case actionsC:
 			collection.docType = reflect.TypeOf(backingAction{})
+			// Action payloads are fetched separately by the action API.
+			collection.projection = actionInfoProjection
 		case relationsC:
 			collection.docType = reflect.TypeOf(backingRelation{})
 		case annotationsC:
@@ -1773,9 +1779,8 @@ func (b *allWatcherBacking) Changed(store multiwatcher.Store, change watcher.Cha
 	defer closer()
 
 	query := col.FindId(id)
-	if c.name == actionsC {
-		// Action payloads are fetched separately by the action API.
-		query = query.Select(actionInfoProjection)
+	if c.projection != nil {
+		query = query.Select(c.projection)
 	}
 	err = query.One(doc)
 	if err == mgo.ErrNotFound {
@@ -1849,7 +1854,7 @@ func loadAllWatcherEntities(st *State, loadOrder []string, collectionByName map[
 		if c.subsidiary {
 			continue
 		}
-		if err := loadOneWatcherEntity(ctx, db, st.ModelUUID(), c.docType, c.name); err != nil {
+		if err := loadOneWatcherEntity(ctx, db, st.ModelUUID(), c.docType, c.name, c.projection); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -1857,7 +1862,7 @@ func loadAllWatcherEntities(st *State, loadOrder []string, collectionByName map[
 	return nil
 }
 
-func loadOneWatcherEntity(ctx *allWatcherContext, db Database, modelUUID string, docType reflect.Type, name string) error {
+func loadOneWatcherEntity(ctx *allWatcherContext, db Database, modelUUID string, docType reflect.Type, name string, projection bson.M) error {
 	col, closer, err := db.GetCollection(name)
 	if err != nil {
 		return errors.Trace(err)
@@ -1871,9 +1876,8 @@ func loadOneWatcherEntity(ctx *allWatcherContext, db Database, modelUUID string,
 		filter = bson.M{"_id": modelUUID}
 	}
 	query := col.Find(filter)
-	if name == actionsC {
-		// Match Changed: the allwatcher does not need action payloads.
-		query = query.Select(actionInfoProjection)
+	if projection != nil {
+		query = query.Select(projection)
 	}
 	// Units are ordered so we load the subordinates first.
 	if name == unitsC {
