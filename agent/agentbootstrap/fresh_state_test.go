@@ -196,10 +196,8 @@ func (s *freshStateSuite) newBootstrap(c *tc.C, cloudType string) (*AgentBootstr
 			c.Fatal("unexpected database initialisation")
 			return nil
 		},
-		DqliteBindAddressResolver: func(
-			context.Context, network.ProviderAddresses,
-		) (string, error) {
-			return dqliteLoopbackAddress, nil
+		DqliteBindAddressResolver: func(context.Context, network.ProviderAddresses) (string, error) {
+			return loopbackIP, nil
 		},
 		Logger: loggertesting.WrapCheckLog(c),
 	})

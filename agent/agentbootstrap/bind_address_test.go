@@ -157,7 +157,7 @@ func (*bindAddressSuite) TestNoRouteFallsBackToLoopback(c *tc.C) {
 
 	address, err := resolver.resolve(c.Context(), providerAddresses("3.84.237.4"))
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(address, tc.Equals, dqliteLoopbackAddress)
+	c.Check(address, tc.Equals, loopbackIP)
 }
 
 func (*bindAddressSuite) TestNoProviderAddress(c *tc.C) {
