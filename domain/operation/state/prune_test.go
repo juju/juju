@@ -299,10 +299,10 @@ func (s *pruneBySizeSuite) TestEstimateOperationSizeWithData(c *tc.C) {
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	// Expect: At this point data other than stored one are negligible, so we
-	// got 5KiB total and 2KiB avg (4KiB + neglictable data), rounded up to 5KiB.
-	c.Check(total, tc.Equals, 5)
-	c.Check(avg, tc.Equals, 5/2)
+	// Nullable columns contribute zero, while the rest of each row is counted.
+	// The bytes beyond the 4 KiB object store round the total up to 6 KiB.
+	c.Check(total, tc.Equals, 6)
+	c.Check(avg, tc.Equals, 2)
 }
 
 // TestEstimateOperationSizeWithDataSmallTasks verifies that row counts and object store
@@ -360,9 +360,10 @@ func (s *pruneBySizeSuite) TestEstimateOperationSizeWithDataBigLog(c *tc.C) {
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	// Expect: At this point we have about 5KiB of logs and 4KiB of object store
-	c.Check(total, tc.Equals, 9)
-	c.Check(avg, tc.Equals, 9/2)
+	// Nullable columns contribute zero, while the rest of each row is counted.
+	// The bytes beyond the logs and 4 KiB object store round up to 10 KiB.
+	c.Check(total, tc.Equals, 10)
+	c.Check(avg, tc.Equals, 4)
 }
 
 // TestPruneOperationsToKeepUnderSizeMiBIgnoresNonPositive ensures no pruning occurs when size Limit is zero or negative.
@@ -425,7 +426,7 @@ const sizedTimestamp = "2024-01-02T03:04:05Z"
 // TestComputeTableSizeByColumnType pins the number of bytes the estimate
 // measures for each kind of value stored in the columns it covers: integers
 // (zero, negative and large), booleans, timestamps stored as text, integers
-// and reals, text and NULL. NULL values are not counted.
+// and reals, text and NULL. NULL columns contribute zero bytes.
 func (s *pruneBySizeSuite) TestComputeTableSizeByColumnType(c *tc.C) {
 	// Arrange
 	operationColumns := []string{"uuid", "operation_id", "summary", "enqueued_at", "started_at",
@@ -489,6 +490,27 @@ func (s *pruneBySizeSuite) TestComputeTableSizeByColumnType(c *tc.C) {
 		c.Check(s.columnSize(c, test.table, test.column, test.nonText), tc.Equals, test.size,
 			tc.Commentf("%s.%s", test.table, test.column))
 	}
+
+	// Nullable fields must not cause the other columns in a row to be
+	// omitted from the table's total.
+	var operationSize, statusSize int
+	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		operationSize, err = s.state.computeTableSize(ctx, tx, humanize.Byte, "operation",
+			textColumn("uuid"), nonTextColumn("operation_id"), textColumn("summary"),
+			nonTextColumn("enqueued_at"), nonTextColumn("started_at"), nonTextColumn("completed_at"),
+			nonTextColumn("parallel"), textColumn("execution_group"))
+		if err != nil {
+			return err
+		}
+		statusSize, err = s.state.computeTableSize(ctx, tx, humanize.Byte, "operation_task_status",
+			textColumn("task_uuid"), nonTextColumn("status_id"), textColumn("message"),
+			nonTextColumn("updated_at"))
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(operationSize, tc.Equals, 161)
+	c.Check(statusSize, tc.Equals, 38)
 }
 
 // TestComputeObjectStoreSizeByValue pins the number of bytes measured for the
@@ -622,8 +644,8 @@ type sizedFixture struct {
 
 // addSizedFixture adds two operations with rows in each of the tables covered
 // by the size estimate, using the different kinds of values stored in them. The
-// operation which is not completed has NULL columns, so it is not counted in
-// the size of the operation table, but its other rows are.
+// operation which is not completed has NULL columns, but its remaining columns
+// still contribute to the size of the operation table.
 func (s *pruneBySizeSuite) addSizedFixture(c *tc.C) *sizedFixture {
 	f := &sizedFixture{
 		s:            s,
@@ -707,14 +729,13 @@ func (s *pruneBySizeSuite) insertSized(c *tc.C, table string, columns []string, 
 }
 
 // rowSize returns the size of a row of values, which is the sum of the sizes of
-// the text form of each value. The size of a row with a NULL value is NULL,
-// which is not counted when summing the size of the rows of a table.
+// the text form of each non-NULL value.
 func rowSize(c *tc.C, values []any) int {
 	var size int
 	for _, value := range values {
 		switch v := value.(type) {
 		case nil:
-			return 0
+			continue
 		case string:
 			size += len(v)
 		case int:

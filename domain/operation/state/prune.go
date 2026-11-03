@@ -332,18 +332,17 @@ func nonTextColumn(name string) sizeColumn {
 
 // octetLength returns the SQL expression for the size of the column in bytes.
 // octet_length is only defined for strings, so the text form of the other
-// values is made explicit.
+// values is made explicit. NULL columns contribute zero bytes.
 func (c sizeColumn) octetLength() string {
 	if c.nonText {
-		return fmt.Sprintf("octet_length(CAST(%q AS TEXT))", c.name)
+		return fmt.Sprintf("COALESCE(octet_length(CAST(%q AS TEXT)), 0)", c.name)
 	}
-	return fmt.Sprintf("octet_length(%q)", c.name)
+	return fmt.Sprintf("COALESCE(octet_length(%q), 0)", c.name)
 }
 
 // computeTableSize computes the size of the table in the database.
 // The sizeFactor allows to convert the size in bytes to the size in another ratio.
-// The size of a row is the sum of the size of its columns, so a NULL column
-// makes the whole row ignored.
+// The size of a row is the sum of the sizes of its non-NULL columns.
 func (st *State) computeTableSize(ctx context.Context, tx *sqlair.TX, sizeFactor int, table string,
 	columns ...sizeColumn) (int, error) {
 	type result struct {
