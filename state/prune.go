@@ -210,7 +210,8 @@ func (p *collectionPruner) pruneBySize(stop <-chan struct{}) error {
 		return nil
 	}
 	started := p.st.clock().Now()
-	logger.Infof("%s size pruning: removing up to %d rows (estimated) to reach %d MiB", p.coll.Name, toDelete, p.maxSize)
+	logger.Infof("%s size pruning: removing up to %d rows (estimated) to reach %d MiB in %s",
+		p.coll.Name, toDelete, p.maxSize, sizeColl.Name)
 
 	// If age field is set, add a filter which
 	// excludes those items where the age field
