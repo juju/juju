@@ -521,6 +521,47 @@ func (s *modelSecretsSuite) TestSaveSecretRemoteConsumer(c *tc.C) {
 	c.Assert(latest, tc.Equals, 1)
 }
 
+// TestSaveSecretRemoteConsumerConnectionIsolation checks that saving and
+// updating tracking does not overwrite a same-named unit on another connection.
+func (s *modelSecretsSuite) TestSaveSecretRemoteConsumerConnectionIsolation(c *tc.C) {
+	offeredAppUUID := s.addOfferedApplication(c, "offered")
+	s.addRemoteSecretConsumerApplication(c, offeredAppUUID, "remote-app")
+	s.addRemoteSecretConsumerApplication(c, offeredAppUUID, "other-app")
+	uri := s.addSecretWithRevisions(c, 3)
+
+	// Other writers can supply names independently of the synthetic application.
+	s.query(c, `
+INSERT INTO secret_remote_unit_consumer (secret_id, offer_connection_uuid, unit_name, current_revision)
+SELECT ?, arc.offer_connection_uuid, 'remote-app/0', 1
+FROM application_remote_consumer AS arc
+JOIN application AS app ON app.uuid = arc.offer_connection_uuid
+WHERE app.name = 'other-app'`, uri.ID)
+
+	s.saveRemoteSecretConsumer(c, uri, "remote-app/0", 2)
+	s.saveRemoteSecretConsumer(c, uri, "remote-app/0", 3)
+
+	var count int
+	err := s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM secret_remote_unit_consumer WHERE secret_id = ?`, uri.ID).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 2)
+	for appName, expectedRevision := range map[string]int{"remote-app": 3, "other-app": 1} {
+		var unitName string
+		var revision int
+		err := s.DB().QueryRowContext(c.Context(), `
+SELECT suc.unit_name, suc.current_revision
+FROM secret_remote_unit_consumer AS suc
+JOIN application AS app ON app.uuid = suc.offer_connection_uuid
+WHERE suc.secret_id = ? AND app.name = ?`, uri.ID, appName).Scan(&unitName, &revision)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(unitName, tc.Equals, "remote-app/0")
+		c.Check(revision, tc.Equals, expectedRevision)
+	}
+	obsolete, pendingDelete := s.getObsolete(c, uri, 1)
+	c.Check(obsolete, tc.IsFalse)
+	c.Check(pendingDelete, tc.IsFalse)
+}
+
 func (s *modelSecretsSuite) TestSaveSecretRemoteConsumerInvalidUnitName(c *tc.C) {
 	uri := s.addSecretWithRevisions(c, 1)
 	for _, unitName := range []string{"not-a-unit", "/0", "remote-app/-1", "remote-app/01", "12345678-1234-1234-1234-123456789abc/0"} {

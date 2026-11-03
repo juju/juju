@@ -565,7 +565,7 @@ FROM application_remote_consumer WHERE offer_connection_uuid = ?`,
 		{"secret-1", synthAppUUID.String(), "foo/0", 1},
 		{"secret-2", synthAppUUID.String(), "foo/0", 2},
 		{"secret-1", synthAppUUID.String(), "foo/1", 3},
-		{"secret-1", otherAppUUID.String(), "tracking-consumer/0", 4},
+		{"secret-1", otherAppUUID.String(), "foo/0", 4},
 	}
 	s.addSecretRemoteUnitConsumers(c, consumers...)
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))

@@ -417,27 +417,22 @@ WHERE application_uuid = $entityUUID.uuid`, synthApp)
 }
 
 func (st *State) deleteSynthUnit(ctx context.Context, tx *sqlair.TX, synthUnit entityUUID) error {
-	type synthUnitConsumer struct {
-		OfferConnectionUUID string `db:"offer_connection_uuid"`
-		UnitName            string `db:"unit_name"`
-	}
-
-	getSynthUnitConsumerStmt, err := st.Prepare(`
-SELECT application_uuid AS &synthUnitConsumer.offer_connection_uuid,
-       name AS &synthUnitConsumer.unit_name
-FROM   unit
-WHERE  uuid = $entityUUID.uuid`, synthUnitConsumer{}, synthUnit)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	// The tracked secret revisions belong to the unit in the consuming
 	// model that the synthetic unit represents, so they are deleted with
 	// it, like those of a local unit.
 	deleteSecretRemoteUnitConsumerStmt, err := st.Prepare(`
-DELETE FROM secret_remote_unit_consumer
-WHERE  offer_connection_uuid = $synthUnitConsumer.offer_connection_uuid
-AND    unit_name = $synthUnitConsumer.unit_name`, synthUnitConsumer{})
+WITH synth_unit AS (
+    SELECT u.application_uuid AS offer_connection_uuid, u.name AS unit_name
+    FROM unit AS u
+    WHERE u.uuid = $entityUUID.uuid
+)
+DELETE FROM secret_remote_unit_consumer AS suc
+WHERE EXISTS (
+    SELECT 1
+    FROM synth_unit AS su
+    WHERE su.offer_connection_uuid = suc.offer_connection_uuid
+    AND su.unit_name = suc.unit_name
+)`, synthUnit)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -471,12 +466,7 @@ WHERE uuid = $entityUUID.uuid`, entityUUID{})
 		return errors.Capture(err)
 	}
 
-	var consumer synthUnitConsumer
-	err = tx.Query(ctx, getSynthUnitConsumerStmt, synthUnit).Get(&consumer)
-	if err != nil {
-		return errors.Errorf("getting synthetic unit name: %w", err)
-	}
-	if err := tx.Query(ctx, deleteSecretRemoteUnitConsumerStmt, consumer).Run(); err != nil {
+	if err := tx.Query(ctx, deleteSecretRemoteUnitConsumerStmt, synthUnit).Run(); err != nil {
 		return errors.Errorf("deleting secret remote unit consumers for synthetic unit: %w", err)
 	}
 

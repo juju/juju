@@ -268,7 +268,7 @@ WHERE  app.name = $name.name`
 	insertQuery := `
 INSERT INTO secret_remote_unit_consumer (*)
 VALUES ($secretRemoteUnitConsumer.*)
-ON CONFLICT(secret_id, unit_name) DO UPDATE SET
+ON CONFLICT(offer_connection_uuid, secret_id, unit_name) DO UPDATE SET
     current_revision=excluded.current_revision`
 
 	insertStmt, err := st.Prepare(insertQuery, secretRemoteUnitConsumer{})

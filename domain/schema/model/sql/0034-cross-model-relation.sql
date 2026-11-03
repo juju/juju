@@ -161,7 +161,7 @@ CREATE TABLE secret_remote_unit_consumer (
 );
 
 CREATE UNIQUE INDEX idx_secret_remote_unit_consumer_secret_id_unit_name
-ON secret_remote_unit_consumer (secret_id, unit_name);
+ON secret_remote_unit_consumer (offer_connection_uuid, secret_id, unit_name);
 
 CREATE INDEX idx_secret_remote_unit_consumer_offer_connection_uuid
 ON secret_remote_unit_consumer (offer_connection_uuid);
