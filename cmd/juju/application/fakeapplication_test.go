@@ -20,8 +20,11 @@ type fakeApplicationAPI struct {
 	charmName   string
 	charmValues map[string]interface{}
 	appValues   map[string]interface{}
-	config      string
-	err         error
+	// descriptions optionally overrides the generated description of an
+	// option, keyed by option name.
+	descriptions map[string]string
+	config       string
+	err          error
 }
 
 func (f *fakeApplicationAPI) Close() error {
@@ -40,7 +43,7 @@ func (f *fakeApplicationAPI) Get(branchName, application string) (*params.Applic
 	charmConfigInfo := make(map[string]interface{})
 	for k, v := range f.charmValues {
 		charmConfigInfo[k] = map[string]interface{}{
-			"description": fmt.Sprintf("Specifies %s", k),
+			"description": f.description(k),
 			"type":        fmt.Sprintf("%T", v),
 			"value":       v,
 		}
@@ -48,7 +51,7 @@ func (f *fakeApplicationAPI) Get(branchName, application string) (*params.Applic
 	appConfigInfo := make(map[string]interface{})
 	for k, v := range f.appValues {
 		appConfigInfo[k] = map[string]interface{}{
-			"description": fmt.Sprintf("Specifies %s", k),
+			"description": f.description(k),
 			"type":        fmt.Sprintf("%T", v),
 			"value":       v,
 		}
@@ -60,6 +63,13 @@ func (f *fakeApplicationAPI) Get(branchName, application string) (*params.Applic
 		CharmConfig:       charmConfigInfo,
 		ApplicationConfig: appConfigInfo,
 	}, nil
+}
+
+func (f *fakeApplicationAPI) description(key string) string {
+	if d, ok := f.descriptions[key]; ok {
+		return d
+	}
+	return fmt.Sprintf("Specifies %s", key)
 }
 
 func (f *fakeApplicationAPI) SetConfig(branchName, application, configYAML string, config map[string]string) error {
