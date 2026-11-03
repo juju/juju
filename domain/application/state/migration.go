@@ -46,6 +46,7 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 	scaleInfo := applicationScale{
 		ApplicationID: args.ApplicationUUID,
 		StartOrdinal:  args.StartOrdinal,
+		EndOrdinal:    args.EndOrdinal,
 		Scale:         args.Scale,
 	}
 	createScale := `INSERT INTO application_scale (*) VALUES ($applicationScale.*)`

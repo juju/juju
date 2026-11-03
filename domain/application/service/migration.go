@@ -266,6 +266,15 @@ func (s *MigrationService) ImportCAASApplication(ctx context.Context, name strin
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	if err := validateApplicationScale(args.ScaleState.Scale); err != nil {
+		return errors.Errorf("validating scale for application %q: %w", name, err)
+	}
+	if err := validateScaleTargetAndOrdinalWindow(
+		args.ScaleState.ScaleTarget, args.ScaleState.StartOrdinal,
+		args.ScaleState.EndOrdinal, args.ScaleState.Scaling,
+	); err != nil {
+		return errors.Errorf("validating scale state for application %q: %w", name, err)
+	}
 	charmUUID, err := s.importCAASApplication(ctx, name, args)
 	if err != nil {
 		return errors.Errorf("importing application %q: %w", name, err)
@@ -275,9 +284,9 @@ func (s *MigrationService) ImportCAASApplication(ctx context.Context, name strin
 	// Improve the efficiency of importing caas applications by touching
 	// the application_scale table once, instead of three times. Once in
 	// st.ImportApplication and the following two methods.
-	if err := s.st.SetApplicationScalingStateWithStart(
+	if err := s.st.SetApplicationScalingStateWithRange(
 		ctx, name, args.ScaleState.ScaleTarget, args.ScaleState.StartOrdinal,
-		args.ScaleState.Scaling); err != nil {
+		args.ScaleState.EndOrdinal, args.ScaleState.Scaling); err != nil {
 		return errors.Errorf("setting scale state for application %q: %w", name, err)
 	}
 	if err := s.st.SetDesiredApplicationScale(ctx, args.UUID, args.ScaleState.Scale); err != nil {
