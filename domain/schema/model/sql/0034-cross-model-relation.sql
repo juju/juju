@@ -160,7 +160,7 @@ CREATE TABLE secret_remote_unit_consumer (
     REFERENCES application_remote_consumer (offer_connection_uuid)
 );
 
-CREATE UNIQUE INDEX idx_secret_remote_unit_consumer_secret_id_unit_name
+CREATE UNIQUE INDEX idx_secret_remote_unit_consumer_offer_connection_secret_unit
 ON secret_remote_unit_consumer (offer_connection_uuid, secret_id, unit_name);
 
 CREATE INDEX idx_secret_remote_unit_consumer_offer_connection_uuid
