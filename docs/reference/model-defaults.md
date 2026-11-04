@@ -54,7 +54,8 @@ The caller, the rules, and the errors are:
   - Each key's result carries the cloud's default value and, for each region that has one, the region's value for the key.
 - *Errors:*
   - **`permission denied`**: *Trigger:* The caller is not a superuser. The {ref}`client <client>` receives it with the code `unauthorized access`. *Remediation:* Ask a superuser.
-  - **`cloud "<name>" not found`**: *Trigger:* The request names a cloud that does not exist. The {ref}`client <client>` receives it with the code for a missing entity. *Remediation:* Use the name of a cloud that exists.
+  - **`"<tag>" is not a valid tag`** and **`"<tag>" is not a valid <kind> tag`**: *Trigger:* The cloud tag is malformed or names another kind. The client receives the error in the result for the cloud, with no code. *Remediation:* Use a cloud tag of the form `cloud-<name>`.
+  - **`cloud "<name>" not found`** (code `not found`): *Trigger:* The request names a cloud that does not exist. *Remediation:* Use the name of a cloud that exists.
 
 (model-defaults-setting)=
 ### Setting model defaults
@@ -69,8 +70,11 @@ The caller, the rules, and the errors are:
   - Setting a key that the cloud or the region already carries replaces its value.
 - *Errors:*
   - **`permission denied`**: *Trigger:* The caller is not a superuser. The {ref}`client <client>` receives it with the code `unauthorized access`. *Remediation:* Ask a superuser.
-  - **`cloud "<name>" not found`**: *Trigger:* The request names a cloud that does not exist. The {ref}`client <client>` receives it with the code for a missing entity. *Remediation:* Use the name of a cloud that exists.
-  - **`cloud "<name>" region "<name>" not found`**: *Trigger:* The request names a region that the cloud does not have. The {ref}`client <client>` receives it with the code for a missing entity. *Remediation:* Use the name of a region of the cloud.
+  - **`missing cloud name`**: *Trigger:* The request gives no cloud tag. The client receives it in the result for the cloud, with no code. *Remediation:* Give a cloud tag of the form `cloud-<name>`.
+  - **`cloud tag "<tag>" not valid: "<tag>" is not a valid tag`** (code `not valid`) and **`cloud tag "<tag>" not valid: "<tag>" is not a valid <kind> tag`** (code `not valid`): *Trigger:* The cloud tag is malformed or names another kind. The client receives the error in the result for the cloud. *Remediation:* Use a cloud tag of the form `cloud-<name>`.
+  - **`cloud "<name>" not found`** (code `not found`): *Trigger:* The request names a cloud that does not exist. *Remediation:* Use the name of a cloud that exists.
+  - **`cloud "<name>" region "<name>" not found`** (code `not found`): *Trigger:* The request names a region that the cloud does not have. *Remediation:* Use the name of a region of the cloud.
+  - **The operator's block message**, or `the operation has been blocked` when the operator gave none: *Trigger:* A change block is on the controller model. The client receives it with the code `operation is blocked`. The whole call fails. *Remediation:* Ask the operator to lift the block.
 
 (model-defaults-removing)=
 ### Removing model defaults
@@ -84,5 +88,8 @@ The caller, the rules, and the errors are:
   - A change block on the controller model (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) refuses a removal.
 - *Errors:*
   - **`permission denied`**: *Trigger:* The caller is not a superuser. The {ref}`client <client>` receives it with the code `unauthorized access`. *Remediation:* Ask a superuser.
-  - **`cloud "<name>" not found`**: *Trigger:* The request names a cloud that does not exist. The {ref}`client <client>` receives it with the code for a missing entity. *Remediation:* Use the name of a cloud that exists.
-  - **`cloud "<name>" region "<name>" not found`**: *Trigger:* The request names a region that the cloud does not have. The {ref}`client <client>` receives it with the code for a missing entity. *Remediation:* Use the name of a region of the cloud.
+  - **`missing cloud name`**: *Trigger:* The request gives no cloud tag. The client receives it in the result for the cloud, with no code. *Remediation:* Give a cloud tag of the form `cloud-<name>`.
+  - **`cloud tag "<tag>" not valid: "<tag>" is not a valid tag`** (code `not valid`) and **`cloud tag "<tag>" not valid: "<tag>" is not a valid <kind> tag`** (code `not valid`): *Trigger:* The cloud tag is malformed or names another kind. The client receives the error in the result for the cloud. *Remediation:* Use a cloud tag of the form `cloud-<name>`.
+  - **`cloud "<name>" not found`** (code `not found`): *Trigger:* The request names a cloud that does not exist. *Remediation:* Use the name of a cloud that exists.
+  - **`cloud "<name>" region "<name>" not found`** (code `not found`): *Trigger:* The request names a region that the cloud does not have. *Remediation:* Use the name of a region of the cloud.
+  - **The operator's block message**, or `the operation has been blocked` when the operator gave none: *Trigger:* A change block is on the controller model. The client receives it with the code `operation is blocked`. The whole call fails. *Remediation:* Ask the operator to lift the block.

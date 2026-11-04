@@ -28,7 +28,8 @@ Raise forms extracted: New, Newf, Errorf (github.com/juju/errors and
 github.com/juju/juju/internal/errors under their import aliases), fmt.Errorf,
 fmt.Sprintf (messages built for params.Error), the Message field of a
 params.Error literal, the annotated *f constructors of github.com/juju/errors,
-ConstError, Annotate and Annotatef (prefix + wrapped slot), ParamsErrorf of
+ConstError, Annotate and Annotatef (prefix + wrapped slot), NewX wrappers
+whose message is a literal or a fmt.Sprintf call, ParamsErrorf of
 apiserver/errors (the format string is its second argument), OperationBlocked-
 Error of apiserver/errors (the message, and its default whenever it is called),
 and the logger Errorf and Warningf calls the workers document (their first
@@ -275,17 +276,21 @@ def walk_root(source, out, family_re):
                     # Annotate renders `prefix + ": " + inner`; model the
                     # wrapped inner as a verb so the template heads a chain.
                     out.add(content(m) + ": %v")
-                for m in re.finditer(
-                        a + r"New(?:Timeout|NotFound|UserNotFound|"
-                        r"Unauthorized|NotImplemented|AlreadyExists|"
-                        r"NotSupported|NotValid|NotProvisioned|NotAssigned|"
-                        r"BadRequest|MethodNotAllowed|Forbidden|"
-                        r"QuotaLimitExceeded|NotYetAvailable)"
-                        r"\([^,]+,\s*" + LITRUN.pattern, text):
+                new_wrapper = (a + r"New(?:Timeout|NotFound|UserNotFound|"
+                               r"Unauthorized|NotImplemented|AlreadyExists|"
+                               r"NotSupported|NotValid|NotProvisioned|NotAssigned|"
+                               r"BadRequest|MethodNotAllowed|Forbidden|"
+                               r"QuotaLimitExceeded|NotYetAvailable)"
+                               r"\([^,]+,\s*")
+                for m in re.finditer(new_wrapper + LITRUN.pattern, text):
                     # NewX(err, msg) renders `msg: inner`, or the bare msg
                     # when err is nil; both shapes are raisable.
                     out.add(content(m))
                     out.add(content(m) + ": %v")
+                if imports.get("fmt") == "fmt":
+                    for m in re.finditer(new_wrapper + r"fmt\.Sprintf\(\s*"
+                                         + LITRUN.pattern, text):
+                        out.add(content(m) + ": %v")
             # HTTP handlers answer with the message literal directly.
             for m in re.finditer(r"\bhttp\.Error\(\s*[^,]+,\s*"
                                  + LITRUN.pattern, text):

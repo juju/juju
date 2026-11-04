@@ -135,7 +135,7 @@ The caller, the rules, and the errors are:
 See also: {ref}`Juju | Configure a model <configure-a-model>`
 ```
 
-Configuring models changes the settings of a model: its configuration keys, its {ref}`constraints <constraint>`, the defaults that new models start with, its {ref}`secret <secret>` backend, and its {ref}`credential <credential>`. The keys a model accepts are listed in the {ref}`list of model configuration keys <list-of-model-configuration-keys>`.
+Configuring models changes the settings of a model: its configuration keys, its {ref}`constraints <constraint>`, the {ref}`defaults <model-defaults>` that new models start with, its {ref}`secret <secret>` backend, and its {ref}`credential <credential>`. The keys a model accepts are listed in the {ref}`list of model configuration keys <list-of-model-configuration-keys>`.
 
 The caller, the rules, and the errors are:
 
@@ -154,7 +154,6 @@ The caller, the rules, and the errors are:
   - **`space not found for model constraint "<uuid>": <reason>`**: *Trigger:* A constraint names a space that does not exist. *Remediation:* Name an existing space.
   - **`invalid container type for model constraint "<uuid>"`**: *Trigger:* A constraint names an unknown container type. *Remediation:* Use a supported container type.
   - **`secret backend "<name>" not found`** and **`secret backend "<name>" not valid`**: *Trigger:* The named backend does not exist, or cannot back this model. *Remediation:* Name an existing backend that suits the model.
-  - **`missing cloud name`**, **`cloud tag "<tag>" not valid`**, **`cloud "<cloud>" not found`**, and **`cloud "<cloud>" region "<region>" not found`**: *Trigger:* A request for model defaults names no cloud, a malformed cloud, or a cloud or region that does not exist. *Remediation:* Name an existing cloud and region.
   - **`permission denied`**: *Trigger:* The caller lacks the access above. *Remediation:* Ask a model administrator or a superuser.
   - **`the operation has been blocked`** (or the message that the block carries): *Trigger:* A {ref}`block <restrict-commands-on-a-model>` that this call checks is on. The client receives it with the code `operation is blocked`. *Remediation:* Remove the block.
 
