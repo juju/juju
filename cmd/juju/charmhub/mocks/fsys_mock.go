@@ -26,13 +26,14 @@ type MockFilesystem struct {
 
 // MockFilesystemMockRecorder is the mock recorder for MockFilesystem.
 type MockFilesystemMockRecorder struct {
-	mock             *MockFilesystem
-	createExpects    []*gomock.Call1_2[string, io.WriteCloser, error]
-	openExpects      []*gomock.Call1_2[string, modelcmd.ReadSeekCloser, error]
-	openFileExpects  []*gomock.Call3_2[string, int, os.FileMode, *os.File, error]
-	removeAllExpects []*gomock.Call1_1[string, error]
-	renameExpects    []*gomock.Call2_1[string, string, error]
-	statExpects      []*gomock.Call1_2[string, os.FileInfo, error]
+	mock              *MockFilesystem
+	createExpects     []*gomock.Call1_2[string, io.WriteCloser, error]
+	createTempExpects []*gomock.Call2_2[string, string, modelcmd.NamedWriteCloser, error]
+	openExpects       []*gomock.Call1_2[string, modelcmd.ReadSeekCloser, error]
+	openFileExpects   []*gomock.Call3_2[string, int, os.FileMode, *os.File, error]
+	removeAllExpects  []*gomock.Call1_1[string, error]
+	renameExpects     []*gomock.Call2_1[string, string, error]
+	statExpects       []*gomock.Call1_2[string, os.FileInfo, error]
 }
 
 // NewMockFilesystem creates a new mock instance.
@@ -64,6 +65,24 @@ func (mr *MockFilesystemMockRecorder) Create(name any) *MockFilesystemCreateCall
 
 // MockFilesystemCreateCall is the typed call wrapper for Create.
 type MockFilesystemCreateCall = gomock.Call1_2[string, io.WriteCloser, error]
+
+// CreateTemp mocks base method.
+func (m *MockFilesystem) CreateTemp(dir, pattern string) (modelcmd.NamedWriteCloser, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.createTempExpects, m.ctrl, m, "CreateTemp", dir, pattern)
+}
+
+// CreateTemp indicates an expected call of CreateTemp.
+func (mr *MockFilesystemMockRecorder) CreateTemp(dir, pattern any) *MockFilesystemCreateTempCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[string, string, modelcmd.NamedWriteCloser, error](mr.mock.ctrl.T, mr.mock, "CreateTemp", gomock.EnsureMatcher(dir), gomock.EnsureMatcher(pattern))
+	mr.createTempExpects = append(mr.createTempExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockFilesystemCreateTempCall is the typed call wrapper for CreateTemp.
+type MockFilesystemCreateTempCall = gomock.Call2_2[string, string, modelcmd.NamedWriteCloser, error]
 
 // Open mocks base method.
 func (m *MockFilesystem) Open(name string) (modelcmd.ReadSeekCloser, error) {

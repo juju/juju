@@ -16,6 +16,12 @@ type ReadSeekCloser interface {
 	io.Seeker
 }
 
+// NamedWriteCloser is a writable file handle with its filesystem path.
+type NamedWriteCloser interface {
+	io.WriteCloser
+	Name() string
+}
+
 // Filesystem is an interface providing access to the filesystem,
 // either delegating to calling os functions or functions which
 // always return an error.
@@ -28,6 +34,9 @@ type Filesystem interface {
 	// *os.File so callers can work with any writer, including test
 	// doubles that script write or close failures.
 	Create(name string) (io.WriteCloser, error)
+	// CreateTemp exclusively creates a temporary file in dir. The caller
+	// must close the handle and remove or rename the file.
+	CreateTemp(dir, pattern string) (NamedWriteCloser, error)
 	RemoveAll(path string) error
 	Rename(oldpath, newpath string) error
 }
@@ -36,6 +45,10 @@ type osFilesystem struct{}
 
 func (osFilesystem) Create(name string) (io.WriteCloser, error) {
 	return os.Create(name)
+}
+
+func (osFilesystem) CreateTemp(dir, pattern string) (NamedWriteCloser, error) {
+	return os.CreateTemp(dir, pattern)
 }
 
 func (osFilesystem) RemoveAll(path string) error {
@@ -63,6 +76,10 @@ var notSupported = errors.NotSupportedf("access to filesystem")
 type restrictedFilesystem struct{}
 
 func (restrictedFilesystem) Create(string) (io.WriteCloser, error) {
+	return nil, notSupported
+}
+
+func (restrictedFilesystem) CreateTemp(string, string) (NamedWriteCloser, error) {
 	return nil, notSupported
 }
 

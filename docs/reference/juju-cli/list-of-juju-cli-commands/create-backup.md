@@ -42,6 +42,9 @@ beside it as an unsigned YAML assertion file, named by appending
 ".assert" to the archive filename. The assertion records the archive's
 SHA-256 checksum together with the backup metadata. On success the
 command reports both filenames on stderr, unless --quiet is specified.
+The assertion is published by replacing its destination only after writing
+and closing a temporary file successfully. If publication fails, the verified
+archive and any existing assertion are kept.
 
 Recovering a controller from a backup needs both files, the archive
 and its assertion: see "juju recover &lt;backup-file&gt; &lt;assertion-file&gt;".

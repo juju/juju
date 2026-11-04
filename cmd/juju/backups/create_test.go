@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -432,17 +433,15 @@ func (s *createSuite) TestNoChecksum(c *tc.C) {
 	s.checkNoAssertion(c, s.defaultFilename)
 }
 
-// TestAssertionCreationFailureKeepsArchive verifies that a failure to
-// create the assertion file — here a directory in the way — fails the
-// command, keeps the verified archive, and does not remove whatever
-// blocked the creation.
-func (s *createSuite) TestAssertionCreationFailureKeepsArchive(c *tc.C) {
+// TestAssertionPublicationFailureKeepsArchive verifies that a destination
+// directory blocks publication without removing it or the verified archive.
+func (s *createSuite) TestAssertionPublicationFailureKeepsArchive(c *tc.C) {
 	client := s.setDownload()
 	err := os.Mkdir("backup.tgz.assert", 0o755)
 	c.Assert(err, tc.ErrorIsNil)
 
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
-	c.Assert(err, tc.ErrorMatches, `while creating local assertion file backup.tgz.assert: .*`)
+	c.Assert(err, tc.ErrorMatches, `while publishing local assertion file backup.tgz.assert: .*`)
 	client.CheckCalls(c, "Create")
 
 	// The verified archive is kept and the obstructing directory is
@@ -453,175 +452,149 @@ func (s *createSuite) TestAssertionCreationFailureKeepsArchive(c *tc.C) {
 	info, err := os.Stat("backup.tgz.assert")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.IsDir(), tc.IsTrue)
+	entries, err := os.ReadDir(".")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entries, tc.HasLen, 2)
 
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, "")
 	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
 }
 
-// hookedCreateFS delegates every filesystem operation, except Create,
-// to the wrapped filesystem, so a test can replace only the files it
-// creates: make a creation fail, or return a handle that scripts a
-// write or close failure.
-type hookedCreateFS struct {
+// hookedCreateTempFS scripts failures while retaining real temporary files.
+type hookedCreateTempFS struct {
 	modelcmd.Filesystem
-	create func(name string) (io.WriteCloser, error)
+	createTemp func(dir, pattern string) (modelcmd.NamedWriteCloser, error)
 }
 
-// Create implements Filesystem.
-func (f *hookedCreateFS) Create(name string) (io.WriteCloser, error) {
-	return f.create(name)
+func (f *hookedCreateTempFS) CreateTemp(dir, pattern string) (modelcmd.NamedWriteCloser, error) {
+	return f.createTemp(dir, pattern)
 }
 
-// shortWriter stands in for the assertion file, accepting only the
-// first half of the data and reporting a short write without an
-// error — behaviour a regular file never shows, which the
-// short-write guard exists for.
+type failingWriteWriter struct {
+	modelcmd.NamedWriteCloser
+	err error
+}
+
+func (w *failingWriteWriter) Write([]byte) (int, error) {
+	return 0, w.err
+}
+
 type shortWriter struct {
-	file io.WriteCloser
+	modelcmd.NamedWriteCloser
 }
 
-// Write implements io.Writer.
 func (w *shortWriter) Write(p []byte) (int, error) {
-	return w.file.Write(p[:len(p)/2])
+	return w.NamedWriteCloser.Write(p[:len(p)/2])
 }
 
-// Close implements io.Closer.
-func (w *shortWriter) Close() error {
-	return w.file.Close()
-}
-
-// failingCloseWriter stands in for the assertion file, accepting all
-// the data but failing to close, so the close-failure handling can be
-// exercised.
 type failingCloseWriter struct {
-	file io.WriteCloser
-	err  error
+	modelcmd.NamedWriteCloser
+	err error
 }
 
-// Write implements io.Writer.
-func (w *failingCloseWriter) Write(p []byte) (int, error) {
-	return w.file.Write(p)
-}
-
-// Close implements io.Closer; the wrapped file is closed regardless
-// and the scripted failure is reported.
 func (w *failingCloseWriter) Close() error {
-	_ = w.file.Close()
+	_ = w.NamedWriteCloser.Close()
 	return w.err
 }
 
-// TestAssertionWriteFailureRemovesPartialFile verifies that a failure
-// to write the assertion — here a read-only handle — fails the command,
-// removes the partial assertion file, and keeps the verified archive.
-func (s *createSuite) TestAssertionWriteFailureRemovesPartialFile(c *tc.C) {
-	client := s.setDownload()
-	assertionPath := "backup.tgz.assert"
-	err := os.WriteFile(assertionPath, nil, 0o600)
-	c.Assert(err, tc.ErrorIsNil)
-	readOnly, err := os.Open(assertionPath)
-	c.Assert(err, tc.ErrorIsNil)
-	defer readOnly.Close()
-
-	base := s.command.Filesystem()
-	s.command.SetFilesystem(&hookedCreateFS{
-		Filesystem: base,
-		create: func(name string) (io.WriteCloser, error) {
-			if name == assertionPath {
-				return readOnly, nil
-			}
-			return base.Create(name)
+// TestAssertionFailureKeepsExistingFiles verifies that creation, write and
+// close failures preserve the archive and old assertion without leaking
+// temporary files.
+func (s *createSuite) TestAssertionFailureKeepsExistingFiles(c *tc.C) {
+	failure := errors.New("assertion I/O failure")
+	for _, test := range []struct {
+		name      string
+		createErr bool
+		wrap      func(modelcmd.NamedWriteCloser) modelcmd.NamedWriteCloser
+		err       error
+	}{
+		{name: "create", createErr: true, err: failure},
+		{
+			name: "write",
+			wrap: func(file modelcmd.NamedWriteCloser) modelcmd.NamedWriteCloser {
+				return &failingWriteWriter{NamedWriteCloser: file, err: failure}
+			},
+			err: failure,
 		},
-	})
+		{
+			name: "short write",
+			wrap: func(file modelcmd.NamedWriteCloser) modelcmd.NamedWriteCloser {
+				return &shortWriter{NamedWriteCloser: file}
+			},
+			err: io.ErrShortWrite,
+		},
+		{
+			name: "close",
+			wrap: func(file modelcmd.NamedWriteCloser) modelcmd.NamedWriteCloser {
+				return &failingCloseWriter{NamedWriteCloser: file, err: failure}
+			},
+			err: failure,
+		},
+	} {
+		c.Logf("failure during %s", test.name)
+		dir := c.MkDir()
+		filename := filepath.Join(dir, "backup.tgz")
+		assertionPath := filename + ".assert"
+		const previousAssertion = "previous assertion"
+		c.Assert(os.WriteFile(assertionPath, []byte(previousAssertion), 0o600), tc.ErrorIsNil)
+		s.setDownload()
+		base := (&modelcmd.FilesystemCommand{}).Filesystem()
+		s.command.SetFilesystem(&hookedCreateTempFS{
+			Filesystem: base,
+			createTemp: func(dir, pattern string) (modelcmd.NamedWriteCloser, error) {
+				if test.createErr {
+					return nil, failure
+				}
+				file, err := base.CreateTemp(dir, pattern)
+				if err != nil {
+					return nil, err
+				}
+				return test.wrap(file), nil
+			},
+		})
 
-	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
-	c.Assert(err, tc.ErrorMatches, `while writing local assertion file backup.tgz.assert: .*`)
-	client.CheckCalls(c, "Create")
-
-	// The partial assertion is removed; the archive is kept.
-	_, err = os.Stat(assertionPath)
-	c.Check(err, tc.Satisfies, os.IsNotExist)
-	data, err := os.ReadFile("backup.tgz")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(string(data), tc.Equals, s.data)
-
-	c.Check(cmdtesting.Stdout(ctx), tc.Equals, "")
+		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", filename)
+		c.Assert(err, tc.ErrorIs, test.err)
+		data, err := os.ReadFile(filename)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(string(data), tc.Equals, s.data)
+		data, err = os.ReadFile(assertionPath)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(string(data), tc.Equals, previousAssertion)
+		entries, err := os.ReadDir(dir)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(entries, tc.HasLen, 2)
+		c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
+	}
 }
 
-// TestAssertionShortWriteRemovesPartialFile verifies that a short
-// write of the assertion — fewer bytes accepted than sent, without an
-// error — fails the command, removes the truncated assertion file,
-// and keeps the verified archive.
-func (s *createSuite) TestAssertionShortWriteRemovesPartialFile(c *tc.C) {
-	client := s.setDownload()
-	assertionPath := "backup.tgz.assert"
+// TestAssertionLinksKeepArchive verifies that publishing an assertion
+// replaces a linked destination without overwriting the verified archive.
+func (s *createSuite) TestAssertionLinksKeepArchive(c *tc.C) {
+	for _, test := range []struct {
+		name string
+		link func(string, string) error
+	}{
+		{name: "symlink", link: os.Symlink},
+		{name: "hardlink", link: os.Link},
+	} {
+		c.Logf("assertion destination: %s", test.name)
+		dir := c.MkDir()
+		filename := filepath.Join(dir, "backup.tgz")
+		c.Assert(os.WriteFile(filename, []byte("old backup"), 0o600), tc.ErrorIsNil)
+		c.Assert(test.link(filename, filename+".assert"), tc.ErrorIsNil)
+		s.setDownload()
 
-	base := s.command.Filesystem()
-	s.command.SetFilesystem(&hookedCreateFS{
-		Filesystem: base,
-		create: func(name string) (io.WriteCloser, error) {
-			if name != assertionPath {
-				return base.Create(name)
-			}
-			file, err := base.Create(name)
-			if err != nil {
-				return nil, err
-			}
-			return &shortWriter{file: file}, nil
-		},
-	})
-
-	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
-	c.Assert(err, tc.ErrorMatches,
-		`while writing local assertion file backup.tgz.assert: short write`)
-	client.CheckCalls(c, "Create")
-
-	// The truncated assertion is removed; the verified archive is kept.
-	_, err = os.Stat(assertionPath)
-	c.Check(err, tc.Satisfies, os.IsNotExist)
-	data, err := os.ReadFile("backup.tgz")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(string(data), tc.Equals, s.data)
-
-	c.Check(cmdtesting.Stdout(ctx), tc.Equals, "")
-}
-
-// TestAssertionCloseFailureRemovesFile verifies that an assertion
-// written completely but failing to close — an unconfirmed file, as a
-// full filesystem can report — fails the command, removes the
-// assertion, and keeps the verified archive.
-func (s *createSuite) TestAssertionCloseFailureRemovesFile(c *tc.C) {
-	client := s.setDownload()
-	assertionPath := "backup.tgz.assert"
-	closeErr := errors.New("no space left on device")
-
-	base := s.command.Filesystem()
-	s.command.SetFilesystem(&hookedCreateFS{
-		Filesystem: base,
-		create: func(name string) (io.WriteCloser, error) {
-			if name != assertionPath {
-				return base.Create(name)
-			}
-			file, err := base.Create(name)
-			if err != nil {
-				return nil, err
-			}
-			return &failingCloseWriter{file: file, err: closeErr}, nil
-		},
-	})
-
-	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
-	c.Assert(err, tc.ErrorMatches,
-		`while closing local assertion file backup.tgz.assert: no space left on device`)
-	client.CheckCalls(c, "Create")
-
-	// The unconfirmed assertion is removed; the verified archive is kept.
-	_, err = os.Stat(assertionPath)
-	c.Check(err, tc.Satisfies, os.IsNotExist)
-	data, err := os.ReadFile("backup.tgz")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(string(data), tc.Equals, s.data)
-
-	c.Check(cmdtesting.Stdout(ctx), tc.Equals, "")
+		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", filename)
+		c.Assert(err, tc.ErrorIsNil)
+		s.checkDownload(c, ctx, filename)
+		info, err := os.Lstat(filename + ".assert")
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(info.Mode().IsRegular(), tc.IsTrue)
+		entries, err := os.ReadDir(dir)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(entries, tc.HasLen, 2)
+	}
 }
 
 // TestAssertionReplaced verifies that a second successful backup to the

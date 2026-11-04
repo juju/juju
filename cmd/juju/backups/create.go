@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -42,6 +43,9 @@ beside it as an unsigned YAML assertion file, named by appending
 ".assert" to the archive filename. The assertion records the archive's
 SHA-256 checksum together with the backup metadata. On success the
 command reports both filenames on stderr, unless --quiet is specified.
+The assertion is published by replacing its destination only after writing
+and closing a temporary file successfully. If publication fails, the verified
+archive and any existing assertion are kept.
 
 Recovering a controller from a backup needs both files, the archive
 and its assertion: see "juju recover <backup-file> <assertion-file>".
@@ -215,15 +219,22 @@ func (c *createCommand) writeArchive(ctx *cmd.Context, stream io.Reader, checksu
 	return nil
 }
 
-// writeAssertion saves the marshalled assertion summary beside the
-// verified archive. A short write or a failed close fails the command
-// and removes the partial file, so no assertion survives for an
-// archive it does not describe; the verified archive itself is kept.
+// writeAssertion publishes the assertion by renaming a completed temporary
+// file, so a linked destination cannot overwrite the verified archive.
+// Failures leave the destination untouched and remove the temporary file.
 func (c *createCommand) writeAssertion(data []byte, filename string) error {
-	file, err := c.Filesystem().Create(filename)
+	fs := c.Filesystem()
+	file, err := fs.CreateTemp(filepath.Dir(filename), ".juju-backup-assert-*")
 	if err != nil {
 		return errors.Annotatef(err, "while creating local assertion file %v", filename)
 	}
+	tempName := file.Name()
+	published := false
+	defer func() {
+		if !published {
+			_ = fs.RemoveAll(tempName)
+		}
+	}()
 	n, writeErr := file.Write(data)
 	if writeErr == nil && n < len(data) {
 		// A truncated assertion could not be parsed, so treat a
@@ -232,14 +243,15 @@ func (c *createCommand) writeAssertion(data []byte, filename string) error {
 	}
 	closeErr := file.Close()
 	if writeErr != nil || closeErr != nil {
-		// The assertion is incomplete: remove it so it cannot be
-		// mistaken for a usable one. The removal is best effort: the
-		// write or close failure is the more useful error.
-		_ = c.Filesystem().RemoveAll(filename)
+		// Never publish an incomplete assertion.
 		if writeErr != nil {
 			return errors.Annotatef(writeErr, "while writing local assertion file %v", filename)
 		}
 		return errors.Annotatef(closeErr, "while closing local assertion file %v", filename)
 	}
+	if err := fs.Rename(tempName, filename); err != nil {
+		return errors.Annotatef(err, "while publishing local assertion file %v", filename)
+	}
+	published = true
 	return nil
 }
