@@ -99,7 +99,8 @@ type trackedDBWorker struct {
 	report *report
 }
 
-// NewTrackedDBWorker creates a new TrackedDBWorker
+// NewTrackedDBWorker creates a new TrackedDBWorker. The worker owns the pools
+// it opens, closing them on startup failure or when they are no longer needed.
 func NewTrackedDBWorker(
 	ctx context.Context, dbApp DBApp, namespace string, opts ...TrackedDBWorkerOption,
 ) (TrackedDB, error) {
@@ -140,6 +141,9 @@ func newTrackedDBWorker(
 	// racing with the application of schema DDL.
 	if namespace != coredatabase.ControllerNS {
 		if err := w.ensureModelDBInitialised(ctx); err != nil {
+			if closeErr := db.Close(); closeErr != nil {
+				w.logger.Errorf(ctx, "error closing database: %v", closeErr)
+			}
 			return nil, errors.Trace(err)
 		}
 	}
@@ -168,6 +172,9 @@ func (w *trackedDBWorker) openDatabase(ctx context.Context) (*sql.DB, error) {
 	// Ensure that foreign keys are enabled, as we rely on them for referential
 	// integrity.
 	if err := pragma.SetPragma(ctx, db, pragma.ForeignKeysPragma, true); err != nil {
+		if closeErr := db.Close(); closeErr != nil {
+			w.logger.Errorf(ctx, "error closing database: %v", closeErr)
+		}
 		return nil, errors.Annotate(err, "setting foreign keys pragma")
 	}
 
@@ -423,6 +430,9 @@ func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(ctx context.Context, db
 		w.logger.Tracef(ctx, "ensuring database %q is alive", w.namespace)
 	}
 
+	// The caller owns the current pool until a replacement is returned.
+	currentDB := db
+
 	// There are multiple levels of retries here.
 	// - We want to retry the ping function for retryable errors.
 	//   These might be DB-locked or busy-syncing errors for example.
@@ -460,6 +470,13 @@ func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(ctx context.Context, db
 		// early.
 		if err == nil {
 			return db, nil
+		}
+
+		// Failed replacement pools are not retained by the worker loop.
+		if db != currentDB {
+			if closeErr := db.Close(); closeErr != nil {
+				w.logger.Errorf(ctx, "error closing database: %v", closeErr)
+			}
 		}
 
 		// We exhausted the retry strategy for pinging the database.
