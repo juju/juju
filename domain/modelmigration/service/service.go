@@ -303,9 +303,12 @@ type ControllerState interface {
 	DeleteActivatedImport(ctx context.Context, modelUUID string) error
 
 	// EnsureSourceControllerExists compares-or-inserts the migration source
-	// controller's connection details and records the models it offers,
-	// failing with [modelmigrationerrors.ErrExternalControllerMismatch] on a
-	// mismatch rather than overwriting live CMR connection data.
+	// controller's connection details and records the models it offers. An
+	// existing row with the same alias and CA certificate is kept unchanged,
+	// whatever its addresses. It fails with
+	// [modelmigrationerrors.ErrExternalControllerMismatch] when the alias or
+	// CA certificate differs, or a consumed model is mapped to a different
+	// controller, rather than overwriting live CMR connection data.
 	EnsureSourceControllerExists(
 		ctx context.Context, controllerUUID, alias, caCert string, addrs, addrUUIDs, consumedModels []string,
 	) error

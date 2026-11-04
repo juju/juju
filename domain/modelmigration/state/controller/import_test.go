@@ -375,6 +375,87 @@ func (s *stateSuite) TestEnsureSourceControllerExists(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, ".*length mismatch.*")
 }
 
+// TestEnsureSourceControllerExistsKeepsExistingRow covers a 3.6 consumer model
+// migrating from a multi-address controller: the import has already recorded
+// the source controller with the filtered addresses from the model
+// description, and activation supplies a different address set. The existing
+// row must be kept unchanged and the consumed models mapped.
+func (s *stateSuite) TestEnsureSourceControllerExistsKeepsExistingRow(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	ctrlUUID := uuid.MustNewUUID().String()
+	imported := []string{"54.1.2.3:17070", "172.31.1.2:17070"}
+	err := st.EnsureExternalControllerExists(c.Context(),
+		externalController(ctrlUUID, "src", "ca-cert", imported, nil))
+	c.Assert(err, tc.ErrorIsNil)
+
+	activation := []string{"54.1.2.3:17070", "172.31.1.2:17070", "252.1.2.1:17070"}
+	addrUUIDs := []string{
+		uuid.MustNewUUID().String(),
+		uuid.MustNewUUID().String(),
+		uuid.MustNewUUID().String(),
+	}
+	consumed := []string{uuid.MustNewUUID().String()}
+	err = st.EnsureSourceControllerExists(
+		c.Context(), ctrlUUID, "src", "ca-cert", activation, addrUUIDs, consumed)
+	c.Assert(err, tc.ErrorIsNil)
+
+	rows, err := s.DB().QueryContext(c.Context(),
+		"SELECT address FROM external_controller_address WHERE controller_uuid = ?", ctrlUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = rows.Close() }()
+	var got []string
+	for rows.Next() {
+		var addr string
+		c.Assert(rows.Scan(&addr), tc.ErrorIsNil)
+		got = append(got, addr)
+	}
+	c.Assert(rows.Err(), tc.ErrorIsNil)
+	c.Check(got, tc.SameContents, imported)
+
+	var mapped string
+	err = s.DB().QueryRowContext(c.Context(),
+		"SELECT controller_uuid FROM external_model WHERE uuid = ?", consumed[0]).Scan(&mapped)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(mapped, tc.Equals, ctrlUUID)
+}
+
+// TestEnsureSourceControllerExistsMismatch asserts an existing row with a
+// different alias or CA certificate is still rejected, and nothing is mapped.
+func (s *stateSuite) TestEnsureSourceControllerExistsMismatch(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	tests := []struct {
+		name   string
+		alias  string
+		caCert string
+	}{
+		{name: "alias", alias: "other-src", caCert: "ca-cert"},
+		{name: "ca cert", alias: "src", caCert: "other-ca-cert"},
+	}
+	for _, test := range tests {
+		c.Logf("different %s", test.name)
+
+		ctrlUUID := uuid.MustNewUUID().String()
+		addrs := []string{"10.0.0.1:17070"}
+		err := st.EnsureExternalControllerExists(c.Context(),
+			externalController(ctrlUUID, "src", "ca-cert", addrs, nil))
+		c.Assert(err, tc.ErrorIsNil)
+
+		consumed := []string{uuid.MustNewUUID().String()}
+		err = st.EnsureSourceControllerExists(
+			c.Context(), ctrlUUID, test.alias, test.caCert, addrs,
+			[]string{uuid.MustNewUUID().String()}, consumed)
+		c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrExternalControllerMismatch)
+
+		var count int
+		err = s.DB().QueryRowContext(c.Context(),
+			"SELECT COUNT(*) FROM external_model WHERE uuid = ?", consumed[0]).Scan(&count)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(count, tc.Equals, 0)
+	}
+}
+
 // TestExternalControllerModelsForImport verifies the third-party offerer-model
 // mappings recorded at import are read back, and that a model without a claim
 // returns an empty slice.

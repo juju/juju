@@ -353,11 +353,17 @@ WHERE model_uuid = $modelUUIDArg.model_uuid
 // controllers. It is a primitive-typed wrapper for callers outside the
 // domain/modelmigration tree (e.g. internal/migration) that cannot build the
 // internal representation. Both the controller registration and the model
-// mapping use compare-or-insert semantics and never overwrite live CMR data:
+// mapping use compare-or-insert semantics and never overwrite live CMR data.
+//
+// An existing row with the same alias and CA certificate is kept as it is,
+// even when its addresses differ: a 3.6 source exports a filtered address list
+// in the model description, which the legacy importer records, but supplies
+// its unfiltered client addresses at activation.
 // [modelmigrationerrors.ErrExternalControllerMismatch] is returned when the
-// controller, or any consumed model, is already registered with different
-// details. addrUUIDs supplies the caller-generated UUID for each address in
-// addrs and must have the same length.
+// existing row has a different alias or CA certificate, or when any consumed
+// model is already mapped to a different controller. addrUUIDs supplies the
+// caller-generated UUID for each address in addrs and must have the same
+// length.
 func (s *State) EnsureSourceControllerExists(
 	ctx context.Context,
 	controllerUUID, alias, caCert string,
@@ -386,7 +392,7 @@ func (s *State) EnsureSourceControllerExists(
 		return errors.Capture(err)
 	}
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := s.ensureExternalControllerExists(ctx, tx, ref); err != nil {
+		if err := s.ensureSourceControllerExists(ctx, tx, ref); err != nil {
 			return errors.Capture(err)
 		}
 		for _, consumedModelUUID := range ref.ConsumedModels {
@@ -398,6 +404,45 @@ func (s *State) EnsureSourceControllerExists(
 		}
 		return nil
 	})
+}
+
+// ensureSourceControllerExists inserts the migration source controller and its
+// addresses if absent. An existing row is kept unchanged when its alias and CA
+// certificate match; see EnsureSourceControllerExists for why the addresses
+// are not compared.
+func (s *State) ensureSourceControllerExists(
+	ctx context.Context, tx *sqlair.TX, ref modelmigrationinternal.ExternalController,
+) error {
+	ctrlUUID := entityUUID{UUID: ref.UUID}
+
+	selectCtrlStmt, err := s.Prepare(`
+SELECT ec.* AS &externalControllerInfo.*
+FROM   external_controller AS ec
+WHERE  ec.uuid = $entityUUID.uuid
+`, ctrlUUID, externalControllerInfo{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var existing externalControllerInfo
+	err = tx.Query(ctx, selectCtrlStmt, ctrlUUID).Get(&existing)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		info := externalControllerInfo{
+			UUID:   ref.UUID,
+			Alias:  ref.Alias,
+			CACert: ref.CACert,
+		}
+		return s.insertExternalController(ctx, tx, info, ref.Addresses)
+	} else if err != nil {
+		return errors.Errorf("looking up source controller: %w", err)
+	}
+
+	if existing.Alias != ref.Alias || existing.CACert != ref.CACert {
+		return errors.Errorf(
+			"source controller already registered with a different alias/CA: %w",
+			modelmigrationerrors.ErrExternalControllerMismatch)
+	}
+	return nil
 }
 
 // EnsureExternalControllerExists compares the given third-party controller's
