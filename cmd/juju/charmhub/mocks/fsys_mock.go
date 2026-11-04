@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	io "io"
 	os "os"
 
 	gomock "github.com/canonical/gomock/gomock"
@@ -26,7 +27,7 @@ type MockFilesystem struct {
 // MockFilesystemMockRecorder is the mock recorder for MockFilesystem.
 type MockFilesystemMockRecorder struct {
 	mock             *MockFilesystem
-	createExpects    []*gomock.Call1_2[string, *os.File, error]
+	createExpects    []*gomock.Call1_2[string, io.WriteCloser, error]
 	openExpects      []*gomock.Call1_2[string, modelcmd.ReadSeekCloser, error]
 	openFileExpects  []*gomock.Call3_2[string, int, os.FileMode, *os.File, error]
 	removeAllExpects []*gomock.Call1_1[string, error]
@@ -47,7 +48,7 @@ func (m *MockFilesystem) EXPECT() *MockFilesystemMockRecorder {
 }
 
 // Create mocks base method.
-func (m *MockFilesystem) Create(name string) (*os.File, error) {
+func (m *MockFilesystem) Create(name string) (io.WriteCloser, error) {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch1_2(&m.recorder.createExpects, m.ctrl, m, "Create", name)
 }
@@ -55,14 +56,14 @@ func (m *MockFilesystem) Create(name string) (*os.File, error) {
 // Create indicates an expected call of Create.
 func (mr *MockFilesystemMockRecorder) Create(name any) *MockFilesystemCreateCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[string, *os.File, error](mr.mock.ctrl.T, mr.mock, "Create", gomock.EnsureMatcher(name))
+	call := gomock.NewCall1_2[string, io.WriteCloser, error](mr.mock.ctrl.T, mr.mock, "Create", gomock.EnsureMatcher(name))
 	mr.createExpects = append(mr.createExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockFilesystemCreateCall is the typed call wrapper for Create.
-type MockFilesystemCreateCall = gomock.Call1_2[string, *os.File, error]
+type MockFilesystemCreateCall = gomock.Call1_2[string, io.WriteCloser, error]
 
 // Open mocks base method.
 func (m *MockFilesystem) Open(name string) (modelcmd.ReadSeekCloser, error) {

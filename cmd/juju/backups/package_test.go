@@ -12,7 +12,6 @@ import (
 	"os"
 
 	"github.com/juju/tc"
-	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/api/jujuclient/jujuclienttesting"
@@ -88,14 +87,16 @@ func (s *BaseBackupsSuite) checkArchive(c *tc.C) {
 	c.Check(string(data), tc.Equals, s.data)
 }
 
-// readAssertion decodes the assertion file saved beside the archive.
+// readAssertion decodes the assertion file saved beside the archive
+// with the same reader recovery uses, so the round trip through the
+// writer is checked against the real parser's validation.
 func (s *BaseBackupsSuite) readAssertion(c *tc.C, filename string) backups.Assertion {
-	data, err := os.ReadFile(filename)
+	file, err := os.Open(filename)
 	c.Assert(err, tc.ErrorIsNil)
-	var assertion backups.Assertion
-	err = yaml.Unmarshal(data, &assertion)
+	defer file.Close()
+	assertion, err := backups.ReadAssertion(file)
 	c.Assert(err, tc.ErrorIsNil)
-	return assertion
+	return *assertion
 }
 
 // TODO (hml) 2018-05-01

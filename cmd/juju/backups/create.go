@@ -144,6 +144,14 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// On success the command prints nothing at this stage: the
+	// summary is recorded in the assertion file beside the archive
+	// rather than printed. The silence is deliberate and temporary:
+	// the operator-facing report (the archive's size and checksum,
+	// the agent version, the completeness and snapshot caveats, and
+	// the "Downloaded to" line scripts parsed) returns together with
+	// the recovery functionality that consumes these files, so the
+	// output format is designed only once.
 	return c.writeAssertion(data, filename+".assert")
 }
 

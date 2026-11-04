@@ -30,7 +30,10 @@
 // checksum, as an unsigned YAML assertion file named by appending
 // ".assert" to the archive filename.
 
-// To recover an archive, provision a replacement controller with:
-//   juju recover <archive> <assertion-file>
+// Recovering a controller from a backup will require both files, the
+// archive and its assertion. The recover command in this build only
+// validates the pair; provisioning a replacement controller is not
+// available yet:
+//   juju recover <backup-file> <assertion-file>
 
 package backups

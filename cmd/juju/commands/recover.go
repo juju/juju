@@ -4,8 +4,6 @@
 package commands
 
 import (
-	"path/filepath"
-
 	"github.com/juju/errors"
 
 	jujucmd "github.com/juju/juju/cmd"
@@ -37,20 +35,14 @@ func (c *recoveryCommand) Info() *cmd.Info {
 }
 
 func (c *recoveryCommand) Init(args []string) error {
-	if len(args) == 0 {
+	switch {
+	case len(args) == 0 || args[0] == "":
 		return errors.New("a backup archive is required")
-	}
-	if len(args) == 1 {
+	case len(args) == 1 || args[1] == "":
 		return errors.New("a backup assertion file is required")
 	}
 	if err := cmd.CheckEmpty(args[2:]); err != nil {
 		return err
-	}
-	if args[0] == "" {
-		return errors.New("a backup archive is required")
-	}
-	if args[1] == "" {
-		return errors.New("a backup assertion file is required")
 	}
 	c.archivePath = args[0]
 	c.assertionPath = args[1]
@@ -58,14 +50,8 @@ func (c *recoveryCommand) Init(args []string) error {
 }
 
 func (c *recoveryCommand) Run(ctx *cmd.Context) error {
-	archivePath := c.archivePath
-	if !filepath.IsAbs(archivePath) {
-		archivePath = ctx.AbsPath(archivePath)
-	}
-	assertionPath := c.assertionPath
-	if !filepath.IsAbs(assertionPath) {
-		assertionPath = ctx.AbsPath(assertionPath)
-	}
+	archivePath := ctx.AbsPath(c.archivePath)
+	assertionPath := ctx.AbsPath(c.assertionPath)
 	assertion, err := c.readAssertion(assertionPath)
 	if err != nil {
 		return err
