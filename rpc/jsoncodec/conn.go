@@ -5,7 +5,8 @@ package jsoncodec
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"io"
 	"net"
 	"os"
@@ -30,18 +31,49 @@ type wsJSONConn struct {
 	// one concurrent reader.
 	writeMutex sync.Mutex
 	readMutex  sync.Mutex
+	// enc and dec are reused for every message, guarded by writeMutex
+	// and readMutex respectively. They are reset to point at the
+	// websocket frame of the message currently being processed.
+	enc *jsontext.Encoder
+	dec *jsontext.Decoder
 }
 
 // NewWebsocketConn returns a JSONConn implementation
 // that uses the given connection for transport.
 func NewWebsocketConn(conn *websocket.Conn) JSONConn {
-	return &wsJSONConn{conn: conn}
+	return &wsJSONConn{
+		conn: conn,
+		enc:  jsontext.NewEncoder(io.Discard, options),
+		dec:  jsontext.NewDecoder(eofReader{}, options),
+	}
 }
+
+// eofReader is an io.Reader that is always at EOF. It is used as the
+// initial target of a reusable decoder.
+type eofReader struct{}
+
+func (eofReader) Read([]byte) (int, error) { return 0, io.EOF }
 
 func (conn *wsJSONConn) Send(msg any) error {
 	conn.writeMutex.Lock()
 	defer conn.writeMutex.Unlock()
-	return conn.conn.WriteJSON(msg)
+	w, err := conn.conn.NextWriter(websocket.TextMessage)
+	if err != nil {
+		return err
+	}
+	// Each message is a single JSON value terminated by a newline,
+	// matching the output of encoding/json.Encoder that was used
+	// previously.
+	conn.enc.Reset(w, options)
+	marshalErr := json.MarshalEncode(conn.enc, msg)
+	// Close the writer even if marshalling fails so that the
+	// frame is flushed and the connection is left in a usable
+	// state for the next message.
+	closeErr := w.Close()
+	if marshalErr != nil {
+		return marshalErr
+	}
+	return closeErr
 }
 
 func (conn *wsJSONConn) Receive(msg any) error {
@@ -49,7 +81,7 @@ func (conn *wsJSONConn) Receive(msg any) error {
 	defer conn.readMutex.Unlock()
 	// When receiving a message, if error has been closed from the other
 	// side, wrap with io.EOF as this is the expected error.
-	err := conn.conn.ReadJSON(msg)
+	_, r, err := conn.conn.NextReader()
 	if err != nil {
 		if websocket.IsCloseError(err,
 			websocket.CloseNormalClosure,
@@ -60,6 +92,13 @@ func (conn *wsJSONConn) Receive(msg any) error {
 				"reading json message: %w", err,
 			).Add(io.EOF)
 		}
+		return err
+	}
+	// Each websocket message holds exactly one JSON value.
+	conn.dec.Reset(r, options)
+	err = json.UnmarshalDecode(conn.dec, msg)
+	if errors.Is(err, io.EOF) {
+		err = io.ErrUnexpectedEOF
 	}
 	return err
 }
@@ -192,27 +231,27 @@ func NewNet(conn io.ReadWriteCloser) *Codec {
 
 func NetJSONConn(conn io.ReadWriteCloser) JSONConn {
 	return &netConn{
-		enc:  json.NewEncoder(conn),
-		dec:  json.NewDecoder(conn),
+		enc:  jsontext.NewEncoder(conn, options),
+		dec:  jsontext.NewDecoder(conn, options),
 		conn: conn,
 	}
 }
 
 type netConn struct {
 	mu   sync.Mutex
-	enc  *json.Encoder
-	dec  *json.Decoder
+	enc  *jsontext.Encoder
+	dec  *jsontext.Decoder
 	conn io.ReadWriteCloser
 }
 
 func (conn *netConn) Send(msg any) error {
 	conn.mu.Lock()
 	defer conn.mu.Unlock()
-	return conn.enc.Encode(msg)
+	return json.MarshalEncode(conn.enc, msg)
 }
 
 func (conn *netConn) Receive(msg any) error {
-	return conn.dec.Decode(msg)
+	return json.UnmarshalDecode(conn.dec, msg)
 }
 
 func (conn *netConn) Close() error {

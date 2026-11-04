@@ -15,8 +15,8 @@ type ApplicationCharmResults struct {
 
 // ApplicationCharmResult contains an ApplicationCharm or an error.
 type ApplicationCharmResult struct {
-	Result *ApplicationCharm `json:"result,omitempty"`
-	Error  *Error            `json:"error,omitempty"`
+	Result *ApplicationCharm `json:"result,omitzero"`
+	Error  *Error            `json:"error,omitzero"`
 }
 
 // ApplicationCharm contains information about an application's charm.
@@ -28,7 +28,7 @@ type ApplicationCharm struct {
 	// ForceUpgrade indicates whether or not application
 	// units should upgrade to the charm even if they
 	// are in an error state.
-	ForceUpgrade bool `json:"force-upgrade,omitempty"`
+	ForceUpgrade bool `json:"force-upgrade,omitzero"`
 
 	// SHA256 holds the SHA256 hash of the charm archive.
 	SHA256 string `json:"sha256"`
@@ -54,7 +54,7 @@ type CharmsListResult struct {
 type CharmOption struct {
 	Type        string `json:"type"`
 	Description string `json:"description,omitempty"`
-	Default     any    `json:"default,omitempty"`
+	Default     any    `json:"default,omitzero"`
 }
 
 // CharmRelation mirrors charm.Relation.
@@ -116,7 +116,7 @@ type CharmMeta struct {
 	Terms          []string                     `json:"terms,omitempty"`
 	MinJujuVersion string                       `json:"min-juju-version,omitempty"`
 	Containers     map[string]CharmContainer    `json:"containers,omitempty"`
-	AssumesExpr    *assumes.ExpressionTree      `json:"assumes-expr,omitempty"`
+	AssumesExpr    *assumes.ExpressionTree      `json:"assumes-expr,omitzero"`
 	CharmUser      string                       `json:"charm-user,omitempty"`
 }
 
@@ -126,11 +126,11 @@ type Charm struct {
 	Revision int                    `json:"revision"`
 	URL      string                 `json:"url"`
 	Config   map[string]CharmOption `json:"config"`
-	Meta     *CharmMeta             `json:"meta,omitempty"`
-	Actions  *CharmActions          `json:"actions,omitempty"`
-	Manifest *CharmManifest         `json:"manifest,omitempty"`
+	Meta     *CharmMeta             `json:"meta,omitzero"`
+	Actions  *CharmActions          `json:"actions,omitzero"`
+	Manifest *CharmManifest         `json:"manifest,omitzero"`
 	// Deprecated: LXD profiles are no longer supported.
-	LXDProfile *CharmLXDProfile `json:"lxd-profile,omitempty"`
+	LXDProfile *CharmLXDProfile `json:"lxd-profile,omitzero"`
 	Version    string           `json:"version,omitempty"`
 }
 
@@ -142,7 +142,7 @@ type CharmActions struct {
 // CharmActionSpec mirrors charm.ActionSpec.
 type CharmActionSpec struct {
 	Description    string         `json:"description"`
-	Parallel       bool           `json:"parallel,omitempty"`
+	Parallel       bool           `json:"parallel,omitzero"`
 	Params         map[string]any `json:"params"`
 	ExecutionGroup string         `json:"execution-group,omitempty"`
 }
@@ -174,8 +174,8 @@ type CharmBase struct {
 type CharmContainer struct {
 	Resource string       `json:"resource,omitempty"`
 	Mounts   []CharmMount `json:"mounts,omitempty"`
-	Uid      *int         `json:"uid,omitempty"`
-	Gid      *int         `json:"gid,omitempty"`
+	Uid      *int         `json:"uid,omitzero"`
+	Gid      *int         `json:"gid,omitzero"`
 }
 
 // CharmMount mirrors charm.Mount
@@ -206,7 +206,7 @@ type ContainerLXDProfile struct {
 // ContainerProfileResult returns the result of finding the CharmLXDProfile and name of
 // the lxd profile to be used for 1 unit on the container
 type ContainerProfileResult struct {
-	Error       *Error                 `json:"error,omitempty"`
+	Error       *Error                 `json:"error,omitzero"`
 	LXDProfiles []*ContainerLXDProfile `json:"lxd-profiles,omitempty"`
 }
 

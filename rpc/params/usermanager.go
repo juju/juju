@@ -14,14 +14,14 @@ type UserInfo struct {
 	Access         string     `json:"access"`
 	CreatedBy      string     `json:"created-by"`
 	DateCreated    time.Time  `json:"date-created"`
-	LastConnection *time.Time `json:"last-connection,omitempty"`
+	LastConnection *time.Time `json:"last-connection,omitzero"`
 	Disabled       bool       `json:"disabled"`
 }
 
 // UserInfoResult holds the result of a UserInfo call.
 type UserInfoResult struct {
-	Result *UserInfo `json:"result,omitempty"`
-	Error  *Error    `json:"error,omitempty"`
+	Result *UserInfo `json:"result,omitzero"`
+	Error  *Error    `json:"error,omitzero"`
 }
 
 // UserInfoResults holds the result of a bulk UserInfo API call.
@@ -65,5 +65,5 @@ type AddUserResults struct {
 type AddUserResult struct {
 	Tag       string `json:"tag,omitempty"`
 	SecretKey []byte `json:"secret-key,omitempty"`
-	Error     *Error `json:"error,omitempty"`
+	Error     *Error `json:"error,omitzero"`
 }

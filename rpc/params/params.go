@@ -4,7 +4,7 @@
 package params
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"strings"
 	"time"
@@ -42,7 +42,7 @@ type EntitiesResults struct {
 // set of entities or an error.
 type EntitiesResult struct {
 	Entities []Entity `json:"entities"`
-	Error    *Error   `json:"error,omitempty"`
+	Error    *Error   `json:"error,omitzero"`
 }
 
 // EntityPasswords holds the parameters for making a SetPasswords call.
@@ -95,7 +95,7 @@ func (result ErrorResults) Combine() error {
 
 // ErrorResult holds the error status of a single operation.
 type ErrorResult struct {
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 }
 
 // AddRelation holds the parameters for making the AddRelation call.
@@ -120,12 +120,12 @@ type DestroyRelation struct {
 
 	// Force specifies whether relation destruction will be forced, i.e.
 	// keep going despite operational errors.
-	Force *bool `json:"force,omitempty"`
+	Force *bool `json:"force,omitzero"`
 
 	// MaxWait specifies the amount of time that each step in relation destroy process
 	// will wait before forcing the next step to kick-off. This parameter
 	// only makes sense in combination with 'force' set to 'true'.
-	MaxWait *time.Duration `json:"max-wait,omitempty"`
+	MaxWait *time.Duration `json:"max-wait,omitzero"`
 }
 
 // RelationStatusArgs holds the parameters for updating the status
@@ -192,14 +192,14 @@ type AddCharmWithAuth struct {
 // a CharmOrigin was used.
 type CharmOriginResult struct {
 	Origin CharmOrigin `json:"charm-origin"`
-	Error  *Error      `json:"error,omitempty"`
+	Error  *Error      `json:"error,omitzero"`
 }
 
 // CharmURLOriginResult holds the results of the charm's url and origin.
 type CharmURLOriginResult struct {
 	URL    string      `json:"url"`
 	Origin CharmOrigin `json:"charm-origin"`
-	Error  *Error      `json:"error,omitempty"`
+	Error  *Error      `json:"error,omitzero"`
 }
 
 // Base holds the name of an OS name and its version.
@@ -212,7 +212,7 @@ type Base struct {
 type AddMachineParams struct {
 	// The following fields hold attributes that will be given to the
 	// new machine when it is created.
-	Base        *Base              `json:"base,omitempty"`
+	Base        *Base              `json:"base,omitzero"`
 	Constraints constraints.Value  `json:"constraints"`
 	Jobs        []model.MachineJob `json:"jobs"`
 
@@ -222,7 +222,7 @@ type AddMachineParams struct {
 
 	// If Placement is non-nil, it contains a placement directive
 	// that will be used to decide how to instantiate the machine.
-	Placement *instance.Placement `json:"placement,omitempty"`
+	Placement *instance.Placement `json:"placement,omitzero"`
 
 	// If ParentId is non-empty, it specifies the id of the
 	// parent machine within which the new machine will
@@ -263,20 +263,20 @@ type AddMachinesResults struct {
 // api.client.AddMachine call for a single machine.
 type AddMachinesResult struct {
 	Machine string `json:"machine"`
-	Error   *Error `json:"error,omitempty"`
+	Error   *Error `json:"error,omitzero"`
 }
 
 // DestroyMachinesParams holds parameters for the latest DestroyMachinesWithParams call.
 type DestroyMachinesParams struct {
 	MachineTags []string `json:"machine-tags"`
-	Force       bool     `json:"force,omitempty"`
-	Keep        bool     `json:"keep,omitempty"`
-	DryRun      bool     `json:"dry-run,omitempty"`
+	Force       bool     `json:"force,omitzero"`
+	Keep        bool     `json:"keep,omitzero"`
+	DryRun      bool     `json:"dry-run,omitzero"`
 
 	// MaxWait specifies the amount of time that each step in machine destroy process
 	// will wait before forcing the next step to kick-off. This parameter
 	// only makes sense in combination with 'force' set to 'true'.
-	MaxWait *time.Duration `json:"max-wait,omitempty"`
+	MaxWait *time.Duration `json:"max-wait,omitzero"`
 }
 
 // RecordAgentStartInformationArgs holds the parameters for updating the
@@ -320,7 +320,7 @@ type LXDProfileUpgrade struct {
 // UpgradeCharmProfileStatusResult contains the lxd profile status result for an upgrading
 // machine or container.
 type UpgradeCharmProfileStatusResult struct {
-	Error  *Error `json:"error,omitempty"`
+	Error  *Error `json:"error,omitzero"`
 	Status string `json:"status,omitempty"`
 }
 
@@ -333,7 +333,7 @@ type UpgradeCharmProfileStatusResults struct {
 // ConfigResult holds configuration values for an entity.
 type ConfigResult struct {
 	Config map[string]any `json:"config"`
-	Error  *Error         `json:"error,omitempty"`
+	Error  *Error         `json:"error,omitzero"`
 }
 
 // ModelOperatorInfo holds infor needed for a model operator.
@@ -349,7 +349,7 @@ type IssueOperatorCertificateResult struct {
 	CACert     string `json:"ca-cert"`
 	Cert       string `json:"cert"`
 	PrivateKey string `json:"private-key"`
-	Error      *Error `json:"error,omitempty"`
+	Error      *Error `json:"error,omitzero"`
 }
 
 // IssueOperatorCertificateResults holds IssueOperatorCertificate results.
@@ -393,8 +393,8 @@ type ResolvedResults struct {
 // UnitsResolved holds parameters for the ResolveUnitErrors call.
 type UnitsResolved struct {
 	Tags  Entities `json:"tags,omitempty"`
-	Retry bool     `json:"retry,omitempty"`
-	All   bool     `json:"all,omitempty"`
+	Retry bool     `json:"retry,omitzero"`
+	All   bool     `json:"all,omitzero"`
 }
 
 // AddApplicationUnitsResults holds the names of the units added by the
@@ -430,8 +430,8 @@ type UpdateApplicationUnitArgs struct {
 // UpdateApplicationUnits holds unit parameters for a specified application.
 type UpdateApplicationUnits struct {
 	ApplicationTag string                  `json:"application-tag"`
-	Scale          *int                    `json:"scale,omitempty"`
-	Generation     *int64                  `json:"generation,omitempty"`
+	Scale          *int                    `json:"scale,omitzero"`
+	Generation     *int64                  `json:"generation,omitzero"`
 	Status         EntityStatus            `json:"status,omitempty"`
 	Units          []ApplicationUnitParams `json:"units"`
 }
@@ -442,7 +442,7 @@ type ApplicationUnitParams struct {
 	UnitTag        string                     `json:"unit-tag"`
 	Address        string                     `json:"address"`
 	Ports          []string                   `json:"ports"`
-	Stateful       bool                       `json:"stateful,omitempty"`
+	Stateful       bool                       `json:"stateful,omitzero"`
 	FilesystemInfo []KubernetesFilesystemInfo `json:"filesystem-info,omitempty"`
 	Status         string                     `json:"status"`
 	Info           string                     `json:"info"`
@@ -456,8 +456,8 @@ type UpdateApplicationUnitResults struct {
 
 // UpdateApplicationUnitResult holds a single result from UpdateApplicationUnits
 type UpdateApplicationUnitResult struct {
-	Info  *UpdateApplicationUnitsInfo `json:"info,omitempty"`
-	Error *Error                      `json:"error,omitempty"`
+	Info  *UpdateApplicationUnitsInfo `json:"info,omitzero"`
+	Error *Error                      `json:"error,omitzero"`
 }
 
 // UpdateApplicationUnitsInfo holds info about the application units after a call to
@@ -498,7 +498,7 @@ type DestroyUnitParamsV15 struct {
 
 	// DestroyStorage controls whether or not storage
 	// attached to the unit should be destroyed.
-	DestroyStorage bool `json:"destroy-storage,omitempty"`
+	DestroyStorage bool `json:"destroy-storage,omitzero"`
 
 	// Force controls whether or not the destruction of an application
 	// will be forced, i.e. ignore operational errors.
@@ -507,7 +507,7 @@ type DestroyUnitParamsV15 struct {
 	// MaxWait specifies the amount of time that each step in unit removal
 	// will wait before forcing the next step to kick-off. This parameter
 	// only makes sense in combination with 'force' set to 'true'.
-	MaxWait *time.Duration `json:"max-wait,omitempty"`
+	MaxWait *time.Duration `json:"max-wait,omitzero"`
 }
 
 // DestroyApplicationUnits holds parameters for the deprecated
@@ -528,20 +528,20 @@ type DestroyUnitParams struct {
 
 	// DestroyStorage controls whether or not storage
 	// attached to the unit should be destroyed.
-	DestroyStorage bool `json:"destroy-storage,omitempty"`
+	DestroyStorage bool `json:"destroy-storage,omitzero"`
 
 	// Force controls whether or not the destruction of an application
 	// will be forced, i.e. ignore operational errors.
-	Force bool `json:"force,omitempty"`
+	Force bool `json:"force,omitzero"`
 
 	// MaxWait specifies the amount of time that each step in unit removal
 	// will wait before forcing the next step to kick-off. This parameter
 	// only makes sense in combination with 'force' set to 'true'.
-	MaxWait *time.Duration `json:"max-wait,omitempty"`
+	MaxWait *time.Duration `json:"max-wait,omitzero"`
 
 	// DryRun specifies whether to perform the destroy action or
 	// just return what this action will destroy
-	DryRun bool `json:"dry-run,omitempty"`
+	DryRun bool `json:"dry-run,omitzero"`
 }
 
 // Creds holds credentials for identifying an entity.
@@ -563,7 +563,7 @@ type LoginRequest struct {
 	Credentials   string           `json:"credentials"`
 	Nonce         string           `json:"nonce"`
 	Macaroons     []macaroon.Slice `json:"macaroons"`
-	BakeryVersion bakery.Version   `json:"bakery-version,omitempty"`
+	BakeryVersion bakery.Version   `json:"bakery-version,omitzero"`
 
 	// Token represents a JSON Web Token (JWT).
 	Token         string `json:"token,omitempty"`
@@ -631,14 +631,14 @@ type ResolveCharmWithChannel struct {
 
 	// SwitchCharm is set to true when the purpose of this resolve request
 	// is to switch a different charm (potentially from a different store).
-	SwitchCharm bool `json:"switch-charm,omitempty"`
+	SwitchCharm bool `json:"switch-charm,omitzero"`
 }
 
 // ResolveCharmsWithChannel contains of slice of data on charms to be
 // resolved.
 type ResolveCharmsWithChannel struct {
 	Resolve  []ResolveCharmWithChannel `json:"resolve"`
-	Macaroon *macaroon.Macaroon        `json:"macaroon,omitempty"`
+	Macaroon *macaroon.Macaroon        `json:"macaroon,omitzero"`
 }
 
 // ResolveCharmWithChannelResult is the result of a single charm resolution.
@@ -646,7 +646,7 @@ type ResolveCharmWithChannelResult struct {
 	URL            string      `json:"url"`
 	Origin         CharmOrigin `json:"charm-origin"`
 	SupportedBases []Base      `json:"supported-bases"`
-	Error          *Error      `json:"error,omitempty"`
+	Error          *Error      `json:"error,omitzero"`
 }
 
 // ResolveCharmWithChannelResults holds the results of ResolveCharmsWithChannel.
@@ -663,7 +663,7 @@ type CharmURLAndOrigins struct {
 type CharmURLAndOrigin struct {
 	CharmURL string             `json:"charm-url"`
 	Origin   CharmOrigin        `json:"charm-origin"`
-	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
+	Macaroon *macaroon.Macaroon `json:"macaroon,omitzero"`
 }
 
 // DownloadInfoResults returns the download url for a given request.
@@ -801,7 +801,7 @@ type DeployerConnectionValues struct {
 // whether a given machine is a controller machine.
 type IsControllerResult struct {
 	IsController bool   `json:"is-controller"`
-	Error        *Error `json:"error,omitempty"`
+	Error        *Error `json:"error,omitzero"`
 }
 
 // IsControllerResults holds the result of a call to IsController
@@ -814,7 +814,7 @@ type IsControllerResults struct {
 // Deprecated: Jobs is being deprecated. Use IsController instead.
 type JobsResult struct {
 	Jobs  []string `json:"jobs"`
-	Error *Error   `json:"error,omitempty"`
+	Error *Error   `json:"error,omitzero"`
 }
 
 // JobsResults holds the result of a call to Jobs.
@@ -825,7 +825,7 @@ type JobsResults struct {
 // DistributionGroupResult contains the result of
 // the DistributionGroup provisioner API call.
 type DistributionGroupResult struct {
-	Error  *Error        `json:"error,omitempty"`
+	Error  *Error        `json:"error,omitzero"`
 	Result []instance.Id `json:"result"`
 }
 
@@ -865,11 +865,11 @@ type ReauthRequest struct {
 type AuthUserInfo struct {
 	DisplayName    string     `json:"display-name"`
 	Identity       string     `json:"identity"`
-	LastConnection *time.Time `json:"last-connection,omitempty"`
+	LastConnection *time.Time `json:"last-connection,omitzero"`
 
 	// Credentials contains an optional opaque credential value to be held by
 	// the client, if any.
-	Credentials *string `json:"credentials,omitempty"`
+	Credentials *string `json:"credentials,omitzero"`
 
 	// ControllerAccess holds the access the user has to the connected controller.
 	// It will be empty if the user has no access to the controller.
@@ -889,7 +889,7 @@ type LoginResult struct {
 	// practice to only use primitives in types that will be serialised,
 	// however because of the above it is suitable to use the Macaroon type
 	// here.
-	DischargeRequired *macaroon.Macaroon `json:"discharge-required,omitempty"`
+	DischargeRequired *macaroon.Macaroon `json:"discharge-required,omitzero"`
 
 	// BakeryDischargeRequired implies that the login request has failed, and none of
 	// the other fields are populated. It contains a macaroon which, when
@@ -900,7 +900,7 @@ type LoginResult struct {
 	// however because of the above it is suitable to use the Macaroon type
 	// here.
 	// This is the macaroon emitted by newer Juju controllers using bakery.v2.
-	BakeryDischargeRequired *bakery.Macaroon `json:"bakery-discharge-required,omitempty"`
+	BakeryDischargeRequired *bakery.Macaroon `json:"bakery-discharge-required,omitzero"`
 
 	// DischargeRequiredReason holds the reason that the above discharge was
 	// required.
@@ -922,7 +922,7 @@ type LoginResult struct {
 	ControllerTag string `json:"controller-tag,omitempty"`
 
 	// UserInfo describes the authenticated user, if any.
-	UserInfo *AuthUserInfo `json:"user-info,omitempty"`
+	UserInfo *AuthUserInfo `json:"user-info,omitzero"`
 
 	// Facades describes all the available API facade versions to the
 	// authenticated client.
@@ -958,7 +958,7 @@ type ControllerDetailsResults struct {
 type ControllerDetails struct {
 	ControllerId string   `json:"controller-id"`
 	APIAddresses []string `json:"api-addresses"`
-	Error        *Error   `json:"error,omitempty"`
+	Error        *Error   `json:"error,omitzero"`
 }
 
 // ControllersChangeResult contains the results
@@ -966,7 +966,7 @@ type ControllerDetails struct {
 // an error.
 type ControllersChangeResult struct {
 	Result ControllersChanges `json:"result"`
-	Error  *Error             `json:"error,omitempty"`
+	Error  *Error             `json:"error,omitzero"`
 }
 
 // ControllersChangeResults contains the results
@@ -1007,7 +1007,7 @@ type FindToolsParams struct {
 // FindToolsResult holds a list of tools from FindTools and any error.
 type FindToolsResult struct {
 	List  tools.List `json:"list"`
-	Error *Error     `json:"error,omitempty"`
+	Error *Error     `json:"error,omitzero"`
 }
 
 // RebootActionResults holds a list of RebootActionResult and any error.
@@ -1019,7 +1019,7 @@ type RebootActionResults struct {
 // machine.ShouldRebootOrShutdown.
 type RebootActionResult struct {
 	Result RebootAction `json:"result,omitempty"`
-	Error  *Error       `json:"error,omitempty"`
+	Error  *Error       `json:"error,omitzero"`
 }
 
 // LogRecord is used to transmit log messages to the logsink API
@@ -1044,7 +1044,7 @@ type logRecordJSON struct {
 	Level    string    `json:"v"`
 	Message  string    `json:"x"`
 	Entity   string    `json:"e,omitempty"`
-	Labels   any       `json:"b,omitempty"`
+	Labels   any       `json:"b,omitzero"`
 }
 
 // UnmarshalJSON unmarshalls an incoming log record
@@ -1111,7 +1111,7 @@ type LeaseOperationCommand struct {
 	Holder string `json:"holder,omitempty"`
 
 	// Duration is how long the lease should last.
-	Duration time.Duration `json:"duration,omitempty"`
+	Duration time.Duration `json:"duration,omitzero"`
 
 	// OldTime is the previous time for time updates (to avoid
 	// applying stale ones).
@@ -1127,7 +1127,7 @@ type LeaseOperationCommand struct {
 
 // ExportBundleParams holds parameters for exporting Bundles.
 type ExportBundleParams struct {
-	IncludeCharmDefaults bool `json:"include-charm-defaults,omitempty"`
+	IncludeCharmDefaults bool `json:"include-charm-defaults,omitzero"`
 }
 
 // BundleChangesParams holds parameters for making Bundle.GetChanges calls.
@@ -1170,8 +1170,8 @@ type MacaroonResults struct {
 
 // MacaroonResult contains a macaroon or an error.
 type MacaroonResult struct {
-	Result *macaroon.Macaroon `json:"result,omitempty"`
-	Error  *Error             `json:"error,omitempty"`
+	Result *macaroon.Macaroon `json:"result,omitzero"`
+	Error  *Error             `json:"error,omitzero"`
 }
 
 // DestroyMachineResults contains the results of a MachineManager.Destroy
@@ -1183,8 +1183,8 @@ type DestroyMachineResults struct {
 // DestroyMachineResult contains one of the results of a MachineManager.Destroy
 // API request.
 type DestroyMachineResult struct {
-	Error *Error              `json:"error,omitempty"`
-	Info  *DestroyMachineInfo `json:"info,omitempty"`
+	Error *Error              `json:"error,omitzero"`
+	Info  *DestroyMachineInfo `json:"info,omitzero"`
 }
 
 // DestroyMachineInfo contains information related to the removal of
@@ -1220,8 +1220,8 @@ type DestroyUnitResults struct {
 // DestroyUnitResult contains one of the results of a
 // DestroyUnit API request.
 type DestroyUnitResult struct {
-	Error *Error           `json:"error,omitempty"`
-	Info  *DestroyUnitInfo `json:"info,omitempty"`
+	Error *Error           `json:"error,omitzero"`
+	Info  *DestroyUnitInfo `json:"info,omitzero"`
 }
 
 // DestroyUnitInfo contains information related to the removal of
@@ -1256,17 +1256,17 @@ type ProfileArgs struct {
 
 type ProfileInfoResult struct {
 	ApplicationName string           `json:"application-name,omitempty"`
-	Revision        int              `json:"revision,omitempty"`
-	Profile         *CharmLXDProfile `json:"profile,omitempty"`
-	Error           *Error           `json:"error,omitempty"`
+	Revision        int              `json:"revision,omitzero"`
+	Profile         *CharmLXDProfile `json:"profile,omitzero"`
+	Error           *Error           `json:"error,omitzero"`
 }
 
 type ProfileChangeResult struct {
 	OldProfileName string           `json:"old-profile-name,omitempty"`
 	NewProfileName string           `json:"new-profile-name,omitempty"`
-	Profile        *CharmLXDProfile `json:"profile,omitempty"`
-	Subordinate    bool             `json:"subordinate,omitempty"`
-	Error          *Error           `json:"error,omitempty"`
+	Profile        *CharmLXDProfile `json:"profile,omitzero"`
+	Subordinate    bool             `json:"subordinate,omitzero"`
+	Error          *Error           `json:"error,omitzero"`
 }
 
 type ProfileChangeResults struct {
@@ -1317,7 +1317,7 @@ type BranchInfoArgs struct {
 type BranchTrackArg struct {
 	BranchName string   `json:"branch"`
 	Entities   []Entity `json:"entities"`
-	NumUnits   int      `json:"num-units,omitempty"`
+	NumUnits   int      `json:"num-units,omitzero"`
 }
 
 // GenerationApplication represents changes to an application
@@ -1354,13 +1354,13 @@ type Generation struct {
 	CreatedBy string `json:"created-by"`
 
 	// Completed is the Unix timestamp at generation completion/commit.
-	Completed int64 `json:"completed,omitempty"`
+	Completed int64 `json:"completed,omitzero"`
 
 	// CompletedBy is the user who committed/completed the generation.
 	CompletedBy string `json:"completed-by,omitempty"`
 
 	// GenerationId is the id .
-	GenerationId int `json:"generation-id,omitempty"`
+	GenerationId int `json:"generation-id,omitzero"`
 
 	// Applications holds the collection of application changes
 	// made under this generation.
@@ -1373,7 +1373,7 @@ type BranchResults struct {
 	Generations []Generation `json:"generations"`
 
 	// Error holds the value of any error that occurred processing the request.
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 }
 
 // GenerationResult transports a generation detail.
@@ -1382,7 +1382,7 @@ type GenerationResult struct {
 	Generation Generation `json:"generation"`
 
 	// Error holds the value of any error that occurred processing the request.
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 }
 
 // CharmProfilingInfoResult contains the result based on ProfileInfoArg values
@@ -1421,15 +1421,15 @@ type CLICommands struct {
 // CLICommandStatus represents a status update for a CLI command.
 type CLICommandStatus struct {
 	Output []string `json:"output,omitempty"`
-	Done   bool     `json:"done,omitempty"`
-	Error  *Error   `json:"error,omitempty"`
+	Done   bool     `json:"done,omitzero"`
+	Error  *Error   `json:"error,omitzero"`
 }
 
 // VirtualHostnameTargetArg holds the target tag and an optional container
 // name to resolve a virtual hostname.
 type VirtualHostnameTargetArg struct {
 	Tag       string  `json:"tag"`
-	Container *string `json:"container,omitempty"`
+	Container *string `json:"container,omitzero"`
 }
 
 // ProxySettings contains the proxy settings for a model, which may be used by
@@ -1456,7 +1456,7 @@ type UnitContext struct {
 	CloudAPIVersion                   string                            `json:"cloud-api-version"`
 	LegacyProxySettings               ProxySettings                     `json:"legacy-proxy-settings"`
 	JujuProxySettings                 ProxySettings                     `json:"juju-proxy-settings"`
-	PrivateAddress                    *string                           `json:"private-address,omitempty"`
+	PrivateAddress                    *string                           `json:"private-address,omitzero"`
 	OpenedMachinePortRangesByEndpoint map[string]map[string][]PortRange `json:"opened-machine-port-ranges-by-endpoint,omitempty"`
 	OpenedPortRangesByEndpoint        map[string]map[string][]PortRange `json:"opened-port-ranges-by-endpoint,omitempty"`
 	CharmTracingConfig                CharmTracingConfig                `json:"charm-tracing-config,omitempty"`
