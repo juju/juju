@@ -58,7 +58,7 @@ A change record holds the change type, the namespace, and the key of the changed
 (watcher-holders)=
 ## Who holds a watcher
 
-The holders of a watcher are the {ref}`clients <client>` and {ref}`agents <agent>` that receive one through a watch call. A client acts for its user. An agent acts for its own machine or unit.
+The holders of a watcher are the {ref}`clients <client>` and {ref}`agents <agent>` that receive one through a watch call. A client acts for its user. An agent acts for its own machine or unit. The unit agent holds the watchers that fire the {ref}`hooks <hook>` of its charm.
 
 A facade hands a watcher to its caller through each of its watch calls: the facade asks its service for a watcher, registers the watcher with the caller's connection, and returns the ID. Two examples:
 

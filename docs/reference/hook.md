@@ -9,6 +9,8 @@ myst:
 
 In Juju, a **hook** is a notification from  the controller agent through the unit agent to the charm that the internal representation of Juju has changed in a way that requires a reaction from the charm so that the unit's state and the controller's state can be reconciled.
 
+Every hook fires through the same chain: a change is recorded in the model's {ref}`database <database>`, the {ref}`unit agent <agent>` receives it through one of its {ref}`watchers <watcher>` (the {ref}`change streams <unit-change-streams>` that the agent of the unit follows), and the agent runs the hook that the change calls for.
+
 For a charm written with [Ops](https://ops.readthedocs.io/en/latest/), Juju hooks are translated into Ops events, specifically, into classes that inherit from [`HookEvent`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.HookEvent).
 
 Whenever a hook event is received, the associated event handler should ensure the current charm configuration is properly reflected in the underlying application configuration.
