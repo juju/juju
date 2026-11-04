@@ -3395,7 +3395,7 @@ WITH latest_revision AS (
     FROM     secret_revision AS sr
     GROUP BY sr.secret_id
 )
-SELECT DISTINCT sr.uuid AS &revisionUUID.uuid
+SELECT sr.uuid AS &revisionUUID.uuid
 FROM   secret_unit_consumer AS suc
 JOIN   unit AS u ON u.uuid = suc.unit_uuid
 JOIN   latest_revision AS latest ON latest.secret_id = suc.secret_id
