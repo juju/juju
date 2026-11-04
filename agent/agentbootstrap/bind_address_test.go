@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"syscall"
 	"testing"
 
 	"github.com/juju/tc"
@@ -26,6 +27,15 @@ func TestBindAddressSuite(t *testing.T) {
 
 func (s *bindAddressSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
+}
+
+func (*bindAddressSuite) TestNewDqliteBindAddressResolver(c *tc.C) {
+	resolve := NewDqliteBindAddressResolver(loggertesting.WrapCheckLog(c))
+	for _, providerAddress := range []string{"127.0.0.1", "::1", "localhost"} {
+		address, err := resolve(c.Context(), providerAddresses(providerAddress))
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(address, tc.Equals, providerAddress)
+	}
 }
 
 func (*bindAddressSuite) TestPreservesLocallyConfiguredProviderIP(c *tc.C) {
@@ -152,6 +162,32 @@ func (*bindAddressSuite) TestLoopbackProviderDoesNotQueryInterfaces(c *tc.C) {
 	c.Check(address, tc.Equals, "127.0.0.1")
 }
 
+func (*bindAddressSuite) TestLoopbackProviderTakesPrecedenceOverLocalProvider(c *tc.C) {
+	resolver := dqliteBindAddressResolver{
+		logger: loggertesting.WrapCheckLog(c),
+		lookupIP: func(_ context.Context, _, host string) ([]net.IP, error) {
+			c.Check(host, tc.Equals, "localhost")
+			return []net.IP{net.ParseIP("127.0.0.1")}, nil
+		},
+		interfaceAddrs: func() ([]net.Addr, error) {
+			return localAddresses("10.0.0.9", "127.0.0.1", "::1"), nil
+		},
+		sourceAddressForRoute: unexpectedRoute(c),
+	}
+
+	for _, loopback := range []string{"127.0.0.1", "::1", "localhost"} {
+		for _, addresses := range []network.ProviderAddresses{
+			providerAddresses("10.0.0.9", loopback),
+			providerAddresses(loopback, "10.0.0.9"),
+		} {
+			address, err := resolver.resolve(c.Context(), addresses)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(address, tc.Equals, loopback,
+				tc.Commentf("provider addresses: %v", addresses.Values()))
+		}
+	}
+}
+
 func (*bindAddressSuite) TestNoRouteFallsBackToLoopback(c *tc.C) {
 	resolver := dqliteBindAddressResolver{
 		logger:   loggertesting.WrapCheckLog(c),
@@ -222,6 +258,48 @@ func (*bindAddressSuite) TestRouteCancellationIsReturned(c *tc.C) {
 
 	_, err := resolver.resolve(ctx, providerAddresses("3.84.237.4"))
 	c.Check(err, tc.ErrorIs, context.Canceled)
+}
+
+func (*bindAddressSuite) TestSourceAddressForRouteIPv4(c *tc.C) {
+	remote := net.ParseIP("127.0.0.1")
+	source, err := sourceAddressForRoute(c.Context(), remote)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(source.Equal(remote), tc.IsTrue)
+}
+
+func (*bindAddressSuite) TestSourceAddressForRouteIPv6(c *tc.C) {
+	// Check IPv6 availability independently of the route probe under test.
+	listener, err := net.ListenPacket("udp6", "[::1]:0")
+	if errors.Is(err, syscall.EAFNOSUPPORT) ||
+		errors.Is(err, syscall.EPROTONOSUPPORT) ||
+		errors.Is(err, syscall.EADDRNOTAVAIL) {
+		c.Skip("IPv6 loopback is unavailable")
+	}
+	c.Assert(err, tc.ErrorIsNil)
+	c.Cleanup(func() { _ = listener.Close() })
+
+	remote := net.ParseIP("::1")
+	source, err := sourceAddressForRoute(c.Context(), remote)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(source.Equal(remote), tc.IsTrue)
+}
+
+func (*bindAddressSuite) TestSourceAddressForRouteInvalidIP(c *tc.C) {
+	for _, remote := range []net.IP{nil, {1, 2, 3}} {
+		source, err := sourceAddressForRoute(c.Context(), remote)
+		c.Check(err, tc.ErrorMatches, "invalid remote IP .*")
+		c.Check(source, tc.IsNil)
+	}
+}
+
+func (*bindAddressSuite) TestSourceAddressForRouteCancelled(c *tc.C) {
+	ctx, cancel := context.WithCancel(c.Context())
+	cancel()
+	for _, remote := range []string{"127.0.0.1", "::1"} {
+		source, err := sourceAddressForRoute(ctx, net.ParseIP(remote))
+		c.Check(err, tc.ErrorIs, context.Canceled)
+		c.Check(source, tc.IsNil)
+	}
 }
 
 func providerAddresses(values ...string) network.ProviderAddresses {

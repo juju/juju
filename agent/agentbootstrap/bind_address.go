@@ -54,7 +54,7 @@ func (r dqliteBindAddressResolver) resolve(
 	for _, providerAddress := range providerAddresses {
 		ips, err := r.resolveProviderAddress(ctx, providerAddress)
 		if err != nil {
-			r.logger.Debugf(ctx, "skipping potential Dqlite bind address address: %v", err)
+			r.logger.Debugf(ctx, "skipping potential Dqlite bind address: %v", err)
 			if firstLookupError == nil {
 				firstLookupError = err
 			}
@@ -63,6 +63,9 @@ func (r dqliteBindAddressResolver) resolve(
 
 		for _, ip := range ips {
 			if ip.IsLoopback() {
+				// Preserve an explicit loopback identity for local-only
+				// bootstrap. The cluster binding can supply a routable
+				// address when entering HA.
 				return providerAddress.Value, nil
 			}
 		}
