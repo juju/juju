@@ -750,7 +750,9 @@ run_migration_36_cmr_secrets_consumer() {
 # offerer migrates to 4.0 with a third-party 4.0 consumer that is never
 # migrated (juju/juju#23262). The in-model relation data must survive the
 # import untouched (juju/juju#23337), the offer moves with its
-# connections, and the PVC storage follows the model.
+# connections, and the PVC storage follows the model. A secret consumed
+# before migration must still notify the third-party consumer when updated
+# on the target controller.
 run_migration_36_cmr_secrets_offerer() {
 	# Echo out to ensure nice output to the test suite.
 	echo
@@ -821,6 +823,30 @@ run_migration_36_cmr_secrets_offerer() {
 		echo "==> third-party writes baseline on ${consumer_model}: ${hub_pre:-<empty>}"
 	fi
 
+	# Create an application-owned secret and establish the third-party unit
+	# as a consumer before migrating the offerer. The grant and consumption
+	# must survive migration without being re-established on the target.
+	cmr_secret_uri=$(juju36_exec_output -m "${offerer_36}" --unit postgresql-k8s/leader -- secret-add marker=pre-update)
+	cmr_secret_id=${cmr_secret_uri##*[:/]}
+	# The database endpoint has both local and offer relations; remote units
+	# identify the offer relation that grants access to the hub consumer.
+	cmr_rel_id=""
+	for rel_id in $(juju36_exec_output -m "${offerer_36}" --unit postgresql-k8s/leader -- relation-ids database); do
+		rel_units=$(juju36_exec_output -m "${offerer_36}" --unit postgresql-k8s/leader -- relation-list -r "${rel_id}")
+		echo "[+] checking postgresql-k8s relation ${rel_id} => units: ${rel_units//$'\n'/ }"
+		if grep -q '^remote-' <<<"${rel_units}"; then
+			cmr_rel_id="${rel_id}"
+			break
+		fi
+	done
+	if [[ -z ${cmr_rel_id} ]]; then
+		red "Failed: no offer relation found on postgresql-k8s:database"
+		exit 1
+	fi
+	juju36_exec_output -m "${offerer_36}" --unit postgresql-k8s/leader -- secret-grant "${cmr_secret_uri}" -r "${cmr_rel_id}"
+	check_contains "$(juju_exec_output -m "${consumer_40}" --unit postgresql-test-app/0 -- secret-get "${cmr_secret_uri}")" "marker: pre-update"
+	wait_for_hook_count_stable "${consumer_40}" postgresql-test-app/0 "${cmr_secret_id}"
+
 	# Migrate the offering side.
 	migrate_36 "${offerer_36_ctrl}" "${migrated_offerer_model}" "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
 	wait_source_reaped_36 "${offerer_36_ctrl}" "${migrated_offerer_model}"
@@ -864,6 +890,17 @@ run_migration_36_cmr_secrets_offerer() {
 		done
 		echo "==> third-party consumer recovered after the offering migration"
 	fi
+
+	# Baseline after migration so registration and reconnection hooks cannot
+	# satisfy the assertion for the subsequent secret update. Filter by the
+	# marker secret ID to exclude the PostgreSQL charm's own secret hooks.
+	wait_for_hook_count_stable "${consumer_40}" postgresql-test-app/0 "${cmr_secret_id}"
+	hooks_before=$(count_secret_changed_hooks "${consumer_40}" postgresql-test-app/0 "${cmr_secret_id}")
+	juju_exec_output -m "${offerer_40}" --unit postgresql-k8s/leader -- secret-set "${cmr_secret_uri}" marker=post-update
+	echo "[+] waiting for the unchanged consumer to run secret-changed for ${cmr_secret_id} after offering migration"
+	wait_for_secret_changed_hooks "${consumer_40}" postgresql-test-app/0 "$((hooks_before + 1))" "${cmr_secret_id}"
+	check_contains "$(juju_exec_output -m "${consumer_40}" --unit postgresql-test-app/0 -- secret-get "${cmr_secret_uri}" --refresh)" "marker: post-update"
+
 	juju run -m "${consumer_40}" postgresql-test-app/leader start-continuous-writes \
 		|| { red "start-continuous-writes failed on ${consumer_model} (rc=$?)"; exit 1; }
 	hub_post=$(mig_writes_get "juju" "${consumer_40}") \
