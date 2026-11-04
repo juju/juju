@@ -364,7 +364,7 @@ FROM %q
 	var res result
 	if err := tx.Query(ctx, stmt).Get(&res); err != nil {
 		names := transform.Slice(columns, func(col sizeColumn) string { return col.name })
-		return 0, errors.Errorf("compute table %q size with colums %v: %w", table, names, err)
+		return 0, errors.Errorf("compute table %q size with columns %v: %w", table, names, err)
 	}
 	return (res.Size + sizeFactor - 1) / sizeFactor, nil
 }
