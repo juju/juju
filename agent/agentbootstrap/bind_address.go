@@ -8,6 +8,7 @@ import (
 	"net"
 	"slices"
 
+	"github.com/juju/juju/core/logger"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/errors"
 )
@@ -19,6 +20,7 @@ const loopbackIP = "127.0.0.1"
 type DqliteBindAddressResolverFunc func(context.Context, corenetwork.ProviderAddresses) (string, error)
 
 type dqliteBindAddressResolver struct {
+	logger                logger.Logger
 	lookupIP              func(context.Context, string, string) ([]net.IP, error)
 	interfaceAddrs        func() ([]net.Addr, error)
 	sourceAddressForRoute func(context.Context, net.IP) (net.IP, error)
@@ -31,8 +33,9 @@ type resolvedProviderAddress struct {
 
 // NewDqliteBindAddressResolver returns a resolver backed by the host's DNS,
 // interface and routing configuration.
-func NewDqliteBindAddressResolver() DqliteBindAddressResolverFunc {
+func NewDqliteBindAddressResolver(logger logger.Logger) DqliteBindAddressResolverFunc {
 	return dqliteBindAddressResolver{
+		logger:                logger,
 		lookupIP:              net.DefaultResolver.LookupIP,
 		interfaceAddrs:        net.InterfaceAddrs,
 		sourceAddressForRoute: sourceAddressForRoute,
@@ -51,6 +54,7 @@ func (r dqliteBindAddressResolver) resolve(
 	for _, providerAddress := range providerAddresses {
 		ips, err := r.resolveProviderAddress(ctx, providerAddress)
 		if err != nil {
+			r.logger.Debugf(ctx, "skipping potential Dqlite bind address address: %v", err)
 			if firstLookupError == nil {
 				firstLookupError = err
 			}
@@ -71,9 +75,9 @@ func (r dqliteBindAddressResolver) resolve(
 
 	if len(resolved) == 0 {
 		if firstLookupError != nil {
-			return "", errors.Errorf("resolving Dqlite bootstrap address: %w", firstLookupError)
+			return "", errors.Errorf("resolving potential Dqlite bind addresses: %w", firstLookupError)
 		}
-		return "", errors.New("Dqlite bootstrap address not found")
+		return "", errors.New("suitable Dqlite bind address not found")
 	}
 
 	localAddresses, err := r.interfaceAddrs()
@@ -96,7 +100,13 @@ func (r dqliteBindAddressResolver) resolve(
 	for _, providerAddress := range resolved {
 		for _, ip := range providerAddress.ips {
 			sourceAddress, err := r.sourceAddressForRoute(ctx, ip)
-			if err != nil || sourceAddress == nil || sourceAddress.IsUnspecified() {
+			if err != nil {
+				r.logger.Debugf(ctx, "skipping potential Dqlite bind address %q: %v", ip, err)
+				continue
+			}
+			if sourceAddress == nil || sourceAddress.IsUnspecified() {
+				r.logger.Debugf(
+					ctx, "skipping potential Dqlite bind address %q: unusable source address %q", ip, sourceAddress)
 				continue
 			}
 			return sourceAddress.String(), nil
@@ -108,8 +118,11 @@ func (r dqliteBindAddressResolver) resolve(
 
 	// If no route exists, fall back to the loopback IP.
 	// Entering HA will require the user to bind the controller charm's cluster
-	// peer relation to a suitable space, which result in a singular Dqlite
+	// peer relation to a suitable space, which results in a singular Dqlite
 	// bind address.
+	r.logger.Warningf(ctx,
+		"could not determine a local Dqlite bind address from provider addresses %v; falling back to %s",
+		providerAddresses.Values(), loopbackIP)
 	return loopbackIP, nil
 }
 

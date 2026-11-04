@@ -70,9 +70,11 @@ func NewBootstrapCommand() *BootstrapCommand {
 	return &BootstrapCommand{
 		AgentConf: agentconf.NewAgentConf(""),
 
-		BootstrapAgent:            agentbootstrap.NewAgentBootstrap,
-		DqliteInitialiser:         database.BootstrapDqlite,
-		DqliteBindAddressResolver: agentbootstrap.NewDqliteBindAddressResolver(),
+		BootstrapAgent:    agentbootstrap.NewAgentBootstrap,
+		DqliteInitialiser: database.BootstrapDqlite,
+		DqliteBindAddressResolver: agentbootstrap.NewDqliteBindAddressResolver(
+			internallogger.GetLogger("juju.agent.bootstrap"),
+		),
 	}
 }
 

@@ -302,6 +302,7 @@ func (b *AgentBootstrap) initialiseDqlite(
 	if err != nil {
 		return errors.Errorf("determining Dqlite bind address: %w", err)
 	}
+	b.logger.Infof(ctx, "using Dqlite bootstrap bind address %q", bindAddress)
 
 	agentInfo, _ := b.agentConfig.ControllerAgentInfo()
 	nodeManagerCfg := database.NodeManagerConfig{

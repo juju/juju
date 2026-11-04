@@ -12,6 +12,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -29,6 +30,7 @@ func (s *bindAddressSuite) SetUpTest(c *tc.C) {
 
 func (*bindAddressSuite) TestPreservesLocallyConfiguredProviderIP(c *tc.C) {
 	resolver := dqliteBindAddressResolver{
+		logger:   loggertesting.WrapCheckLog(c),
 		lookupIP: unexpectedLookup(c),
 		interfaceAddrs: func() ([]net.Addr, error) {
 			return localAddresses("10.0.0.9"), nil
@@ -43,6 +45,7 @@ func (*bindAddressSuite) TestPreservesLocallyConfiguredProviderIP(c *tc.C) {
 
 func (*bindAddressSuite) TestPreservesEquivalentLocalIPv6(c *tc.C) {
 	resolver := dqliteBindAddressResolver{
+		logger:   loggertesting.WrapCheckLog(c),
 		lookupIP: unexpectedLookup(c),
 		interfaceAddrs: func() ([]net.Addr, error) {
 			return localAddresses("2001:db8::1"), nil
@@ -60,6 +63,7 @@ func (*bindAddressSuite) TestPreservesEquivalentLocalIPv6(c *tc.C) {
 func (*bindAddressSuite) TestPreservesK8sHeadlessServiceName(c *tc.C) {
 	const fqdn = "controller-0.controller-service-endpoints.controller-a.svc.cluster.local"
 	resolver := dqliteBindAddressResolver{
+		logger: loggertesting.WrapCheckLog(c),
 		lookupIP: func(_ context.Context, network, host string) ([]net.IP, error) {
 			c.Check(network, tc.Equals, "ip")
 			c.Check(host, tc.Equals, fqdn)
@@ -78,6 +82,7 @@ func (*bindAddressSuite) TestPreservesK8sHeadlessServiceName(c *tc.C) {
 
 func (*bindAddressSuite) TestPrefersLocalProviderIdentityOverEarlierRemote(c *tc.C) {
 	resolver := dqliteBindAddressResolver{
+		logger:   loggertesting.WrapCheckLog(c),
 		lookupIP: unexpectedLookup(c),
 		interfaceAddrs: func() ([]net.Addr, error) {
 			return localAddresses("10.0.0.9"), nil
@@ -94,6 +99,7 @@ func (*bindAddressSuite) TestPrefersLocalProviderIdentityOverEarlierRemote(c *tc
 
 func (*bindAddressSuite) TestNATIPAddressUsesRouteSource(c *tc.C) {
 	resolver := dqliteBindAddressResolver{
+		logger:   loggertesting.WrapCheckLog(c),
 		lookupIP: unexpectedLookup(c),
 		interfaceAddrs: func() ([]net.Addr, error) {
 			// This unrelated private address must not win merely because of
@@ -114,6 +120,7 @@ func (*bindAddressSuite) TestNATIPAddressUsesRouteSource(c *tc.C) {
 func (*bindAddressSuite) TestNATHostnameUsesRouteSource(c *tc.C) {
 	const hostname = "controller.example.com"
 	resolver := dqliteBindAddressResolver{
+		logger: loggertesting.WrapCheckLog(c),
 		lookupIP: func(_ context.Context, _, host string) ([]net.IP, error) {
 			c.Check(host, tc.Equals, hostname)
 			return []net.IP{net.ParseIP("3.84.237.4")}, nil
@@ -134,6 +141,7 @@ func (*bindAddressSuite) TestNATHostnameUsesRouteSource(c *tc.C) {
 
 func (*bindAddressSuite) TestLoopbackProviderDoesNotQueryInterfaces(c *tc.C) {
 	resolver := dqliteBindAddressResolver{
+		logger:                loggertesting.WrapCheckLog(c),
 		lookupIP:              unexpectedLookup(c),
 		interfaceAddrs:        unexpectedInterfaceAddrs(c),
 		sourceAddressForRoute: unexpectedRoute(c),
@@ -146,6 +154,7 @@ func (*bindAddressSuite) TestLoopbackProviderDoesNotQueryInterfaces(c *tc.C) {
 
 func (*bindAddressSuite) TestNoRouteFallsBackToLoopback(c *tc.C) {
 	resolver := dqliteBindAddressResolver{
+		logger:   loggertesting.WrapCheckLog(c),
 		lookupIP: unexpectedLookup(c),
 		interfaceAddrs: func() ([]net.Addr, error) {
 			return localAddresses("10.0.0.9"), nil
@@ -170,6 +179,7 @@ func (*bindAddressSuite) TestNoProviderAddress(c *tc.C) {
 func (*bindAddressSuite) TestHostnameResolutionError(c *tc.C) {
 	expected := errors.New("lookup failed")
 	resolver := dqliteBindAddressResolver{
+		logger: loggertesting.WrapCheckLog(c),
 		lookupIP: func(context.Context, string, string) ([]net.IP, error) {
 			return nil, expected
 		},
@@ -184,6 +194,7 @@ func (*bindAddressSuite) TestHostnameResolutionError(c *tc.C) {
 func (*bindAddressSuite) TestInterfaceDiscoveryError(c *tc.C) {
 	expected := errors.New("interfaces failed")
 	resolver := dqliteBindAddressResolver{
+		logger:   loggertesting.WrapCheckLog(c),
 		lookupIP: unexpectedLookup(c),
 		interfaceAddrs: func() ([]net.Addr, error) {
 			return nil, expected
@@ -198,6 +209,7 @@ func (*bindAddressSuite) TestInterfaceDiscoveryError(c *tc.C) {
 func (*bindAddressSuite) TestRouteCancellationIsReturned(c *tc.C) {
 	ctx, cancel := context.WithCancel(c.Context())
 	resolver := dqliteBindAddressResolver{
+		logger:   loggertesting.WrapCheckLog(c),
 		lookupIP: unexpectedLookup(c),
 		interfaceAddrs: func() ([]net.Addr, error) {
 			return localAddresses("10.0.0.9"), nil
