@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"slices"
 	"testing"
 
@@ -137,6 +138,55 @@ func (s *sequenceSuite) TestSequenceAllocationRollback(c *tc.C) {
 			c.Check(next, tc.Equals, uint64(0))
 		}
 	}
+}
+
+// TestSequenceAllocationNotApplied checks that a suppressed insert or update
+// cannot be reported as a successful allocation without a returned value.
+func (s *sequenceSuite) TestSequenceAllocationNotApplied(c *tc.C) {
+	state := NewState(s.TxnRunnerFactory())
+	err := state.ImportSequences(c.Context(), map[string]uint64{"existing": 4})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		for _, query := range []string{
+			`CREATE TRIGGER ignore_sequence_insert BEFORE INSERT ON sequence
+WHEN NEW.namespace = 'new'
+BEGIN SELECT RAISE(IGNORE); END`,
+			`CREATE TRIGGER ignore_sequence_update BEFORE UPDATE ON sequence
+WHEN NEW.namespace = 'existing'
+BEGIN SELECT RAISE(IGNORE); END`,
+		} {
+			if _, err := tx.ExecContext(ctx, query); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	for _, namespace := range []domainsequence.StaticNamespace{"new", "existing"} {
+		var next uint64
+		err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+			var err error
+			next, err = NextValue(ctx, s.state, tx, namespace)
+			return err
+		})
+		c.Assert(err, tc.ErrorIs, sqlair.ErrNoRows)
+		c.Check(next, tc.Equals, uint64(0))
+
+		var batch []uint64
+		err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+			var err error
+			batch, err = NextNValues(ctx, s.state, tx, 3, namespace)
+			return err
+		})
+		c.Assert(err, tc.ErrorIs, sqlair.ErrNoRows)
+		c.Check(batch, tc.IsNil)
+	}
+
+	stored, err := state.GetSequencesForExport(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(stored, tc.DeepEquals, map[string]uint64{"existing": 4})
 }
 
 // TestSequenceConcurrentMixedAllocation checks that competing single and batch
