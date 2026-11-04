@@ -132,7 +132,7 @@ Running commands lets a client queue one shell command as an operation on machin
 
 The caller, the rules, and the errors are:
 
-- *Caller:* A client, for a user with {ref}`admin access <user-access-model-admin>` to the model. The change block (an operator setting that makes the controller refuse the calls that change the model; a refused call fails with an "operation blocked" error that carries the operator's message) must not be on.
+- *Caller:* A client, for a user with {ref}`admin access <user-access-model-admin>` to the model. The {ref}`change block <restrict-commands-on-a-model>` must not be on.
 - *Rules:*
   - A command that contains `juju-exec` or `juju-run` is refused.
   - The operation has the parameters `command` and `timeout`. The timeout is in nanoseconds. The value zero sets no limit.

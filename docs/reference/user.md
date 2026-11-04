@@ -129,7 +129,7 @@ The holder can grant or revoke offer access to others.
 User calls are the calls a {ref}`client <client>` can take on users through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): add, list, enable, disable, remove, change a password, register, log in, and grant or revoke access. Most calls take a list. Each entry in the list gets its own result. Logging in and registering handle one user for each request. A user is named by a tag of the form `user-<name>`.
 
 (user-change-block)=
-The **change block** is an operator setting that makes the controller refuse operations that change the model. A refused operation fails with an "operation blocked" error that carries the operator's message. The calls below that name the change block check the controller model's block.
+The calls below that name the {ref}`change block <restrict-commands-on-a-model>` check the controller model's block.
 
 (user-adding)=
 ### Adding users

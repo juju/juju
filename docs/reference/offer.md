@@ -229,7 +229,7 @@ Consuming offers adds a {ref}`remote application <cross-model-relation>` to the 
 
 The caller, the rules, and the errors are:
 
-- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the consuming model. The change block (an operator setting that makes the controller refuse operations that change the model; a refused operation fails with an "operation blocked" error that carries the operator's message) must not be on.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the consuming model. The {ref}`change block <restrict-commands-on-a-model>` must not be on.
 - *Rules:*
   - The call takes a list of offers, each with the details that {ref}`getting consume details <offer-consume-details>` returned.
   - The model stores the offering controller's details, unless that controller is this one.
