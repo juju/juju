@@ -95,6 +95,8 @@ VALUES (1, '4.1.5', '4.1.5')`)
 	got, err := exportstate.NewState(s.TxnRunnerFactory()).Export(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got.ModelConfig, tc.DeepEquals, []v4_1_0.ModelConfig{{Key: "other", Value: "value"}})
+	// Import excludes agent_version, so the bootstrap row retains its latest
+	// version rather than taking the different value from the payload.
 	c.Check(got.AgentVersion, tc.DeepEquals, []v4_1_0.AgentVersion{{
 		StreamID: 1, TargetVersion: "4.1.5", LatestVersion: "4.1.5",
 	}})
