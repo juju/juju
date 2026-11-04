@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/internal/database/client"
 	"github.com/juju/juju/internal/database/dqlite"
 	dqlitedriver "github.com/juju/juju/internal/database/driver"
-	"github.com/juju/juju/internal/network"
 )
 
 const (
@@ -255,8 +254,7 @@ func (m *NodeManager) WithPreferredCloudLocalAddressOption(source corenetwork.Co
 	for _, nic := range nics {
 		name := nic.Name()
 		if nic.Type() == corenetwork.LoopbackDevice ||
-			name == network.DefaultLXDBridge ||
-			name == network.DefaultDockerBridge {
+			corenetwork.IsHostLocalBridge(name) {
 			continue
 		}
 
