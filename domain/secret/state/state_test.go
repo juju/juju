@@ -1798,7 +1798,7 @@ func (s *stateSuite) saveSecretRemoteConsumer(c *tc.C, uri *coresecrets.URI, off
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO secret_remote_unit_consumer (secret_id, offer_connection_uuid, unit_name, current_revision) VALUES (?, ?, ?, ?)
-ON CONFLICT(secret_id, unit_name) DO UPDATE SET
+ON CONFLICT(offer_connection_uuid, secret_id, unit_name) DO UPDATE SET
     current_revision=excluded.current_revision
 `,
 			uri.ID, offerConnectionUUID, unitName, currentRevision)
