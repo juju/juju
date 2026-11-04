@@ -326,6 +326,7 @@ func (s *stateSuite) TestPinLeaseMissingLeaseNoOp(c *tc.C) {
 func (s *stateSuite) pinUUIDs(c *tc.C, entity string) []string {
 	var uuids []string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		uuids = nil
 		rows, err := tx.QueryContext(ctx,
 			"SELECT uuid FROM lease_pin WHERE entity_id = ? ORDER BY uuid", entity)
 		if err != nil {

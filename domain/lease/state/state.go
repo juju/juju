@@ -290,6 +290,8 @@ AND    l.model_uuid = $Lease.model_uuid;`, lease)
 // PinLease (lease.Store) adds the input entity into the lease_pin table
 // to indicate that the lease indicated by the input key must not expire,
 // and that this entity requires such behaviour.
+// Pinning a missing lease is a no-op. Pinning the same entity again leaves
+// the existing pin unchanged.
 func (s *State) PinLease(ctx context.Context, key corelease.Key, entity string) error {
 	db, err := s.DB(ctx)
 	if err != nil {
