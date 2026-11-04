@@ -89,7 +89,7 @@ SELECT
     m.activated,
     -- Don't rely on controller_uuid always being set to a value.
     ctrli.uuid AS controller_uuid,
-    IIF(ctrlm.model_uuid IS NOT NULL, TRUE, FALSE) AS is_controller_model
+    ctrlm.model_uuid IS NOT NULL AS is_controller_model
 FROM model AS m
 JOIN cloud AS c ON m.cloud_uuid = c.uuid
 JOIN cloud_type AS ct ON c.cloud_type_id = ct.id
@@ -141,7 +141,7 @@ SELECT
     l.value AS life,
     cc.invalid AS cloud_credential_invalid,
     cc.invalid_reason AS cloud_credential_invalid_reason,
-    IIF(mmi.model_uuid IS NOT NULL, TRUE, FALSE) AS migrating
+    mmi.model_uuid IS NOT NULL AS migrating
 FROM model AS m
 JOIN life AS l ON m.life_id = l.id
 LEFT JOIN cloud_credential AS cc ON m.cloud_credential_uuid = cc.uuid
@@ -173,7 +173,7 @@ SELECT
     c.identity_endpoint,
     c.storage_endpoint,
     c.skip_tls_verify,
-    IIF(controllers.cloud_uuid IS NULL, FALSE, TRUE) AS is_controller_cloud
+    controllers.cloud_uuid IS NOT NULL AS is_controller_cloud
 FROM cloud AS c
 JOIN cloud_type AS ct ON c.cloud_type_id = ct.id
 LEFT JOIN controllers ON c.uuid = controllers.cloud_uuid;
