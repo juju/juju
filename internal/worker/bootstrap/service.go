@@ -146,7 +146,7 @@ type MachineService interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
 	// SetMachineCloudInstance sets an entry in the machine cloud instance table
-	// along with the instance tags and the link to a lxd profile if any.
+	// along with the instance tags.
 	SetMachineCloudInstance(
 		ctx context.Context,
 		machineUUID machine.UUID,

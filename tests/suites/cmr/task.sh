@@ -31,6 +31,11 @@ test_cmr() {
 		fi
 	fi
 
+	if [ -z "$(skip 'test_cmr_integrity_relation_removal')" ]; then
+		# This task bootstraps its own dedicated controller.
+		test_cmr_integrity_relation_removal
+	fi
+
 	if [ -z "$(skip 'test_cmr_integrity')" ]; then
 		# test_cmr_integrity bootstraps its own dedicated controller.
 		test_cmr_integrity

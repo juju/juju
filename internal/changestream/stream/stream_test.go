@@ -831,6 +831,218 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *tc.C) 
 	workertest.CleanKill(c, stream)
 }
 
+// TestLatestRowOfEachChangeAcrossTerms checks that the events of each term are
+// built from the latest row of each namespace and changed value above the
+// high-water mark left by the previous term. In each group of several rows the
+// latest row has neither the latest created_at nor the first id, so an event
+// built from another row of the group differs from the expected one.
+func (s *streamSuite) TestLatestRowOfEachChangeAcrossTerms(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := make(chan struct{})
+	defer close(done)
+
+	s.expectFileNotifyWatcher()
+	s.expectTermAfterAnyTimes()
+	s.expectBackoffAnyTimes(done)
+	s.expectTimer()
+	s.expectClock()
+	s.expectMetrics()
+
+	s.insertNamespace(c, 1000, "foo")
+	s.insertNamespace(c, 2000, "bar")
+
+	// foo/k1 is created, updated and deleted, and the delete is the latest
+	// row although it has an earlier created_at than the update. bar/k1 has
+	// the same changed value in another namespace.
+	ids := s.insertChangeRows(c,
+		changeRow{changeType: changestreamtesting.Create, namespace: 1000, changed: "k1", createdAt: "2026-01-02 10:00:01.000"},
+		changeRow{changeType: changestreamtesting.Update, namespace: 1000, changed: "k1", createdAt: "2026-01-02 10:00:05.000"},
+		changeRow{changeType: changestreamtesting.Create, namespace: 2000, changed: "k1", createdAt: "2026-01-02 10:00:03.000"},
+		changeRow{changeType: changestreamtesting.Delete, namespace: 1000, changed: "k1", createdAt: "2026-01-02 10:00:02.000"},
+	)
+
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
+	defer workertest.DirtyKill(c, stream)
+
+	select {
+	case term := <-stream.Terms():
+		s.expectEvents(c, ids, termEvents(c, term), []expectedEvent{
+			{row: 2, changeType: changestreamtesting.Create, namespace: "bar", changed: "k1", createdAt: "2026-01-02 10:00:03.000"},
+			{row: 3, changeType: changestreamtesting.Delete, namespace: "foo", changed: "k1", createdAt: "2026-01-02 10:00:02.000"},
+		})
+		term.Done(false, make(chan struct{}))
+
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for change")
+	}
+
+	// The first term has been completed, so the changes it contained must not
+	// be seen again. The second term must contain just the latest row of
+	// each change since then. foo/k1 ends with an update that was created
+	// before the create preceding it and bar/k1 ends with a delete that has
+	// the earliest created_at.
+	// The rows are inserted in one transaction, so that they are all part of
+	// the same term.
+	second := s.insertChangeRows(c,
+		changeRow{changeType: changestreamtesting.Create, namespace: 1000, changed: "k1", createdAt: "2026-01-02 10:00:09.000"},
+		changeRow{changeType: changestreamtesting.Update, namespace: 1000, changed: "k1", createdAt: "2026-01-02 10:00:07.000"},
+		changeRow{changeType: changestreamtesting.Update, namespace: 2000, changed: "k1", createdAt: "2026-01-02 10:00:08.000"},
+		changeRow{changeType: changestreamtesting.Delete, namespace: 2000, changed: "k1", createdAt: "2026-01-02 10:00:06.000"},
+	)
+	ids = append(ids, second...)
+
+	select {
+	case term := <-stream.Terms():
+		s.expectEvents(c, ids, termEvents(c, term), []expectedEvent{
+			{row: 5, changeType: changestreamtesting.Update, namespace: "foo", changed: "k1", createdAt: "2026-01-02 10:00:07.000"},
+			{row: 7, changeType: changestreamtesting.Delete, namespace: "bar", changed: "k1", createdAt: "2026-01-02 10:00:06.000"},
+		})
+		term.Done(false, make(chan struct{}))
+
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for change")
+	}
+
+	workertest.CleanKill(c, stream)
+}
+
+// TestConcurrentWritesAreStreamedAsLatestRows runs the stream while another
+// goroutine appends batches of changes to a handful of namespace and changed
+// values, and checks what every term, and the sequence of terms, must satisfy
+// however the writes and the polls interleave:
+//   - every event is the complete row of its id in the change log;
+//   - a term is ordered by id and has one event for each namespace and changed
+//     value;
+//   - a term only contains rows above the highest id of the previous term;
+//   - the final event of each namespace and changed value is its latest row,
+//     so coalescing never loses the final state.
+func (s *streamSuite) TestConcurrentWritesAreStreamedAsLatestRows(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := make(chan struct{})
+	defer close(done)
+
+	s.expectFileNotifyWatcher()
+	s.expectTermAfterAnyTimes()
+	s.expectBackoffAnyTimes(done)
+	s.expectTimer()
+	s.expectClock()
+	s.expectMetrics()
+
+	s.insertNamespace(c, 1000, "foo")
+	s.insertNamespace(c, 2000, "bar")
+
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
+	defer workertest.DirtyKill(c, stream)
+
+	// The writer sets writeErr and finalID before it closes writerDone, and
+	// they are only read after writerDone has been closed.
+	var (
+		writerDone = make(chan struct{})
+		writeErr   error
+		finalID    int64
+	)
+	go func() {
+		defer close(writerDone)
+
+		ctx := c.Context()
+		start := time.Date(2026, 1, 2, 10, 0, 0, 0, time.UTC)
+
+		// Spread the created_at values out of order with respect to the id,
+		// with no two rows sharing one.
+		var n int
+		for batch := range 40 {
+			rows := make([]changeRow, 1+batch%5)
+			for i := range rows {
+				offset := time.Duration(n*7919%86400) * time.Second
+				rows[i] = changeRow{
+					changeType: changestream.ChangeType(1 << ((n + batch) % 3)),
+					namespace:  (1 + (n+i)%2) * 1000,
+					changed:    fmt.Sprintf("k%d", (n*7+batch)%5),
+					createdAt:  start.Add(offset).Format("2006-01-02 15:04:05.000"),
+				}
+				n++
+			}
+
+			ids, err := s.writeChangeRows(ctx, rows...)
+			if err != nil {
+				writeErr = err
+				return
+			}
+			finalID = ids[len(ids)-1]
+		}
+	}()
+
+	var (
+		upper    int64
+		terms    int
+		finished bool
+		latest   = make(map[string]int64)
+		wait     = (<-chan struct{})(writerDone)
+	)
+	for !finished || upper < finalID {
+		select {
+		case term := <-stream.Terms():
+			terms++
+
+			// The events must be above the highest id of the previous term and
+			// in ascending order of id.
+			seen := make(map[string]struct{})
+			previous := upper
+			for _, event := range termEvents(c, term) {
+				c.Check(event.id > previous, tc.IsTrue, tc.Commentf("event %d is not after %d", event.id, previous))
+				previous = event.id
+
+				// The event must be all of one row.
+				c.Check(event, tc.DeepEquals, s.readChangeLogRow(c, event.id))
+
+				key := event.namespace + "/" + event.changed
+				_, duplicate := seen[key]
+				c.Check(duplicate, tc.IsFalse, tc.Commentf("%s seen twice in one term", key))
+				seen[key] = struct{}{}
+				c.Check(event.id > latest[key], tc.IsTrue, tc.Commentf("%s went back to %d from %d", key, event.id, latest[key]))
+				latest[key] = event.id
+			}
+			if previous > upper {
+				upper = previous
+			}
+
+			term.Done(false, make(chan struct{}))
+
+		case <-wait:
+			finished = true
+			wait = nil
+			c.Assert(writeErr, tc.ErrorIsNil)
+
+		case <-c.Context().Done():
+			c.Fatal("timed out waiting for changes")
+		}
+	}
+	c.Logf("streamed %d rows in %d terms", finalID, terms)
+
+	rows, err := s.DB().QueryContext(c.Context(), `
+SELECT n.namespace, c.changed, MAX(c.id)
+FROM change_log c JOIN change_log_namespace n ON c.namespace_id = n.id
+GROUP BY n.namespace, c.changed`)
+	c.Assert(err, tc.ErrorIsNil)
+	defer rows.Close()
+
+	expected := make(map[string]int64)
+	for rows.Next() {
+		var (
+			namespace, changed string
+			id                 int64
+		)
+		c.Assert(rows.Scan(&namespace, &changed, &id), tc.ErrorIsNil)
+		expected[namespace+"/"+changed] = id
+	}
+	c.Assert(rows.Err(), tc.ErrorIsNil)
+	c.Check(latest, tc.DeepEquals, expected)
+
+	workertest.CleanKill(c, stream)
+}
+
 func (s *streamSuite) TestOneChangeIsBlockedByFile(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1416,6 +1628,135 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesInterweavedGroupsCorrect
 	}
 }
 
+// expectedEvent describes an event that readChanges is expected to return for
+// the rows inserted by insertLatestRowFixture.
+type expectedEvent struct {
+	// row is the index, in insertion order, of the fixture row that the event
+	// must be built from.
+	row        int
+	changeType changestream.ChangeType
+	namespace  string
+	changed    string
+	createdAt  string
+}
+
+// TestReadChangesReturnsLatestRowOfEachChange checks that when several changes
+// to the same namespace and changed value are coalesced, the event is built
+// entirely from the row with the highest id: its id, edit type, namespace,
+// changed value and created_at all come from that one row.
+//
+// The fixture makes the latest row of foo/k1 differ from every other row of
+// the group in each column: it is not the first row, its edit type is neither
+// the highest nor the lowest and its created_at is neither the latest nor the
+// earliest. Building the event from any other row of the group (the result a
+// bare, non-aggregated column is allowed to take in standard SQL), or from a
+// per column MIN or MAX, would therefore produce a different event.
+// The same changed value is used in all three namespaces, which must remain
+// three independent events, and the events must be ordered by id, which here
+// matches neither the namespace, the changed value nor created_at order.
+func (s *streamSuite) TestReadChangesReturnsLatestRowOfEachChange(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	stream := s.newNonRunningStream()
+	ids := s.insertLatestRowFixture(c)
+
+	results, err := stream.readChanges()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.expectEvents(c, ids, results, []expectedEvent{
+		{row: 4, changeType: changestreamtesting.Update, namespace: "bar", changed: "k1", createdAt: "2026-01-02 10:00:06.000"},
+		{row: 5, changeType: changestreamtesting.Create, namespace: "baz", changed: "k1", createdAt: "2026-01-02 10:00:07.000"},
+		{row: 6, changeType: changestreamtesting.Update, namespace: "foo", changed: "k1", createdAt: "2026-01-02 10:00:04.000"},
+		{row: 7, changeType: changestreamtesting.Delete, namespace: "foo", changed: "k2", createdAt: "2026-01-02 10:00:08.000"},
+	})
+}
+
+// TestReadChangesOnlyReturnsRowsAboveUpperBound checks that rows at or below
+// the upper bound of the last processed term are never returned, that the
+// bound is exclusive and that a namespace and changed value whose latest row is
+// not above the bound produces no event at all.
+func (s *streamSuite) TestReadChangesOnlyReturnsRowsAboveUpperBound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ids := s.insertLatestRowFixture(c)
+
+	// The events for the fixture, by the index of the row they are built
+	// from, ordered by id.
+	events := map[int]expectedEvent{
+		4: {row: 4, changeType: changestreamtesting.Update, namespace: "bar", changed: "k1", createdAt: "2026-01-02 10:00:06.000"},
+		5: {row: 5, changeType: changestreamtesting.Create, namespace: "baz", changed: "k1", createdAt: "2026-01-02 10:00:07.000"},
+		6: {row: 6, changeType: changestreamtesting.Update, namespace: "foo", changed: "k1", createdAt: "2026-01-02 10:00:04.000"},
+		7: {row: 7, changeType: changestreamtesting.Delete, namespace: "foo", changed: "k2", createdAt: "2026-01-02 10:00:08.000"},
+	}
+
+	tests := []struct {
+		name string
+		// upper is the index of the row whose id is the upper bound, or -1
+		// for no bound.
+		upper int
+		rows  []int
+	}{
+		{name: "no bound", upper: -1, rows: []int{4, 5, 6, 7}},
+		// Rows 0 to 3 are ignored. Every key still has a later row, so the
+		// events are unchanged.
+		{name: "bound below every latest row", upper: 3, rows: []int{4, 5, 6, 7}},
+		// bar/k1 has its latest row at the bound, so it is excluded.
+		{name: "bound at a latest row", upper: 4, rows: []int{5, 6, 7}},
+		{name: "bound between latest rows", upper: 5, rows: []int{6, 7}},
+		{name: "bound at the penultimate row", upper: 6, rows: []int{7}},
+		{name: "bound at the last row", upper: 7, rows: nil},
+	}
+	for _, test := range tests {
+		c.Logf("test: %s", test.name)
+
+		stream := s.newNonRunningStream()
+		if test.upper >= 0 {
+			stream.recordTermView(&termView{lower: ids[0], upper: ids[test.upper]})
+		}
+
+		results, err := stream.readChanges()
+		c.Assert(err, tc.ErrorIsNil)
+
+		var expected []expectedEvent
+		for _, row := range test.rows {
+			expected = append(expected, events[row])
+		}
+		s.expectEvents(c, ids, results, expected)
+	}
+}
+
+// TestReadChangesIgnoresPrunedRows checks that pruning the change log, which
+// removes rows up to the lower bound of the lowest recorded term, does not
+// change the events returned for the rows above the upper bound. The pruner
+// never removes a row above any term's lower bound, so events are always built
+// from rows that are still present.
+func (s *streamSuite) TestReadChangesIgnoresPrunedRows(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ids := s.insertLatestRowFixture(c)
+
+	stream := s.newNonRunningStream()
+	stream.recordTermView(&termView{lower: ids[2], upper: ids[4]})
+
+	expected := []expectedEvent{
+		{row: 5, changeType: changestreamtesting.Create, namespace: "baz", changed: "k1", createdAt: "2026-01-02 10:00:07.000"},
+		{row: 6, changeType: changestreamtesting.Update, namespace: "foo", changed: "k1", createdAt: "2026-01-02 10:00:04.000"},
+		{row: 7, changeType: changestreamtesting.Delete, namespace: "foo", changed: "k2", createdAt: "2026-01-02 10:00:08.000"},
+	}
+
+	// Prune progressively further, up to the lower bound of the recorded term,
+	// as the change log pruner does.
+	for _, pruneTo := range []int{0, 1, 2} {
+		_, err := s.DB().ExecContext(c.Context(), `DELETE FROM change_log WHERE id <= ?`, ids[pruneTo])
+		c.Assert(err, tc.ErrorIsNil)
+
+		results, err := stream.readChanges()
+		c.Assert(err, tc.ErrorIsNil)
+
+		s.expectEvents(c, ids, results, expected)
+	}
+}
+
 func (s *streamSuite) TestProcessWatermark(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1603,6 +1944,128 @@ func (s *streamSuite) insertChangeForType(c *tc.C, changeType changestream.Chang
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Logf("Committed insert change")
+}
+
+// changeRow describes a change_log row to insert with an explicit created_at.
+type changeRow struct {
+	changeType changestream.ChangeType
+	namespace  int
+	changed    string
+	createdAt  string
+}
+
+// insertChangeRows inserts the rows in a single transaction and returns the
+// ids assigned to them, in order.
+func (s *streamSuite) insertChangeRows(c *tc.C, rows ...changeRow) []int64 {
+	ids, err := s.writeChangeRows(c.Context(), rows...)
+	c.Assert(err, tc.ErrorIsNil)
+	return ids
+}
+
+// writeChangeRows is insertChangeRows without assertions, so that it can be
+// used from goroutines other than the test's.
+func (s *streamSuite) writeChangeRows(ctx context.Context, rows ...changeRow) ([]int64, error) {
+	q := `INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at) VALUES (?, ?, ?, ?)`
+
+	var ids []int64
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		ids = ids[:0]
+		for _, row := range rows {
+			result, err := tx.ExecContext(ctx, q, row.changeType, row.namespace, row.changed, row.createdAt)
+			if err != nil {
+				return err
+			}
+			id, err := result.LastInsertId()
+			if err != nil {
+				return err
+			}
+			ids = append(ids, id)
+		}
+		return nil
+	})
+	return ids, err
+}
+
+// insertLatestRowFixture inserts the namespaces foo, bar and baz and eight
+// change_log rows, and returns their ids in insertion order. Rows are
+// interleaved across namespaces and changed values, and the same changed value
+// is used in all three namespaces. created_at values are distinct and are not
+// in id order.
+//
+//	row  namespace/changed  edit type  created_at
+//	 0   foo/k1             create     10:00:01
+//	 1   bar/k1             create     10:00:02
+//	 2   foo/k2             update     10:00:03
+//	 3   foo/k1             delete     10:00:05
+//	 4   bar/k1             update     10:00:06
+//	 5   baz/k1             create     10:00:07
+//	 6   foo/k1             update     10:00:04
+//	 7   foo/k2             delete     10:00:08
+//
+// The latest rows are therefore 4 (bar/k1), 5 (baz/k1), 6 (foo/k1) and
+// 7 (foo/k2).
+func (s *streamSuite) insertLatestRowFixture(c *tc.C) []int64 {
+	s.insertNamespace(c, 1000, "foo")
+	s.insertNamespace(c, 2000, "bar")
+	s.insertNamespace(c, 3000, "baz")
+
+	return s.insertChangeRows(c,
+		changeRow{changeType: changestreamtesting.Create, namespace: 1000, changed: "k1", createdAt: "2026-01-02 10:00:01.000"},
+		changeRow{changeType: changestreamtesting.Create, namespace: 2000, changed: "k1", createdAt: "2026-01-02 10:00:02.000"},
+		changeRow{changeType: changestreamtesting.Update, namespace: 1000, changed: "k2", createdAt: "2026-01-02 10:00:03.000"},
+		changeRow{changeType: changestreamtesting.Delete, namespace: 1000, changed: "k1", createdAt: "2026-01-02 10:00:05.000"},
+		changeRow{changeType: changestreamtesting.Update, namespace: 2000, changed: "k1", createdAt: "2026-01-02 10:00:06.000"},
+		changeRow{changeType: changestreamtesting.Create, namespace: 3000, changed: "k1", createdAt: "2026-01-02 10:00:07.000"},
+		changeRow{changeType: changestreamtesting.Update, namespace: 1000, changed: "k1", createdAt: "2026-01-02 10:00:04.000"},
+		changeRow{changeType: changestreamtesting.Delete, namespace: 1000, changed: "k2", createdAt: "2026-01-02 10:00:08.000"},
+	)
+}
+
+// readChangeLogRow returns the change_log row with the given id as an event.
+func (s *streamSuite) readChangeLogRow(c *tc.C, id int64) changeEvent {
+	q := `
+SELECT c.id, c.edit_type_id, n.namespace, c.changed, c.created_at
+FROM change_log c JOIN change_log_namespace n ON c.namespace_id = n.id
+WHERE c.id = ?`
+
+	var row changeEvent
+	err := s.DB().QueryRowContext(c.Context(), q, id).Scan(
+		&row.id, &row.changeType, &row.namespace, &row.changed, &row.createdAt,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	return row
+}
+
+// termEvents returns the changes of a term as the events built by the stream.
+func termEvents(c *tc.C, term changestream.Term) []changeEvent {
+	var events []changeEvent
+	for _, ch := range term.Changes() {
+		event, ok := ch.(changeEvent)
+		c.Assert(ok, tc.IsTrue, tc.Commentf("unexpected change event type %T", ch))
+		events = append(events, event)
+	}
+	return events
+}
+
+// expectEvents checks that the events are exactly the expected ones, in order,
+// comparing every field of the event with the row that it must be built from.
+// ids are the ids of the rows, in insertion order. The expected created_at is
+// the value stored in the row. The driver returns a DATETIME column as a time,
+// which the event holds formatted as RFC 3339.
+func (s *streamSuite) expectEvents(c *tc.C, ids []int64, obtained []changeEvent, expected []expectedEvent) {
+	c.Assert(obtained, tc.HasLen, len(expected))
+	for i, event := range expected {
+		createdAt, err := time.Parse("2006-01-02 15:04:05.000", event.createdAt)
+		c.Assert(err, tc.ErrorIsNil)
+
+		c.Check(obtained[i], tc.DeepEquals, changeEvent{
+			id:         ids[event.row],
+			changeType: int(event.changeType),
+			namespace:  event.namespace,
+			changed:    event.changed,
+			createdAt:  createdAt.Format(time.RFC3339Nano),
+		})
+	}
 }
 
 func expectChanges(c *tc.C, expected []change, obtained []changestream.ChangeEvent) {

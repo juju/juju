@@ -86,6 +86,29 @@ func (s *relationWithRemoteConsumerSuite) TestRemoveRelationWithRemoteConsumerFo
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
 
+// A non-forced removal must ignore the wait duration: the wait only
+// qualifies forced removals, delaying their backstop job. The facade
+// passes the wait duration unconditionally, so a non-forced removal
+// must not schedule an extra delayed job on top of the immediate one.
+func (s *relationWithRemoteConsumerSuite) TestRemoveRelationWithRemoteConsumerNoForceIgnoresWait(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relUUID := tc.Must(c, relation.NewUUID)
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when)
+
+	exp := s.modelState.EXPECT()
+	exp.RelationWithRemoteConsumerExists(gomock.Any(), relUUID.String()).Return(true, nil)
+	exp.EnsureRelationWithRemoteConsumerNotAliveCascade(gomock.Any(), relUUID.String()).Return(internal.CascadedRelationWithRemoteConsumerLives{}, nil)
+	// A single, immediate, non-forced job: the wait is ignored.
+	exp.RelationWithRemoteConsumerScheduleRemoval(gomock.Any(), gomock.Any(), relUUID.String(), false, when.UTC()).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveRelationWithRemoteConsumer(c.Context(), relUUID, false, time.Minute)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
 func (s *relationWithRemoteConsumerSuite) TestRemoveRelationWithRemoteConsumerDepartedSyntheticUnits(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

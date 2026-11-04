@@ -2008,6 +2008,49 @@ func (s *applicationStateSuite) TestGetCharmIDByApplicationNameError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
+func (s *applicationStateSuite) TestGetCharmIDByUnitName(c *tc.C) {
+	appUUID, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	c.Assert(unitUUIDs, tc.HasLen, 1)
+
+	unitName, err := s.state.GetUnitNameForUUID(c.Context(), unitUUIDs[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	unitCharmID, err := s.state.GetCharmIDByApplicationName(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+
+	applicationCharmID, _, err := s.state.AddCharm(c.Context(), charm.Charm{
+		Metadata:      charm.Metadata{Name: "foo"},
+		Manifest:      s.minimalManifest(c),
+		Source:        charm.LocalSource,
+		ReferenceName: "foo",
+		Revision:      43,
+		Hash:          "new-hash",
+	}, nil, false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// During a rolling charm refresh, the application advances before units do.
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		"UPDATE application SET charm_uuid = ? WHERE uuid = ?",
+		applicationCharmID.String(), appUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	chID, err := s.state.GetCharmIDByUnitName(c.Context(), unitName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(chID, tc.Equals, unitCharmID)
+
+	appChID, err := s.state.GetCharmIDByApplicationName(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(appChID, tc.Equals, applicationCharmID)
+	c.Check(chID, tc.Not(tc.Equals), appChID)
+}
+
+func (s *applicationStateSuite) TestGetCharmIDByUnitNameError(c *tc.C) {
+	_, err := s.state.GetCharmIDByUnitName(c.Context(), "foo/0")
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
 func (s *applicationStateSuite) TestGetCharmByApplicationUUID(c *tc.C) {
 
 	expectedMetadata := charm.Metadata{

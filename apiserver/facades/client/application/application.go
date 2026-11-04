@@ -41,7 +41,6 @@ import (
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/permission"
 	coreresource "github.com/juju/juju/core/resource"
-	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
@@ -61,7 +60,6 @@ import (
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/configschema"
 	internalerrors "github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -1033,7 +1031,7 @@ func (api *APIBase) Unexpose(ctx context.Context, args params.ApplicationUnexpos
 // DestroyUnit removes a given set of application units.
 func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsParams) (params.DestroyUnitResults, error) {
 	if api.modelType == model.CAAS {
-		return params.DestroyUnitResults{}, errors.NotSupportedf("removing units on a non-container model")
+		return params.DestroyUnitResults{}, errors.NotSupportedf("removing units on a container model")
 	}
 	if err := api.checkCanWrite(ctx); err != nil {
 		return params.DestroyUnitResults{}, errors.Trace(err)
@@ -1199,15 +1197,14 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 // classifyStorageRemoval reports which storage instances attached to the
 // input units will be destroyed or detached when those units are removed.
 //
-// Storage instances are only reported for IAAS models. Container models back
-// their storage with persistent volumes whose life cycle is not tied to that
-// of the removed units, so their classification would be misleading.
+// Classification is by ownership scope and applies to all model types.
+// Container-model storage instances are model provisioned and outlive the
+// removed units, so they are reported as detached; when destroyStorage is
+// true every attached instance is reported as destroyed. This matches the
+// removal engine's cascade behaviour and the 3.6 destroy plan output.
 func (api *APIBase) classifyStorageRemoval(
 	ctx context.Context, unitUUIDs []coreunit.UUID, destroyStorage bool,
 ) (destroyed, detached []params.Entity, _ error) {
-	if api.modelType == model.CAAS {
-		return nil, nil, nil
-	}
 	if len(unitUUIDs) == 0 {
 		return nil, nil, nil
 	}
@@ -2161,24 +2158,6 @@ func (api *APIBase) MergeBindings(ctx context.Context, in params.ApplicationMerg
 	}
 	return params.ErrorResults{Results: res}, nil
 }
-
-// AgentTools is a point of use agent tools requester.
-type AgentTools interface {
-	AgentTools() (*tools.Tools, error)
-}
-
-// AgentVersioner is a point of use agent version object.
-type AgentVersioner interface {
-	AgentVersion() (semversion.Number, error)
-}
-
-var (
-	// ErrInvalidAgentVersions is a sentinal error for when we can no longer
-	// upgrade juju using 2.5.x agents with 2.6 or greater controllers.
-	ErrInvalidAgentVersions = errors.Errorf(
-		"Unable to upgrade LXDProfile charms with the current model version. " +
-			"Please run juju upgrade-model to upgrade the current model to match your controller.")
-)
 
 // UnitsInfo returns unit information for the given entities (units or
 // applications).

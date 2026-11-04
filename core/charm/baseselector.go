@@ -88,9 +88,8 @@ func ConfigureBaseSelector(cfg SelectorConfig) (BaseSelector, error) {
 	return bs, nil
 }
 
-// TODO(nvinuesa): The force flag is only valid if the requestedBase is specified
-// or to force the deploy of a LXD profile that doesn't pass validation, this
-// should be added to these validation checks.
+// TODO(nvinuesa): The force flag is only valid if the requestedBase is
+// specified. This should be added to these validation checks.
 func (s BaseSelector) validate(supportedCharmBases, supportedJujuBases []base.Base) ([]base.Base, error) {
 	// If the image-id constraint is provided then base must be explicitly
 	// provided either by flag either by model-config default base.

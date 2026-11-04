@@ -147,21 +147,19 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 		}
 	}
 	out = machineStatus{
-		JujuStatus:         sf.getStatusInfoContents(machine.AgentStatus),
-		Hostname:           machine.Hostname,
-		DNSName:            machine.DNSName,
-		IPAddresses:        machine.IPAddresses,
-		InstanceId:         machine.InstanceId,
-		DisplayName:        machine.DisplayName,
-		MachineStatus:      sf.getStatusInfoContents(machine.InstanceStatus),
-		ModificationStatus: sf.getStatusInfoContents(machine.ModificationStatus),
-		Base:               base,
-		Id:                 machine.Id,
-		NetworkInterfaces:  make(map[string]networkInterface),
-		Containers:         make(map[string]machineStatus),
-		Constraints:        machine.Constraints,
-		Hardware:           machine.Hardware,
-		LXDProfiles:        make(map[string]lxdProfileContents),
+		JujuStatus:        sf.getStatusInfoContents(machine.AgentStatus),
+		Hostname:          machine.Hostname,
+		DNSName:           machine.DNSName,
+		IPAddresses:       machine.IPAddresses,
+		InstanceId:        machine.InstanceId,
+		DisplayName:       machine.DisplayName,
+		MachineStatus:     sf.getStatusInfoContents(machine.InstanceStatus),
+		Base:              base,
+		Id:                machine.Id,
+		NetworkInterfaces: make(map[string]networkInterface),
+		Containers:        make(map[string]machineStatus),
+		Constraints:       machine.Constraints,
+		Hardware:          machine.Hardware,
 	}
 
 	for k, d := range machine.NetworkInterfaces {
@@ -183,14 +181,6 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 		out.HAStatus = makeHAStatus(machine.HasVote, machine.WantsVote)
 		out.HAPrimary = machine.PrimaryControllerMachine
 		out.HAClusterRole = machine.ClusterRole
-	}
-
-	for k, v := range machine.LXDProfiles {
-		out.LXDProfiles[k] = lxdProfileContents{
-			Config:      v.Config,
-			Description: v.Description,
-			Devices:     v.Devices,
-		}
 	}
 
 	return out
@@ -236,7 +226,6 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 		CharmName:        charmName,
 		CharmRev:         charmRev,
 		CharmVersion:     application.CharmVersion,
-		CharmProfile:     application.CharmProfile,
 		CharmChannel:     application.CharmChannel,
 		Exposed:          application.Exposed,
 		Life:             string(application.Life),

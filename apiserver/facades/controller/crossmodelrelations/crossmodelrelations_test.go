@@ -7,7 +7,6 @@ import (
 	"context"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -363,7 +362,7 @@ func (s *facadeSuite) TestPublishRelationChangesLifeDead(c *tc.C) {
 			Name: "foo",
 		}, nil)
 	s.removalService.EXPECT().
-		RemoveRelationWithRemoteConsumer(gomock.Any(), relationUUID, true, time.Duration(0)).
+		RemoveRelationWithRemoteConsumer(gomock.Any(), relationUUID, true, forceCleanupWait).
 		Return("", nil)
 
 	api := s.api(c)
@@ -375,6 +374,86 @@ func (s *facadeSuite) TestPublishRelationChangesLifeDead(c *tc.C) {
 			Macaroons:               s.macaroons,
 			BakeryVersion:           bakery.LatestVersion,
 			ForceCleanup:            new(true),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.IsNil)
+}
+
+// A dying change without a forced cleanup must not force the removal:
+// local units get the grace period to leave the scope themselves.
+func (s *facadeSuite) TestPublishRelationChangesDyingNoForceCleanup(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	applicationUUID := tc.Must(c, application.NewUUID)
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+	offerUUID := tc.Must(c, offer.NewUUID)
+
+	relationKey := names.NewRelationTag("foo:db bar:admin")
+
+	s.relationService.EXPECT().
+		GetRelationDetails(gomock.Any(), relationUUID).
+		Return(domainrelation.RelationDetails{
+			Life: life.Alive,
+			Key: corerelation.Key{{
+				ApplicationName: "foo",
+				EndpointName:    "db",
+				Role:            internalcharm.RoleProvider,
+			}, {
+				ApplicationName: "bar",
+				EndpointName:    "admin",
+				Role:            internalcharm.RoleRequirer,
+			}},
+			Endpoints: []domainrelation.Endpoint{
+				{
+					ApplicationName: "foo",
+					Relation: internalcharm.Relation{
+						Name:      "db",
+						Role:      internalcharm.RoleProvider,
+						Interface: "db",
+					},
+				},
+				{
+					ApplicationName: "bar",
+					Relation: internalcharm.Relation{
+						Name:      "admin",
+						Role:      internalcharm.RoleRequirer,
+						Interface: "db",
+					},
+				},
+			},
+		}, nil)
+	s.crossModelRelationService.EXPECT().
+		GetOfferUUIDByRelationUUID(gomock.Any(), relationUUID).
+		Return(offerUUID, nil)
+	s.crossModelAuthContext.EXPECT().
+		Authenticator().Return(s.authenticator)
+	s.authenticator.EXPECT().
+		CheckRelationMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), relationKey, s.macaroons, bakery.LatestVersion).
+		Return(nil)
+
+	s.crossModelRelationService.EXPECT().
+		GetSyntheticApplicationUUIDByRemoteToken(gomock.Any(), offerUUID, relationUUID).
+		Return(applicationUUID, nil)
+	s.applicationService.EXPECT().
+		GetApplicationDetails(gomock.Any(), applicationUUID).
+		Return(domainapplication.ApplicationDetails{
+			Life: domainlife.Alive,
+			Name: "foo",
+		}, nil)
+	s.removalService.EXPECT().
+		RemoveRelationWithRemoteConsumer(gomock.Any(), relationUUID, false, forceCleanupWait).
+		Return("", nil)
+
+	api := s.api(c)
+	results, err := api.PublishRelationChanges(c.Context(), params.RemoteRelationsChanges{
+		Changes: []params.RemoteRelationChangeEvent{{
+			Life:                    life.Dying,
+			RelationToken:           relationUUID.String(),
+			ApplicationOrOfferToken: offerUUID.String(),
+			Macaroons:               s.macaroons,
+			BakeryVersion:           bakery.LatestVersion,
 		}},
 	})
 	c.Assert(err, tc.ErrorIsNil)

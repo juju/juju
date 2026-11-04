@@ -5,6 +5,7 @@ package crossmodelrelations
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
@@ -39,6 +40,14 @@ import (
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
+
+// forceCleanupWait is the grace period units in this model are given to
+// leave the scope of a relation after a consuming model requested a
+// forced cleanup, before the relation is deleted regardless. Local
+// units need to run their relation departed and broken hooks to leave
+// the scope themselves; deleting the relation underneath a pending hook
+// fails the hook with a permission error and puts its unit in error.
+const forceCleanupWait = time.Minute
 
 // CrossModelRelationsAPIv3 provides access to the CrossModelRelations API facade.
 type CrossModelRelationsAPIv3 struct {
@@ -155,7 +164,8 @@ func (api *CrossModelRelationsAPIv3) publishOneRelationChange(ctx context.Contex
 		// Relations only transition to dying and are removed, so we can safely
 		// just remove the relation and return early.
 		forceCleanup := change.ForceCleanup != nil && *change.ForceCleanup
-		_, err := api.removalService.RemoveRelationWithRemoteConsumer(ctx, relationUUID, forceCleanup, 0)
+		_, err := api.removalService.RemoveRelationWithRemoteConsumer(
+			ctx, relationUUID, forceCleanup, forceCleanupWait)
 		if errors.Is(err, relationerrors.RelationNotFound) {
 			return nil
 		}

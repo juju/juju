@@ -101,9 +101,6 @@ machines:
       current: running
       message: Running
       since: 27 Oct 2022 09:36:10+02:00
-    modification-status:
-      current: idle
-      since: 27 Oct 2022 09:36:07+02:00
     base:
       name: ubuntu
       channel: "22.04"
@@ -186,9 +183,6 @@ machines:
     machine-status:
       current: pending
       since: 20 Mar 2023 12:58:52+01:00
-    modification-status:
-      current: idle
-      since: 20 Mar 2023 12:58:52+01:00
     base:
       name: ubuntu
       channel: "22.04"
@@ -227,9 +221,6 @@ machines:
       current: running
       message: Running
       since: 07 Feb 2023 13:53:20+01:00
-    modification-status:
-      current: idle
-      since: 20 Mar 2023 08:53:12+01:00
     base:
       name: ubuntu
       channel: "22.04"
