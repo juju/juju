@@ -143,8 +143,19 @@ checksum-format: SHA-256
 // document is rejected: the file must hold exactly one assertion.
 func (s *assertionSuite) TestReadAssertionMultipleDocuments(c *tc.C) {
 	document := "checksum: sha256-" + s.validChecksum() + "\nchecksum-format: SHA-256\n"
-	_, err := s.parseAssertion(document + "---\n" + document)
-	c.Check(err, tc.ErrorMatches, "backup assertion must contain exactly one YAML document")
+	for _, extra := range []string{
+		document,
+		"unknown-key: value\n",
+		"notes: [not, a, string]\n",
+		"- sequence\n",
+		"scalar\n",
+		"null\n",
+		"",
+	} {
+		_, err := s.parseAssertion(document + "---\n" + extra)
+		c.Check(err, tc.ErrorMatches, "backup assertion must contain exactly one YAML document",
+			tc.Commentf("trailing document: %q", extra))
+	}
 }
 
 // TestReadAssertionUnsupportedChecksumFormat verifies that a checksum

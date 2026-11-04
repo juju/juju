@@ -71,12 +71,12 @@ func (s *createSuite) setDownload() *fakeAPIClient {
 	return client
 }
 
-// checkDownload verifies that a successful run is silent and that both
-// the archive and its assertion were saved. It returns the decoded
-// assertion, with the checksum already cross-checked against the
-// archive's actual digest.
+// checkDownload verifies that a successful run reports both saved files.
+// It returns the decoded assertion, with the checksum already
+// cross-checked against the archive's actual digest.
 func (s *createSuite) checkDownload(c *tc.C, ctx *cmd.Context, filename string) backups.Assertion {
-	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
+	c.Check(cmdtesting.Stderr(ctx), tc.Contains, filename+" ")
+	c.Check(cmdtesting.Stderr(ctx), tc.Contains, filename+".assert")
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, "")
 
 	s.filename = filename
@@ -455,6 +455,7 @@ func (s *createSuite) TestAssertionCreationFailureKeepsArchive(c *tc.C) {
 	c.Check(info.IsDir(), tc.IsTrue)
 
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, "")
+	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
 }
 
 // hookedCreateFS delegates every filesystem operation, except Create,

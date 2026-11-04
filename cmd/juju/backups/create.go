@@ -41,7 +41,7 @@ Once the archive is verified and saved, the backup summary is written
 beside it as an unsigned YAML assertion file, named by appending
 ".assert" to the archive filename. The assertion records the archive's
 SHA-256 checksum together with the backup metadata. On success the
-command prints nothing.
+command reports both filenames on stderr, unless --quiet is specified.
 
 Recovering a controller from a backup needs both files, the archive
 and its assertion: see "juju recover <backup-file> <assertion-file>".
@@ -144,15 +144,11 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// On success the command prints nothing at this stage: the
-	// summary is recorded in the assertion file beside the archive
-	// rather than printed. The silence is deliberate and temporary:
-	// the operator-facing report (the archive's size and checksum,
-	// the agent version, the completeness and snapshot caveats, and
-	// the "Downloaded to" line scripts parsed) returns together with
-	// the recovery functionality that consumes these files, so the
-	// output format is designed only once.
-	return c.writeAssertion(data, filename+".assert")
+	if err := c.writeAssertion(data, filename+".assert"); err != nil {
+		return errors.Trace(err)
+	}
+	ctx.Infof("Downloaded to %v (assertion: %v)", filename, filename+".assert")
+	return nil
 }
 
 func (c *createCommand) decideFilename(filename string, timestamp time.Time) string {

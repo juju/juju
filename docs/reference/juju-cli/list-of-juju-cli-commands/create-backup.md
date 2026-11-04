@@ -41,7 +41,7 @@ Once the archive is verified and saved, the backup summary is written
 beside it as an unsigned YAML assertion file, named by appending
 ".assert" to the archive filename. The assertion records the archive's
 SHA-256 checksum together with the backup metadata. On success the
-command prints nothing.
+command reports both filenames on stderr, unless --quiet is specified.
 
 Recovering a controller from a backup needs both files, the archive
 and its assertion: see "juju recover &lt;backup-file&gt; &lt;assertion-file&gt;".

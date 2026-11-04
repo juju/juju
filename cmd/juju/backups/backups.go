@@ -129,7 +129,7 @@ func ReadAssertion(r io.Reader) (*Assertion, error) {
 	if assertion == nil {
 		return nil, errors.New("backup assertion is empty")
 	}
-	var extra Assertion
+	var extra yaml.Node
 	if err := decoder.Decode(&extra); err != nil {
 		if !errors.Is(err, io.EOF) {
 			return nil, errors.Annotate(err, "cannot parse backup assertion")
