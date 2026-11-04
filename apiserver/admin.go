@@ -350,15 +350,14 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 }
 
 func (a *admin) maybeEmitRedirectError(modelUUID string, req params.LoginRequest) error {
-	// Token logins have no auth tag. Their issuer is the authority for
-	// model access, so redirect them and let the target controller decide.
-	tokenLogin := req.AuthTag == "" && req.Token != ""
-	if req.AuthTag == "" && !tokenLogin {
+	// Token and macaroon logins may have no auth tag. Redirect them and let
+	// the target controller authenticate them and decide model access.
+	if req.AuthTag == "" && req.Token == "" && len(req.Macaroons) == 0 && req.Nonce == "" {
 		return nil
 	}
 
 	var userTag names.UserTag
-	if !tokenLogin {
+	if req.AuthTag != "" {
 		authTag, err := names.ParseTag(req.AuthTag)
 		if err != nil {
 			return errors.Trace(err)
@@ -393,7 +392,7 @@ func (a *admin) maybeEmitRedirectError(modelUUID string, req params.LoginRequest
 	// to ensure post-migration operation of CMRs.
 	// External users may hold access without a stored permission record, so
 	// they are always redirected and the target controller decides.
-	needsAccess := !tokenLogin && userTag.Id() != api.AnonymousUsername && userTag.IsLocal()
+	needsAccess := req.AuthTag != "" && userTag.Id() != api.AnonymousUsername && userTag.IsLocal()
 	if mig == nil || (needsAccess && mig.ModelUserAccess(userTag) == permission.NoAccess) {
 		return nil
 	}

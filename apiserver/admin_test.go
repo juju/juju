@@ -24,6 +24,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/agent/machiner"
@@ -597,11 +598,19 @@ func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 	_, ok = errors.Cause(err).(*api.RedirectError)
 	c.Assert(ok, jc.IsTrue)
 
-	// Token logins have no auth tag, but are still redirected.
-	conn := s.openAPIWithoutLogin(c, info)
-	var result params.LoginResult
-	err = conn.APICall("Admin", 3, "", "Login", &params.LoginRequest{Token: "a-jwt"}, &result)
-	c.Assert(params.IsRedirect(err), jc.IsTrue)
+	// Token and macaroon logins have no auth tag, but are still redirected.
+	mac, err := macaroon.New(nil, []byte("id"), "", macaroon.LatestVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, request := range []params.LoginRequest{
+		{Token: "a-jwt"},
+		{Macaroons: []macaroon.Slice{{mac}}},
+		{Nonce: "nonce"},
+	} {
+		conn := s.openAPIWithoutLogin(c, info)
+		var result params.LoginResult
+		err = conn.APICall("Admin", 3, "", "Login", &request, &result)
+		c.Check(params.IsRedirect(err), jc.IsTrue, gc.Commentf("request: %#v, error: %v", request, err))
+	}
 }
 
 func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {
