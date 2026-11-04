@@ -183,7 +183,7 @@ The caller, the rules, and the errors are:
   - A request for all units marks every unit whose agent status is `error` and ignores the others.
   - A failure for one named unit does not stop the others.
 - *Errors:* The client receives the first as the error of the call and the others in the result for the unit:
-  - **`cannot resolve all units and specific units`** (code `bad request`): *Trigger:* The request names units and asks for all units. *Remediation:* Name units, or ask for all units.
+  - **`cannot resolve all units and specific units bad request`** (code `bad request`): *Trigger:* The request names units and asks for all units. *Remediation:* Name units, or ask for all units.
   - **`unit "<name>" not found`** (code `not found`): *Trigger:* The unit does not exist. *Remediation:* Use the name of an existing unit.
   - **`resolving unit: checking unit "<uuid>" status: unit is not in error state`**: *Trigger:* The unit's agent status is not `error`. *Remediation:* Resolve only units that are in error.
   - **`resolving unit: checking unit "<uuid>" status: unit agent status not found`**: *Trigger:* The unit has no agent status record. *Remediation:* Wait for the unit agent to report a status, then resolve.

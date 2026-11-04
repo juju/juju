@@ -363,7 +363,7 @@ The caller, the rules, and the errors are:
   - A charm that is still pending has no digest.
 - *Errors:* The unit agent receives each in the result for the URL:
   - **`charm "<url>" not found`**: *Trigger:* The model has no charm with that source, name, and revision. The unit agent receives it with the code `not found`. *Remediation:* Use the URL that {ref}`showing charms <charm-showing>` gives.
-  - **`charm "<url>" not available`**: *Trigger:* The charm is pending. The unit agent receives it with the code `not yet available; try again later`. *Remediation:* Try again, because the download of the charm is still under way.
+  - **`charm "<url>" not available not yet available`**: *Trigger:* The charm is pending. The unit agent receives it with the code `not yet available; try again later`. *Remediation:* Try again, because the download of the charm is still under way.
 
 (charm-downloading-pending)=
 ### Downloading pending charms

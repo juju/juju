@@ -252,7 +252,7 @@ The caller, the rules, and the errors are:
   - The request carries the force option, the maximum wait, and whether to destroy the storage of hosted models, and passes them to the removal of the controller model and of each hosted model.
   - A hosted model with persistent storage is removed only when the request says whether to destroy or release the storage.
 - *Errors:*
-  - **`current model is not the controller model`**: *Trigger:* The call ran on another model. The client receives it with the code for a bad request. *Remediation:* Run it on the controller model.
+  - **`current model is not the controller model bad request`**: *Trigger:* The call ran on another model. The client receives it with the code for a bad request. *Remediation:* Run it on the controller model.
   - **`found blocks in controller models`**: *Trigger:* A hosted model has a block. The client receives it with the code for a blocked operation. *Remediation:* Remove the blocks.
   - **`cannot destroy controller with hosted models`**: *Trigger:* Hosted models exist and the request does not ask to destroy them. The client receives it with the code `controller has hosted models`. *Remediation:* Ask to destroy the hosted models in the request, or destroy them first.
   - **`invalid cloud credential, use --force`**: *Trigger:* The controller model's credential is invalid and the request has no force option. *Remediation:* Update the credential, or add the force option.

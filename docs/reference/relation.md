@@ -118,7 +118,7 @@ The caller, the rules, and the errors are:
   - A request can add egress CIDRs. Egress CIDRs are accepted only for a cross-model relation. Each CIDR must be valid.
   - A new relation is alive, has the next relation ID, and has the status `joining`. Its scope is `container` when either endpoint is container-scoped and `global` otherwise.
 - *Errors:* The client receives each with this prefix, except the first and the last: `adding relation between endpoints "<endpoint 1>" and "<endpoint 2>": `.
-  - **`a relation should have exactly two endpoints`** (code `bad request`): *Trigger:* The request does not name two endpoints. *Remediation:* Name two endpoints.
+  - **`a relation should have exactly two endpoints bad request`** (code `bad request`): *Trigger:* The request does not name two endpoints. *Remediation:* Name two endpoints.
   - **`parsing endpoint identifier "<name>": expected endpoint of form <application-name>:<endpoint-name> or <application-name>`**: *Trigger:* A name has more than one colon. *Remediation:* Write the name as `<application>` or `<application>:<endpoint>`.
   - **`cannot relate endpoints "<name 1>" and "<name 2>": no candidates for <name>: relation endpoint not found`**: *Trigger:* An application or an endpoint does not exist. *Remediation:* Check the names against the {ref}`relations <relation-listing>` and the endpoints of the applications.
   - **`cannot relate endpoints "<name 1>" and "<name 2>": no compatible endpoints found between applications`**: *Trigger:* The endpoints have different interfaces, the same role, or a container scope with no subordinate application. *Remediation:* Choose endpoints with the same interface and opposite roles.
@@ -155,7 +155,7 @@ The caller, the rules, and the errors are:
   - A cross-model relation is removed in the same way, with the units that stand for its remote side. A request for a cross-model relation that is already gone succeeds.
 - *Errors:* The client receives each without a prefix:
   - **`relation with endpoints [<endpoint 1> <endpoint 2>] or id <id> not found`** (code `not found`): *Trigger:* No relation matches. The endpoints are empty when the request names an ID. *Remediation:* {ref}`List the relations <relation-listing>` and use an existing one.
-  - **`endpoints ["<name 1>" "<name 2>"] are ambiguous, specify relation endpoints or id`** (code `bad request`): *Trigger:* Several relations exist between the two applications. *Remediation:* Name the endpoints or the relation ID.
+  - **`endpoints <endpoints> are ambiguous, specify relation endpoints or id bad request`** (code `bad request`): *Trigger:* Several relations exist between the two applications. `<endpoints>` is the two names, in the form `["<name 1>" "<name 2>"]`. *Remediation:* Name the endpoints or the relation ID.
   - **`removing a peer relation`**: *Trigger:* The request names one endpoint. *Remediation:* Name two endpoints.
   - **`invalid endpoint length: <n>, must be 2 or 0 with relation ID provided`**: *Trigger:* The request names more than two endpoints. *Remediation:* Name two endpoints or a relation ID.
   - **`cannot remove a peer relation`**: *Trigger:* The relation ID is that of a peer relation. *Remediation:* Name a regular, subordinate, or cross-model relation.

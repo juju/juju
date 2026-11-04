@@ -263,7 +263,7 @@ The caller, the rules, and the errors are:
   - The removal deletes the machine's records, in the end the machine itself, when the machine and the instance are dead and nothing depends on them. It waits for the containers of a host to be gone first.
   - Removing the last unit of a machine, and destroying a model, remove machines in the same way.
 - *Errors:*
-  - **`removing machine: machine "<uuid>": cannot set machine "<uuid>" to dying without force: machine has containers`** and **`...: machine has units`**: *Trigger:* The machine hosts containers or units and the request has no force option. *Remediation:* Remove the containers and units first, or use the force option.
+  - **`removing machine: machine "<uuid>": cannot set machine "<uuid>" to dying without force: machine has containers`** and **`removing machine: machine "<uuid>": cannot set machine "<uuid>" to dying without force: machine has units`**: *Trigger:* The machine hosts containers or units and the request has no force option. *Remediation:* Remove the containers and units first, or use the force option.
   - **`getting machine UUID: getting UUID for machine "<name>": machine "<name>": machine not found`**: *Trigger:* The machine does not exist. *Remediation:* Check the name.
   - **`classifying storage for machine "<name>": <reason>`**: *Trigger:* The controller cannot tell which storage the removal would affect. *Remediation:* Check the storage, then retry.
   - **`operation is blocked`** with the operator's message: *Trigger:* The remove or change block is on. The client receives it with the code `operation is blocked`. *Remediation:* Remove the block.

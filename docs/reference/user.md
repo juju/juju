@@ -295,7 +295,7 @@ The caller, the rules, and the errors are:
   - A secret key works once, because setting the password discards it.
   - The answer sets a short-lived local-login macaroon (a bearer token that lets the client log in as the user) in a cookie.
 - *Errors:* The client receives each as the answer to the request:
-  - **`unsupported method: "<method>"`** (code `method not allowed`): *Trigger:* The request is not a POST. *Remediation:* Send a POST request.
+  - **`unsupported method: "<method>" method not allowed`** (code `method not allowed`): *Trigger:* The request is not a POST. *Remediation:* Send a POST request.
   - **`activation key not found`** (code `not found`): *Trigger:* The user has no secret key, for example because it was used. *Remediation:* Ask a superuser to {ref}`reset the password <user-passwords>`.
   - **`activation key not valid`** (code `not valid`): *Trigger:* The sealed message cannot be opened with the user's secret key. *Remediation:* Use the key that the controller returned.
   - **`nonce not valid`** (code `not valid`): *Trigger:* The nonce is not 24 bytes long. *Remediation:* Send a nonce of 24 bytes.

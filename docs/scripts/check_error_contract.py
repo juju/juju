@@ -109,34 +109,13 @@ EXCLUSIONS = {
     "operation is blocked": "the page prints the error code, not a message",
     # The page prints Charmhub's own API error, which this tree does not raise.
     "<code>: <message>": "Charmhub's API error, passed through by the facade",
-    # The page omits the suffix a github.com/juju/errors constructor renders.
-    "charm \"<url>\" not available":
-        "page omits the rendered suffix; raised as "
-        "NotYetAvailablef(\"charm %q not available\") "
-        "(apiserver/facades/agent/uniter/uniter.go:1140)",
-    "current model is not the controller model":
-        "page omits the rendered suffix; raised as BadRequestf "
-        "(apiserver/facades/client/controller/destroy.go:40)",
-    "a relation should have exactly two endpoints":
-        "page omits the rendered suffix; raised as BadRequestf "
-        "(apiserver/facades/client/application/application.go:1428)",
-    "endpoints [\"<name 1>\" \"<name 2>\"] are ambiguous, "
-    "specify relation endpoints or id":
-        "page omits the rendered suffix and splits the %q slice; raised as "
-        "BadRequestf(\"endpoints %q are ambiguous, specify relation "
-        "endpoints or id\")",
-    "cannot resolve all units and specific units":
-        "page omits the rendered suffix; raised as BadRequestf "
-        "(apiserver/facades/client/application/application.go:1889)",
-    "unsupported method: \"<method>\"":
-        "page omits the rendered suffix; raised as MethodNotAllowedf "
-        "(apiserver/internal/handlers/resources/resources.go:128)",
-    # The page writes the message the source does not carry verbatim.
+    # The page writes one slot where the source has four raise sites: the
+    # Validate*Access functions of core/permission/access.go each raise
+    # errors.Errorf("%q <type> access %w") with a literal type word, so the
+    # extractor cannot match; splitting the entry would change the counts.
     "\"<level>\" <type> access not valid":
-        "page paraphrase; no verbatim raise site in the source",
-    # The page's own shorthand for the wrap prefix of the previous entry.
-    "...: machine has units":
-        "page shorthand for the wrap prefix of the previous entry",
+        "the <type> slot generalizes four raise sites with a literal "
+        "type word (core/permission/access.go)",
     # The page writes the caller's wrap prefix as a slot.
     "<prefix>: invalid hash prefix":
         "raised as ConstError \"invalid hash prefix\" "
