@@ -366,92 +366,165 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigHostLocalBridgeAddresse
 
 func (s *networkConfigSuite) TestGetObservedNetworkConfigHostLocalBridgeDefaultGatewayKeepsDerivedScope(c *tc.C) {
 	s.defaultRouteGatewayIP = net.ParseIP("10.100.1.10")
-	s.defaultRouteDevice = network.DefaultLXDBridge
 
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	for _, bridge := range []string{network.DefaultLXDBridge, network.DefaultDockerBridge} {
+		s.defaultRouteDevice = bridge
+		ctrl := s.setupMocks(c)
 
-	lxdbr0 := s.mockNIC(c, ctrl, network.DefaultLXDBridge, network.BridgeDevice, 2,
-		s.mockAddr(c, ctrl, "10.100.1.1/24"),
-	)
+		nic := s.mockNIC(c, ctrl, bridge, network.BridgeDevice, 2,
+			s.mockAddr(c, ctrl, "10.100.1.1/24"),
+		)
 
-	s.source.EXPECT().Interfaces().Return([]network.ConfigSourceNIC{lxdbr0}, nil)
+		s.source.EXPECT().Interfaces().Return([]network.ConfigSourceNIC{nic}, nil)
 
-	observedConfig, err := network.GetObservedNetworkConfig(s.source)
-	c.Assert(err, tc.ErrorIsNil)
+		observedConfig, err := network.GetObservedNetworkConfig(s.source)
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf("bridge %q", bridge))
 
-	c.Check(observedConfig, tc.DeepEquals, network.InterfaceInfos{{
-		DeviceIndex:      2,
-		MACAddress:       "aa:bb:cc:dd:ee:ff",
-		MTU:              1500,
-		InterfaceName:    network.DefaultLXDBridge,
-		InterfaceType:    network.BridgeDevice,
-		ConfigType:       network.ConfigStatic,
-		IsDefaultGateway: true,
-		GatewayAddress:   network.NewMachineAddress("10.100.1.10").AsProviderAddress(),
-		Origin:           network.OriginMachine,
-		Addresses: []network.ProviderAddress{
-			network.NewMachineAddress(
-				"10.100.1.1",
-				network.WithCIDR("10.100.1.0/24"),
-				network.WithConfigType(network.ConfigStatic),
-				network.WithScope(network.ScopeCloudLocal),
-			).AsProviderAddress(),
-		},
-	}})
+		c.Check(observedConfig, tc.DeepEquals, network.InterfaceInfos{{
+			DeviceIndex:      2,
+			MACAddress:       "aa:bb:cc:dd:ee:ff",
+			MTU:              1500,
+			InterfaceName:    bridge,
+			InterfaceType:    network.BridgeDevice,
+			ConfigType:       network.ConfigStatic,
+			IsDefaultGateway: true,
+			GatewayAddress:   network.NewMachineAddress("10.100.1.10").AsProviderAddress(),
+			Origin:           network.OriginMachine,
+			Addresses: []network.ProviderAddress{
+				network.NewMachineAddress(
+					"10.100.1.1",
+					network.WithCIDR("10.100.1.0/24"),
+					network.WithConfigType(network.ConfigStatic),
+					network.WithScope(network.ScopeCloudLocal),
+				).AsProviderAddress(),
+			},
+		}}, tc.Commentf("bridge %q", bridge))
+
+		ctrl.Finish()
+	}
 }
 
-func (s *networkConfigSuite) TestGetObservedNetworkConfigHostLocalBridgeOnlyCloudLocalReclassified(c *tc.C) {
+func (s *networkConfigSuite) TestGetObservedNetworkConfigHostLocalBridgeNoDefaultRouteIsMachineLocal(c *tc.C) {
+	// With no default route (e.g. an air-gapped host), no device is flagged
+	// as the default gateway, so bridge addresses must still be reclassified.
+	s.defaultRouteGatewayIP = nil
+	s.defaultRouteDevice = ""
+
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	lxdbr0 := s.mockNIC(c, ctrl, network.DefaultLXDBridge, network.BridgeDevice, 2,
 		s.mockAddr(c, ctrl, "10.19.175.1/24"),
-		s.mockAddr(c, ctrl, "240.0.0.1/8"),
-		s.mockAddr(c, ctrl, "203.0.113.1/29"),
-		s.mockAddr(c, ctrl, "169.254.10.1/16"),
+	)
+	docker0 := s.mockNIC(c, ctrl, network.DefaultDockerBridge, network.BridgeDevice, 3,
+		s.mockAddr(c, ctrl, "172.17.0.1/16"),
 	)
 
-	s.source.EXPECT().Interfaces().Return([]network.ConfigSourceNIC{lxdbr0}, nil)
+	s.source.EXPECT().Interfaces().Return([]network.ConfigSourceNIC{lxdbr0, docker0}, nil)
 
 	observedConfig, err := network.GetObservedNetworkConfig(s.source)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(observedConfig, tc.DeepEquals, network.InterfaceInfos{{
-		DeviceIndex:   2,
-		MACAddress:    "aa:bb:cc:dd:ee:ff",
-		MTU:           1500,
-		InterfaceName: network.DefaultLXDBridge,
-		InterfaceType: network.BridgeDevice,
-		ConfigType:    network.ConfigStatic,
-		Origin:        network.OriginMachine,
-		Addresses: []network.ProviderAddress{
-			network.NewMachineAddress(
-				"10.19.175.1",
-				network.WithCIDR("10.19.175.0/24"),
-				network.WithConfigType(network.ConfigStatic),
-				network.WithScope(network.ScopeMachineLocal),
-			).AsProviderAddress(),
-			network.NewMachineAddress(
-				"240.0.0.1",
-				network.WithCIDR("240.0.0.0/8"),
-				network.WithConfigType(network.ConfigStatic),
-				network.WithScope(network.ScopeFanLocal),
-			).AsProviderAddress(),
-			network.NewMachineAddress(
-				"203.0.113.1",
-				network.WithCIDR("203.0.113.0/29"),
-				network.WithConfigType(network.ConfigStatic),
-				network.WithScope(network.ScopePublic),
-			).AsProviderAddress(),
-			network.NewMachineAddress(
-				"169.254.10.1",
-				network.WithCIDR("169.254.0.0/16"),
-				network.WithConfigType(network.ConfigStatic),
-				network.WithScope(network.ScopeLinkLocal),
-			).AsProviderAddress(),
+	c.Check(observedConfig, tc.DeepEquals, network.InterfaceInfos{
+		{
+			DeviceIndex:   2,
+			MACAddress:    "aa:bb:cc:dd:ee:ff",
+			MTU:           1500,
+			InterfaceName: network.DefaultLXDBridge,
+			InterfaceType: network.BridgeDevice,
+			ConfigType:    network.ConfigStatic,
+			Origin:        network.OriginMachine,
+			Addresses: []network.ProviderAddress{
+				network.NewMachineAddress(
+					"10.19.175.1",
+					network.WithCIDR("10.19.175.0/24"),
+					network.WithConfigType(network.ConfigStatic),
+					network.WithScope(network.ScopeMachineLocal),
+				).AsProviderAddress(),
+			},
 		},
-	}})
+		{
+			DeviceIndex:   3,
+			MACAddress:    "aa:bb:cc:dd:ee:ff",
+			MTU:           1500,
+			InterfaceName: network.DefaultDockerBridge,
+			InterfaceType: network.BridgeDevice,
+			ConfigType:    network.ConfigStatic,
+			Origin:        network.OriginMachine,
+			Addresses: []network.ProviderAddress{
+				network.NewMachineAddress(
+					"172.17.0.1",
+					network.WithCIDR("172.17.0.0/16"),
+					network.WithConfigType(network.ConfigStatic),
+					network.WithScope(network.ScopeMachineLocal),
+				).AsProviderAddress(),
+			},
+		},
+	})
+}
+
+func (s *networkConfigSuite) TestGetObservedNetworkConfigHostLocalBridgeOnlyCloudLocalReclassified(c *tc.C) {
+	for _, bridge := range []string{network.DefaultLXDBridge, network.DefaultDockerBridge} {
+		ctrl := s.setupMocks(c)
+
+		nic := s.mockNIC(c, ctrl, bridge, network.BridgeDevice, 2,
+			s.mockAddr(c, ctrl, "10.19.175.1/24"),
+			s.newMockAddr(c, ctrl, "10.19.175.2/24", true),
+			s.mockAddr(c, ctrl, "240.0.0.1/8"),
+			s.mockAddr(c, ctrl, "203.0.113.1/29"),
+			s.mockAddr(c, ctrl, "169.254.10.1/16"),
+		)
+
+		s.source.EXPECT().Interfaces().Return([]network.ConfigSourceNIC{nic}, nil)
+
+		observedConfig, err := network.GetObservedNetworkConfig(s.source)
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf("bridge %q", bridge))
+
+		c.Check(observedConfig, tc.DeepEquals, network.InterfaceInfos{{
+			DeviceIndex:   2,
+			MACAddress:    "aa:bb:cc:dd:ee:ff",
+			MTU:           1500,
+			InterfaceName: bridge,
+			InterfaceType: network.BridgeDevice,
+			ConfigType:    network.ConfigStatic,
+			Origin:        network.OriginMachine,
+			Addresses: []network.ProviderAddress{
+				network.NewMachineAddress(
+					"10.19.175.1",
+					network.WithCIDR("10.19.175.0/24"),
+					network.WithConfigType(network.ConfigStatic),
+					network.WithScope(network.ScopeMachineLocal),
+				).AsProviderAddress(),
+				network.NewMachineAddress(
+					"10.19.175.2",
+					network.WithCIDR("10.19.175.0/24"),
+					network.WithConfigType(network.ConfigStatic),
+					network.WithSecondary(true),
+					network.WithScope(network.ScopeMachineLocal),
+				).AsProviderAddress(),
+				network.NewMachineAddress(
+					"240.0.0.1",
+					network.WithCIDR("240.0.0.0/8"),
+					network.WithConfigType(network.ConfigStatic),
+					network.WithScope(network.ScopeFanLocal),
+				).AsProviderAddress(),
+				network.NewMachineAddress(
+					"203.0.113.1",
+					network.WithCIDR("203.0.113.0/29"),
+					network.WithConfigType(network.ConfigStatic),
+					network.WithScope(network.ScopePublic),
+				).AsProviderAddress(),
+				network.NewMachineAddress(
+					"169.254.10.1",
+					network.WithCIDR("169.254.0.0/16"),
+					network.WithConfigType(network.ConfigStatic),
+					network.WithScope(network.ScopeLinkLocal),
+				).AsProviderAddress(),
+			},
+		}}, tc.Commentf("bridge %q", bridge))
+
+		ctrl.Finish()
+	}
 }
 
 func (s *networkConfigSuite) mockNIC(
@@ -472,13 +545,19 @@ func (s *networkConfigSuite) mockNIC(
 }
 
 func (s *networkConfigSuite) mockAddr(c *tc.C, ctrl *gomock.Controller, cidr string) *MockConfigSourceAddr {
+	return s.newMockAddr(c, ctrl, cidr, false)
+}
+
+func (s *networkConfigSuite) newMockAddr(
+	c *tc.C, ctrl *gomock.Controller, cidr string, isSecondary bool,
+) *MockConfigSourceAddr {
 	ip, ipNet, err := net.ParseCIDR(cidr)
 	c.Assert(err, tc.ErrorIsNil)
 
 	addr := NewMockConfigSourceAddr(ctrl)
 	addr.EXPECT().IP().Return(ip)
 	addr.EXPECT().IPNet().Return(ipNet)
-	addr.EXPECT().IsSecondary().Return(false)
+	addr.EXPECT().IsSecondary().Return(isSecondary)
 	return addr
 }
 

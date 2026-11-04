@@ -26,7 +26,7 @@ import (
 //     or ConfigStatic when it is.
 //   - Cloud-local addresses on host-local bridges (the default LXD and Docker
 //     bridges) have their scope set to ScopeMachineLocal, unless the bridge
-//     carries the default route.
+//     carries the IPv4 default route.
 //   - NICs that correspond to the internal port of an OVS-managed switch will
 //     have their type forced to bridge and their virtual port type set to
 //     OvsPort.
@@ -141,7 +141,7 @@ func createInterfaceInfo(nic ConfigSourceNIC,
 func addressesToConfig(nic InterfaceInfo, nicAddrs []ConfigSourceAddr) ([]ProviderAddress, error) {
 	var res ProviderAddresses
 
-	isHostLocalBridge := IsHostLocalBridge(nic.InterfaceName) && !nic.IsDefaultGateway
+	demoteCloudLocal := IsHostLocalBridge(nic.InterfaceName) && !nic.IsDefaultGateway
 
 	for _, nicAddr := range nicAddrs {
 		if nicAddr == nil {
@@ -168,7 +168,7 @@ func addressesToConfig(nic InterfaceInfo, nicAddrs []ConfigSourceAddr) ([]Provid
 		// Constructing a core Address like this first,
 		// then converting, populates the scope and type.
 		addr := NewMachineAddress(ip.String(), opts...)
-		if isHostLocalBridge && addr.Scope == ScopeCloudLocal {
+		if demoteCloudLocal && addr.Scope == ScopeCloudLocal {
 			addr.Scope = ScopeMachineLocal
 		}
 		res = append(res, addr.AsProviderAddress())
