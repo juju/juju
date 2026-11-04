@@ -77,7 +77,7 @@ func (s *decodeSuite) TestBinaryRepresentations(c *tc.C) {
 		rows, err := decodeRows[controllertypes.MacaroonRootKey](input, "root_key")
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(rows, tc.HasLen, 1)
-		c.Check([]byte(rows[0].RootKey), tc.DeepEquals, test.want)
+		c.Check(rows[0].RootKey, tc.DeepEquals, test.want)
 		c.Check(input[0]["root_key"], tc.DeepEquals, test.value)
 	}
 	for _, value := range []any{true, 12, []any{-1}, []any{1.5}, []any{"1"}} {

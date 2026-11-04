@@ -6,16 +6,25 @@ package modelimport_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/juju/tc"
+	"gopkg.in/yaml.v3"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/domain/export"
 	exportstate "github.com/juju/juju/domain/export/state/model"
 	"github.com/juju/juju/domain/export/types/latest"
+	"github.com/juju/juju/domain/export/types/v4_0_12"
 	"github.com/juju/juju/domain/export/types/v4_1_0"
 	"github.com/juju/juju/domain/modelimport"
+	"github.com/juju/juju/domain/removal"
+	removalstate "github.com/juju/juju/domain/removal/state/model"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type importSuite struct {
@@ -165,11 +174,86 @@ WHERE  uuid = ?
 	c.Check(hashCount, tc.Equals, 0)
 }
 
+// TestImportLegacyRemovalForce takes a 4.0.12 payload, whose removal.force is
+// an integer, through decode, transform, import and export, and checks that
+// the flag is stored as a boolean and read back by the removal state.
+func (s *importSuite) TestImportLegacyRemovalForce(c *tc.C) {
+	s.bootstrapModel(c)
+	scheduled := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
+
+	legacy := v4_0_12.ModelExport{
+		ModelAgent: []v4_0_12.ModelAgent{{ModelUUID: s.ModelUUID()}},
+		Removal: []v4_0_12.Removal{
+			{UUID: "r-false", RemovalTypeID: 0, EntityUUID: "e1", Force: 0, ScheduledFor: scheduled},
+			{UUID: "r-true", RemovalTypeID: 0, EntityUUID: "e2", Force: 1, ScheduledFor: scheduled, Arg: new("{}")},
+		},
+	}
+	data, err := yaml.Marshal(legacy)
+	c.Assert(err, tc.ErrorIsNil)
+
+	payload, err := export.DecodePayload(semversion.MustParse("4.0.12"), data)
+	c.Assert(err, tc.ErrorIsNil)
+	transformer, err := modelimport.NewTransformer()
+	c.Assert(err, tc.ErrorIsNil)
+	transformed, err := transformer.Transform(c.Context(), semversion.MustParse("4.0.12"), payload)
+	c.Assert(err, tc.ErrorIsNil)
+	latestPayload, ok := transformed.(latest.ModelExport)
+	c.Assert(ok, tc.IsTrue)
+
+	err = modelimport.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), &latestPayload)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exported, err := exportstate.NewState(s.TxnRunnerFactory()).Export(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exported.Removal, tc.SameContents, []v4_1_0.Removal{
+		{UUID: "r-false", RemovalTypeID: 0, EntityUUID: "e1", Force: false, ScheduledFor: scheduled},
+		{UUID: "r-true", RemovalTypeID: 0, EntityUUID: "e2", Force: true, ScheduledFor: scheduled, Arg: new("{}")},
+	})
+
+	jobs, err := removalstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c)).GetAllJobs(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	forced := map[removal.UUID]bool{}
+	for _, job := range jobs {
+		forced[job.UUID] = job.Force
+	}
+	c.Check(forced, tc.DeepEquals, map[removal.UUID]bool{"r-false": false, "r-true": true})
+}
+
+// TestTransformLegacyRemovalForceInvalid verifies that a 4.0.12 payload with a
+// removal.force other than 0 or 1 is refused before anything is imported.
+func (s *importSuite) TestTransformLegacyRemovalForceInvalid(c *tc.C) {
+	s.bootstrapModel(c)
+
+	for _, force := range []int64{-1, 2} {
+		data, err := yaml.Marshal(v4_0_12.ModelExport{
+			ModelAgent: []v4_0_12.ModelAgent{{ModelUUID: s.ModelUUID()}},
+			Removal:    []v4_0_12.Removal{{UUID: "r-bad", EntityUUID: "e1", Force: force}},
+		})
+		c.Assert(err, tc.ErrorIsNil)
+
+		payload, err := export.DecodePayload(semversion.MustParse("4.0.12"), data)
+		c.Assert(err, tc.ErrorIsNil)
+		transformer, err := modelimport.NewTransformer()
+		c.Assert(err, tc.ErrorIsNil)
+
+		_, err = transformer.Transform(c.Context(), semversion.MustParse("4.0.12"), payload)
+		c.Check(err, tc.ErrorMatches,
+			fmt.Sprintf(`.*invalid removal force value %d for "r-bad": expected 0 or 1`, force))
+	}
+
+	var count int
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM removal`).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
 func (s *importSuite) bootstrapModel(c *tc.C) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, `
 INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-VALUES (?, ?, "test-model", "test-qualifier", "iaas", "test-cloud", "test-cloud-type")
+VALUES (?, ?, 'test-model', 'test-qualifier', 'iaas', 'test-cloud', 'test-cloud-type')
 `, s.ModelUUID(), "controller-uuid"); err != nil {
 			return err
 		}

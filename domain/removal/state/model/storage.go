@@ -209,6 +209,10 @@ func (st *State) GetDetachInfoForStorageAttachment(
 		uuidInput = entityUUID{UUID: saUUID}
 	)
 
+	// fulfilment is an aggregate without grouping, so it always has exactly one
+	// row. It is joined with an explicit cross join because JOIN binds tighter
+	// than a comma, which would take the attachment out of scope of the ON
+	// clauses of the joins that follow.
 	q := `
 WITH
 fulfilment AS (
@@ -228,7 +232,8 @@ SELECT &storageAttachmentDetachInfo.* FROM (
            sa.life_id,
            u.life_id AS unit_life_id,
            u.uuid AS unit_uuid
-    FROM   storage_attachment sa, fulfilment f
+    FROM   storage_attachment sa
+    CROSS JOIN fulfilment f
     JOIN   storage_instance si ON sa.storage_instance_uuid = si.uuid
     JOIN   unit u ON sa.unit_uuid = u.uuid
     JOIN   charm_storage cs ON cs.charm_uuid = u.charm_uuid

@@ -138,7 +138,10 @@ func (s *State) RemoveAllBlocks(ctx context.Context) error {
 	return nil
 }
 
-// GetBlocks returns all the blocks for the current model.
+// GetBlocks returns all the blocks for the current model, ordered by block
+// type: destroy, remove, then change. A model has at most one block of each
+// type, so this order is deterministic and does not depend on the order in
+// which the blocks were enabled.
 func (s *State) GetBlocks(ctx context.Context) ([]blockcommand.Block, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -146,7 +149,11 @@ func (s *State) GetBlocks(ctx context.Context) ([]blockcommand.Block, error) {
 	}
 
 	var block blockCommand
-	stmt, err := s.Prepare("SELECT &blockCommand.* FROM block_command ORDER BY rowid", block)
+	stmt, err := s.Prepare(`
+SELECT bc.* AS &blockCommand.*
+FROM   block_command AS bc
+ORDER BY bc.block_command_type_id
+`, block)
 	if err != nil {
 		return nil, errors.Errorf("preparing block command select: %w", err)
 	}

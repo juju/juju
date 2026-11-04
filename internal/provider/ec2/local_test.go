@@ -2379,6 +2379,38 @@ func (s *localServerSuite) TestAdoptResources(c *tc.C) {
 	checkGroupTags(origController, controllerGroups...)
 }
 
+// TestAdoptResourcesNoResources covers the adoption of a model that owns
+// no cloud resources: no instances, volumes or security groups. EC2
+// rejects a CreateTags request without resources, so adoption must not
+// attempt to tag an empty resource list.
+func (s *localServerSuite) TestAdoptResourcesNoResources(c *tc.C) {
+	controllerEnv := s.prepareAndBootstrap(c)
+
+	hostedModelUUID := "6b1d7531-98a4-4b7d-8c45-4a0a5d0d0001"
+	cfg, err := controllerEnv.Config().Apply(map[string]any{
+		"uuid": hostedModelUUID,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	env, err := environs.New(s.BootstrapContext, environs.OpenParams{
+		Cloud:          s.CloudSpec(),
+		Config:         cfg,
+		ControllerUUID: coretesting.ControllerTag.Id(),
+	}, environs.NoopCredentialInvalidator())
+	c.Assert(err, tc.ErrorIsNil)
+
+	instances, err := env.AllInstances(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(instances, tc.HasLen, 0)
+
+	before := s.srv.ec2srv.GetMutatingCallCount()
+	err = env.AdoptResources(c.Context(), "new-controller", semversion.MustParse("0.0.1"))
+	c.Assert(err, tc.ErrorIsNil)
+
+	after := s.srv.ec2srv.GetMutatingCallCount()
+	c.Check(after.Tags, tc.Equals, before.Tags)
+}
+
 func patchEC2ForTesting(c *tc.C, region types.Region) func() {
 	ec2.UseTestImageData(c, ec2.MakeTestImageStreamsData(region))
 	restoreRetryTimeouts := envtesting.PatchRetryStrategies(ec2.ShortRetryStrategy)

@@ -84,6 +84,55 @@ func (s *stateSuite) TestGetBlocks(c *tc.C) {
 	c.Check(blocks[1].Message, tc.Equals, "change me")
 }
 
+// TestGetBlocksOrderedByType asserts that blocks are returned in block type
+// order (destroy, remove, change) regardless of the order they were enabled.
+func (s *stateSuite) TestGetBlocksOrderedByType(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	err := st.SetBlock(c.Context(), int8(blockcommand.ChangeBlock), "change me")
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.SetBlock(c.Context(), int8(blockcommand.DestroyBlock), "destroy me")
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.SetBlock(c.Context(), int8(blockcommand.RemoveBlock), "remove me")
+	c.Assert(err, tc.ErrorIsNil)
+
+	blocks, err := st.GetBlocks(c.Context())
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocks, tc.HasLen, 3)
+	c.Check(blocks[0].Type, tc.Equals, blockcommand.DestroyBlock)
+	c.Check(blocks[0].Message, tc.Equals, "destroy me")
+	c.Check(blocks[1].Type, tc.Equals, blockcommand.RemoveBlock)
+	c.Check(blocks[1].Message, tc.Equals, "remove me")
+	c.Check(blocks[2].Type, tc.Equals, blockcommand.ChangeBlock)
+	c.Check(blocks[2].Message, tc.Equals, "change me")
+}
+
+// TestGetBlocksOrderedByTypeAfterReEnable asserts that disabling and
+// re-enabling a block does not move it, even though the re-enabled row is the
+// most recently inserted.
+func (s *stateSuite) TestGetBlocksOrderedByTypeAfterReEnable(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	err := st.SetBlock(c.Context(), int8(blockcommand.DestroyBlock), "destroy me")
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.SetBlock(c.Context(), int8(blockcommand.RemoveBlock), "remove me")
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.RemoveBlock(c.Context(), int8(blockcommand.DestroyBlock))
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.SetBlock(c.Context(), int8(blockcommand.DestroyBlock), "destroy again")
+	c.Assert(err, tc.ErrorIsNil)
+
+	blocks, err := st.GetBlocks(c.Context())
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocks, tc.HasLen, 2)
+	c.Check(blocks[0].Type, tc.Equals, blockcommand.DestroyBlock)
+	c.Check(blocks[0].Message, tc.Equals, "destroy again")
+	c.Check(blocks[1].Type, tc.Equals, blockcommand.RemoveBlock)
+	c.Check(blocks[1].Message, tc.Equals, "remove me")
+}
+
 func (s *stateSuite) TestGetBlockMessageWithNoExistingBlock(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	message, err := st.GetBlockMessage(c.Context(), int8(blockcommand.DestroyBlock))

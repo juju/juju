@@ -802,7 +802,7 @@ func (s *importSecretSuite) TestGetSyntheticApplicationByRelationUUID(c *tc.C) {
 INSERT INTO offer (uuid, name) VALUES (?, ?)`, offerUUID, "test-offer")
 	s.query(c, `
 INSERT INTO offer_connection (uuid, offer_uuid, remote_relation_uuid, username)
-VALUES (?, ?, ?, "bob")`, appUUID.String(), offerUUID, relUUID.String())
+VALUES (?, ?, ?, 'bob')`, appUUID.String(), offerUUID, relUUID.String())
 
 	// Act
 	obtainedUUID, obtainedName, err := s.state.GetSyntheticApplicationByRelationUUID(c.Context(), relUUID.String())

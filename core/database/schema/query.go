@@ -154,7 +154,7 @@ func ensurePatchesAreApplied(ctx context.Context, tx *sql.Tx, current int, patch
 
 // Insert a new version into the schema table.
 func insertSchemaVersion(ctx context.Context, tx *sql.Tx, new versionHash) error {
-	statement := `INSERT INTO schema (version, hash, updated_at) VALUES (?, ?, strftime("%s"));`
+	statement := `INSERT INTO schema (version, hash, updated_at) VALUES (?, ?, strftime('%s'));`
 	_, err := tx.ExecContext(ctx, statement, new.version, new.hash)
 	return errors.Capture(err)
 }

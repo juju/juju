@@ -8,7 +8,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math"
 	"net"
+	"strconv"
 	"testing"
 
 	"github.com/juju/tc"
@@ -156,7 +158,7 @@ func (s *bootstrapSuite) TestInsertControllerNodeIDPersistsHostname(c *tc.C) {
 
 	_, err = db.Exec(`CREATE TABLE controller_node (
 		controller_id TEXT PRIMARY KEY,
-		dqlite_node_id INT NOT NULL,
+		dqlite_node_id TEXT NOT NULL,
 		dqlite_bind_address TEXT NOT NULL
 	)`)
 	c.Assert(err, tc.ErrorIsNil)
@@ -226,4 +228,36 @@ func (f *testNodeManager) WithTLSOption() (app.Option, error) {
 		return nil, err
 	}
 	return app.WithTLS(listen, dial), nil
+}
+
+func (s *bootstrapSuite) TestInsertControllerNodeIDUnsignedRange(c *tc.C) {
+	for _, nodeID := range []uint64{
+		0, 42, 1 << 63, 0x2dc171858c3155be, math.MaxUint64,
+	} {
+		c.Logf("node ID %d", nodeID)
+
+		db, err := sql.Open("sqlite3", ":memory:")
+		c.Assert(err, tc.ErrorIsNil)
+
+		_, err = db.Exec(`CREATE TABLE controller_node (
+			controller_id TEXT PRIMARY KEY,
+			dqlite_node_id TEXT NOT NULL,
+			dqlite_bind_address TEXT NOT NULL
+		)`)
+		c.Assert(err, tc.ErrorIsNil)
+
+		err = InsertControllerNodeID(
+			c.Context(), &txnRunner{db: db}, nodeID, "127.0.0.1",
+		)
+		c.Assert(err, tc.ErrorIsNil)
+
+		var stored, storedType string
+		err = db.QueryRow(
+			"SELECT dqlite_node_id, typeof(dqlite_node_id) FROM controller_node",
+		).Scan(&stored, &storedType)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(stored, tc.Equals, strconv.FormatUint(nodeID, 10))
+		c.Check(storedType, tc.Equals, "text")
+		c.Assert(db.Close(), tc.ErrorIsNil)
+	}
 }

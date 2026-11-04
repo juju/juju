@@ -41,7 +41,7 @@ func (s *storageSuite) TestGetStorageResourceTagInfoForModel(c *tc.C) {
 		c.Context(),
 		`
 INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-VALUES (?, ?, "", "", "", "", "")
+VALUES (?, ?, '', '', '', '', '')
 `,
 		s.ModelUUID(),
 		controllerUUID,

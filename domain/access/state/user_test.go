@@ -887,14 +887,14 @@ func (s *userStateSuite) TestRemoveUserLastAdmin(c *tc.C) {
 		cloudUUID := tc.Must(c, uuid.NewUUID).String()
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify)
-			VALUES (?, "fluffy", 7, "test-endpoint", true)
+			VALUES (?, 'fluffy', 7, 'test-endpoint', true)
 		`, cloudUUID)
 		if err != nil {
 			return err
 		}
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, name, qualifier, model_type_id, life_id, cloud_uuid)
-			VALUES (?, "test", "prod", 0, 0, ?)
+			VALUES (?, 'test', 'prod', 0, 0, ?)
 		`, modelUUID, cloudUUID)
 		return err
 	})
@@ -1510,14 +1510,14 @@ func (s *userStateSuite) TestDisableUserAuthenticationLastAdmin(c *tc.C) {
 		cloudUUID := tc.Must(c, uuid.NewUUID).String()
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify)
-			VALUES (?, "fluffy", 7, "test-endpoint", true)
+			VALUES (?, 'fluffy', 7, 'test-endpoint', true)
 		`, cloudUUID)
 		if err != nil {
 			return err
 		}
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, name, qualifier, model_type_id, life_id, cloud_uuid)
-			VALUES (?, "test", "prod", 0, 0, ?)
+			VALUES (?, 'test', 'prod', 0, 0, ?)
 		`, modelUUID, cloudUUID)
 		return err
 	})

@@ -24,15 +24,8 @@ func ColumnStorageType(table, column, declaredType string) string {
 // column's declared type. Changing these requires checking domain readers and
 // writers as well as existing persisted data.
 var binaryTextColumns = map[string][]string{
-	"bakery_config": {
-		"local_users_private_key", "local_users_public_key",
-		"local_users_third_party_private_key", "local_users_third_party_public_key",
-		"external_users_third_party_private_key", "external_users_third_party_public_key",
-		"offers_third_party_private_key", "offers_third_party_public_key",
-	},
-	"macaroon_root_key":                            {"id", "root_key"},
+	"macaroon_root_key":                            {"id"},
 	"user_password":                                {"password_salt"},
-	"user_activation_key":                          {"activation_key"},
 	"charm":                                        {"lxd_profile"},
 	"charm_metadata":                               {"assumes"},
 	"charm_action":                                 {"params"},

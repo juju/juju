@@ -1055,7 +1055,7 @@ func (s *storageStatusSuite) newApplication(c *tc.C, name string, charmUUID core
 
 	_, err = s.DB().Exec(`
 INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
-VALUES (?, ?, ?, "0", ?)`, appUUID.String(), charmUUID.String(), name, network.AlphaSpaceId)
+VALUES (?, ?, ?, '0', ?)`, appUUID.String(), charmUUID.String(), name, network.AlphaSpaceId)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return appUUID.String()

@@ -43,7 +43,7 @@ func (s *importOpenUnitPortsSuite) SetUpTest(c *tc.C) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2")
+VALUES (?, ?, 'test', 'prod', 'iaas', 'test-model', 'ec2')
 		`, modelUUID.String(), coretesting.ControllerModelTag.Id())
 		return err
 	})

@@ -6,6 +6,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"strconv"
 
 	"github.com/canonical/sqlair"
 
@@ -92,6 +93,10 @@ func BootstrapDqlite(
 
 // InsertControllerNodeID inserts the node ID of the controller node
 // into the controller_node table.
+// Dqlite node IDs are derived from a hash, so they span the full uint64
+// range and may have the high bit set. SQLite integers are signed 64-bit and
+// database/sql refuses to bind such uint64 values, so the ID is stored as a
+// decimal string in a TEXT column rather than as an INT.
 func InsertControllerNodeID(
 	ctx context.Context, runner coredatabase.TxnRunner, nodeID uint64, bindAddress string,
 ) error {
@@ -99,7 +104,9 @@ func InsertControllerNodeID(
 INSERT INTO controller_node (controller_id, dqlite_node_id, dqlite_bind_address)
 VALUES ('0', ?, ?);`
 	return runner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		result, err := tx.ExecContext(ctx, q, nodeID, bindAddress)
+		result, err := tx.ExecContext(
+			ctx, q, strconv.FormatUint(nodeID, 10), bindAddress,
+		)
 		if err != nil {
 			return errors.Capture(err)
 		}

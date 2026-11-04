@@ -1770,7 +1770,7 @@ VALUES (?, 'myapp')`, charmUUID.String())
 
 		_, err = tx.Exec(`
 INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
-VALUES (?, ?, ?, "0", ?)`, appUUID.String(), charmUUID, name, network.AlphaSpaceId)
+VALUES (?, ?, ?, '0', ?)`, appUUID.String(), charmUUID, name, network.AlphaSpaceId)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

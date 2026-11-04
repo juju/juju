@@ -87,6 +87,8 @@ VALUES ('machine1', '0', 'node1', 0, NULL),
 	execSQL(c, s.DB(), `INSERT INTO machine_status (machine_uuid, status_id, data, updated_at)
 VALUES ('machine1', 0, NULL, NULL), ('machine2', 1, ?, NULL), ('machine3', 2, ?, ?)`,
 		[]byte{}, []byte{0, 128, 255}, updated)
+	execSQL(c, s.DB(), `INSERT INTO removal (uuid, removal_type_id, entity_uuid, force, scheduled_for)
+VALUES ('removal1', 0, 'entity1', FALSE, ?), ('removal2', 0, 'entity2', TRUE, ?)`, updated, updated)
 	exporter := exportmodel.NewState(s.TxnRunnerFactory())
 	before, err := exporter.Export(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -95,6 +97,7 @@ VALUES ('machine1', 0, NULL, NULL), ('machine2', 1, ?, NULL), ('machine3', 2, ?,
 	dump, err := service.DecodeModelDump(data)
 	c.Assert(err, tc.ErrorIsNil)
 	execSQL(c, s.DB(), `DELETE FROM sequence`)
+	execSQL(c, s.DB(), `DELETE FROM removal`)
 	// No placement exists on a fresh model database. The caller supplies its
 	// target explicitly, without needing a pre-existing blob to infer it.
 	execSQL(c, s.DB(), `DELETE FROM object_store_placement`)
@@ -110,6 +113,9 @@ VALUES ('machine1', 0, NULL, NULL), ('machine2', 1, ?, NULL), ('machine3', 2, ?,
 	c.Check(after.ObjectStoreMetadata, tc.DeepEquals, before.ObjectStoreMetadata)
 	c.Check(after.Machine, tc.SameContents, before.Machine)
 	c.Check(after.MachineStatus, tc.SameContents, before.MachineStatus)
+	c.Assert(before.Removal, tc.HasLen, 2)
+	c.Check(after.Removal, tc.SameContents, before.Removal)
+	checkString(c, s.DB(), `SELECT group_concat(uuid || '=' || CAST(force AS TEXT)) FROM (SELECT uuid, force FROM removal ORDER BY uuid)`, "removal1=0,removal2=1")
 	checkString(c, s.DB(), `SELECT typeof(data) FROM machine_status WHERE machine_uuid = 'machine1'`, "null")
 	checkString(c, s.DB(), `SELECT typeof(data) FROM machine_status WHERE machine_uuid = 'machine2'`, "blob")
 	checkString(c, s.DB(), `SELECT typeof(data) FROM machine_status WHERE machine_uuid = 'machine3'`, "blob")

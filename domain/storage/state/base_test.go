@@ -131,7 +131,7 @@ func (s *baseSuite) newApplication(c *tc.C, name string) (coreapplication.UUID, 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
-VALUES (?, ?, ?, "0", ?)`, appUUID.String(), charmUUID.String(), name, corenetwork.AlphaSpaceId)
+VALUES (?, ?, ?, '0', ?)`, appUUID.String(), charmUUID.String(), name, corenetwork.AlphaSpaceId)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -509,7 +509,7 @@ VALUES (?, 0, ?, 1, 0)
 			ctx,
 			`
 INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
-VALUES (?, ?, ?, "0", ?)
+VALUES (?, ?, ?, '0', ?)
 `,
 			appUUID.String(), charmUUID, appUUID.String(),
 			corenetwork.AlphaSpaceId,

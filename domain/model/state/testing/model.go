@@ -110,7 +110,7 @@ func CreateTestModel(
 
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO cloud_type (id, type)
-			VALUES (-1, "dummy")
+			VALUES (-1, 'dummy')
 			ON CONFLICT (id) DO NOTHING
 		`)
 		if err != nil {
@@ -119,7 +119,7 @@ func CreateTestModel(
 
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify)
-			VALUES (?, ?, -1, "", true)
+			VALUES (?, ?, -1, '', true)
 		`, cloudUUID.String(), name)
 		if err != nil {
 			return err
@@ -143,7 +143,7 @@ func CreateTestModel(
 
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO cloud_credential (uuid, cloud_uuid, auth_type_id, owner_uuid, name, revoked, invalid)
-			VALUES (?, ?, ?, ?, "foobar", false, false)
+			VALUES (?, ?, ?, ?, 'foobar', false, false)
 		`, credID, cloudUUID.String(), 0, userUUID)
 		if err != nil {
 			return err
@@ -237,7 +237,7 @@ func CreateTestModelWithoutActivation(
 
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify)
-			VALUES (?, ?, ?, "", true)
+			VALUES (?, ?, ?, '', true)
 		`, cloudUUID.String(), name, 5)
 		if err != nil {
 			return err
@@ -261,7 +261,7 @@ func CreateTestModelWithoutActivation(
 
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO cloud_credential (uuid, cloud_uuid, auth_type_id, owner_uuid, name, revoked, invalid)
-			VALUES (?, ?, ?, ?, "foobar", false, false)
+			VALUES (?, ?, ?, ?, 'foobar', false, false)
 		`, credId, cloudUUID.String(), 0, userUUID)
 		if err != nil {
 			return err

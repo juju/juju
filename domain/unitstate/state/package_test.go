@@ -48,7 +48,7 @@ func (s *baseSuite) SetUpTest(c *tc.C) {
 	s.modelUUID = tc.Must(c, model.NewUUID)
 	s.query(c, `
 			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2")
+			VALUES (?, ?, 'test', 'prod', 'iaas', 'test-model', 'ec2')
 		`, s.modelUUID, coretesting.ControllerTag.Id())
 
 	appState := applicationstate.NewState(s.TxnRunnerFactory(), s.modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c))

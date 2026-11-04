@@ -297,7 +297,7 @@ VALUES ($M.ctrl_id, $M.node_id, $M.addr)
 		for i := range amount {
 			err := tx.Query(ctx, query, sqlair.M{
 				"ctrl_id": strconv.Itoa(i + 1),
-				"node_id": i,
+				"node_id": strconv.Itoa(i),
 				"addr":    fmt.Sprintf("127.0.1.%d", i+2),
 			}).Run()
 			if err != nil {

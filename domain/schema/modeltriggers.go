@@ -181,7 +181,7 @@ CREATE TRIGGER trg_log_storage_%[1]s_update_life_machine_provisioning
 AFTER UPDATE ON storage_%[1]s
 FOR EACH ROW
 	WHEN NEW.provision_scope_id = 1
-	AND NEW.life_id != OLD.life_id
+	AND NEW.life_id <> OLD.life_id
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, NEW.net_node_uuid, DATETIME('now', 'utc'));
@@ -250,9 +250,9 @@ BEGIN
            NEW.net_node_uuid,
            DATETIME('now', 'utc')
     FROM   storage_%[1]s s
-    WHERE  1 == (SELECT COUNT(*)
-                 FROM   storage_%[1]s_attachment
-                 WHERE  storage_%[1]s_uuid = NEW.storage_%[1]s_uuid)
+    WHERE  1 = (SELECT COUNT(*)
+                FROM   storage_%[1]s_attachment
+                WHERE  storage_%[1]s_uuid = NEW.storage_%[1]s_uuid)
     AND    s.uuid = NEW.storage_%[1]s_uuid
     AND    s.provision_scope_id = 1;
 END;
@@ -262,7 +262,7 @@ CREATE TRIGGER trg_log_storage_%[1]s_update_life_machine_provisioning
 AFTER UPDATE ON storage_%[1]s
 FOR EACH ROW
 	WHEN NEW.provision_scope_id = 1
-	AND  NEW.life_id != OLD.life_id
+	AND  NEW.life_id <> OLD.life_id
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     SELECT DISTINCT 2,
@@ -284,9 +284,9 @@ BEGIN
            			OLD.net_node_uuid,
            			DATETIME('now', 'utc')
     FROM   storage_%[1]s s
-    WHERE  0 == (SELECT COUNT(*)
-                 FROM   storage_%[1]s_attachment
-                 WHERE  storage_%[1]s_uuid = OLD.storage_%[1]s_uuid)
+    WHERE  0 = (SELECT COUNT(*)
+                FROM   storage_%[1]s_attachment
+                WHERE  storage_%[1]s_uuid = OLD.storage_%[1]s_uuid)
     AND    s.uuid = OLD.storage_%[1]s_uuid
     AND    s.provision_scope_id = 1;
 END;
@@ -333,7 +333,7 @@ CREATE TRIGGER trg_log_storage_%[1]s_update_life_model_provisioning
 AFTER UPDATE ON storage_%[1]s
 FOR EACH ROW
 	WHEN NEW.provision_scope_id = 0
-	AND NEW.life_id != OLD.life_id
+	AND NEW.life_id <> OLD.life_id
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[3]d, NEW.%[2]s, DATETIME('now', 'utc'));
@@ -371,7 +371,7 @@ CREATE TRIGGER trg_log_custom_filesystem_provider_id_model_provisioning
 AFTER UPDATE ON storage_filesystem
 FOR EACH ROW
     WHEN NEW.provision_scope_id = 0 AND
-         (NEW.provider_id != OLD.provider_id OR (NEW.provider_id IS NOT NULL AND OLD.provider_id IS NULL) OR (NEW.provider_id IS NULL AND OLD.provider_id IS NOT NULL))
+         (NEW.provider_id <> OLD.provider_id OR (NEW.provider_id IS NOT NULL AND OLD.provider_id IS NULL) OR (NEW.provider_id IS NULL AND OLD.provider_id IS NOT NULL))
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[1]d, NEW.filesystem_id, DATETIME('now', 'utc'));
@@ -396,7 +396,7 @@ CREATE TRIGGER trg_log_custom_filesystem_attachment_provider_id_model_provisioni
 AFTER UPDATE ON storage_filesystem_attachment
 FOR EACH ROW
     WHEN NEW.provision_scope_id = 0 AND
-         (NEW.provider_id != OLD.provider_id OR (NEW.provider_id IS NOT NULL AND OLD.provider_id IS NULL) OR (NEW.provider_id IS NULL AND OLD.provider_id IS NOT NULL))
+         (NEW.provider_id <> OLD.provider_id OR (NEW.provider_id IS NOT NULL AND OLD.provider_id IS NULL) OR (NEW.provider_id IS NULL AND OLD.provider_id IS NOT NULL))
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[1]d, NEW.uuid, DATETIME('now', 'utc'));
@@ -422,7 +422,7 @@ VALUES (%[1]d,
 CREATE TRIGGER trg_log_custom_storage_attachment_lifecycle_update
 AFTER UPDATE ON storage_attachment FOR EACH ROW
 WHEN
-	NEW.life_id != OLD.life_id
+	NEW.life_id <> OLD.life_id
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[1]d, NEW.uuid, DATETIME('now', 'utc'));
@@ -870,8 +870,8 @@ VALUES (%[1]d,
 CREATE TRIGGER trg_log_custom_relation_life_suspended_update
 AFTER UPDATE ON relation FOR EACH ROW
 WHEN
-    NEW.life_id != OLD.life_id OR
-    NEW.suspended != OLD.suspended
+    NEW.life_id <> OLD.life_id OR
+    NEW.suspended <> OLD.suspended
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (1, %[1]d, NEW.uuid, DATETIME('now'));

@@ -382,7 +382,7 @@ func (s *stateSuite) ensureMachine(c *tc.C, id, uuid string) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO machine (uuid, net_node_uuid, name, life_id)
-VALUES (?, "node2", ?, "0")`, uuid, id)
+VALUES (?, 'node2', ?, '0')`, uuid, id)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -407,7 +407,7 @@ VALUES (?, 'myapp')`, uuid)
 
 		_, err = tx.ExecContext(ctx, `
 INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
-VALUES (?, ?, ?, "0", ?)`, uuid, uuid, name, network.AlphaSpaceId)
+VALUES (?, ?, ?, '0', ?)`, uuid, uuid, name, network.AlphaSpaceId)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

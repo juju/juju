@@ -1,7 +1,9 @@
 CREATE TABLE controller_node (
     controller_id TEXT NOT NULL PRIMARY KEY,
     life_id INT NOT NULL DEFAULT 0,
-    dqlite_node_id TEXT,              -- This is the uint64 from Dqlite NodeInfo, stored as text.
+    -- This is the uint64 from Dqlite NodeInfo, stored as decimal text. It is
+    -- hash-derived and can have the high bit set, which a signed INT cannot hold.
+    dqlite_node_id TEXT,
     dqlite_bind_address TEXT,         -- Hostname or IP address (no port) that Dqlite is bound to.
     CONSTRAINT fk_controller_node_life
     FOREIGN KEY (life_id)

@@ -916,13 +916,13 @@ func (s *modelSchemaSuite) TestTriggerGuardForLife(c *tc.C) {
 
 	// Ensure that the trigger for life is present.
 	s.assertExecSQL(c, `
-INSERT INTO net_node (uuid) VALUES ("node2");
+INSERT INTO net_node (uuid) VALUES ('node2');
 INSERT INTO machine (uuid, net_node_uuid, name, life_id)
-VALUES ("abc", "node2", "machine-1", "0");`)
+VALUES ('abc', 'node2', 'machine-1', '0');`)
 
-	s.assertExecSQL(c, `UPDATE machine SET life_id = "1" WHERE uuid = "abc";`)
+	s.assertExecSQL(c, `UPDATE machine SET life_id = '1' WHERE uuid = 'abc';`)
 	s.assertExecSQLError(c,
-		`UPDATE machine SET life_id = "0" WHERE uuid = "abc";`,
+		`UPDATE machine SET life_id = '0' WHERE uuid = 'abc';`,
 		"Cannot transition life for machine backwards",
 	)
 }

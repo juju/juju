@@ -215,7 +215,7 @@ func (s *stateSuite) TestGetStorageResourceTagInfoForApplication(c *tc.C) {
 		`INSERT INTO model_config (key, value) VALUES (?, ?)`, "resource_tags", "a=x b=y")
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.DB().ExecContext(c.Context(),
-		`INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type) VALUES (?, ?, "", "", "", "", "")`,
+		`INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type) VALUES (?, ?, '', '', '', '', '')`,
 		s.ModelUUID(), controllerUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -241,7 +241,7 @@ func (s *stateSuite) TestGetStorageResourceTagInfoForApplicationNotFound(c *tc.C
 		c.Context(),
 		`
 INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-VALUES (?, ?, "", "", "", "", "")
+VALUES (?, ?, '', '', '', '', '')
 `,
 		s.ModelUUID(),
 		controllerUUID,
@@ -270,7 +270,7 @@ func (s *stateSuite) TestGetStorageResourceTagInfoForModel(c *tc.C) {
 		c.Context(),
 		`
 INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-VALUES (?, ?, "", "", "", "", "")
+VALUES (?, ?, '', '', '', '', '')
 `,
 		s.ModelUUID(),
 		controllerUUID,
