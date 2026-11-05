@@ -21,9 +21,9 @@
 //     manifolds from the modeloperator package: the workers of the
 //     modeloperator pod in a Kubernetes deployment.
 //
-// The controller commands - bootstrap, init, controller configuration,
-// the controller application, safe-mode, and the DB REPL - belong to the
-// jujud binary, not to jujuagentd.
+// The controller commands -- bootstrap/bootstrap-state, init, controller
+// configuration, the controller application, safe-mode and the DB REPL --
+// belong to the jujud binary, not to jujuagentd.
 //
 // See github.com/juju/juju/cmd/jujuagentd for the binary that registers
 // these commands. The unit agent for machine deployments is defined in

@@ -4,8 +4,10 @@
 package machine_test
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -29,6 +31,11 @@ func TestBoundaryGuardSuite(t *stdtesting.T) {
 	tc.Run(t, &BoundaryGuardSuite{})
 }
 
+// goEnv captures the process environment before the test suites isolate
+// HOME and the Juju variables. The go tool needs HOME, GOPATH or
+// GOMODCACHE to resolve the module cache.
+var goEnv = os.Environ()
+
 // repositoryRoot returns the juju repository root that contains this
 // test's package.
 func repositoryRoot(c *tc.C) string {
@@ -37,7 +44,7 @@ func repositoryRoot(c *tc.C) string {
 	return filepath.Join(filepath.Dir(file), "..", "..", "..", "..")
 }
 
-// skippedDirNames reports whether a directory entry must be skipped by
+// skippedDirName reports whether a directory entry must be skipped by
 // the source scans: hidden and build-artifact trees (".git", ".direnv",
 // "_build", "_deps"), stale test-run leftovers ("tmp.*"), and charm
 // fixtures. The scans only cover first-party Go source.
@@ -137,36 +144,154 @@ var removedAgentConfDqliteKeys = []string{
 	"dqlitebusytimeout",
 }
 
+// bannedDependencies lists package paths that the jujuagentd binary's
+// transitive dependency graph must not contain. Dqlite, the controller
+// API server, and the controller worker graph belong to the jujud
+// controller binary. The source scans above cannot see indirect
+// dependencies, so TestJujuagentdDependencyBoundary asks the Go tool for
+// the real graph.
+var bannedDependencies = []struct {
+	path  string
+	exact bool
+}{
+	// Dqlite and its Juju wrappers.
+	{path: "github.com/canonical/go-dqlite"},
+	{path: "github.com/juju/juju/internal/dqlite"},
+	// The controller worker graph.
+	{path: "github.com/juju/juju/internal/worker/apiserver"},
+	{path: "github.com/juju/juju/internal/worker/dbaccessor"},
+	{path: "github.com/juju/juju/internal/worker/dqliteconfigupdater"},
+	// The controller command package.
+	{path: "github.com/juju/juju/cmd/jujud"},
+	// The root apiserver package is the controller's API server. Its
+	// errors and apiserverhttp subpackages are shared client helpers and
+	// are legitimately imported by the machine agent, so ban only the
+	// root package.
+	{path: "github.com/juju/juju/apiserver", exact: true},
+}
+
 // TestStandaloneControllerSourceBoundary scans the repository's
 // non-test Go source and fails when a banned symbol reappears, the
 // combined-agent constructor escapes its allowlist, or Dqlite
 // configuration members come back in machine-agent config writers.
 func (*BoundaryGuardSuite) TestStandaloneControllerSourceBoundary(c *tc.C) {
 	root := repositoryRoot(c)
+	// Guard the walk itself: a wrong root would otherwise make every
+	// check below pass without scanning the repository.
+	_, err := os.Stat(filepath.Join(root, "go.mod"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(
+		"repository root %s does not contain go.mod", root))
+
+	scanned := 0
 	forEachGoSource(c, root, func(rel, content string) {
-		for _, banned := range bannedEverywhere {
-			c.Check(strings.Contains(content, banned), tc.IsFalse, tc.Commentf(
-				"%s references deleted symbol %s", rel, banned))
-		}
-		if containsAny(rel, newStateMachineConfigAllowlist) {
-			return
-		}
-		if strings.Contains(content, "NewStateMachineConfig") {
-			c.Errorf("%s references NewStateMachineConfig outside agent/ and cmd/jujud/", rel)
-		}
-		if containsAny(rel, machineAgentConfigWriterTrees) {
-			for _, member := range removedDqliteMembers {
-				c.Check(strings.Contains(content, member), tc.IsFalse, tc.Commentf(
-					"%s references removed Dqlite configuration member %s", rel, member))
-			}
-		}
-		if strings.HasPrefix(rel, "agent/") {
-			for _, key := range removedAgentConfDqliteKeys {
-				c.Check(strings.Contains(content, key), tc.IsFalse, tc.Commentf(
-					"%s references removed agent.conf key %s", rel, key))
-			}
+		scanned++
+		if violations := sourceBoundaryViolations(rel, content); len(violations) > 0 {
+			c.Check(violations, tc.HasLen, 0, tc.Commentf(
+				"boundary violations in %s:\n%s", rel, strings.Join(violations, "\n")))
 		}
 	})
+	c.Check(scanned > 0, tc.IsTrue, tc.Commentf(
+		"no Go source scanned under %s", root))
+}
+
+// sourceBoundaryViolations returns the standalone-controller boundary
+// violations in a single non-test Go file, or nil when the file respects
+// the boundary.
+//
+// The rules live in one pure function so they can be table-tested: a
+// regression that skips a rule (for example by returning early for an
+// allowlisted tree) fails TestSourceBoundaryPredicate instead of
+// silently disabling the guard.
+func sourceBoundaryViolations(rel, content string) []string {
+	var violations []string
+	report := func(format string, args ...any) {
+		violations = append(violations, fmt.Sprintf(format, args...))
+	}
+
+	for _, banned := range bannedEverywhere {
+		if strings.Contains(content, banned) {
+			report("%s references deleted symbol %s", rel, banned)
+		}
+	}
+	if !containsAny(rel, newStateMachineConfigAllowlist) &&
+		strings.Contains(content, "NewStateMachineConfig") {
+		report("%s references NewStateMachineConfig outside %v",
+			rel, newStateMachineConfigAllowlist)
+	}
+	if containsAny(rel, machineAgentConfigWriterTrees) {
+		for _, member := range removedDqliteMembers {
+			if strings.Contains(content, member) {
+				report("%s references removed Dqlite configuration member %s",
+					rel, member)
+			}
+		}
+	}
+	if strings.HasPrefix(rel, "agent/") {
+		for _, key := range removedAgentConfDqliteKeys {
+			if strings.Contains(content, key) {
+				report("%s references removed agent.conf key %s", rel, key)
+			}
+		}
+	}
+	return violations
+}
+
+// TestSourceBoundaryPredicate is the positive control for the source
+// guard. It proves each rule fires for a file it targets and stays quiet
+// for the trees that are deliberately exempt, so a rule cannot become
+// unreachable without failing this test.
+func (*BoundaryGuardSuite) TestSourceBoundaryPredicate(c *tc.C) {
+	tests := []struct {
+		name    string
+		rel     string
+		content string
+		want    []string
+	}{{
+		name:    "banned symbol outside any allowlist",
+		rel:     "internal/foo/bar.go",
+		content: "func SetStateServingInfo() {}",
+		want: []string{
+			"internal/foo/bar.go references deleted symbol SetStateServingInfo",
+		},
+	}, {
+		name:    "dqlite member in the agent config writer",
+		rel:     "agent/config.go",
+		content: "DqlitePort int",
+		want: []string{
+			"agent/config.go references removed Dqlite configuration member DqlitePort",
+		},
+	}, {
+		name:    "agent.conf key in agent",
+		rel:     "agent/format-2.0.go",
+		content: `yaml:"dqlitebusytimeout,omitempty"`,
+		want: []string{
+			"agent/format-2.0.go references removed agent.conf key dqlitebusytimeout",
+		},
+	}, {
+		name:    "combined-agent constructor outside the allowlist",
+		rel:     "cmd/jujuagentd/agent/model.go",
+		content: "agent.NewStateMachineConfig(",
+		want: []string{
+			"cmd/jujuagentd/agent/model.go references NewStateMachineConfig outside [agent/ cmd/jujud/]",
+		},
+	}, {
+		name:    "combined-agent constructor inside the agent allowlist",
+		rel:     "agent/agent.go",
+		content: "agent.NewStateMachineConfig(",
+	}, {
+		name:    "combined-agent constructor inside the jujud allowlist",
+		rel:     "cmd/jujud/agent/bootstrap.go",
+		content: "agent.NewStateMachineConfig(",
+	}, {
+		name:    "dqlite member in a controller-owned runtime writer",
+		rel:     "internal/controllerruntimeconfig/config.go",
+		content: "DqlitePort int",
+	}}
+
+	for _, test := range tests {
+		got := sourceBoundaryViolations(test.rel, test.content)
+		c.Check(got, tc.DeepEquals, test.want, tc.Commentf("case %q", test.name))
+	}
 }
 
 // controllerCommandConstructors are the command constructors registered
@@ -198,6 +323,51 @@ func (*BoundaryGuardSuite) TestJujuagentdCommandSurface(c *tc.C) {
 		}
 	})
 	c.Check(found, tc.IsTrue, tc.Commentf("no jujuagentd source found to scan"))
+}
+
+// TestJujuagentdDependencyBoundary proves the jujuagentd binary's
+// transitive dependency graph carries no Dqlite or controller package.
+// The source scans above cannot see indirect dependencies; this test
+// asks the Go tool for the real graph.
+func (*BoundaryGuardSuite) TestJujuagentdDependencyBoundary(c *tc.C) {
+	deps := goListDeps(c, repositoryRoot(c), "./cmd/jujuagentd")
+	c.Assert(len(deps) > 0, tc.IsTrue, tc.Commentf(
+		"go list returned no dependencies for ./cmd/jujuagentd"))
+
+	var violations []string
+	for _, dep := range deps {
+		if banned := bannedDependency(dep); banned != "" {
+			violations = append(violations, fmt.Sprintf(
+				"jujuagentd depends on %s, which matches banned package %s", dep, banned))
+		}
+	}
+	c.Check(violations, tc.HasLen, 0, tc.Commentf("%s", strings.Join(violations, "\n")))
+}
+
+// goListDeps returns the transitive package dependencies of pkg, as
+// reported by the Go tool from the repository root.
+func goListDeps(c *tc.C, root, pkg string) []string {
+	cmd := exec.Command("go", "list", "-deps", pkg)
+	cmd.Dir = root
+	cmd.Env = goEnv
+	out, err := cmd.CombinedOutput()
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(
+		"go list -deps %s failed: %v\n%s", pkg, err, out))
+	return strings.Fields(string(out))
+}
+
+// bannedDependency returns the banned path that dep matches, or "" when
+// dep is allowed.
+func bannedDependency(dep string) string {
+	for _, banned := range bannedDependencies {
+		if dep == banned.path {
+			return banned.path
+		}
+		if !banned.exact && strings.HasPrefix(dep, banned.path+"/") {
+			return banned.path
+		}
+	}
+	return ""
 }
 
 func containsAny(s string, prefixes []string) bool {

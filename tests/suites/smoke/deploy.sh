@@ -48,8 +48,8 @@ run_charmhub_deploy() {
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
 	# The waits above proved the controller answers juju status. The CI
-	# multijob wires only the test_deploy sub-jobs, so embedding the
-	# boundary assertion here keeps it CI-covered while asserting
+	# smoke jobs run the suite as a whole, so embedding the boundary
+	# assertion in the deploy scenario keeps it covered while asserting
 	# machine-0's agent.conf immediately after the controller proved
 	# reachable.
 	assert_machine0_agent_conf_trimmed
