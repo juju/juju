@@ -351,10 +351,11 @@ func (s *stateSuite) TestEnsureSourceControllerExists(c *tc.C) {
 		"SELECT COUNT(*) FROM external_controller WHERE uuid = ?", ctrlUUID).Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 1)
-	err = s.DB().QueryRowContext(c.Context(),
-		"SELECT COUNT(*) FROM external_controller_address WHERE controller_uuid = ?", ctrlUUID).Scan(&count)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(count, tc.Equals, 2)
+	// Each address is persisted with the caller-supplied UUID at its index.
+	c.Check(s.addressesByUUID(c, ctrlUUID), tc.DeepEquals, map[string]string{
+		addrUUIDs[0]: addrs[0],
+		addrUUIDs[1]: addrs[1],
+	})
 	// Each consumed model is mapped to the source controller in external_model.
 	for _, m := range consumed {
 		var got string
@@ -384,10 +385,14 @@ func (s *stateSuite) TestEnsureSourceControllerExistsKeepsExistingRow(c *tc.C) {
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
 
 	ctrlUUID := uuid.MustNewUUID().String()
-	imported := []string{"54.1.2.3:17070", "172.31.1.2:17070"}
-	err := st.EnsureExternalControllerExists(c.Context(),
-		externalController(ctrlUUID, "src", "ca-cert", imported, nil))
+	imported := externalController(ctrlUUID, "src", "ca-cert",
+		[]string{"54.1.2.3:17070", "172.31.1.2:17070"}, nil)
+	err := st.EnsureExternalControllerExists(c.Context(), imported)
 	c.Assert(err, tc.ErrorIsNil)
+	importedRows := make(map[string]string, len(imported.Addresses))
+	for _, a := range imported.Addresses {
+		importedRows[a.UUID] = a.Address
+	}
 
 	activation := []string{"54.1.2.3:17070", "172.31.1.2:17070", "252.1.2.1:17070"}
 	addrUUIDs := []string{
@@ -400,24 +405,33 @@ func (s *stateSuite) TestEnsureSourceControllerExistsKeepsExistingRow(c *tc.C) {
 		c.Context(), ctrlUUID, "src", "ca-cert", activation, addrUUIDs, consumed)
 	c.Assert(err, tc.ErrorIsNil)
 
-	rows, err := s.DB().QueryContext(c.Context(),
-		"SELECT address FROM external_controller_address WHERE controller_uuid = ?", ctrlUUID)
-	c.Assert(err, tc.ErrorIsNil)
-	defer func() { _ = rows.Close() }()
-	var got []string
-	for rows.Next() {
-		var addr string
-		c.Assert(rows.Scan(&addr), tc.ErrorIsNil)
-		got = append(got, addr)
-	}
-	c.Assert(rows.Err(), tc.ErrorIsNil)
-	c.Check(got, tc.SameContents, imported)
+	// The imported address rows are kept as they are, UUIDs included: the
+	// activation addresses and their UUIDs are discarded, not re-inserted.
+	c.Check(s.addressesByUUID(c, ctrlUUID), tc.DeepEquals, importedRows)
 
 	var mapped string
 	err = s.DB().QueryRowContext(c.Context(),
 		"SELECT controller_uuid FROM external_model WHERE uuid = ?", consumed[0]).Scan(&mapped)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(mapped, tc.Equals, ctrlUUID)
+}
+
+// addressesByUUID returns the controller's external_controller_address rows
+// as a map of row UUID to address.
+func (s *stateSuite) addressesByUUID(c *tc.C, ctrlUUID string) map[string]string {
+	rows, err := s.DB().QueryContext(c.Context(),
+		"SELECT uuid, address FROM external_controller_address WHERE controller_uuid = ?",
+		ctrlUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = rows.Close() }()
+	got := make(map[string]string)
+	for rows.Next() {
+		var u, addr string
+		c.Assert(rows.Scan(&u, &addr), tc.ErrorIsNil)
+		got[u] = addr
+	}
+	c.Assert(rows.Err(), tc.ErrorIsNil)
+	return got
 }
 
 // TestEnsureSourceControllerExistsMismatch asserts an existing row with a
@@ -454,6 +468,49 @@ func (s *stateSuite) TestEnsureSourceControllerExistsMismatch(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(count, tc.Equals, 0)
 	}
+}
+
+// TestEnsureSourceControllerExistsConsumedModelMismatch asserts that a consumed
+// model already mapped to another controller is rejected without re-pointing
+// it, and that the whole call is rolled back: the source controller and the
+// mapping of an earlier, fresh consumed model are not recorded.
+func (s *stateSuite) TestEnsureSourceControllerExistsConsumedModelMismatch(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	otherCtrlUUID := uuid.MustNewUUID().String()
+	mappedModel := uuid.MustNewUUID().String()
+	err := st.EnsureExternalControllerExists(c.Context(),
+		externalController(otherCtrlUUID, "other", "other-ca-cert",
+			[]string{"10.0.1.1:17070"}, []string{mappedModel}))
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(),
+		"INSERT INTO external_model (uuid, controller_uuid) VALUES (?, ?)",
+		mappedModel, otherCtrlUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	ctrlUUID := uuid.MustNewUUID().String()
+	freshModel := uuid.MustNewUUID().String()
+	err = st.EnsureSourceControllerExists(
+		c.Context(), ctrlUUID, "src", "ca-cert",
+		[]string{"10.0.0.1:17070"}, []string{uuid.MustNewUUID().String()},
+		[]string{freshModel, mappedModel})
+	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrExternalControllerMismatch)
+
+	var count int
+	err = s.DB().QueryRowContext(c.Context(),
+		"SELECT COUNT(*) FROM external_controller WHERE uuid = ?", ctrlUUID).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+	err = s.DB().QueryRowContext(c.Context(),
+		"SELECT COUNT(*) FROM external_model WHERE uuid = ?", freshModel).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+
+	var mapped string
+	err = s.DB().QueryRowContext(c.Context(),
+		"SELECT controller_uuid FROM external_model WHERE uuid = ?", mappedModel).Scan(&mapped)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(mapped, tc.Equals, otherCtrlUUID)
 }
 
 // TestExternalControllerModelsForImport verifies the third-party offerer-model

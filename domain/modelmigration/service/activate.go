@@ -61,11 +61,13 @@ func (s *Service) DeleteActivatedImport(ctx context.Context, modelUUID coremodel
 	return s.controllerState.DeleteActivatedImport(ctx, modelUUID.String())
 }
 
-// EnsureSourceControllerExists compares-or-inserts the migration source
-// controller's connection details and records the models it offers. It
-// generates the per-address row UUIDs before handing the details to state, and
-// fails with [modelmigrationerrors.ErrExternalControllerMismatch] on a mismatch
-// rather than overwriting live CMR connection data.
+// EnsureSourceControllerExists inserts the migration source controller's
+// connection details if absent and records the models it offers. It generates
+// the per-address row UUIDs before handing the details to state. An existing
+// row with the same alias and CA certificate is kept unchanged, and the
+// supplied addresses are discarded. A different alias or CA certificate fails
+// with [modelmigrationerrors.ErrExternalControllerMismatch] rather than
+// overwriting live CMR connection data.
 func (s *Service) EnsureSourceControllerExists(
 	ctx context.Context,
 	controllerUUID controller.UUID,

@@ -358,7 +358,9 @@ WHERE model_uuid = $modelUUIDArg.model_uuid
 // An existing row with the same alias and CA certificate is kept as it is,
 // even when its addresses differ: a 3.6 source exports a filtered address list
 // in the model description, which the legacy importer records, but supplies
-// its unfiltered client addresses at activation.
+// its unfiltered client addresses at activation. In that case addrs and
+// addrUUIDs are discarded; the external controller updater worker keeps the
+// recorded addresses current afterwards.
 // [modelmigrationerrors.ErrExternalControllerMismatch] is returned when the
 // existing row has a different alias or CA certificate, or when any consumed
 // model is already mapped to a different controller. addrUUIDs supplies the
@@ -409,7 +411,8 @@ func (s *State) EnsureSourceControllerExists(
 // ensureSourceControllerExists inserts the migration source controller and its
 // addresses if absent. An existing row is kept unchanged when its alias and CA
 // certificate match; see EnsureSourceControllerExists for why the addresses
-// are not compared.
+// are not compared. It is kept separate from ensureExternalControllerExists,
+// which must compare addresses for third-party controllers.
 func (s *State) ensureSourceControllerExists(
 	ctx context.Context, tx *sqlair.TX, ref modelmigrationinternal.ExternalController,
 ) error {
@@ -426,6 +429,9 @@ WHERE  ec.uuid = $entityUUID.uuid
 
 	var existing externalControllerInfo
 	err = tx.Query(ctx, selectCtrlStmt, ctrlUUID).Get(&existing)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("looking up source controller: %w", err)
+	}
 	if errors.Is(err, sqlair.ErrNoRows) {
 		info := externalControllerInfo{
 			UUID:   ref.UUID,
@@ -433,8 +439,6 @@ WHERE  ec.uuid = $entityUUID.uuid
 			CACert: ref.CACert,
 		}
 		return s.insertExternalController(ctx, tx, info, ref.Addresses)
-	} else if err != nil {
-		return errors.Errorf("looking up source controller: %w", err)
 	}
 
 	if existing.Alias != ref.Alias || existing.CACert != ref.CACert {
@@ -466,7 +470,8 @@ func (s *State) EnsureExternalControllerExists(
 
 // ensureExternalControllerExists is called both directly, via the eponymous
 // EnsureExternalControllerExists, and from within the ImportExternalControllers
-// write-group transaction.
+// write-group transaction. The migration source controller uses
+// ensureSourceControllerExists instead, which does not compare addresses.
 func (s *State) ensureExternalControllerExists(
 	ctx context.Context, tx *sqlair.TX, ref modelmigrationinternal.ExternalController,
 ) error {
