@@ -20,7 +20,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
-	"github.com/juju/juju/environs"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/uuid"
@@ -209,7 +208,7 @@ func (g archiveGenerator) Create(ctx context.Context, notes string) (*corebackup
 		if err != nil {
 			return nil, err
 		}
-		reader, ok := provider.(environs.ControllerBackupProvisioning)
+		reader, ok := provider.(ControllerBackupProvisioning)
 		if !ok {
 			return nil, internalerrors.Errorf("provider cannot record controller provisioning").Add(coreerrors.NotSupported)
 		}

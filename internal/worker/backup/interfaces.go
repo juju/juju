@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 
+	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
@@ -80,3 +81,10 @@ type ReadObjectStore interface {
 // ObjectStoreForModelFunc returns the object store for a given model
 // UUID.
 type ObjectStoreForModelFunc func(ctx context.Context, modelUUID string) (ReadObjectStore, error)
+
+// ControllerBackupProvisioning reads the running controller's provisioning
+// facts without modifying provider resources. A backup fails when a required
+// image or storage identity cannot be established.
+type ControllerBackupProvisioning interface {
+	ControllerBackupProvisioning(ctx context.Context, controllerID string) (*corebackups.KubernetesProvisioning, error)
+}
