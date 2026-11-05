@@ -113,8 +113,12 @@ assert_machine_agent_conf_trimmed() {
 		echo "Pod machine agent config has no API addresses" >&2
 		return 1
 	fi
-	if [[ -z $(conf_key_line "apipassword" "${conf}") ]]; then
-		echo "Pod machine agent config has no API password" >&2
+	# The pod machine agent connects with OnlyConnect and never rotates,
+	# so the pre-rendered controller-node credential stays in
+	# oldpassword. A rotation-capable agent would write apipassword, so
+	# accept either key rather than assuming rotation has happened.
+	if [[ -z $(conf_key_line "apipassword" "${conf}") && -z $(conf_key_line "oldpassword" "${conf}") ]]; then
+		echo "Pod machine agent config has no API credential" >&2
 		return 1
 	fi
 	if [[ -z $(conf_key_line "cacert" "${conf}") ]]; then
@@ -143,16 +147,17 @@ assert_machine_agent_conf_trimmed() {
 }
 
 # machine_agent_credential_digest prints a SHA-256 digest of the machine
-# agent's API password so the credential can be compared across restarts
-# without being logged.
+# agent's API credential lines (apipassword and/or oldpassword) so the
+# credential can be compared across restarts without being logged.
 machine_agent_credential_digest() {
-	local conf
+	local conf credential
 	conf=$(machine_agent_conf)
-	if [[ -z $(conf_key_line "apipassword" "${conf}") ]]; then
+	credential=$(printf "%s" "${conf}" | grep -E "^(apipassword|oldpassword):" || true)
+	if [[ -z ${credential} ]]; then
 		echo ""
-		return 1
+		return
 	fi
-	printf "%s" "${conf}" | grep -E "^apipassword:" | sha256sum | awk '{print $1}'
+	printf "%s" "${credential}" | sha256sum | awk '{print $1}'
 }
 
 # jujud_pid prints the PID of the jujud controller process in the
