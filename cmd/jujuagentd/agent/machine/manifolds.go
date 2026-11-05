@@ -59,7 +59,7 @@ import (
 	"github.com/juju/juju/internal/worker/apiserver"
 	"github.com/juju/juju/internal/worker/apiservercertwatcher"
 	"github.com/juju/juju/internal/worker/auditconfigupdater"
-	"github.com/juju/juju/internal/worker/backupcreation"
+	"github.com/juju/juju/internal/worker/backup"
 	"github.com/juju/juju/internal/worker/bootstrap"
 	"github.com/juju/juju/internal/worker/caasupgrader"
 	"github.com/juju/juju/internal/worker/certupdater"
@@ -770,7 +770,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NonControllerLogSinkName: nonControllerLogSinkName,
 		}),
 
-		backupCreatorName: ifController(backupcreation.Manifold(backupcreation.ManifoldConfig{
+		backupCreatorName: ifController(backup.Manifold(backup.ManifoldConfig{
 			LeaseManagerName:    leaseManagerName,
 			DomainServicesName:  domainServicesName,
 			ObjectStoreName:     objectStoreFacadeName,
@@ -780,8 +780,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ControllerTag:       config.ControllerAgentTag,
 			LocalConfigReader:   config.StartupValueProvider,
 			Clock:               config.Clock,
-			Logger:              internallogger.GetLogger("juju.worker.backupcreation"),
-			NewWorker:           backupcreation.NewWorker,
+			Logger:              internallogger.GetLogger("juju.worker.backup"),
+			NewWorker:           backup.NewWorker,
 		})),
 
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
@@ -1676,7 +1676,7 @@ var ifControllerAgentConfigNeededAndReady = engine.Housing{
 // startup values to controller-only workers. This is implemented by the
 // config.StartupValueProvider, which is passed to the manifolds in the config.
 type ControllerStartupValueProvider interface {
-	backupcreation.LocalConfigReader
+	backup.LocalConfigReader
 	objectstore.RootDirReader
 	dbaccessor.ControllerStartupValuesProvider
 	apiservercertwatcher.CertReader
