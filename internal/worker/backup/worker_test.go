@@ -214,7 +214,8 @@ func (s *workerSuite) TestRenewalFailureCancelsGenerationAndCleansArchive(c *tc.
 	}}
 	cfg.CreateArchive = backupCreatorFunc(func(ctx context.Context, _ string) (*corebackups.Metadata, string, func(), error) {
 		<-ctx.Done()
-		return &corebackups.Metadata{}, "archive", func() { cleaned.Store(true) }, ctx.Err()
+		// Simulate successful generation racing with cancellation.
+		return &corebackups.Metadata{}, "archive", func() { cleaned.Store(true) }, nil
 	})
 	w := startWorker(c, cfg)
 	done := make(chan error, 1)
@@ -223,6 +224,52 @@ func (s *workerSuite) TestRenewalFailureCancelsGenerationAndCleansArchive(c *tc.
 	clk.Advance(renewInterval)
 	c.Check(<-done, tc.ErrorIs, context.Canceled)
 	c.Check(cleaned.Load(), tc.IsTrue)
+}
+
+func (s *workerSuite) TestCancellationDuringReleaseCleansArchive(c *tc.C) {
+	ctx, cancel := context.WithCancelCause(c.Context())
+	defer cancel(nil)
+	failure := errors.New("caller cancelled backup")
+	cleaned := make(chan struct{})
+	cfg := workerConfig(c)
+	cfg.CreateArchive = backupCreatorFunc(func(context.Context, string) (*corebackups.Metadata, string, func(), error) {
+		return &corebackups.Metadata{}, "archive", func() { close(cleaned) }, nil
+	})
+	cfg.LeaseManager = leaseManagerStub{operations: leaseOperations{
+		revoke: func(string, string) error {
+			cancel(failure)
+			return nil
+		},
+	}}
+	w := startWorker(c, cfg)
+	meta, archive, cleanup, err := w.Create(ctx, "notes")
+	c.Check(err, tc.ErrorIs, failure)
+	c.Check(meta, tc.IsNil)
+	c.Check(archive, tc.Equals, "")
+	c.Check(cleanup, tc.IsNil)
+	<-cleaned
+}
+
+func (s *workerSuite) TestShutdownDuringReleaseCleansArchive(c *tc.C) {
+	cleaned := make(chan struct{})
+	cfg := workerConfig(c)
+	cfg.CreateArchive = backupCreatorFunc(func(context.Context, string) (*corebackups.Metadata, string, func(), error) {
+		return &corebackups.Metadata{}, "archive", func() { close(cleaned) }, nil
+	})
+	var w *Worker
+	cfg.LeaseManager = leaseManagerStub{operations: leaseOperations{
+		revoke: func(string, string) error {
+			w.Kill()
+			return nil
+		},
+	}}
+	w = startWorker(c, cfg)
+	meta, archive, cleanup, err := w.Create(c.Context(), "notes")
+	c.Check(err, tc.ErrorIs, corebackups.ErrBackupCreationWorkerDying)
+	c.Check(meta, tc.IsNil)
+	c.Check(archive, tc.Equals, "")
+	c.Check(cleanup, tc.IsNil)
+	<-cleaned
 }
 
 func (s *workerSuite) TestReleaseFailureDoesNotDiscardArchive(c *tc.C) {

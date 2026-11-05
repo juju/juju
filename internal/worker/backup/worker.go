@@ -118,10 +118,11 @@ func (c Config) Validate() error {
 // Once accepted, a request waits for generation and maintenance to stop, even
 // when cancelled. Successful callers own cleanup of the returned archive.
 func (w *Worker) Create(ctx context.Context, notes string) (*corebackups.Metadata, string, func(), error) {
+	// The unbuffered result transfers cleanup ownership only when received.
 	req := request{
 		ctx:    w.tomb.Context(ctx),
 		notes:  notes,
-		result: make(chan result, 1),
+		result: make(chan result),
 	}
 
 	select {
@@ -138,13 +139,19 @@ func (w *Worker) Create(ctx context.Context, notes string) (*corebackups.Metadat
 	case <-w.tomb.Dying():
 		return nil, "", nil, corebackups.ErrBackupCreationWorkerDying
 	case res := <-req.result:
+		var err error
 		select {
+		case <-ctx.Done():
+			err = context.Cause(ctx)
 		case <-w.tomb.Dying():
+			err = corebackups.ErrBackupCreationWorkerDying
+		default:
+		}
+		if err != nil {
 			if res.cleanup != nil {
 				res.cleanup()
 			}
-			return nil, "", nil, corebackups.ErrBackupCreationWorkerDying
-		default:
+			return nil, "", nil, err
 		}
 		return res.meta, res.archive, res.cleanup, res.err
 	}
@@ -179,7 +186,7 @@ func (w *Worker) loop() error {
 func (w *Worker) request(req request) {
 	if err := req.ctx.Err(); err != nil {
 		select {
-		case <-w.tomb.Dying():
+		case <-req.ctx.Done():
 		case req.result <- result{err: context.Cause(req.ctx)}:
 		}
 		return
@@ -198,7 +205,7 @@ func (w *Worker) request(req request) {
 		}
 	})
 	select {
-	case <-w.tomb.Dying():
+	case <-req.ctx.Done():
 		if res.cleanup != nil {
 			res.cleanup()
 		}
@@ -223,10 +230,6 @@ func (w *Worker) withLease(req request, fn func(context.Context, string) result)
 			return result{err: errors.NotYetAvailablef("a backup is already being created")}
 
 		case errors.Is(err, lease.ErrHeld):
-			// The lease is already held by another creation attempt.
-			//
-			// TODO (stickupkid): Add metrics to this to track how many
-			// concurrent requests are being made to the backup creation worker.
 			return result{err: errors.NotYetAvailablef("a backup is already being created")}
 
 		default:
@@ -319,6 +322,9 @@ func (w *Worker) create(ctx context.Context, holder, notes string) (*corebackups
 	}()
 
 	meta, archive, cleanup, err := w.cfg.CreateArchive.Create(renewCtx, notes)
+	if err == nil {
+		err = context.Cause(renewCtx)
+	}
 	if err != nil {
 		if cleanup != nil {
 			cleanup()
