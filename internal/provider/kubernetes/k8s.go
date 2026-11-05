@@ -471,9 +471,7 @@ func (k *kubernetesClient) resolveControllerStorageClass(
 	// discovery below resolves.
 	var nominatedStorageClass string
 	if defaultSource, ok := k.Config().StorageDefaultFilesystemSource(); ok {
-		nominatedStorageClass = storageClassForPool(
-			args.StoragePools, defaultSource,
-		)
+		nominatedStorageClass = storageClassForPool(args.StoragePools[defaultSource])
 	}
 	if nominatedStorageClass == "" {
 		// Either no default source is nominated, or it names a pool that
@@ -507,21 +505,6 @@ bootstrap with --storage-pool name=<pool>,type=kubernetes,storage-class=<name>`)
 	return md.WorkloadStorageClass.Name, nil
 }
 
-// storageClassForPool returns the storage class defined by the named pool
-// scheduled for creation via [environs.BootstrapParams.StoragePools], or an
-// empty string if the pool is unknown or defines no storage class.
-func storageClassForPool(pools map[string]internalstorage.Attrs, poolName string) string {
-	pool, ok := pools[poolName]
-	if !ok {
-		return ""
-	}
-	if poolType, _ := pool[corestorage.BootstrapStoragePoolTypeKey].(string); poolType != string(constants.StorageProviderType) {
-		return ""
-	}
-	storageClass, _ := pool[constants.StorageClass].(string)
-	return storageClass
-}
-
 // storageClassFromPools returns the storage class defined by the pools
 // scheduled for creation via [environs.BootstrapParams.StoragePools] that
 // use the Kubernetes storage provider, provided all such pools that define
@@ -529,8 +512,8 @@ func storageClassForPool(pools map[string]internalstorage.Attrs, poolName string
 // no pool defines a storage class, or when the classes are ambiguous.
 func storageClassFromPools(pools map[string]internalstorage.Attrs) string {
 	var found string
-	for poolName := range pools {
-		storageClass := storageClassForPool(pools, poolName)
+	for _, pool := range pools {
+		storageClass := storageClassForPool(pool)
 		switch {
 		case storageClass == "":
 			continue
@@ -543,6 +526,17 @@ func storageClassFromPools(pools map[string]internalstorage.Attrs) string {
 		}
 	}
 	return found
+}
+
+// storageClassForPool returns the storage class defined by a Kubernetes pool
+// scheduled for creation via [environs.BootstrapParams.StoragePools], or an
+// empty string if the pool is nil or defines no Kubernetes storage class.
+func storageClassForPool(pool internalstorage.Attrs) string {
+	if poolType, _ := pool[corestorage.BootstrapStoragePoolTypeKey].(string); poolType != string(constants.StorageProviderType) {
+		return ""
+	}
+	storageClass, _ := pool[constants.StorageClass].(string)
+	return storageClass
 }
 
 // Bootstrap deploys a controller into k8s cluster.
