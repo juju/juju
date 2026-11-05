@@ -22,6 +22,7 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
+	"k8s.io/apimachinery/pkg/util/validation"
 	k8scmd "k8s.io/client-go/tools/clientcmd"
 
 	"github.com/juju/juju/api/jujuclient"
@@ -38,6 +39,7 @@ import (
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -859,6 +861,63 @@ func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageReservedPoolName(c *tc.C
 	})
 	c.Check(configs.bootstrapModel["storage-default-filesystem-source"], tc.Equals, "k8s-kubernetes")
 	c.Check(configs.controllerStorageClass, tc.Equals, "kubernetes")
+}
+
+func (s *BootstrapSuite) TestBootstrapK8sWorkloadStoragePoolNames(c *tc.C) {
+	s.patchVersion(c)
+	ctx := cmdtesting.Context(c)
+	env := &openstack.Environ{}
+	provider := env.Provider()
+
+	for _, test := range []struct {
+		className string
+		poolName  string
+	}{
+		{className: "fast.ssd", poolName: "fast-ssd"},
+		{className: "0-fast", poolName: "k8s-0-fast"},
+		{className: "0", poolName: "k8s-0"},
+		{className: "a", poolName: "a"},
+		{className: "kubernetes", poolName: "k8s-kubernetes"},
+		{className: "rootfs", poolName: "k8s-rootfs"},
+		{className: "tmpfs", poolName: "k8s-tmpfs"},
+		{
+			className: "rootfs" + strings.Repeat("-", 122) + "a",
+			poolName:  "k8s-rootfs",
+		},
+		{
+			className: strings.Repeat("a", 63) + "." + strings.Repeat("b", 63) +
+				"." + strings.Repeat("c", 63) + "." + strings.Repeat("d", 61),
+			poolName: strings.Repeat("a", 63) + "-" + strings.Repeat("b", 63),
+		},
+		{
+			className: "0." + strings.Repeat("a", 63) + "." + strings.Repeat("b", 63),
+			poolName:  "k8s-0-" + strings.Repeat("a", 63) + "-" + strings.Repeat("b", 58),
+		},
+	} {
+		c.Run(test.className, func(t *testing.T) {
+			c := &tc.TBC{TB: t}
+			c.Assert(validation.IsDNS1123Subdomain(test.className), tc.HasLen, 0)
+			testCloud := cloud.Cloud{
+				Name: "myk8s",
+				Type: cloud.CloudTypeKubernetes,
+				Config: map[string]any{
+					"workload-storage": test.className,
+				},
+			}
+			configs, err := s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(configs.storagePools, tc.DeepEquals, map[string]storage.Attrs{
+				test.poolName: {
+					"name":          test.poolName,
+					"type":          "kubernetes",
+					"storage-class": test.className,
+				},
+			})
+			c.Check(domainstorage.IsValidStoragePoolName(test.poolName), tc.IsTrue)
+			c.Check(configs.bootstrapModel["storage-default-filesystem-source"], tc.Equals, test.poolName)
+			c.Check(configs.controllerStorageClass, tc.Equals, test.className)
+		})
+	}
 }
 
 func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageUserDefaultSource(c *tc.C) {
