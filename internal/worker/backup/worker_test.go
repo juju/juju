@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/juju/clock"
@@ -281,6 +282,119 @@ func (s *workerSuite) TestReleaseFailureDoesNotDiscardArchive(c *tc.C) {
 	_, _, cleanup, err := w.Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIsNil)
 	cleanup()
+}
+
+func (s *workerSuite) TestReleaseWaitsForRenewal(c *tc.C) {
+	for _, createErr := range []error{nil, errors.New("archive failed")} {
+		synctest.Test(c.T, func(t *testing.T) {
+			c := &tc.C{T: t}
+			cfg := workerConfig(c)
+			clk := &observedClock{Clock: testclock.NewClock(time.Now()), timers: make(chan struct{}, 1)}
+			cfg.Clock = clk
+			renewing := make(chan struct{})
+			finish := make(chan struct{})
+			defer close(finish)
+			var claims, cleaned atomic.Int32
+			var renewed, revoked atomic.Bool
+			cfg.LeaseManager = leaseManagerStub{operations: leaseOperations{
+				claim: func(string, string, time.Duration) error {
+					if claims.Add(1) == 2 {
+						close(renewing)
+						<-finish
+						renewed.Store(true)
+					}
+					return nil
+				},
+				revoke: func(string, string) error {
+					c.Check(renewed.Load(), tc.IsTrue)
+					revoked.Store(true)
+					return nil
+				},
+			}}
+			cfg.CreateArchive = backupCreatorFunc(func(context.Context, string) (*corebackups.Metadata, string, func(), error) {
+				<-renewing
+				return &corebackups.Metadata{}, "archive", func() { cleaned.Add(1) }, createErr
+			})
+			w := startWorker(c, cfg)
+			defer w.Kill()
+			done := make(chan result, 1)
+			go func() {
+				meta, archive, cleanup, err := w.Create(c.Context(), "notes")
+				done <- result{meta: meta, archive: archive, cleanup: cleanup, err: err}
+			}()
+			<-clk.timers
+			clk.Advance(renewInterval)
+			// Generation has finished, but renewal is still blocked.
+			synctest.Wait()
+			c.Check(revoked.Load(), tc.IsFalse)
+			c.Check(len(done), tc.Equals, 0)
+			finish <- struct{}{}
+			res := <-done
+			synctest.Wait()
+			c.Check(revoked.Load(), tc.IsTrue)
+			c.Check(claims.Load(), tc.Equals, int32(2))
+			if createErr != nil {
+				c.Check(res.err, tc.ErrorIs, createErr)
+				c.Check(res.cleanup, tc.IsNil)
+			} else {
+				c.Assert(res.err, tc.ErrorIsNil)
+				c.Check(cleaned.Load(), tc.Equals, int32(0))
+				res.cleanup()
+			}
+			c.Check(cleaned.Load(), tc.Equals, int32(1))
+		})
+	}
+}
+
+func (s *workerSuite) TestReleaseWaitsForExpiryMonitor(c *tc.C) {
+	for _, checkErr := range []error{nil, lease.ErrNotHeld} {
+		synctest.Test(c.T, func(t *testing.T) {
+			c := &tc.C{T: t}
+			cfg := workerConfig(c)
+			stopping := make(chan struct{})
+			finish := make(chan struct{})
+			defer close(finish)
+			var monitored, revoked atomic.Bool
+			cfg.LeaseManager = leaseManagerStub{operations: leaseOperations{
+				wait: func(ctx context.Context, _ string, started chan<- struct{}) error {
+					close(started)
+					<-ctx.Done()
+					close(stopping)
+					<-finish
+					monitored.Store(true)
+					return lease.ErrWaitCancelled
+				},
+				check: func(string, string) error { return checkErr },
+				revoke: func(string, string) error {
+					c.Check(monitored.Load(), tc.IsTrue)
+					revoked.Store(true)
+					return nil
+				},
+			}}
+			w := startWorker(c, cfg)
+			defer w.Kill()
+			done := make(chan result, 1)
+			go func() {
+				meta, archive, cleanup, err := w.Create(c.Context(), "notes")
+				done <- result{meta: meta, archive: archive, cleanup: cleanup, err: err}
+			}()
+			<-stopping
+			synctest.Wait()
+			c.Check(revoked.Load(), tc.IsFalse)
+			c.Check(len(done), tc.Equals, 0)
+			finish <- struct{}{}
+			res := <-done
+			synctest.Wait()
+			c.Check(revoked.Load(), tc.IsTrue)
+			if checkErr != nil {
+				c.Check(res.err, tc.ErrorIs, checkErr)
+				c.Check(res.cleanup, tc.IsNil)
+			} else {
+				c.Assert(res.err, tc.ErrorIsNil)
+				res.cleanup()
+			}
+		})
+	}
 }
 
 func (s *workerSuite) TestCreateReturnsWorkerDyingAfterShutdown(c *tc.C) {

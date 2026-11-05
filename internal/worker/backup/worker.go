@@ -257,10 +257,16 @@ func (w *Worker) withLease(req request, fn func(context.Context, string) result)
 	// leaseholder for the lease name.
 
 	waitCtx, waitCancel := context.WithCancel(ctx)
-	defer waitCancel()
+	waitDone := make(chan struct{})
+	defer func() {
+		// Stop the expiry monitor before the deferred lease revocation.
+		waitCancel()
+		<-waitDone
+	}()
 
 	waitErr := make(chan error)
 	go func() {
+		defer close(waitDone)
 		err := w.claimer.WaitUntilExpired(waitCtx, w.cfg.ControllerUUID, start)
 
 		// Ensure that the lease context is cancelled when the wait has
@@ -315,9 +321,15 @@ func (w *Worker) withLease(req request, fn func(context.Context, string) result)
 
 func (w *Worker) create(ctx context.Context, holder, notes string) (*corebackups.Metadata, string, func(), error) {
 	renewCtx, renewCancel := context.WithCancel(ctx)
-	defer renewCancel()
+	renewDone := make(chan struct{})
+	defer func() {
+		// An in-flight renewal must finish before we release the lease.
+		renewCancel()
+		<-renewDone
+	}()
 
 	go func() {
+		defer close(renewDone)
 		w.renew(renewCtx, renewCancel, w.cfg.ControllerUUID, holder)
 	}()
 
@@ -345,6 +357,9 @@ func (w *Worker) renew(ctx context.Context, cancel context.CancelFunc, leaseName
 			return
 
 		case <-timer.Chan():
+			if ctx.Err() != nil {
+				return
+			}
 			if err := w.claimer.Claim(leaseName, holder, leaseDuration); err != nil {
 				cancel()
 				return
