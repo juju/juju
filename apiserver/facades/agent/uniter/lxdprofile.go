@@ -12,68 +12,34 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
-	"github.com/juju/juju/core/instance"
-	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
 
-// LXDProfileMachine describes machine-receiver state methods
-// for executing a lxd profile upgrade.
-type LXDProfileMachine interface {
-	ContainerType() instance.ContainerType
-}
-
 type LXDProfileAPI struct {
-	machineService  MachineService
 	watcherRegistry facade.WatcherRegistry
-
-	logger     corelogger.Logger
-	accessUnit common.GetAuthFunc
-
-	modelInfoService   ModelInfoService
-	applicationService ApplicationService
+	accessUnit      common.GetAuthFunc
 }
 
-// NewLXDProfileAPI returns a new LXDProfileAPI. Currently both
-// GetAuthFuncs can used to determine current permissions.
+// NewLXDProfileAPI returns a compatibility API for LXD profile methods.
 func NewLXDProfileAPI(
-	machineService MachineService,
 	watcherRegistry facade.WatcherRegistry,
-	authorizer facade.Authorizer,
 	accessUnit common.GetAuthFunc,
-	logger corelogger.Logger,
-	modelInfoService ModelInfoService,
-	applicationService ApplicationService,
 ) *LXDProfileAPI {
 	return &LXDProfileAPI{
-		machineService:     machineService,
-		watcherRegistry:    watcherRegistry,
-		accessUnit:         accessUnit,
-		logger:             logger,
-		modelInfoService:   modelInfoService,
-		applicationService: applicationService,
+		watcherRegistry: watcherRegistry,
+		accessUnit:      accessUnit,
 	}
 }
 
 // NewExternalLXDProfileAPI can be used for API registration.
 func NewExternalLXDProfileAPI(
-	machineService MachineService,
 	watcherRegistry facade.WatcherRegistry,
-	authorizer facade.Authorizer,
 	accessUnit common.GetAuthFunc,
-	logger corelogger.Logger,
-	modelInfoService ModelInfoService,
-	applicationService ApplicationService,
 ) *LXDProfileAPI {
 	return NewLXDProfileAPI(
-		machineService,
 		watcherRegistry,
-		authorizer,
 		accessUnit,
-		logger,
-		modelInfoService,
-		applicationService,
 	)
 }
 

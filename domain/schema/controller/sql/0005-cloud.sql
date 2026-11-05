@@ -134,7 +134,7 @@ ON cloud_ca_cert (cloud_uuid, ca_cert);
 CREATE TABLE cloud_credential (
     uuid TEXT NOT NULL PRIMARY KEY,
     cloud_uuid TEXT NOT NULL,
-    auth_type_id TEXT NOT NULL,
+    auth_type_id INT NOT NULL,
     owner_uuid TEXT NOT NULL,
     name TEXT NOT NULL,
     revoked BOOLEAN,

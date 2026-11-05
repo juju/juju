@@ -304,11 +304,16 @@ func (s *State) putMetadata(ctx context.Context, tx *sqlair.TX, uuid string, met
 		Path: metadata.Path,
 	}
 
+	// A single untargeted conflict clause is standard SQL, unlike repeating
+	// ON CONFLICT per index. The table's only unique constraints are the uuid
+	// primary key and the two hash indexes. A hash conflict is resolved below
+	// by looking up the existing row. A reused uuid is ignored here too, and
+	// fails that lookup unless the hashes and size match, so it can never
+	// replace or alias existing metadata.
 	metadataStmt, err := s.Prepare(`
 INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size)
-VALUES ($dbMetadata.*) 
-ON CONFLICT (sha_256) DO NOTHING
-ON CONFLICT (sha_384) DO NOTHING`, dbMetadata)
+VALUES ($dbMetadata.*)
+ON CONFLICT DO NOTHING`, dbMetadata)
 	if err != nil {
 		return "", errors.Errorf("preparing insert metadata statement: %w", err)
 	}
@@ -346,7 +351,7 @@ AND size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
 		// the path based on that uuid.
 		err := tx.Query(ctx, metadataLookupStmt, dbMetadata).Get(&dbMetadataPath)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return "", objectstoreerrors.ErrHashAndSizeAlreadyExists
+			return "", s.metadataConflictError(ctx, tx, dbMetadata)
 		} else if err != nil {
 			return "", errors.Errorf("inserting metadata: %w", err)
 		}
@@ -374,6 +379,29 @@ AND size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
 		return "", errors.Errorf("metadata path not inserted")
 	}
 	return uuid, nil
+}
+
+// metadataConflictError explains why metadata that conflicted on insert has
+// no existing row with the same hashes and size. Either its uuid is already
+// used by other metadata, or one of its hashes is stored with a different
+// size.
+func (s *State) metadataConflictError(ctx context.Context, tx *sqlair.TX, metadata dbMetadata) error {
+	stmt, err := s.Prepare(`
+SELECT osm.uuid AS &dbMetadata.uuid
+FROM   object_store_metadata AS osm
+WHERE  osm.uuid = $dbMetadata.uuid`, metadata)
+	if err != nil {
+		return errors.Errorf("preparing select metadata uuid statement: %w", err)
+	}
+
+	var existing dbMetadata
+	err = tx.Query(ctx, stmt, metadata).Get(&existing)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return objectstoreerrors.ErrHashAndSizeAlreadyExists
+	} else if err != nil {
+		return errors.Errorf("selecting metadata uuid: %w", err)
+	}
+	return objectstoreerrors.ErrMetadataUUIDAlreadyExists
 }
 
 // AddControllerIDHint adds a controller ID hint for the specified SHA384. This

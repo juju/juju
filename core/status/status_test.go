@@ -17,39 +17,6 @@ func TestStatusSuite(t *testing.T) {
 	tc.Run(t, &StatusSuite{})
 }
 
-func (s *StatusSuite) TestModification(c *tc.C) {
-	testcases := []struct {
-		name   string
-		status status.Status
-		valid  bool
-	}{
-		{
-			name:   "error",
-			status: status.Error,
-			valid:  true,
-		},
-		{
-			name:   "unknown",
-			status: status.Unknown,
-			valid:  true,
-		},
-		{
-			name:   "idle",
-			status: status.Idle,
-			valid:  true,
-		},
-		{
-			name:   "pending",
-			status: status.Pending,
-			valid:  false,
-		},
-	}
-	for k, v := range testcases {
-		c.Logf("Testing modification status %d %s", k, v.name)
-		c.Assert(v.status.KnownModificationStatus(), tc.Equals, v.valid)
-	}
-}
-
 func (s *StatusSuite) TestValidModelStatus(c *tc.C) {
 	for _, v := range []status.Status{
 		status.Available,

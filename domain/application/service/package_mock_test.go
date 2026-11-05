@@ -418,6 +418,7 @@ type MockStateMockRecorder struct {
 	getCharmDownloadInfoExpects                               []*gomock.Call2_2[context.Context, charm.ID, *charm0.DownloadInfo, error]
 	getCharmIDExpects                                         []*gomock.Call4_2[context.Context, string, int, charm0.CharmSource, charm.ID, error]
 	getCharmIDByApplicationNameExpects                        []*gomock.Call2_2[context.Context, string, charm.ID, error]
+	getCharmIDByUnitNameExpects                               []*gomock.Call2_2[context.Context, unit.Name, charm.ID, error]
 	getCharmLocatorByCharmIDExpects                           []*gomock.Call2_2[context.Context, charm.ID, charm0.CharmLocator, error]
 	getCharmManifestExpects                                   []*gomock.Call2_2[context.Context, charm.ID, charm0.Manifest, error]
 	getCharmMetadataExpects                                   []*gomock.Call2_2[context.Context, charm.ID, charm0.Metadata, error]
@@ -1481,6 +1482,24 @@ func (mr *MockStateMockRecorder) GetCharmIDByApplicationName(arg0, arg1 any) *Mo
 
 // MockStateGetCharmIDByApplicationNameCall is the typed call wrapper for GetCharmIDByApplicationName.
 type MockStateGetCharmIDByApplicationNameCall = gomock.Call2_2[context.Context, string, charm.ID, error]
+
+// GetCharmIDByUnitName mocks base method.
+func (m *MockState) GetCharmIDByUnitName(arg0 context.Context, arg1 unit.Name) (charm.ID, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getCharmIDByUnitNameExpects, m.ctrl, m, "GetCharmIDByUnitName", arg0, arg1)
+}
+
+// GetCharmIDByUnitName indicates an expected call of GetCharmIDByUnitName.
+func (mr *MockStateMockRecorder) GetCharmIDByUnitName(arg0, arg1 any) *MockStateGetCharmIDByUnitNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, unit.Name, charm.ID, error](mr.mock.ctrl.T, mr.mock, "GetCharmIDByUnitName", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.getCharmIDByUnitNameExpects = append(mr.getCharmIDByUnitNameExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetCharmIDByUnitNameCall is the typed call wrapper for GetCharmIDByUnitName.
+type MockStateGetCharmIDByUnitNameCall = gomock.Call2_2[context.Context, unit.Name, charm.ID, error]
 
 // GetCharmLocatorByCharmID mocks base method.
 func (m *MockState) GetCharmLocatorByCharmID(ctx context.Context, id charm.ID) (charm0.CharmLocator, error) {

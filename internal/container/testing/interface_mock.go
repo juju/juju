@@ -34,7 +34,6 @@ type MockTestLXDManagerMockRecorder struct {
 	createContainerExpects  []*gomock.Call7_3[context.Context, *instancecfg.InstanceConfig, constraints.Value, base.Base, *container.NetworkConfig, *container.StorageConfig, environs.StatusCallbackFunc, instances.Instance, *instance.HardwareCharacteristics, error]
 	destroyContainerExpects []*gomock.Call1_1[instance.Id, error]
 	isInitializedExpects    []*gomock.Call0_1[bool]
-	lXDProfileNamesExpects  []*gomock.Call1_2[string, []string, error]
 	listContainersExpects   []*gomock.Call0_2[[]instances.Instance, error]
 	namespaceExpects        []*gomock.Call0_1[instance.Namespace]
 }
@@ -104,24 +103,6 @@ func (mr *MockTestLXDManagerMockRecorder) IsInitialized() *MockTestLXDManagerIsI
 
 // MockTestLXDManagerIsInitializedCall is the typed call wrapper for IsInitialized.
 type MockTestLXDManagerIsInitializedCall = gomock.Call0_1[bool]
-
-// LXDProfileNames mocks base method.
-func (m *MockTestLXDManager) LXDProfileNames(arg0 string) ([]string, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.lXDProfileNamesExpects, m.ctrl, m, "LXDProfileNames", arg0)
-}
-
-// LXDProfileNames indicates an expected call of LXDProfileNames.
-func (mr *MockTestLXDManagerMockRecorder) LXDProfileNames(arg0 any) *MockTestLXDManagerLXDProfileNamesCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[string, []string, error](mr.mock.ctrl.T, mr.mock, "LXDProfileNames", gomock.EnsureMatcher(arg0))
-	mr.lXDProfileNamesExpects = append(mr.lXDProfileNamesExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockTestLXDManagerLXDProfileNamesCall is the typed call wrapper for LXDProfileNames.
-type MockTestLXDManagerLXDProfileNamesCall = gomock.Call1_2[string, []string, error]
 
 // ListContainers mocks base method.
 func (m *MockTestLXDManager) ListContainers() ([]instances.Instance, error) {

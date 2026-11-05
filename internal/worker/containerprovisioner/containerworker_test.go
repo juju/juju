@@ -293,12 +293,6 @@ func (s *containerWorkerSuite) stubOutProvisioner(ctrl *gomock.Controller) {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(watchSource))
 			return nil
 		}).AnyTimes()
-	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "WatchContainersCharmProfiles", gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ string, _ int, _ string, _ string, _ any, result any) error {
-			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(watchSource))
-			return nil
-		}).AnyTimes()
-
 	controllerCfgSource := params.ControllerConfigResult{
 		Config: map[string]any{"controller-uuid": s.controllerUUID.String()},
 	}

@@ -281,10 +281,6 @@ Use of the ` + "`--force-units`" + ` option is not generally recommended; units 
 while in an error state will not have ` + "`upgrade-charm`" + ` hooks executed, and may
 cause unexpected behavior.
 
-` + "`--force`" + ` option for LXD Profiles is not generally recommended when upgrading an
-application; overriding profiles on the container may cause unexpected
-behavior.
-
 ### Behavior on machines vs. Kubernetes
 
 On machines, charm upgrades happen at the same time on all units of an application.
@@ -335,7 +331,7 @@ func (c *refreshCommand) Info() *cmd.Info {
 
 func (c *refreshCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.Force, "force", false, "Allow a charm to be refreshed which bypasses LXD profile allow list")
+	f.BoolVar(&c.Force, "force", false, "Allow the charm to be upgraded on units in an error state")
 	f.BoolVar(&c.ForceUnits, "force-units", false, "Refresh all units immediately, even if in error state")
 	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the charm from Charmhub")
 	f.BoolVar(&c.ForceBase, "force-base", false, "Refresh even if the base of the deployed application is not supported by the new charm")

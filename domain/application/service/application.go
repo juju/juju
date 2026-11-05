@@ -180,6 +180,12 @@ type ApplicationState interface {
 	// the charm metadata.
 	GetCharmIDByApplicationName(context.Context, string) (corecharm.ID, error)
 
+	// GetCharmIDByUnitName returns the charm ID for the charm the named unit is
+	// currently running. It returns an error if the unit can not be found. This
+	// can also be used as a cheap way to see if a unit exists without needing to
+	// load the charm metadata.
+	GetCharmIDByUnitName(context.Context, coreunit.Name) (corecharm.ID, error)
+
 	// SetApplicationCharm sets a new charm for the specified application using
 	// the provided parameters and validates changes.
 	SetApplicationCharm(ctx context.Context, appUUID coreapplication.UUID, charmID corecharm.ID, params application.SetCharmStateParams) error
@@ -780,6 +786,32 @@ func (s *Service) GetCharmLocatorByApplicationName(ctx context.Context, name str
 	}
 
 	charmID, err := s.st.GetCharmIDByApplicationName(ctx, name)
+	if err != nil {
+		return charm.CharmLocator{}, errors.Capture(err)
+	}
+
+	locator, err := s.getCharmLocatorByID(ctx, charmID)
+	return locator, errors.Capture(err)
+}
+
+// GetCharmLocatorByUnitName returns a CharmLocator for the charm the named
+// unit is currently running. It returns an error if the unit or the charm
+// can not be found. The unit's charm differs from the application's charm
+// while a unit of the application has not yet upgraded, such as during a
+// rolling charm refresh.
+//
+// Returns [coreunit.InvalidUnitName] if the unit name is not valid,
+// [applicationerrors.UnitNotFound] if the unit is not found, and
+// [applicationerrors.CharmNotFound] if the charm is not found.
+func (s *Service) GetCharmLocatorByUnitName(ctx context.Context, name coreunit.Name) (charm.CharmLocator, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := name.Validate(); err != nil {
+		return charm.CharmLocator{}, errors.Errorf("unit name: %w", err)
+	}
+
+	charmID, err := s.st.GetCharmIDByUnitName(ctx, name)
 	if err != nil {
 		return charm.CharmLocator{}, errors.Capture(err)
 	}
@@ -2113,7 +2145,6 @@ func coerceValue(t charm.OptionType, value string) (any, error) {
 	default:
 		return nil, errors.Errorf("unknown config type %q", t)
 	}
-
 }
 
 func (s *ProviderService) makeSetCharmStateArg(

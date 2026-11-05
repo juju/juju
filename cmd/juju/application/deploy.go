@@ -544,11 +544,6 @@ bundle.
 Only top level machines can be mapped in this way, just as only top level
 machines can be defined in the machines section of the bundle.
 
-When charms that include LXD profiles are deployed the profiles are validated
-for security purposes by allowing only certain configurations and devices. Use
-the ` + "`--force`" + ` option to bypass this check. Doing so is not recommended as it
-can lead to unexpected behaviour.
-
 `
 
 const deployExamples = `
@@ -653,7 +648,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Base, "base", "", "The base on which to deploy")
 	f.IntVar(&c.Revision, "revision", -1, "The charm revision to deploy. This will implicitly change the resource revision to the one released with the specified charm revision. To override that use --resource")
 	f.BoolVar(&c.DryRun, "dry-run", false, "Just show what the deploy would do")
-	f.BoolVar(&c.Force, "force", false, "Allow a charm/bundle to be deployed which bypasses checks such as supported base or LXD profile allow list")
+	f.BoolVar(&c.Force, "force", false, "Allow a charm/bundle to be deployed by bypassing checks such as supported base requirements")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage directives")
 	f.Var(devicesFlag{&c.Devices, &c.BundleDevices}, "device", "Charm device constraints")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")

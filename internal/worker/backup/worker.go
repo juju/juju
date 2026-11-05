@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package backupcreation
+package backup
 
 import (
 	"context"
@@ -36,9 +36,8 @@ type Config struct {
 
 // Worker creates archives on demand and maintains their creation lease.
 type Worker struct {
-	tomb   tomb.Tomb
-	cfg    Config
-	holder string
+	tomb tomb.Tomb
+	cfg  Config
 
 	claimer lease.Claimer
 	checker lease.Checker
@@ -79,8 +78,6 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 	}
 	w := &Worker{
 		cfg: cfg,
-
-		holder: cfg.ControllerNodeID,
 
 		claimer:  claimer,
 		checker:  checker,
@@ -188,8 +185,8 @@ func (w *Worker) request(req request) {
 		return
 	}
 
-	res := w.withLease(req, func(ctx context.Context) result {
-		metadata, archive, cleanup, err := w.create(ctx, req.notes)
+	res := w.withLease(req, func(ctx context.Context, holder string) result {
+		metadata, archive, cleanup, err := w.create(ctx, holder, req.notes)
 		if err != nil {
 			return result{err: err}
 		}
@@ -209,18 +206,24 @@ func (w *Worker) request(req request) {
 	}
 }
 
-func (w *Worker) withLease(req request, fn func(context.Context) result) result {
+func (w *Worker) withLease(req request, fn func(context.Context, string) result) result {
 	ctx, cancel := context.WithCancelCause(req.ctx)
 	defer cancel(nil)
 
-	if err := w.claimer.Claim(w.cfg.ControllerUUID, w.holder, leaseDuration); err != nil {
+	// Claim extends a lease already held by the same holder. Each creation
+	// therefore needs its own holder, retained for renewal and release.
+	attemptUUID, err := uuid.NewUUID()
+	if err != nil {
+		return result{err: errors.Annotate(err, "generating backup creation lease holder")}
+	}
+	holder := w.cfg.ControllerNodeID + ":" + attemptUUID.String()
+	if err := w.claimer.Claim(w.cfg.ControllerUUID, holder, leaseDuration); err != nil {
 		switch {
 		case errors.Is(err, lease.ErrClaimDenied):
 			return result{err: errors.NotYetAvailablef("a backup is already being created")}
 
 		case errors.Is(err, lease.ErrHeld):
-			// The lease is already held by the holder, if this is the case a
-			// concurrent request is being processed.
+			// The lease is already held by another creation attempt.
 			//
 			// TODO (stickupkid): Add metrics to this to track how many
 			// concurrent requests are being made to the backup creation worker.
@@ -230,7 +233,7 @@ func (w *Worker) withLease(req request, fn func(context.Context) result) result 
 			return result{err: errors.Annotate(err, "claiming backup creation lease")}
 		}
 	}
-	defer w.revoke(ctx, w.holder)
+	defer w.revoke(ctx, holder)
 
 	// The leaseCtx will be cancelled when the lease is no longer held by the
 	// leaseholder. This may or may not be the same as the holderName for the
@@ -300,19 +303,19 @@ func (w *Worker) withLease(req request, fn func(context.Context) result) result 
 	// Ensure that the lease is held by the holder before proceeding. We're
 	// guaranteed that the lease is held by the holder, otherwise the context
 	// will have been cancelled.
-	if err := w.checker.Token(w.cfg.ControllerUUID, w.holder).Check(); err != nil {
+	if err := w.checker.Token(w.cfg.ControllerUUID, holder).Check(); err != nil {
 		return result{err: errors.Annotate(err, "checking backup creation lease token")}
 	}
 
-	return fn(ctx)
+	return fn(ctx, holder)
 }
 
-func (w *Worker) create(ctx context.Context, notes string) (*corebackups.Metadata, string, func(), error) {
+func (w *Worker) create(ctx context.Context, holder, notes string) (*corebackups.Metadata, string, func(), error) {
 	renewCtx, renewCancel := context.WithCancel(ctx)
 	defer renewCancel()
 
 	go func() {
-		w.renew(renewCtx, renewCancel, w.cfg.ControllerUUID, w.holder)
+		w.renew(renewCtx, renewCancel, w.cfg.ControllerUUID, holder)
 	}()
 
 	meta, archive, cleanup, err := w.cfg.CreateArchive.Create(renewCtx, notes)
