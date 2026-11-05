@@ -33,6 +33,17 @@ type modelStateSuite struct {
 	state *ModelState
 }
 
+type architectureRecord struct {
+	ID   int    `db:"id"`
+	Name string `db:"name"`
+}
+
+type agentBinaryRecord struct {
+	Version         string `db:"version"`
+	ArchitectureID  int    `db:"architecture_id"`
+	ObjectStoreUUID string `db:"object_store_uuid"`
+}
+
 func TestModelStateSuite(t *testing.T) {
 	tc.Run(t, &modelStateSuite{})
 }
