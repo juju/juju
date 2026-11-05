@@ -450,6 +450,7 @@ post_add_model() {
 add_client_ssh_key_to_juju_model() {
 	local model_name="$1"
 	local ssh_key_file="${JUJU_DATA:-${HOME}/.local/share/juju}/ssh/juju_id_ed25519.pub"
+	local output exit_code
 
 	# Check if model name is provided
 	if [[ -z $model_name ]]; then
@@ -465,11 +466,12 @@ add_client_ssh_key_to_juju_model() {
 
 	# Validate SSH key
 	if ssh-keygen -l -f "${ssh_key_file}" >/dev/null 2>&1; then
-		output=$(juju add-ssh-key -m "${model_name}" "$(cat "${ssh_key_file}")" 2>&1)
-		exit_code=$?
-		if [[ $exit_code -ne 0 ]]; then
-			echo "Error adding SSH key to model '${model_name}': $output"
-			return
+		if output=$(juju add-ssh-key --show-log -m "${model_name}" "$(cat "${ssh_key_file}")" 2>&1); then
+			:
+		else
+			exit_code=$?
+			echo "Error adding SSH key to model '${model_name}': $output" >&2
+			return "${exit_code}"
 		fi
 	else
 		echo "Error: The file '${ssh_key_file}' does not contain a valid SSH public key."
