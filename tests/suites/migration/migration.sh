@@ -685,16 +685,13 @@ run_migration_36_cmr_secrets_consumer() {
 	# Writes must resume on the migrated consumer.
 	juju switch "${consumer_40}"
 	wait_for "postgresql-test-app" "$(active_idle_condition "postgresql-test-app")"
-	sleep 30
-	consumer_post=$(mig_writes_get "juju" "${consumer_40}")
-	mig_assert_writes_increase "${consumer_pre}" "${consumer_post}" "${consumer_pre}" "migrated consumer ${consumer_40}"
+	consumer_post=$(wait_for_mig_writes_increase "juju" "${consumer_40}" "${consumer_pre}")
 
 	# Rotate the PostgreSQL operator password: the consumer's continuous
 	# writes must not regress.
 	${JUJU_36} run -m "${offerer}" postgresql-k8s/leader set-password username=operator
 	wait_for "postgresql-test-app" "$(active_idle_condition "postgresql-test-app")"
-	consumer_post2=$(mig_writes_get "juju" "${consumer_40}")
-	mig_assert_writes_increase "${consumer_post}" "${consumer_post2}" "${consumer_pre}" "migrated consumer after secret rotation"
+	wait_for_mig_writes_increase "juju" "${consumer_40}" "${consumer_post}" >/dev/null
 
 	# Consumed-secret watch across the mixed-version cross-model relation
 	# (juju/juju#23341): a new revision of a charm-owned secret on the 3.6
@@ -853,10 +850,8 @@ run_migration_36_cmr_secrets_offerer() {
 
 	juju switch "${offerer_40}"
 	wait_for "postgresql-k8s" "$(active_idle_condition "postgresql-k8s")"
-	# Let the migrated writer recover before querying PostgreSQL, as in the
-	# consuming-side migration test.
+	# Wait for the migrated writer before polling the database counter.
 	wait_for "postgresql-test-app" "$(active_idle_condition "postgresql-test-app")"
-	sleep 30
 
 	# The offer moved with the model and the third-party consumer is still
 	# connected.
@@ -866,11 +861,10 @@ run_migration_36_cmr_secrets_offerer() {
 	# In-model relation data must not be reset by the offering-side
 	# migration (juju/juju#23337): the write counter continues, never
 	# restarts.
-	local_post=$(mig_writes_get "juju" "${offerer_40}")
-	mig_assert_writes_ge "${pre_local}" "${local_post}" "in-model writer after offering migration"
-	sleep 30
-	local_post2=$(mig_writes_get "juju" "${offerer_40}")
-	mig_assert_writes_increase "${pre_local}" "${local_post2}" "${pre_local}" "in-model writer ${offerer_40}"
+	local_post=$(wait_for_mig_writes_increase "juju" "${offerer_40}" "${pre_local}")
+	# Observe a further write against the recovered count, so writes made
+	# before migration cannot satisfy the continuity check.
+	wait_for_mig_writes_increase "juju" "${offerer_40}" "${local_post}" >/dev/null
 
 	# The third-party consumer on the untouched 4.0 controller must work
 	# once the offerer is migrated to 4.0 (juju/juju#23262): the connection
@@ -905,10 +899,7 @@ run_migration_36_cmr_secrets_offerer() {
 		|| { red "start-continuous-writes failed on ${consumer_model} (rc=$?)"; exit 1; }
 	hub_post=$(mig_writes_get "juju" "${consumer_40}") \
 		|| { red "mig_writes_get failed for ${consumer_model} (rc=$?)"; exit 1; }
-	sleep 30
-	hub_post2=$(mig_writes_get "juju" "${consumer_40}") \
-		|| { red "mig_writes_get failed for ${consumer_model} (rc=$?)"; exit 1; }
-	mig_assert_writes_increase "${hub_post}" "${hub_post2}" "${hub_post}" "third-party consumer ${consumer_40}"
+	hub_post2=$(wait_for_mig_writes_increase "juju" "${consumer_40}" "${hub_post}")
 	check_not_contains "$(juju status -m "${consumer_40}" --format=json 2>&1 || true)" '"current": "error"'
 
 	# The postgresql PVC storage must have moved with the model.
@@ -920,9 +911,7 @@ run_migration_36_cmr_secrets_offerer() {
 	# writes must not regress.
 	juju run -m "${offerer_40}" postgresql-k8s/leader set-password username=operator
 	wait_for "postgresql-k8s" "$(active_idle_condition "postgresql-k8s")"
-	hub_post3=$(mig_writes_get "juju" "${consumer_40}") \
-		|| { red "mig_writes_get failed for ${consumer_model} (rc=$?)"; exit 1; }
-	mig_assert_writes_increase "${hub_post2}" "${hub_post3}" "${hub_post2}" "third-party consumer after secret rotation"
+	wait_for_mig_writes_increase "juju" "${consumer_40}" "${hub_post2}" >/dev/null
 
 	# The offer must be removed before model/controller destruction will
 	# work. See discussion under https://bugs.launchpad.net/juju/+bug/1830292.
