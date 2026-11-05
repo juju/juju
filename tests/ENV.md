@@ -2,6 +2,11 @@ The following is a list of environment variables that are used to control
 behaviour in the Bash tests. This list may not be complete, and as always, the
 definitive source is the code.
 
+Bootstraps on AWS, GCE, and Azure default to minimum controller constraints of
+`cores=2 mem=8G root-disk=30G`. These are minimums, not resource limits;
+clouds may choose larger instances. Tests can override individual constraints
+with `--bootstrap-constraints` in `BOOTSTRAP_ADDITIONAL_ARGS`.
+
 | Variable name                 | Description                                                                        |
 |-------------------------------|------------------------------------------------------------------------------------|
 | `BOOTSTRAP_ADDITIONAL_ARGS`   | Additional arguments passed to `juju bootstrap`.                                   |
