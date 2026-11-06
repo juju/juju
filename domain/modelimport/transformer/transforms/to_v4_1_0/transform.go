@@ -55,6 +55,8 @@ type Deltas interface {
 	Unit(ctx context.Context, src []v4_0_12.Unit, model *v4_0_12.ModelExport) ([]v4_1_0.Unit, error)
 	// UnitResource: struct shape changed in 4.1.0.
 	UnitResource(ctx context.Context, src []v4_0_12.UnitResource, model *v4_0_12.ModelExport) ([]v4_1_0.UnitResource, error)
+	// UnitStateRelation: struct shape changed in 4.1.0.
+	UnitStateRelation(ctx context.Context, src []v4_0_12.UnitStateRelation, model *v4_0_12.ModelExport) ([]v4_1_0.UnitStateRelation, error)
 	// MachineReprovision: new table in 4.1.0; derive from *v4_0_12.ModelExport.
 	MachineReprovision(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.MachineReprovision, error)
 	// MachineVirtualSshHostKey: new table in 4.1.0; derive from *v4_0_12.ModelExport.
@@ -1178,11 +1180,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.UnitStateCharm[i] = v4_1_0.UnitStateCharm(src.UnitStateCharm[i])
 		}
 
-		dst.UnitStateRelation = make([]v4_1_0.UnitStateRelation, len(src.UnitStateRelation))
-		for i := range src.UnitStateRelation {
-			dst.UnitStateRelation[i] = v4_1_0.UnitStateRelation(src.UnitStateRelation[i])
-		}
-
 		dst.UnitStorageDirective = make([]v4_1_0.UnitStorageDirective, len(src.UnitStorageDirective))
 		for i := range src.UnitStorageDirective {
 			dst.UnitStorageDirective[i] = v4_1_0.UnitStorageDirective(src.UnitStorageDirective[i])
@@ -1278,6 +1275,10 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 
 		if dst.UnitResource, err = d.UnitResource(ctx, src.UnitResource, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("UnitResource delta: %w", err)
+		}
+
+		if dst.UnitStateRelation, err = d.UnitStateRelation(ctx, src.UnitStateRelation, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("UnitStateRelation delta: %w", err)
 		}
 
 		if dst.MachineReprovision, err = d.MachineReprovision(ctx, &src); err != nil {

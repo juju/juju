@@ -1596,7 +1596,7 @@ type UnitStateCharm struct {
 
 type UnitStateRelation struct {
 	UnitUUID string `db:"unit_uuid" json:"unit_uuid" yaml:"unit_uuid"`
-	Key      string `db:"key" json:"key" yaml:"key"`
+	Key      int64  `db:"key" json:"key" yaml:"key"`
 	Value    string `db:"value" json:"value" yaml:"value"`
 }
 
