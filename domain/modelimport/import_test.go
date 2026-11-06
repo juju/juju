@@ -319,6 +319,10 @@ func (s *importSuite) TestImportTransformsLegacyTextIDs(c *tc.C) {
 			RelationUUID: relationUUID, RelationStatusTypeID: "1",
 		}},
 		RelationStatusType: []v4_0_12.RelationStatusType{{ID: "1", Name: "joined"}},
+		UnitStateRelation: []v4_0_12.UnitStateRelation{
+			{UnitUUID: unitUUID, Key: "1", Value: "checkpoint"},
+			{UnitUUID: unitUUID, Key: "43", Value: "orphan checkpoint"},
+		},
 	}
 
 	// Exercise the same YAML decoding boundary as a legacy migration.
@@ -351,6 +355,10 @@ func (s *importSuite) TestImportTransformsLegacyTextIDs(c *tc.C) {
 	c.Check(got.RelationStatus, tc.DeepEquals, []v4_1_0.RelationStatus{{
 		RelationUUID: relationUUID, RelationStatusTypeID: 1,
 	}})
+	c.Check(got.UnitStateRelation, tc.SameContents, []v4_1_0.UnitStateRelation{
+		{UnitUUID: unitUUID, Key: 1, Value: "checkpoint"},
+		{UnitUUID: unitUUID, Key: 43, Value: "orphan checkpoint"},
+	})
 	c.Check(got.RelationStatusType, tc.SameContents, []v4_1_0.RelationStatusType{
 		{ID: 0, Name: "joining"},
 		{ID: 1, Name: "joined"},
@@ -370,6 +378,7 @@ func (s *importSuite) TestImportTransformsLegacyTextIDs(c *tc.C) {
 		`SELECT typeof(os_id) FROM application_platform`,
 		`SELECT typeof(os_id) FROM machine_platform`,
 		`SELECT typeof(relation_status_type_id) FROM relation_status`,
+		`SELECT group_concat(DISTINCT typeof("key")) FROM unit_state_relation`,
 		`SELECT group_concat(DISTINCT typeof(id)) FROM relation_status_type`,
 	} {
 		var typ string

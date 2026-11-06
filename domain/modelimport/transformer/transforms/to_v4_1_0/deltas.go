@@ -327,6 +327,23 @@ func parseOptionalID(column string, value *string) (*int64, error) {
 	return &id, nil
 }
 
+// UnitStateRelation converts legacy text relation keys to integer IDs.
+func (d deltas) UnitStateRelation(_ context.Context, src []v4_0_12.UnitStateRelation, _ *v4_0_12.ModelExport) ([]v4_1_0.UnitStateRelation, error) {
+	result := make([]v4_1_0.UnitStateRelation, len(src))
+	for i, row := range src {
+		id, err := parseID("unit_state_relation.key", row.Key)
+		if err != nil {
+			return nil, errors.Errorf("unit state relation for %q: %w", row.UnitUUID, err)
+		}
+		result[i] = v4_1_0.UnitStateRelation{
+			UnitUUID: row.UnitUUID,
+			Key:      id,
+			Value:    row.Value,
+		}
+	}
+	return result, nil
+}
+
 // ApplicationAgent parses the password_hash_algorithm_id column, which
 // changed from TEXT to INTEGER in 4.1.0.
 func (d deltas) ApplicationAgent(_ context.Context, src []v4_0_12.ApplicationAgent, _ *v4_0_12.ModelExport) ([]v4_1_0.ApplicationAgent, error) {

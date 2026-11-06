@@ -5,13 +5,11 @@ package state
 
 import (
 	"database/sql"
-	"strconv"
 	"time"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/secret"
-	"github.com/juju/juju/internal/errors"
 )
 
 // charmSecretRemovalJobTypeID is used when scheduling deletion of unit- or
@@ -286,12 +284,8 @@ type unitStateKeyVal[T comparable] struct {
 }
 
 type unitCharmStateKeyVal unitStateKeyVal[string]
-type unitRelationStateKeyVal unitStateKeyVal[string]
+type unitRelationStateKeyVal unitStateKeyVal[int]
 type relationIDs []int
-
-type relationID struct {
-	ID int `db:"relation_id"`
-}
 
 func makeUnitCharmStateKeyVals(unitUUID entityUUID, kv map[string]string) []unitCharmStateKeyVal {
 	keyVals := make([]unitCharmStateKeyVal, 0, len(kv))
@@ -313,16 +307,12 @@ func makeMapFromCharmUnitStateKeyVals(us []unitCharmStateKeyVal) map[string]stri
 	return m
 }
 
-func makeMapFromRelationUnitStateKeyVals(us []unitRelationStateKeyVal) (map[int]string, error) {
+func makeMapFromRelationUnitStateKeyVals(us []unitRelationStateKeyVal) map[int]string {
 	m := map[int]string{}
 	for _, kv := range us {
-		id, err := strconv.Atoi(kv.Key)
-		if err != nil {
-			return nil, errors.Errorf("parsing relation ID %q: %w", kv.Key, err)
-		}
-		m[id] = kv.Value
+		m[kv.Key] = kv.Value
 	}
-	return m, nil
+	return m
 }
 
 type secretInfo struct {
