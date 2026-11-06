@@ -150,6 +150,15 @@ func (s *stateSuite) TestGetUnitStateUnitNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
+func (s *stateSuite) TestGetUnitStateInvalidRelationKey(c *tc.C) {
+	s.query(c, `INSERT INTO unit_state_relation (unit_uuid, "key", value) VALUES (?, ?, ?)`,
+		s.unitUUID, "not-a-relation-id", "checkpoint")
+
+	state, err := s.state.GetUnitState(c.Context(), s.unitName)
+	c.Assert(err, tc.ErrorMatches, `.*parsing relation ID "not-a-relation-id".*`)
+	c.Check(state, tc.DeepEquals, unitstate.RetrievedUnitState{})
+}
+
 func (s *stateSuite) TestEnsureUnitStateRecord(c *tc.C) {
 	ctx := c.Context()
 
@@ -325,9 +334,9 @@ func (s *stateSuite) TestUpdateUnitStateRelation(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	gotState := make(map[int]string)
+	gotState := make(map[string]string)
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		gotState = map[int]string{}
+		gotState = map[string]string{}
 
 		q := "SELECT key, value FROM unit_state_relation WHERE unit_uuid = ?"
 		rows, err := tx.QueryContext(ctx, q, s.unitUUID)
@@ -337,7 +346,7 @@ func (s *stateSuite) TestUpdateUnitStateRelation(c *tc.C) {
 		defer func() { _ = rows.Close() }()
 
 		for rows.Next() {
-			var k int
+			var k string
 			var v string
 			if err := rows.Scan(&k, &v); err != nil {
 				return err
@@ -348,7 +357,7 @@ func (s *stateSuite) TestUpdateUnitStateRelation(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(gotState, tc.DeepEquals, expState)
+	c.Check(gotState, tc.DeepEquals, map[string]string{"2": "two-val", "3": "three-val"})
 }
 
 func (s *stateSuite) TestUpdateUnitStateRelationEmptyMap(c *tc.C) {
