@@ -249,6 +249,31 @@ func (s *controllerStateSuite) TestGetLokiConfig(c *tc.C) {
 	c.Check(*config.InsecureSkipVerify, tc.IsTrue)
 }
 
+func (s *controllerStateSuite) TestGetLokiConfigNullableInsecureSkipVerify(c *tc.C) {
+	s.runQuery(c, `INSERT INTO logging_loki_config (uuid, endpoint) VALUES (?, ?)`,
+		"loki-uuid-1", "https://loki.example.com/loki/api/v1/push")
+
+	for _, test := range []struct {
+		name  string
+		value any
+		want  *bool
+	}{
+		{name: "null", value: nil},
+		{name: "false", value: false, want: new(false)},
+		{name: "true", value: true, want: new(true)},
+	} {
+		s.runQuery(c, `UPDATE logging_loki_config SET insecure_skip_verify = ?`, test.value)
+		config, err := s.state.GetLokiConfig(c.Context())
+		c.Assert(err, tc.ErrorIsNil)
+		if test.want == nil {
+			c.Check(config.InsecureSkipVerify, tc.IsNil, tc.Commentf("%s", test.name))
+			continue
+		}
+		c.Assert(config.InsecureSkipVerify, tc.NotNil, tc.Commentf("%s", test.name))
+		c.Check(*config.InsecureSkipVerify, tc.Equals, *test.want, tc.Commentf("%s", test.name))
+	}
+}
+
 // setupCloud inserts a cloud and returns its UUID.
 func (s *controllerStateSuite) setupCloud(c *tc.C, name, endpoint string) string {
 	uuid := "cloud-uuid-" + name
