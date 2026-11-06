@@ -33,15 +33,6 @@ jobs:
       - name: "Test domains against dqlite"
         shell: bash
         run: |
-          # TODO: Re-enable these packages after fixing nullable BOOLEAN
-          # results in dqlite. Both still run in the SQLite-backed suite.
-          packages=$(
-            go list ./domain/... |
-              grep -v \
-                -e '^github.com/juju/juju/domain/logging/state$' \
-                -e '^github.com/juju/juju/domain/machine/state$' |
-              tr '\n' ' '
-          )
           make run-go-tests \
-            TEST_PACKAGES="$packages" \
+            TEST_PACKAGES="./domain/..." \
             TEST_ARGS="-race -count=1"
