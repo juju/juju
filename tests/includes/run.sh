@@ -1,3 +1,127 @@
+# run_concurrently <subtest> starts a subtest like run does, but in the
+# background, so subtests that wait on their own machines overlap. Call
+# wait_for_subtests before anything that depends on them. At most
+# SUBTEST_CONCURRENCY (default 4) run at once; 1 runs them one by one, as
+# run does.
+#
+# Each subtest gets its own copy of the client store (JUJU_DATA), so it has
+# its own current model on the shared controller. Only use it for subtests
+# that work in their own models and neither bootstrap nor destroy
+# controllers: a controller bootstrapped in a copy is unknown to cleanup.
+#
+# The copy holds credentials, so it lives outside TEST_DIR, which is
+# archived as the test artifact. It is removed at the end of the run
+# (remove_subtest_scratch_dirs), as the subtest's background model destroys
+# still use it after the subtest has finished.
+#
+# ```
+# run_concurrently "run_one"
+# run_concurrently "run_two"
+# wait_for_subtests
+# ```
+run_concurrently() {
+	local cmd scratch file
+
+	cmd=${1}
+	if [[ ${SUBTEST_CONCURRENCY:-4} -le 1 || -n ${RUN_SUBTEST} ]]; then
+		run "$@"
+		return
+	fi
+
+	file="${TEST_DIR}/concurrent-subtests"
+	touch "${file}"
+	while [[ $(wc -l <"${file}") -ge ${SUBTEST_CONCURRENCY:-4} ]]; do
+		_wait_for_any_subtest
+	done
+
+	scratch=$(mktemp -d "${TMPDIR:-/tmp}/juju-subtest-${cmd}.XXXXXX")
+	cp -a "${JUJU_DATA:-${HOME}/.local/share/juju}" "${scratch}/juju-data"
+	(
+		export JUJU_DATA="${scratch}/juju-data"
+		# pack_charm copies charms here.
+		export SUBTEST_SCRATCH_DIR="${scratch}"
+		# Its own log file, as TEST_CURRENT names the run output.
+		TEST_CURRENT="${TEST_CURRENT}-${cmd}"
+		# Its own daemon scope, so that it only stops its own daemons.
+		# shellcheck disable=SC2034
+		DAEMON_SCOPE_ROOT="scope_index_${cmd}"
+		run "$@"
+	) </dev/null >"${TEST_DIR}/${cmd}.concurrent.log" 2>&1 &
+	echo "$! ${cmd} ${scratch}" >>"${file}"
+	echo "${scratch}" >>"${TEST_DIR}/subtest-scratch-dirs"
+	echo "===> [ & ] Started: $(echo "${cmd}" | sed -E "s/^run_//g; s/_/ /g")"
+}
+
+# wait_for_subtests waits for every subtest run_concurrently started, and
+# fails the test if any of them failed.
+wait_for_subtests() {
+	local file
+
+	file="${TEST_DIR}/concurrent-subtests"
+	while [[ -s ${file} ]]; do
+		_wait_for_any_subtest
+	done
+}
+
+# stop_concurrent_subtests stops every subtest run_concurrently started.
+stop_concurrent_subtests() {
+	local file pid cmd scratch
+
+	file="${TEST_DIR}/concurrent-subtests"
+	[[ -s ${file} ]] || return 0
+	while read -r pid cmd scratch; do
+		pkill -P "${pid}" 2>/dev/null || true
+		kill "${pid}" 2>/dev/null || true
+	done <"${file}"
+	: >"${file}"
+}
+
+# remove_subtest_scratch_dirs removes the scratch directories (copies of the
+# client store, charms) of every subtest run_concurrently started. Call it
+# once nothing uses them any more: after cleanup_jujus has waited for the
+# background model destroys.
+remove_subtest_scratch_dirs() {
+	local file dir
+
+	file="${TEST_DIR}/subtest-scratch-dirs"
+	[[ -s ${file} ]] || return 0
+	while read -r dir; do
+		rm -rf "${dir}"
+	done <"${file}"
+	: >"${file}"
+}
+
+# _wait_for_any_subtest waits for the next subtest to finish, prints its
+# result and exits if it failed.
+_wait_for_any_subtest() {
+	local file pid cmd result done_pid
+	local -a pids
+
+	file="${TEST_DIR}/concurrent-subtests"
+	mapfile -t pids < <(awk '{ print $1 }' "${file}")
+	result=0
+	wait -n -p done_pid "${pids[@]}" || result=$?
+
+	read -r pid cmd _ < <(awk -v pid="${done_pid}" '$1 == pid' "${file}")
+	sed -i "/^${done_pid} /d" "${file}"
+
+	grep -E 'Success:|Fail:' "${TEST_DIR}/${cmd}.concurrent.log" |
+		sed 's/^.*===>/===>/' || true
+	if [[ ${result} -ne 0 ]]; then
+		echo "===> [ $(red "x") ] Fail: ${cmd} (exit ${result})"
+		# cleanup prints the test's log when it fails.
+		{
+			echo "==> ${cmd}"
+			cat "${TEST_DIR}/${cmd}.concurrent.log"
+			cat "${TEST_DIR}/${TEST_CURRENT}-${cmd}.log" 2>/dev/null || true
+		} >>"${TEST_DIR}/${TEST_CURRENT}.log"
+		# The test has failed: stop the others rather than leave them
+		# running while the controller is torn down.
+		stop_concurrent_subtests
+		exit "${result}"
+	fi
+}
+
 # run a command and immediately terminate the script when any error occurs.
 run() {
 	CMD="${1}"

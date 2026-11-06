@@ -295,7 +295,9 @@ cleanup() {
 
 	pop_daemon_scope 0
 
+	stop_concurrent_subtests
 	cleanup_jujus
+	remove_subtest_scratch_dirs
 	cleanup_funcs
 
 	# Migration controller cleanup still needs the 3.6 client. Restore the
@@ -413,9 +415,10 @@ if [[ $# -gt 0 ]]; then
 		# every test_ function defined in the matched file (suites with
 		# multiple run_ subtests in one file would otherwise pass all
 		# wrapper names as arguments to the first wrapper).
-		TEST="$(grep -lr "run \"${2}\"" "suites/${1}" | xargs awk -v target="${2}" '
+		# Subtests are started with run or run_concurrently.
+		TEST="$(grep -lrE "run(_concurrently)? \"${2}\"" "suites/${1}" | xargs awk -v target="${2}" '
 			/^test_[[:alnum:]_]+\(\)/ { fn=$1; sub(/\(\).*/, "", fn) }
-			$0 ~ "run \"" target "\"" { print fn }
+			$0 ~ "run(_concurrently)? \"" target "\"" { print fn }
 		' | head -n1)"
 		if [[ -z ${TEST} ]]; then
 			echo "==> Unable to find parent test for ${2}."

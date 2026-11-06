@@ -3,7 +3,8 @@ DAEMON_SCOPE_DEPTH=0
 _daemon_scope_label() {
 	local depth=${1:-${DAEMON_SCOPE_DEPTH}}
 	local scope_label
-	scope_label="scope_index"
+	# Concurrent subtests (run_concurrently) each set their own root.
+	scope_label=${DAEMON_SCOPE_ROOT:-scope_index}
 
 	local i
 	for ((i = 0; i < depth; i++)); do

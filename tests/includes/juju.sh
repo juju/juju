@@ -532,7 +532,7 @@ destroy_model() {
 	# Redirect everything, so the background job holds no pipe of the test
 	# (or of the CI console) open.
 	_destroy_model "${name}" background </dev/null >"${TEST_DIR}/${name}-destroy-bg.log" 2>&1 &
-	echo "$! ${name}" >>"${TEST_DIR}/destroying-models"
+	_model_destroys append "$! ${name}"
 }
 
 # wait_for_model_destroyed waits for the background destroy of the named model
@@ -543,27 +543,15 @@ destroy_model() {
 # wait_for_model_destroyed [<model name>]
 # ```
 wait_for_model_destroyed() {
-	local want file pid name remaining
+	local pid name
 
-	want=${1:-}
-	file="${TEST_DIR}/destroying-models"
-	if [[ ! -s ${file} ]]; then
-		return 0
-	fi
-
-	remaining=""
+	# Each destroy is bounded by DESTROY_TIMEOUT, so this ends.
 	while read -r pid name; do
-		if [[ -n ${want} && ${name} != "${want}" ]]; then
-			remaining+="${pid} ${name}"$'\n'
-			continue
-		fi
-		# Each destroy is bounded by DESTROY_TIMEOUT, so this ends.
 		while kill -0 "${pid}" 2>/dev/null; do
 			sleep 1
 		done
 		sed 's/^/    | /' "${TEST_DIR}/${name}-destroy-bg.log" 2>/dev/null || true
-	done <"${file}"
-	printf '%s' "${remaining}" >"${file}"
+	done < <(_model_destroys take "${1:-}")
 }
 
 # stop_waiting_for_model_destroys forgets every background model destroy,
@@ -571,19 +559,37 @@ wait_for_model_destroyed() {
 # destroying the models; this is for when the controller itself is about to
 # be killed.
 stop_waiting_for_model_destroys() {
-	local file pid name
+	local pid name
 
-	file="${TEST_DIR}/destroying-models"
-	if [[ ! -s ${file} ]]; then
-		return 0
-	fi
 	while read -r pid name; do
 		# Signal the job first: bash runs its TERM trap (recording the
 		# phase) once the client it is waiting for has been stopped.
 		kill "${pid}" 2>/dev/null || true
 		pkill -P "${pid}" 2>/dev/null || true
-	done <"${file}"
-	: >"${file}"
+	done < <(_model_destroys take)
+}
+
+# _model_destroys append <pid> <name> | take [<name>] keeps the list of
+# background model destroys. "take" prints the entries for the named model,
+# or all of them, and removes them from the list. The list is locked, as
+# concurrent subtests (run_concurrently) update it at the same time.
+_model_destroys() {
+	local file
+	file="${TEST_DIR}/destroying-models"
+	(
+		flock 9
+		case ${1} in
+		append)
+			echo "${2}" >>"${file}"
+			;;
+		take)
+			[[ -s ${file} ]] || exit 0
+			awk -v want="${2:-}" 'want == "" || $2 == want' "${file}"
+			awk -v want="${2:-}" 'want != "" && $2 != want' "${file}" >"${file}.new"
+			mv "${file}.new" "${file}"
+			;;
+		esac
+	) 9>"${file}.lock"
 }
 
 # _destroy_model <name> [background] destroys the named model and waits for
