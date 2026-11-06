@@ -120,18 +120,17 @@ func (s *State) ensureUserPublicKey(
 	insertStmt, err := s.Prepare(`
 INSERT INTO user_public_ssh_key (comment,
                                  fingerprint,
-						         public_key,
+                                 public_key,
                                  user_uuid,
                                  fingerprint_hash_algorithm_id)
 SELECT $userPublicKeyInsert.comment,
        $userPublicKeyInsert.fingerprint,
        $userPublicKeyInsert.public_key,
        $userPublicKeyInsert.user_uuid,
-       s.id	
-FROM ssh_fingerprint_hash_algorithm s
+       s.id
+FROM ssh_fingerprint_hash_algorithm AS s
 WHERE s.algorithm = $userPublicKeyInsert.algorithm
-RETURNING &userPublicKeyId.id
-`, userPublicKeyInsert{}, userPublicKeyId{})
+`, userPublicKeyInsert{})
 
 	if err != nil {
 		return 0, errors.Errorf(
@@ -141,10 +140,10 @@ RETURNING &userPublicKeyId.id
 	}
 
 	selectExistingIdStmt, err := s.Prepare(`
-SELECT &userPublicKeyId.id
-FROM user_public_ssh_key
-WHERE user_uuid = $userPublicKeyInsert.user_uuid
-AND fingerprint = $userPublicKeyInsert.fingerprint
+SELECT k.id AS &userPublicKeyId.id
+FROM user_public_ssh_key AS k
+WHERE k.user_uuid = $userPublicKeyInsert.user_uuid
+AND k.fingerprint = $userPublicKeyInsert.fingerprint
 `, userPublicKeyId{}, userPublicKeyInsert{})
 
 	if err != nil {
@@ -168,8 +167,17 @@ AND fingerprint = $userPublicKeyInsert.fingerprint
 		)
 	}
 
-	inserted := userPublicKeyId{}
-	err = tx.Query(ctx, insertStmt, key).Get(&inserted)
+	// Work around canonical/dqlite#918: RETURNING may report _sqlair_0
+	// instead of a retryable write conflict.
+	// See TestReturningWriteConflictWorkaroundStillRequired before replacing
+	// this insert and lookup with INSERT ... RETURNING.
+	if err := tx.Query(ctx, insertStmt, key).Run(); err != nil {
+		return 0, errors.Errorf(
+			"inserting public key for user %q: %w", key.UserId, err,
+		)
+	}
+
+	err = tx.Query(ctx, selectExistingIdStmt, key).Get(&row)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		// No row was inserted because the fingerprint hash algorithm
 		// is not known.
@@ -179,10 +187,11 @@ AND fingerprint = $userPublicKeyInsert.fingerprint
 		).Add(keyerrors.InvalidPublicKey)
 	} else if err != nil {
 		return 0, errors.Errorf(
-			"inserting public key for user %q: %w", key.UserId, err,
+			"fetching id for newly inserted public key on user %q: %w",
+			key.UserId, err,
 		)
 	}
-	return inserted.Id, nil
+	return row.Id, nil
 }
 
 // AddPublicKeyForUser is responsible for adding one or more ssh public keys for
