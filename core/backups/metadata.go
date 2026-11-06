@@ -176,9 +176,11 @@ func (m *Metadata) MarkComplete(size int64, checksum string, finished time.Time)
 }
 
 // flatMetadata contains the latest format of the backup.
-// NOTE If any changes need to be made here, rename this struct to
-// reflect version 1, for example flatMetadataV1 and construct
-// new flatMetadata with desired modifications.
+//
+// Additive optional fields do not require a format-version bump: older
+// readers ignore unknown JSON fields and newer readers treat missing fields
+// as their zero value. Removing a field or changing its meaning requires a
+// new format version.
 type flatMetadata struct {
 	ID            string
 	FormatVersion int64
