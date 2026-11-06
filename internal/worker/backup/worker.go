@@ -50,6 +50,7 @@ type request struct {
 	ctx    context.Context
 	notes  string
 	result chan result
+	done   chan struct{}
 }
 
 type result struct {
@@ -118,10 +119,12 @@ func (c Config) Validate() error {
 // Once accepted, a request waits for generation and maintenance to stop, even
 // when cancelled. Successful callers own cleanup of the returned archive.
 func (w *Worker) Create(ctx context.Context, notes string) (*corebackups.Metadata, string, func(), error) {
+	// The unbuffered result transfers cleanup ownership only when received.
 	req := request{
 		ctx:    w.tomb.Context(ctx),
 		notes:  notes,
-		result: make(chan result, 1),
+		result: make(chan result),
+		done:   make(chan struct{}),
 	}
 
 	select {
@@ -132,22 +135,24 @@ func (w *Worker) Create(ctx context.Context, notes string) (*corebackups.Metadat
 	case w.requests <- req:
 	}
 
+	// Accepted requests always deliver a result after their work stops.
+	// Acknowledge it after handling cleanup, so Wait covers the handoff too.
+	defer close(req.done)
+	res := <-req.result
+	var err error
 	select {
-	case <-ctx.Done():
-		return nil, "", nil, context.Cause(ctx)
 	case <-w.tomb.Dying():
-		return nil, "", nil, corebackups.ErrBackupCreationWorkerDying
-	case res := <-req.result:
-		select {
-		case <-w.tomb.Dying():
-			if res.cleanup != nil {
-				res.cleanup()
-			}
-			return nil, "", nil, corebackups.ErrBackupCreationWorkerDying
-		default:
-		}
-		return res.meta, res.archive, res.cleanup, res.err
+		err = corebackups.ErrBackupCreationWorkerDying
+	default:
+		err = context.Cause(ctx)
 	}
+	if err != nil {
+		if res.cleanup != nil {
+			res.cleanup()
+		}
+		return nil, "", nil, err
+	}
+	return res.meta, res.archive, res.cleanup, res.err
 }
 
 // Kill implements worker.Worker.
@@ -171,17 +176,19 @@ func (w *Worker) loop() error {
 			// on attempting to claim the backup during lease creation. As
 			// you can only have one backup creation lease at a time, this will
 			// ensure that only one backup is created at a time.
-			go w.request(req)
+			w.tomb.Go(func() error {
+				w.request(req)
+				return nil
+			})
 		}
 	}
 }
 
 func (w *Worker) request(req request) {
+	defer func() { <-req.done }()
+
 	if err := req.ctx.Err(); err != nil {
-		select {
-		case <-w.tomb.Dying():
-		case req.result <- result{err: context.Cause(req.ctx)}:
-		}
+		req.result <- result{err: context.Cause(req.ctx)}
 		return
 	}
 
@@ -197,13 +204,7 @@ func (w *Worker) request(req request) {
 			cleanup: cleanup,
 		}
 	})
-	select {
-	case <-w.tomb.Dying():
-		if res.cleanup != nil {
-			res.cleanup()
-		}
-	case req.result <- res:
-	}
+	req.result <- res
 }
 
 func (w *Worker) withLease(req request, fn func(context.Context, string) result) result {
@@ -223,10 +224,6 @@ func (w *Worker) withLease(req request, fn func(context.Context, string) result)
 			return result{err: errors.NotYetAvailablef("a backup is already being created")}
 
 		case errors.Is(err, lease.ErrHeld):
-			// The lease is already held by another creation attempt.
-			//
-			// TODO (stickupkid): Add metrics to this to track how many
-			// concurrent requests are being made to the backup creation worker.
 			return result{err: errors.NotYetAvailablef("a backup is already being created")}
 
 		default:
@@ -234,6 +231,9 @@ func (w *Worker) withLease(req request, fn func(context.Context, string) result)
 		}
 	}
 	defer w.revoke(ctx, holder)
+	if err := ctx.Err(); err != nil {
+		return result{err: context.Cause(ctx)}
+	}
 
 	// The leaseCtx will be cancelled when the lease is no longer held by the
 	// leaseholder. This may or may not be the same as the holderName for the
@@ -254,10 +254,16 @@ func (w *Worker) withLease(req request, fn func(context.Context, string) result)
 	// leaseholder for the lease name.
 
 	waitCtx, waitCancel := context.WithCancel(ctx)
-	defer waitCancel()
+	waitDone := make(chan struct{})
+	defer func() {
+		// Stop the expiry monitor before the deferred lease revocation.
+		waitCancel()
+		<-waitDone
+	}()
 
 	waitErr := make(chan error)
 	go func() {
+		defer close(waitDone)
 		err := w.claimer.WaitUntilExpired(waitCtx, w.cfg.ControllerUUID, start)
 
 		// Ensure that the lease context is cancelled when the wait has
@@ -306,19 +312,31 @@ func (w *Worker) withLease(req request, fn func(context.Context, string) result)
 	if err := w.checker.Token(w.cfg.ControllerUUID, holder).Check(); err != nil {
 		return result{err: errors.Annotate(err, "checking backup creation lease token")}
 	}
+	if err := ctx.Err(); err != nil {
+		return result{err: context.Cause(ctx)}
+	}
 
 	return fn(ctx, holder)
 }
 
 func (w *Worker) create(ctx context.Context, holder, notes string) (*corebackups.Metadata, string, func(), error) {
 	renewCtx, renewCancel := context.WithCancel(ctx)
-	defer renewCancel()
+	renewDone := make(chan struct{})
+	defer func() {
+		// An in-flight renewal must finish before we release the lease.
+		renewCancel()
+		<-renewDone
+	}()
 
 	go func() {
+		defer close(renewDone)
 		w.renew(renewCtx, renewCancel, w.cfg.ControllerUUID, holder)
 	}()
 
 	meta, archive, cleanup, err := w.cfg.CreateArchive.Create(renewCtx, notes)
+	if err == nil {
+		err = context.Cause(renewCtx)
+	}
 	if err != nil {
 		if cleanup != nil {
 			cleanup()
@@ -339,6 +357,9 @@ func (w *Worker) renew(ctx context.Context, cancel context.CancelFunc, leaseName
 			return
 
 		case <-timer.Chan():
+			if ctx.Err() != nil {
+				return
+			}
 			if err := w.claimer.Claim(leaseName, holder, leaseDuration); err != nil {
 				cancel()
 				return
