@@ -642,10 +642,21 @@ destroy_controller() {
 		return
 	fi
 
-	local name timing_id
+	local name timing_id introspect
 
 	name=${1}
 	shift
+
+	# Introspection is for debugging a failure. A suite destroying its
+	# controller outside any subtest, or cleanup after a passing test, has
+	# nothing to debug. INTROSPECT_ON_SUCCESS=true keeps it.
+	introspect=true
+	if [[ ${INTROSPECT_ON_SUCCESS:-} != "true" ]]; then
+		if [[ -z ${IN_SUBTEST:-} && -z ${CLEANUP:-} ]] ||
+			[[ ${CLEANUP_AFTER_SUCCESS:-} == "true" ]]; then
+			introspect=false
+		fi
+	fi
 
 	# shellcheck disable=SC2034
 	OUT=$(juju controllers --format=json | yq 'select(.controllers) | .controllers | keys | .[]' | grep "${name}" || true)
@@ -675,11 +686,13 @@ destroy_controller() {
 
 	set +e
 
-	echo "====> Introspection gathering"
-	timing_start timing_id introspect "${name}"
-	introspect_controller "${name}" || true
-	timing_end "${timing_id}"
-	echo "====> Introspection gathered"
+	if [[ ${introspect} == "true" ]]; then
+		echo "====> Introspection gathering"
+		timing_start timing_id introspect "${name}"
+		introspect_controller "${name}" || true
+		timing_end "${timing_id}"
+		echo "====> Introspection gathered"
+	fi
 
 	timing_start timing_id destroy_controller "${name}"
 
@@ -718,13 +731,13 @@ destroy_controller() {
 					) &
 				done < <(juju models -c "${name}" --format=json 2>/dev/null | yq -r '.models // [] | .[] | select(.["is-controller"] != "true") | .["model-uuid"]' || true)
 
-				echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models --destroy-storage --no-prompt % 2>&1 | OUTPUT "${output}"
+				_destroy_controller_gracefully "${name}" "${output}"
 			)
 		else
-			echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models --destroy-storage --no-prompt % 2>&1 | OUTPUT "${output}"
+			_destroy_controller_gracefully "${name}" "${output}"
 		fi
 	else
-		echo "${name}" | xargs -I % timeout "${DESTROY_TIMEOUT}" juju kill-controller -t 0 --no-prompt % 2>&1 | OUTPUT "${output}" || true
+		_kill_controller "${name}" "${output}"
 	fi
 
 	set +e
@@ -750,15 +763,67 @@ destroy_controller() {
 	echo "====> Destroyed juju ($(green "${name}"))"
 }
 
+# _destroy_controller_gracefully <name> <output> destroys a controller and
+# all its models. If that takes longer than DESTROY_TIMEOUT the controller is
+# killed instead, and the run is marked as failed (see teardown_timed_out):
+# without the limit a stuck teardown runs until the CI job times out, and
+# without the failure the stuck teardown would go unnoticed.
+_destroy_controller_gracefully() {
+	local name output result
+
+	name=${1}
+	output=${2}
+
+	# The caller runs with errexit and pipefail: capture the status rather
+	# than exit on a timeout.
+	result=0
+	timeout "${DESTROY_TIMEOUT}" juju destroy-controller --destroy-all-models \
+		--destroy-storage --no-prompt "${name}" 2>&1 | OUTPUT "${output}" ||
+		result=${PIPESTATUS[0]}
+	if [[ ${result} -eq 124 ]]; then
+		echo "====> $(red "ERROR") Timed out after ${DESTROY_TIMEOUT} destroying ${name}, killing it"
+		echo "${name}" >>"${TEST_DIR}/teardown-timed-out"
+		_kill_controller "${name}" "${output}"
+	fi
+}
+
+# _kill_controller <name> <output> kills a controller: its machines are
+# removed through the cloud's API without tearing the models down first.
+_kill_controller() {
+	local name output
+
+	name=${1}
+	output=${2}
+
+	timeout "${DESTROY_TIMEOUT}" juju kill-controller -t 0 --no-prompt "${name}" 2>&1 | OUTPUT "${output}" || true
+}
+
+# teardown_timed_out succeeds if a graceful controller teardown hit
+# DESTROY_TIMEOUT during this run, printing the controllers concerned.
+teardown_timed_out() {
+	if [[ -s "${TEST_DIR}/teardown-timed-out" ]]; then
+		cat "${TEST_DIR}/teardown-timed-out"
+		return 0
+	fi
+	return 1
+}
+
 # cleanup_jujus is used to destroy all the known controllers the test suite
 # knows about. This is for internal use only and shouldn't be used by any of the
 # tests directly.
 cleanup_jujus() {
+	local passed=false
+
+	if [[ ${TEST_RESULT:-} == "success" ]]; then
+		passed=true
+	fi
+
 	if [[ -f "${TEST_DIR}/jujus" ]]; then
 		echo "====> Cleaning up jujus"
 
 		while read -r juju_name; do
-			CLEANUP=true destroy_controller "${juju_name}"
+			CLEANUP=true CLEANUP_AFTER_SUCCESS=${passed} \
+				destroy_controller "${juju_name}"
 		done <"${TEST_DIR}/jujus"
 		rm -f "${TEST_DIR}/jujus" || true
 	fi

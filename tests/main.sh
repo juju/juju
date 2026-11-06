@@ -268,6 +268,9 @@ else
 fi
 
 cleanup() {
+	# The status the script is exiting with.
+	local exit_code=$?
+
 	# Allow for failures and stop tracing everything
 	set +ex
 
@@ -301,6 +304,16 @@ cleanup() {
 		restore_juju36_channel
 	fi
 
+	# A teardown that had to be killed fails an otherwise passing run.
+	local timed_out fail_run=false
+	if timed_out=$(teardown_timed_out); then
+		echo "==> $(red "Teardown timed out") after ${DESTROY_TIMEOUT}, failing the run: ${timed_out//$'\n'/ }"
+		if [[ ${TEST_RESULT} == "success" && ${exit_code} -eq 0 ]]; then
+			fail_run=true
+		fi
+		TEST_RESULT=failure
+	fi
+
 	echo ""
 	if [[ ${TEST_RESULT} != "success" ]]; then
 		echo "==> TESTS DONE: ${TEST_CURRENT_DESCRIPTION}"
@@ -324,6 +337,9 @@ cleanup() {
 	fi
 
 	echo "==> TEST COMPLETE"
+	if [[ ${fail_run} == "true" ]]; then
+		exit 1
+	fi
 }
 
 # Move any artifacts to the chosen location

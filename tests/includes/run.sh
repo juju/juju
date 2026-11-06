@@ -21,6 +21,10 @@ run() {
 	# shellcheck disable=SC2034
 	local TIMING_TEST="${CMD}" timing_id
 	timing_start timing_id subtest "${CMD}"
+	# Dynamically scoped: destroy_controller still gathers introspection for
+	# a teardown called from a subtest.
+	# shellcheck disable=SC2034
+	local IN_SUBTEST=true
 
 	push_daemon_scope
 	local expected_scope_depth
