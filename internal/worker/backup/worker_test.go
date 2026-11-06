@@ -251,26 +251,44 @@ func (s *workerSuite) TestCancellationDuringReleaseCleansArchive(c *tc.C) {
 	<-cleaned
 }
 
-func (s *workerSuite) TestShutdownDuringReleaseCleansArchive(c *tc.C) {
-	cleaned := make(chan struct{})
-	cfg := workerConfig(c)
-	cfg.CreateArchive = backupCreatorFunc(func(context.Context, string) (*corebackups.Metadata, string, func(), error) {
-		return &corebackups.Metadata{}, "archive", func() { close(cleaned) }, nil
+func (s *workerSuite) TestShutdownWaitsForHandoffCleanup(c *tc.C) {
+	synctest.Test(c.T, func(t *testing.T) {
+		c := &tc.C{T: t}
+		cleaning := make(chan struct{})
+		finish := make(chan struct{})
+		defer close(finish)
+		cfg := workerConfig(c)
+		cfg.CreateArchive = backupCreatorFunc(func(context.Context, string) (*corebackups.Metadata, string, func(), error) {
+			return &corebackups.Metadata{}, "archive", func() {
+				close(cleaning)
+				<-finish
+			}, nil
+		})
+		var w *Worker
+		cfg.LeaseManager = leaseManagerStub{operations: leaseOperations{
+			revoke: func(string, string) error { w.Kill(); return nil },
+		}}
+		w = startWorker(c, cfg)
+		defer w.Kill()
+		created := make(chan result, 1)
+		go func() {
+			meta, archive, cleanup, err := w.Create(c.Context(), "notes")
+			created <- result{meta: meta, archive: archive, cleanup: cleanup, err: err}
+		}()
+		<-cleaning
+		stopped := make(chan error, 1)
+		go func() { stopped <- w.Wait() }()
+		synctest.Wait()
+		c.Check(len(stopped), tc.Equals, 0)
+		c.Check(len(created), tc.Equals, 0)
+		finish <- struct{}{}
+		res := <-created
+		c.Check(res.err, tc.ErrorIs, corebackups.ErrBackupCreationWorkerDying)
+		c.Check(res.meta, tc.IsNil)
+		c.Check(res.archive, tc.Equals, "")
+		c.Check(res.cleanup, tc.IsNil)
+		c.Assert(<-stopped, tc.ErrorIsNil)
 	})
-	var w *Worker
-	cfg.LeaseManager = leaseManagerStub{operations: leaseOperations{
-		revoke: func(string, string) error {
-			w.Kill()
-			return nil
-		},
-	}}
-	w = startWorker(c, cfg)
-	meta, archive, cleanup, err := w.Create(c.Context(), "notes")
-	c.Check(err, tc.ErrorIs, corebackups.ErrBackupCreationWorkerDying)
-	c.Check(meta, tc.IsNil)
-	c.Check(archive, tc.Equals, "")
-	c.Check(cleanup, tc.IsNil)
-	<-cleaned
 }
 
 func (s *workerSuite) TestReleaseFailureDoesNotDiscardArchive(c *tc.C) {
@@ -402,6 +420,158 @@ func (s *workerSuite) TestCreateReturnsWorkerDyingAfterShutdown(c *tc.C) {
 	w.Kill()
 	_, _, _, err := w.Create(c.Context(), "")
 	c.Check(err, tc.ErrorIs, corebackups.ErrBackupCreationWorkerDying)
+}
+
+func (s *workerSuite) TestShutdownWaitsForAcceptedRequests(c *tc.C) {
+	for _, operation := range []string{"claim", "check"} {
+		synctest.Test(c.T, func(t *testing.T) {
+			c := &tc.C{T: t}
+			cfg := workerConfig(c)
+			entered := make(chan struct{}, 2)
+			finish := []chan struct{}{make(chan struct{}), make(chan struct{})}
+			defer close(finish[0])
+			defer close(finish[1])
+			var acquisitions, revoked atomic.Int32
+			var generated atomic.Bool
+			block := func() {
+				i := acquisitions.Add(1) - 1
+				entered <- struct{}{}
+				<-finish[i]
+			}
+			cfg.LeaseManager = leaseManagerStub{operations: leaseOperations{
+				claim: func(string, string, time.Duration) error {
+					if operation == "claim" {
+						block()
+					}
+					return nil
+				},
+				check: func(string, string) error {
+					if operation == "check" {
+						block()
+					}
+					return nil
+				},
+				revoke: func(string, string) error { revoked.Add(1); return nil },
+			}}
+			cfg.CreateArchive = backupCreatorFunc(func(context.Context, string) (*corebackups.Metadata, string, func(), error) {
+				generated.Store(true)
+				return &corebackups.Metadata{}, "archive", func() {}, nil
+			})
+			w := startWorker(c, cfg)
+			defer w.Kill()
+			created := make(chan error, 2)
+			for range 2 {
+				go func() { _, _, _, err := w.Create(c.Context(), "notes"); created <- err }()
+			}
+			<-entered
+			<-entered
+			w.Kill()
+			stopped := make(chan error, 1)
+			go func() { stopped <- w.Wait() }()
+			synctest.Wait()
+			c.Check(len(stopped), tc.Equals, 0)
+			c.Check(len(created), tc.Equals, 0)
+			finish[0] <- struct{}{}
+			synctest.Wait()
+			c.Check(len(stopped), tc.Equals, 0)
+			c.Check(len(created), tc.Equals, 1)
+			finish[1] <- struct{}{}
+			for range 2 {
+				c.Check(<-created, tc.ErrorIs, corebackups.ErrBackupCreationWorkerDying)
+			}
+			c.Assert(<-stopped, tc.ErrorIsNil)
+			c.Check(generated.Load(), tc.IsFalse)
+			c.Check(revoked.Load(), tc.Equals, int32(2))
+		})
+	}
+}
+
+func (s *workerSuite) TestCancellationWaitsForRequestCompletion(c *tc.C) {
+	for _, shutdown := range []bool{false, true} {
+		synctest.Test(c.T, func(t *testing.T) {
+			c := &tc.C{T: t}
+			cfg := workerConfig(c)
+			started, finishGeneration := make(chan struct{}), make(chan struct{})
+			cleaning, finishCleanup := make(chan struct{}), make(chan struct{})
+			revoking, finishRelease := make(chan struct{}), make(chan struct{})
+			defer close(finishGeneration)
+			defer close(finishCleanup)
+			defer close(finishRelease)
+			var cleaned atomic.Int32
+			cfg.CreateArchive = backupCreatorFunc(func(ctx context.Context, _ string) (*corebackups.Metadata, string, func(), error) {
+				close(started)
+				<-ctx.Done()
+				<-finishGeneration
+				return &corebackups.Metadata{}, "archive", func() {
+					close(cleaning)
+					<-finishCleanup
+					cleaned.Add(1)
+				}, nil
+			})
+			cfg.LeaseManager = leaseManagerStub{operations: leaseOperations{
+				revoke: func(string, string) error {
+					close(revoking)
+					<-finishRelease
+					return nil
+				},
+			}}
+			w := startWorker(c, cfg)
+			defer w.Kill()
+			ctx, cancel := context.WithCancelCause(c.Context())
+			defer cancel(nil)
+			created := make(chan result, 1)
+			go func() {
+				meta, archive, cleanup, err := w.Create(ctx, "notes")
+				created <- result{meta: meta, archive: archive, cleanup: cleanup, err: err}
+			}()
+			<-started
+			expected := errors.New("caller cancelled backup")
+			if shutdown {
+				expected = corebackups.ErrBackupCreationWorkerDying
+				w.Kill()
+			} else {
+				cancel(expected)
+			}
+			stopped := make(chan error, 1)
+			go func() { stopped <- w.Wait() }()
+			synctest.Wait()
+			c.Check(len(stopped), tc.Equals, 0)
+			c.Check(len(created), tc.Equals, 0)
+			finishGeneration <- struct{}{}
+			<-cleaning
+			synctest.Wait()
+			c.Check(len(stopped), tc.Equals, 0)
+			c.Check(len(created), tc.Equals, 0)
+			finishCleanup <- struct{}{}
+			<-revoking
+			synctest.Wait()
+			c.Check(len(stopped), tc.Equals, 0)
+			c.Check(len(created), tc.Equals, 0)
+			finishRelease <- struct{}{}
+			res := <-created
+			c.Check(res.err, tc.ErrorIs, expected)
+			c.Check(res.cleanup, tc.IsNil)
+			c.Check(cleaned.Load(), tc.Equals, int32(1))
+			w.Kill()
+			c.Assert(<-stopped, tc.ErrorIsNil)
+		})
+	}
+}
+
+func (s *workerSuite) TestShutdownPreservesHandedOffArchive(c *tc.C) {
+	cfg := workerConfig(c)
+	var cleaned atomic.Bool
+	cfg.CreateArchive = backupCreatorFunc(func(context.Context, string) (*corebackups.Metadata, string, func(), error) {
+		return &corebackups.Metadata{}, "archive", func() { cleaned.Store(true) }, nil
+	})
+	w := startWorker(c, cfg)
+	_, _, cleanup, err := w.Create(c.Context(), "notes")
+	c.Assert(err, tc.ErrorIsNil)
+	w.Kill()
+	c.Assert(w.Wait(), tc.ErrorIsNil)
+	c.Check(cleaned.Load(), tc.IsFalse)
+	cleanup()
+	c.Check(cleaned.Load(), tc.IsTrue)
 }
 
 func (s *workerSuite) TestAcceptedRequestReturnsWorkerDyingDuringShutdown(c *tc.C) {

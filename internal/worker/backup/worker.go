@@ -50,6 +50,7 @@ type request struct {
 	ctx    context.Context
 	notes  string
 	result chan result
+	done   chan struct{}
 }
 
 type result struct {
@@ -123,6 +124,7 @@ func (w *Worker) Create(ctx context.Context, notes string) (*corebackups.Metadat
 		ctx:    w.tomb.Context(ctx),
 		notes:  notes,
 		result: make(chan result),
+		done:   make(chan struct{}),
 	}
 
 	select {
@@ -133,28 +135,24 @@ func (w *Worker) Create(ctx context.Context, notes string) (*corebackups.Metadat
 	case w.requests <- req:
 	}
 
+	// Accepted requests always deliver a result after their work stops.
+	// Acknowledge it after handling cleanup, so Wait covers the handoff too.
+	defer close(req.done)
+	res := <-req.result
+	var err error
 	select {
-	case <-ctx.Done():
-		return nil, "", nil, context.Cause(ctx)
 	case <-w.tomb.Dying():
-		return nil, "", nil, corebackups.ErrBackupCreationWorkerDying
-	case res := <-req.result:
-		var err error
-		select {
-		case <-ctx.Done():
-			err = context.Cause(ctx)
-		case <-w.tomb.Dying():
-			err = corebackups.ErrBackupCreationWorkerDying
-		default:
-		}
-		if err != nil {
-			if res.cleanup != nil {
-				res.cleanup()
-			}
-			return nil, "", nil, err
-		}
-		return res.meta, res.archive, res.cleanup, res.err
+		err = corebackups.ErrBackupCreationWorkerDying
+	default:
+		err = context.Cause(ctx)
 	}
+	if err != nil {
+		if res.cleanup != nil {
+			res.cleanup()
+		}
+		return nil, "", nil, err
+	}
+	return res.meta, res.archive, res.cleanup, res.err
 }
 
 // Kill implements worker.Worker.
@@ -178,17 +176,19 @@ func (w *Worker) loop() error {
 			// on attempting to claim the backup during lease creation. As
 			// you can only have one backup creation lease at a time, this will
 			// ensure that only one backup is created at a time.
-			go w.request(req)
+			w.tomb.Go(func() error {
+				w.request(req)
+				return nil
+			})
 		}
 	}
 }
 
 func (w *Worker) request(req request) {
+	defer func() { <-req.done }()
+
 	if err := req.ctx.Err(); err != nil {
-		select {
-		case <-req.ctx.Done():
-		case req.result <- result{err: context.Cause(req.ctx)}:
-		}
+		req.result <- result{err: context.Cause(req.ctx)}
 		return
 	}
 
@@ -204,13 +204,7 @@ func (w *Worker) request(req request) {
 			cleanup: cleanup,
 		}
 	})
-	select {
-	case <-req.ctx.Done():
-		if res.cleanup != nil {
-			res.cleanup()
-		}
-	case req.result <- res:
-	}
+	req.result <- res
 }
 
 func (w *Worker) withLease(req request, fn func(context.Context, string) result) result {
@@ -237,6 +231,9 @@ func (w *Worker) withLease(req request, fn func(context.Context, string) result)
 		}
 	}
 	defer w.revoke(ctx, holder)
+	if err := ctx.Err(); err != nil {
+		return result{err: context.Cause(ctx)}
+	}
 
 	// The leaseCtx will be cancelled when the lease is no longer held by the
 	// leaseholder. This may or may not be the same as the holderName for the
@@ -314,6 +311,9 @@ func (w *Worker) withLease(req request, fn func(context.Context, string) result)
 	// will have been cancelled.
 	if err := w.checker.Token(w.cfg.ControllerUUID, holder).Check(); err != nil {
 		return result{err: errors.Annotate(err, "checking backup creation lease token")}
+	}
+	if err := ctx.Err(); err != nil {
+		return result{err: context.Cause(ctx)}
 	}
 
 	return fn(ctx, holder)
