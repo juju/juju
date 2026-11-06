@@ -32,7 +32,7 @@ func (s *resolverSuite) TestAllowUpgrade(c *tc.C) {
 	requestedArch := "amd64"
 
 	r := resolver{}
-	ok, err := r.allowCharmUpgrade(c.Context(), existing, requested, requestedArch)
+	ok, err := r.allowCharmUpgrade(c.Context(), existing, requested, requestedArch, corebase.Base{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ok, tc.IsTrue)
 }
@@ -55,7 +55,7 @@ func (s *resolverSuite) TestAllowUpgradeWithSameChannel(c *tc.C) {
 			return "stable", 1, nil
 		},
 	}
-	ok, err := r.allowCharmUpgrade(c.Context(), existing, requested, requestedArch)
+	ok, err := r.allowCharmUpgrade(c.Context(), existing, requested, requestedArch, corebase.Base{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ok, tc.IsTrue)
 }
@@ -79,7 +79,7 @@ func (s *resolverSuite) TestAllowUpgradeWithDowngrades(c *tc.C) {
 			return "stable", 1, nil
 		},
 	}
-	ok, err := r.allowCharmUpgrade(c.Context(), existing, requested, requestedArch)
+	ok, err := r.allowCharmUpgrade(c.Context(), existing, requested, requestedArch, corebase.Base{})
 	c.Assert(err, tc.ErrorMatches, `application "ubuntu": downgrades are not currently supported: deployed revision 2 is newer than requested revision 1`)
 	c.Assert(ok, tc.IsFalse)
 }
@@ -102,7 +102,7 @@ func (s *resolverSuite) TestAllowUpgradeWithSameRevision(c *tc.C) {
 			return "stable", 1, nil
 		},
 	}
-	ok, err := r.allowCharmUpgrade(c.Context(), existing, requested, requestedArch)
+	ok, err := r.allowCharmUpgrade(c.Context(), existing, requested, requestedArch, corebase.Base{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ok, tc.IsFalse)
 }
@@ -120,7 +120,7 @@ func (s *resolverSuite) TestAllowUpgradeWithDifferentChannel(c *tc.C) {
 	requestedArch := "amd64"
 
 	r := resolver{}
-	ok, err := r.allowCharmUpgrade(c.Context(), existing, requested, requestedArch)
+	ok, err := r.allowCharmUpgrade(c.Context(), existing, requested, requestedArch, corebase.Base{})
 	c.Assert(err, tc.ErrorMatches, `^application "ubuntu": upgrades not supported across channels \(existing: "stable", requested: "edge"\); use --force to override`)
 	c.Assert(ok, tc.IsFalse)
 }
@@ -137,7 +137,7 @@ func (s *resolverSuite) TestAllowUpgradeWithNoBundleChannel(c *tc.C) {
 	requestedArch := "amd64"
 
 	r := resolver{}
-	ok, err := r.allowCharmUpgrade(c.Context(), existing, requested, requestedArch)
+	ok, err := r.allowCharmUpgrade(c.Context(), existing, requested, requestedArch, corebase.Base{})
 	c.Assert(err, tc.ErrorMatches, `^application "ubuntu": upgrades not supported across channels \(existing: "stable", resolved: ""\); use --force to override`)
 	c.Assert(ok, tc.IsFalse)
 }
@@ -160,7 +160,7 @@ func (s *resolverSuite) TestAllowUpgradeWithDifferentChannelAndForce(c *tc.C) {
 			return "stable", 1, nil
 		},
 	}
-	ok, err := r.allowCharmUpgrade(c.Context(), existing, requested, requestedArch)
+	ok, err := r.allowCharmUpgrade(c.Context(), existing, requested, requestedArch, corebase.Base{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ok, tc.IsTrue)
 }
@@ -176,7 +176,7 @@ func (s *resolverSuite) TestAllowUpgradeWithNoExistingChannel(c *tc.C) {
 	requestedArch := "amd64"
 
 	r := resolver{}
-	ok, err := r.allowCharmUpgrade(c.Context(), existing, requested, requestedArch)
+	ok, err := r.allowCharmUpgrade(c.Context(), existing, requested, requestedArch, corebase.Base{})
 	c.Assert(err, tc.ErrorMatches, `^upgrades not supported when the channel for "" is unknown; use --force to override`)
 	c.Assert(ok, tc.IsFalse)
 }
@@ -194,7 +194,142 @@ func (s *resolverSuite) TestAllowUpgradeWithNoExistingChannelWithForce(c *tc.C) 
 	r := resolver{
 		force: true,
 	}
-	ok, err := r.allowCharmUpgrade(c.Context(), existing, requested, requestedArch)
+	ok, err := r.allowCharmUpgrade(c.Context(), existing, requested, requestedArch, corebase.Base{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ok, tc.IsTrue)
+}
+
+func (s *resolverSuite) TestAllowUpgradeWithBundleDefaultBase(c *tc.C) {
+	existing := &Application{
+		Charm:    "ch:ubuntu",
+		Channel:  "stable",
+		Revision: 0,
+	}
+	requested := &charm.ApplicationSpec{
+		Charm:   "ch:ubuntu",
+		Channel: "stable",
+	}
+	requestedArch := "amd64"
+
+	defaultBase, err := corebase.ParseBaseFromString("ubuntu@22.04")
+	c.Assert(err, tc.ErrorIsNil)
+
+	computedBase, err := computeApplicationBase(requested, defaultBase)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var resolvedBase corebase.Base
+	r := resolver{
+		force: true,
+		charmResolver: func(_ context.Context, _ string, base corebase.Base, _ string, _ string, _ int) (string, int, error) {
+			resolvedBase = base
+			return "stable", 1, nil
+		},
+	}
+	ok, err := r.allowCharmUpgrade(c.Context(), existing, requested, requestedArch, computedBase)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(resolvedBase.String(), tc.Equals, "ubuntu@22.04/stable")
+}
+
+func (s *resolverSuite) TestAllowUpgradeWithExistingAppBaseFallback(c *tc.C) {
+	existingBase, err := corebase.ParseBaseFromString("ubuntu@22.04")
+	c.Assert(err, tc.ErrorIsNil)
+
+	existing := &Application{
+		Charm:    "ch:ubuntu",
+		Channel:  "stable",
+		Revision: 0,
+		Base:     existingBase,
+	}
+	requested := &charm.ApplicationSpec{
+		Charm:   "ch:ubuntu",
+		Channel: "stable",
+	}
+	requestedArch := "amd64"
+
+	var resolvedBase corebase.Base
+	r := resolver{
+		force: true,
+		charmResolver: func(_ context.Context, _ string, base corebase.Base, _ string, _ string, _ int) (string, int, error) {
+			resolvedBase = base
+			return "stable", 1, nil
+		},
+	}
+	ok, err := r.allowCharmUpgrade(c.Context(), existing, requested, requestedArch, corebase.Base{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(resolvedBase.String(), tc.Equals, "ubuntu@22.04/stable")
+}
+
+func (s *resolverSuite) TestAllowUpgradePrefersAppBaseOverDefaultBase(c *tc.C) {
+	existingBase, err := corebase.ParseBaseFromString("ubuntu@20.04")
+	c.Assert(err, tc.ErrorIsNil)
+
+	existing := &Application{
+		Charm:    "ch:ubuntu",
+		Channel:  "stable",
+		Revision: 0,
+		Base:     existingBase,
+	}
+	requested := &charm.ApplicationSpec{
+		Charm:   "ch:ubuntu",
+		Base:    "ubuntu@24.04",
+		Channel: "stable",
+	}
+	requestedArch := "amd64"
+
+	defaultBase, err := corebase.ParseBaseFromString("ubuntu@22.04")
+	c.Assert(err, tc.ErrorIsNil)
+
+	computedBase, err := computeApplicationBase(requested, defaultBase)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var resolvedBase corebase.Base
+	r := resolver{
+		force: true,
+		charmResolver: func(_ context.Context, _ string, base corebase.Base, _ string, _ string, _ int) (string, int, error) {
+			resolvedBase = base
+			return "stable", 1, nil
+		},
+	}
+	ok, err := r.allowCharmUpgrade(c.Context(), existing, requested, requestedArch, computedBase)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(resolvedBase.String(), tc.Equals, "ubuntu@24.04/stable")
+}
+
+func (s *resolverSuite) TestAllowUpgradePrefersDefaultBaseOverExistingAppBase(c *tc.C) {
+	existingBase, err := corebase.ParseBaseFromString("ubuntu@20.04")
+	c.Assert(err, tc.ErrorIsNil)
+
+	existing := &Application{
+		Charm:    "ch:ubuntu",
+		Channel:  "stable",
+		Revision: 0,
+		Base:     existingBase,
+	}
+	requested := &charm.ApplicationSpec{
+		Charm:   "ch:ubuntu",
+		Channel: "stable",
+	}
+	requestedArch := "amd64"
+
+	defaultBase, err := corebase.ParseBaseFromString("ubuntu@22.04")
+	c.Assert(err, tc.ErrorIsNil)
+
+	computedBase, err := computeApplicationBase(requested, defaultBase)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var resolvedBase corebase.Base
+	r := resolver{
+		force: true,
+		charmResolver: func(_ context.Context, _ string, base corebase.Base, _ string, _ string, _ int) (string, int, error) {
+			resolvedBase = base
+			return "stable", 1, nil
+		},
+	}
+	ok, err := r.allowCharmUpgrade(c.Context(), existing, requested, requestedArch, computedBase)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(resolvedBase.String(), tc.Equals, "ubuntu@22.04/stable")
 }
