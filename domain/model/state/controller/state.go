@@ -91,7 +91,7 @@ func (s *State) GetModelConnectionInfo(
 SELECT m.name AS &dbModelConnectionInfo.name,
        mt.type AS &dbModelConnectionInfo.model_type,
        m.activated AS &dbModelConnectionInfo.activated,
-       IIF(mmi.model_uuid IS NOT NULL, TRUE, FALSE) AS &dbModelConnectionInfo.has_import_claim
+       mmi.model_uuid IS NOT NULL AS &dbModelConnectionInfo.has_import_claim
 FROM model AS m
 JOIN model_type AS mt ON mt.id = m.model_type_id
 LEFT JOIN model_migration_import AS mmi ON mmi.model_uuid = m.uuid
