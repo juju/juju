@@ -13,6 +13,7 @@ See also: {ref}`offer`
 
 This document shows how to manage offers.
 
+(create-an-offer)=
 ## Create an offer
 > Who: User with {ref}`offer admin access <user-access-offer-admin>`.
 
@@ -70,6 +71,7 @@ If the above mysql offer were made in the `default` model by user `admin`, the U
 See more: {ref}`command-juju-offer`
 ```
 
+(view-an-offers-details)=
 ## View an offer’s details
 > Who: User with {ref}`offer read access <user-access-offer-read>`.
 
@@ -126,6 +128,7 @@ A non-admin user with read/consume access can also view an offer's details, but 
 See more: {ref}`command-juju-show-offer`
 ```
 
+(control-access-to-an-offer)=
 ## Control access to an offer
 > Who: User with {ref}`offer admin access <user-access-offer-admin>`.
 
@@ -169,6 +172,7 @@ juju revoke bob read admin/default.hosted-mysql
 See more: {ref}`command-juju-grant`, {ref}`command-juju-revoke`
 ```
 
+(find-an-offer-to-use)=
 ## Find an offer to use
 > Who: User with {ref}`offer read access <user-access-offer-read>`.
 
@@ -483,6 +487,7 @@ juju resume-relation 2
 See more: {ref}`command-juju-suspend-relation`, {ref}`command-juju-resume-relation`, {ref}`command-juju-remove-relation`
 ```
 
+(remove-an-offer)=
 ## Remove an offer
 > Who: User with {ref}`offer admin access <user-access-offer-admin>`.
 

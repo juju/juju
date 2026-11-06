@@ -238,6 +238,7 @@ Every time a unit is added to an application, Juju will spread out that applicat
 See more: {ref}`manage-relations`
 ```
 
+(manage-an-applications-public-availability-over-the-network)=
 ## Manage an application’s public availability over the network
 
 **Expose an application.** By default, once an application is deployed, it is _only_ reachable by other applications in the _same_ Juju model. However, if the particular deployment use case requires for the application to be reachable by Internet traffic (e.g. a web server, Wordpress installation etc.), Juju needs to tweak the backing cloud's firewall rules to allow Internet traffic to reach the application. This is done with the `juju expose` command.
@@ -413,6 +414,7 @@ juju deploy mysql --storage pgdata=6G,rootfs,1
 See more: {ref}`command-juju-deploy`
 ```
 
+(change-space-bindings-for-an-application)=
 ## Change space bindings for an application
 
 You can set space bindings for an application during deployment or post-deployment. In both cases you can set either a default space for the entire application or a specific space for one or more individual application endpoints or both.

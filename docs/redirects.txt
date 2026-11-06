@@ -15,6 +15,7 @@ reference/charm/charm-development-best-practices/ reference/charm
 explanation/performance-with-juju explanation/juju-performance
 reference/juju/juju-architecture explanation/architecture
 explanation/juju-architecture explanation/architecture
+explanation/juju-ssh reference/ssh-server
 # redirects after cleaning up contributor unsorted docs
 user/reference/charm/channel/ reference/charm/
 user/reference/charm/revision/ reference/charm/
@@ -418,3 +419,4 @@ reference/cloud/list-of-supported-clouds/the-vmware-vsphere-cloud-and-juju refer
 
 
 howto/upgrade-your-juju-deployment-from-36-to-40 howto/upgrade-your-juju-deployment-from-36-to-41
+reference/metadata reference/image-metadata

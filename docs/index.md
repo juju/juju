@@ -184,12 +184,8 @@ Juju provisions and manages the cloud resources -- machines, networking, storage
 
    .. slice:: Metadata
 
-      :doc:`Simplestreams metadata <reference/metadata>`
+      :doc:`Image metadata <reference/image-metadata>`
       :doc:`Manage metadata <howto/manage-metadata>`
-
-   .. slice:: Zones
-
-      :doc:`Zone reference <reference/zone>`
 
    .. slice:: Compute
 
@@ -205,6 +201,7 @@ Juju provisions and manages the cloud resources -- machines, networking, storage
       :doc:`Manage spaces <howto/manage-spaces>`
       :doc:`Subnet reference <reference/subnet>`
       :doc:`Manage subnets <howto/manage-subnets>`
+      :doc:`Zone reference <reference/zone>`
 
    .. slice:: Storage
 

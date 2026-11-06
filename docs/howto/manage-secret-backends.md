@@ -38,7 +38,7 @@ EOF
 That's it. You can now start using this backend by adding it to a model.
 
 ```{ibnote}
-See more: {ref}`secret-backend-configuration-options`
+See more: {ref}`Adding secret backends <secret-backend-adding>`
 ```
 
 
@@ -55,6 +55,7 @@ juju add-secret-backend myvault vault token-rotate=10m --config /path/to/cfg.yam
 See more: {ref}`command-juju-add-secret-backend`, {ref}`secret-backend`
 ```
 
+(view-all-the-secret-backends-available-on-a-controller)=
 ## View all the secret backends available on a controller
 
 To view all the backends available in the controller, run the `secret-backends` command:
@@ -81,6 +82,7 @@ The command also has options that allow you to filter by a specific controller o
 See more: {ref}`command-juju-secret-backends`
 ```
 
+(set-or-get-the-secret-backend-for-a-model)=
 ## Set or get the secret backend for a model
 
 **Set.** To set the secret backend to be used by a model, run the `model-secret-backend` command followed by the name of the desired secret backend. For example:
@@ -99,6 +101,7 @@ juju model-secret-backend
 See more: {ref}`command-juju-model-secret-backend`
 ```
 
+(view-details-about-a-secret-backend)=
 ## View details about a secret backend
 
 To view details about a particular secret, use the `show-secret-backend` command followed by the name of the secret backend. For example, for a secret called `myvault`, do:
@@ -113,6 +116,7 @@ By passing various options you can also specify a controller, an output format, 
 See more: {ref}`command-juju-show-secret-backend`
 ```
 
+(update-a-secret-backend)=
 ## Update a secret backend
 
 To update a secret backend on the controller, run the `update-secret-backend` command followed by the name of the secret backend. Below we update the backend by supplying a configuration from a file:
@@ -125,6 +129,7 @@ juju update-secret-backend myvault --config /path/to/cfg.yaml
 See more: {ref}`command-juju-update-secret-backend`
 ```
 
+(remove-a-secret-backend)=
 ## Remove a secret backend
 
 To remove a secret backend, use the `remove-secret-backend` command followed by the backend name:
