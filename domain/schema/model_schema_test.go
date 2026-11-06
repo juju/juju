@@ -90,8 +90,10 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"application_config",
 		"application_constraint",
 		"application_controller",
+		"application_exposed_cidr",
 		"application_exposed_endpoint_cidr",
 		"application_exposed_endpoint_space",
+		"application_exposed_space",
 		"application_k8s_resources_managed",
 		"application_platform",
 		"application_scale",
@@ -504,6 +506,10 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_application_endpoint_insert",
 		"trg_log_application_endpoint_update",
 
+		"trg_log_application_exposed_cidr_delete",
+		"trg_log_application_exposed_cidr_insert",
+		"trg_log_application_exposed_cidr_update",
+
 		"trg_log_application_exposed_endpoint_cidr_delete",
 		"trg_log_application_exposed_endpoint_cidr_insert",
 		"trg_log_application_exposed_endpoint_cidr_update",
@@ -511,6 +517,10 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_application_exposed_endpoint_space_delete",
 		"trg_log_application_exposed_endpoint_space_insert",
 		"trg_log_application_exposed_endpoint_space_update",
+
+		"trg_log_application_exposed_space_delete",
+		"trg_log_application_exposed_space_insert",
+		"trg_log_application_exposed_space_update",
 
 		"trg_log_application_scale_delete",
 		"trg_log_application_scale_insert",

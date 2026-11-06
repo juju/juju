@@ -3140,13 +3140,16 @@ func (*State) NamespaceForWatchApplicationScale() string {
 	return "application_scale"
 }
 
-// NamespaceForWatchApplicationExposed returns the namespace identifier
-// for application exposed endpoints changes. The first return value is the
-// namespace for the application exposed endpoints to spaces table, and the
-// second is the namespace for the application exposed endpoints to CIDRs
-// table.
-func (*State) NamespaceForWatchApplicationExposed() (string, string) {
-	return "application_exposed_endpoint_space", "application_exposed_endpoint_cidr"
+// NamespaceForWatchApplicationExposed returns the namespace identifiers
+// for application exposed changes. These are the tables holding exposure on
+// all endpoints and on specific endpoints, to both spaces and CIDRs.
+func (*State) NamespaceForWatchApplicationExposed() []string {
+	return []string{
+		"application_exposed_space",
+		"application_exposed_cidr",
+		"application_exposed_endpoint_space",
+		"application_exposed_endpoint_cidr",
+	}
 }
 
 // NamespaceForWatchUnitForLegacyUniter returns the namespace identifiers

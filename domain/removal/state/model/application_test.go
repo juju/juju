@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 
@@ -22,6 +23,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -625,6 +627,31 @@ func (s *applicationSuite) TestDeleteIAASApplication(c *tc.C) {
 	c.Check(exists, tc.Equals, false)
 
 	s.checkNoApplicationSequence(c, "some-app")
+}
+
+// TestDeleteIAASApplicationExposed verifies that an application exposed on
+// all endpoints can be deleted.
+func (s *applicationSuite) TestDeleteIAASApplicationExposed(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app")
+
+	err := svc.MergeExposeSettings(c.Context(), "some-app", map[string]application.ExposedEndpoint{
+		"": {
+			ExposeToSpaceIDs: set.NewStrings(corenetwork.AlphaSpaceId.String()),
+			ExposeToCIDRs:    set.NewStrings("10.0.0.0/24"),
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	s.advanceApplicationLife(c, appUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exists, err := st.ApplicationExists(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
 }
 
 func (s *applicationSuite) TestDeleteIAASApplicationWithUnits(c *tc.C) {

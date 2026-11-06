@@ -14,6 +14,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/export"
 	exportstate "github.com/juju/juju/domain/export/state/model"
@@ -249,6 +250,183 @@ func (s *importSuite) TestTransformLegacyRemovalForceInvalid(c *tc.C) {
 	c.Check(count, tc.Equals, 0)
 }
 
+// TestImportLegacyCharmContainerMount takes a 4.0.12 payload, whose container
+// mount key is nullable, through transform, import and export, and checks the
+// mount is stored against its container.
+func (s *importSuite) TestImportLegacyCharmContainerMount(c *tc.C) {
+	s.bootstrapModel(c)
+
+	latestPayload, err := s.transformLegacy(c, v4_0_12.ModelExport{
+		ModelAgent: []v4_0_12.ModelAgent{{ModelUUID: s.ModelUUID()}},
+		Charm: []v4_0_12.Charm{{
+			UUID: "charm-uuid", Revision: 1, ReferenceName: "foo",
+		}},
+		CharmContainer: []v4_0_12.CharmContainer{{
+			CharmUUID: "charm-uuid", Key: "c1",
+		}},
+		CharmContainerMount: []v4_0_12.CharmContainerMount{{
+			ArrayIndex: 0, CharmUUID: "charm-uuid", CharmContainerKey: new("c1"),
+			Storage: new("data"), Location: new("/data"),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = modelimport.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), &latestPayload)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exported, err := exportstate.NewState(s.TxnRunnerFactory()).Export(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exported.CharmContainerMount, tc.DeepEquals, []v4_1_0.CharmContainerMount{{
+		ArrayIndex: 0, CharmUUID: "charm-uuid", CharmContainerKey: "c1",
+		Storage: new("data"), Location: new("/data"),
+	}})
+}
+
+// TestTransformLegacyCharmContainerMountNullKey verifies that a 4.0.12 mount
+// with no container key is refused, naming the mount and its charm.
+func (s *importSuite) TestTransformLegacyCharmContainerMountNullKey(c *tc.C) {
+	_, err := s.transformLegacy(c, v4_0_12.ModelExport{
+		ModelAgent: []v4_0_12.ModelAgent{{ModelUUID: s.ModelUUID()}},
+		CharmContainerMount: []v4_0_12.CharmContainerMount{{
+			ArrayIndex: 3, CharmUUID: "charm-uuid",
+		}},
+	})
+	c.Check(err, tc.ErrorMatches,
+		`.*charm container mount 3 for charm "charm-uuid" has no container key`)
+}
+
+// TestImportLegacyCharmManifestBase preserves all base fields through legacy
+// decode, transform, persistence and export, including unset attributes.
+func (s *importSuite) TestImportLegacyCharmManifestBase(c *tc.C) {
+	s.bootstrapModel(c)
+	bases := []v4_0_12.CharmManifestBase{
+		{CharmUUID: "charm-uuid", ArrayIndex: 0, NestedArrayIndex: 0, Risk: "stable"},
+		{CharmUUID: "charm-uuid", ArrayIndex: 0, NestedArrayIndex: 1, OsID: new(int64(0)),
+			Track: new("22.04"), Risk: "edge", Branch: new("test"), ArchitectureID: new(int64(0))},
+		{CharmUUID: "charm-uuid", ArrayIndex: 1, NestedArrayIndex: 0, Risk: "stable"},
+	}
+	payload, err := s.transformLegacy(c, v4_0_12.ModelExport{
+		ModelAgent:        []v4_0_12.ModelAgent{{ModelUUID: s.ModelUUID()}},
+		Charm:             []v4_0_12.Charm{{UUID: "charm-uuid", Revision: 1, ReferenceName: "foo"}},
+		CharmManifestBase: bases,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(modelimport.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), &payload), tc.ErrorIsNil)
+	exported, err := exportstate.NewState(s.TxnRunnerFactory()).Export(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	want := make([]v4_1_0.CharmManifestBase, len(bases))
+	for i, base := range bases {
+		want[i] = v4_1_0.CharmManifestBase(base)
+	}
+	c.Check(exported.CharmManifestBase, tc.SameContents, want)
+}
+
+// TestTransformLegacyCharmManifestBaseDuplicatePosition verifies that the
+// diagnostic survives the production transformer, before any import writes.
+func (s *importSuite) TestTransformLegacyCharmManifestBaseDuplicatePosition(c *tc.C) {
+	for _, track := range []*string{nil, new("24.04")} {
+		_, err := s.transformLegacy(c, v4_0_12.ModelExport{
+			CharmManifestBase: []v4_0_12.CharmManifestBase{
+				{CharmUUID: "charm-uuid", ArrayIndex: 2, NestedArrayIndex: 3, Risk: "stable"},
+				{CharmUUID: "charm-uuid", ArrayIndex: 2, NestedArrayIndex: 3, Risk: "stable", Track: track},
+			},
+		})
+		c.Check(err, tc.ErrorMatches, `.*duplicate charm manifest base position \(2, 3\) for charm "charm-uuid"`)
+	}
+}
+
+// TestImportLegacyApplicationExposed takes a 4.0.12 payload, whose exposure
+// rows use a NULL endpoint to mean all endpoints, through transform, import
+// and export. Rows with no endpoint land in the application-wide tables, and
+// the exposure view still reports them with no endpoint.
+func (s *importSuite) TestImportLegacyApplicationExposed(c *tc.C) {
+	s.bootstrapModel(c)
+	alpha := corenetwork.AlphaSpaceId.String()
+
+	latestPayload, err := s.transformLegacy(c, v4_0_12.ModelExport{
+		ModelAgent: []v4_0_12.ModelAgent{{ModelUUID: s.ModelUUID()}},
+		Charm: []v4_0_12.Charm{{
+			UUID: "charm-uuid", Revision: 1, ReferenceName: "foo",
+		}},
+		CharmRelation: []v4_0_12.CharmRelation{{
+			UUID: "relation-uuid", CharmUUID: "charm-uuid", Name: "db",
+		}},
+		Application: []v4_0_12.Application{{
+			UUID: "app-uuid", Name: "foo", CharmUUID: "charm-uuid", SpaceUUID: alpha,
+		}},
+		ApplicationEndpoint: []v4_0_12.ApplicationEndpoint{{
+			UUID: "endpoint-uuid", ApplicationUUID: "app-uuid", CharmRelationUUID: "relation-uuid",
+		}},
+		ApplicationExposedEndpointSpace: []v4_0_12.ApplicationExposedEndpointSpace{
+			{ApplicationUUID: "app-uuid", SpaceUUID: alpha},
+			{ApplicationUUID: "app-uuid", ApplicationEndpointUUID: new("endpoint-uuid"), SpaceUUID: alpha},
+		},
+		ApplicationExposedEndpointCidr: []v4_0_12.ApplicationExposedEndpointCidr{
+			{ApplicationUUID: "app-uuid", Cidr: "10.0.0.0/24"},
+			{ApplicationUUID: "app-uuid", ApplicationEndpointUUID: new("endpoint-uuid"), Cidr: "10.0.1.0/24"},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = modelimport.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), &latestPayload)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exported, err := exportstate.NewState(s.TxnRunnerFactory()).Export(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exported.ApplicationExposedSpace, tc.DeepEquals, []v4_1_0.ApplicationExposedSpace{
+		{ApplicationUUID: "app-uuid", SpaceUUID: alpha},
+	})
+	c.Check(exported.ApplicationExposedCidr, tc.DeepEquals, []v4_1_0.ApplicationExposedCidr{
+		{ApplicationUUID: "app-uuid", Cidr: "10.0.0.0/24"},
+	})
+	c.Check(exported.ApplicationExposedEndpointSpace, tc.DeepEquals, []v4_1_0.ApplicationExposedEndpointSpace{
+		{ApplicationUUID: "app-uuid", ApplicationEndpointUUID: "endpoint-uuid", SpaceUUID: alpha},
+	})
+	c.Check(exported.ApplicationExposedEndpointCidr, tc.DeepEquals, []v4_1_0.ApplicationExposedEndpointCidr{
+		{ApplicationUUID: "app-uuid", ApplicationEndpointUUID: "endpoint-uuid", Cidr: "10.0.1.0/24"},
+	})
+
+	type viewRow struct {
+		endpoint  sql.NullString
+		spaceUUID sql.NullString
+		cidr      sql.NullString
+	}
+	var rows []viewRow
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows = nil
+		result, err := tx.QueryContext(ctx, `
+SELECT application_endpoint_uuid, space_uuid, cidr
+FROM   v_application_exposed_endpoint
+WHERE  application_uuid = 'app-uuid'
+`)
+		if err != nil {
+			return err
+		}
+		defer result.Close()
+		for result.Next() {
+			var row viewRow
+			if err := result.Scan(&row.endpoint, &row.spaceUUID, &row.cidr); err != nil {
+				return err
+			}
+			rows = append(rows, row)
+		}
+		return result.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(rows, tc.SameContents, []viewRow{
+		{spaceUUID: sql.NullString{String: alpha, Valid: true}},
+		{cidr: sql.NullString{String: "10.0.0.0/24", Valid: true}},
+		{
+			endpoint:  sql.NullString{String: "endpoint-uuid", Valid: true},
+			spaceUUID: sql.NullString{String: alpha, Valid: true},
+		},
+		{
+			endpoint: sql.NullString{String: "endpoint-uuid", Valid: true},
+			cidr:     sql.NullString{String: "10.0.1.0/24", Valid: true},
+		},
+	})
+}
+
 func (s *importSuite) bootstrapModel(c *tc.C) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, `
@@ -379,4 +557,23 @@ func (s *importSuite) TestImportTransformsLegacyTextIDs(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(typ, tc.Equals, "integer", tc.Commentf("query: %s", q))
 	}
+}
+
+// transformLegacy encodes a 4.0.12 payload and takes it through decode and
+// transform to the latest export shape, as a migration from 4.0.12 does.
+func (s *importSuite) transformLegacy(c *tc.C, legacy v4_0_12.ModelExport) (latest.ModelExport, error) {
+	data, err := yaml.Marshal(legacy)
+	c.Assert(err, tc.ErrorIsNil)
+
+	payload, err := export.DecodePayload(semversion.MustParse("4.0.12"), data)
+	c.Assert(err, tc.ErrorIsNil)
+	transformer, err := modelimport.NewTransformer()
+	c.Assert(err, tc.ErrorIsNil)
+	transformed, err := transformer.Transform(c.Context(), semversion.MustParse("4.0.12"), payload)
+	if err != nil {
+		return latest.ModelExport{}, err
+	}
+	latestPayload, ok := transformed.(latest.ModelExport)
+	c.Assert(ok, tc.IsTrue)
+	return latestPayload, nil
 }

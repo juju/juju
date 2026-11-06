@@ -1198,6 +1198,10 @@ func (s *importSuite) TestApplicationExposedEndpoints(c *tc.C) {
 		CharmURL: "ch:foo-7",
 		Exposed:  true,
 		ExposedEndpoints: map[string]description.ExposedEndpointArgs{
+			"": {
+				ExposeToSpaceIDs: []string{"0"},
+				ExposeToCIDRs:    []string{"0.0.0.0/0"},
+			},
 			"db": {
 				ExposeToSpaceIDs: []string{"3"},
 				ExposeToCIDRs:    []string{"198.51.100.42/24"},
@@ -1250,6 +1254,8 @@ func (s *importSuite) TestApplicationExposedEndpoints(c *tc.C) {
 	obtained, err := s.svc.GetExposedEndpoints(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtained, tc.DeepEquals, map[string]application.ExposedEndpoint{
+		"": {ExposeToSpaceIDs: set.Strings{network.AlphaSpaceId.String(): true},
+			ExposeToCIDRs: set.Strings{"0.0.0.0/0": true}},
 		"db": {ExposeToSpaceIDs: set.Strings{"space-uuid": true},
 			ExposeToCIDRs: set.Strings{"198.51.100.42/24": true}}})
 }
