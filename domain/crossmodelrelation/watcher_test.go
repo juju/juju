@@ -232,7 +232,7 @@ func (s *watcherSuite) createApplication(c *tc.C, db database.TxnRunner, applica
 		_, err := tx.Exec(`
 INSERT INTO application (uuid, name, charm_uuid, life_id, space_uuid)
 VALUES (?, ?, ?, ?, ?)
-`, applicationUUID, applicationUUID, charmUUID, 0, network.AlphaSpaceId)
+`, applicationUUID, application.RemoteApplicationNameFromUUID(applicationUUID), charmUUID, 0, network.AlphaSpaceId)
 		if err != nil {
 			return err
 		}
@@ -495,9 +495,9 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 		s.createSecret(c, db, uri2, map[string]string{"foo": "bar"})
 
 		// The consumed revision 1 is the initial revision - will be ignored.
-		saveRemoteConsumer(uri1, 1, syntheticApplicationUUID+"/0")
+		saveRemoteConsumer(uri1, 1, application.RemoteApplicationNameFromUUID(application.UUID(syntheticApplicationUUID))+"/0")
 		// The consumed revision 1 is the initial revision - will be ignored.
-		saveRemoteConsumer(uri2, 1, syntheticApplicationUUID+"/0")
+		saveRemoteConsumer(uri2, 1, application.RemoteApplicationNameFromUUID(application.UUID(syntheticApplicationUUID))+"/0")
 
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
@@ -536,7 +536,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 
 	harness1.AddTest(c, func(c *tc.C) {
 		// The consumed revision 2 is the updated current_revision.
-		saveRemoteConsumer(uri1, 2, syntheticApplicationUUID+"/0")
+		saveRemoteConsumer(uri1, 2, application.RemoteApplicationNameFromUUID(application.UUID(syntheticApplicationUUID))+"/0")
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -555,6 +555,69 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 	})
 
 	harness2.Run(c, []string(nil))
+}
+
+// TestWatchRemoteConsumedSecretsChangesMixedUnitRevisions checks that,
+// when the watcher is started, a secret is reported if any consuming unit
+// is behind the latest revision, even if another unit is current.
+func (s *watcherSuite) TestWatchRemoteConsumedSecretsChangesMixedUnitRevisions(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.modelUUID)
+
+	svc, st := s.setupService(c, factory)
+
+	db, err := s.GetWatchableDB(c.Context(), s.modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	s.initModel(c, db)
+
+	ctx := c.Context()
+
+	saveRemoteConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
+		consumer := coresecrets.SecretConsumerMetadata{
+			CurrentRevision: revision,
+		}
+		err := st.SaveSecretRemoteConsumer(ctx, uri, consumerID, consumer)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	uri := coresecrets.NewURI()
+	uri.SourceUUID = s.modelUUID
+	realApplicationUUID, syntheticApplicationUUID := s.setupRemoteApplicationConsumer(c, db)
+
+	s.createSecret(c, db, uri, map[string]string{"foo": "bar"})
+	s.addRevision(c, db, uri, map[string]string{"foo": "bar2"})
+	// The first unit consumes the latest revision, the second unit is
+	// behind.
+	syntheticApplicationName := application.RemoteApplicationNameFromUUID(application.UUID(syntheticApplicationUUID))
+	saveRemoteConsumer(uri, 2, syntheticApplicationName+"/0")
+	saveRemoteConsumer(uri, 1, syntheticApplicationName+"/1")
+
+	s.modelIdler.AssertChangeStreamIdle(c, "before watcher start")
+	w, err := svc.WatchRemoteConsumedSecretsChanges(ctx, application.UUID(realApplicationUUID))
+	c.Assert(err, tc.IsNil)
+	c.Assert(w, tc.NotNil)
+	defer watchertest.CleanKill(c, w)
+
+	harness := watchertest.NewHarness(s.modelIdler, watchertest.NewWatcherC(c, w))
+	harness.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert(
+				uri.String(),
+			),
+		)
+	})
+
+	// A new revision is reported, as both units are behind it.
+	harness.AddTest(c, func(c *tc.C) {
+		s.addRevision(c, db, uri, map[string]string{"foo": "bar3"})
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert(
+				uri.String(),
+			),
+		)
+	})
+
+	harness.Run(c, []string(nil))
 }
 
 func (s *watcherSuite) TestWatchConsumerRelations(c *tc.C) {

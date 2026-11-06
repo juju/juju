@@ -368,9 +368,14 @@ type revisionUUID struct {
 }
 
 type secretRemoteUnitConsumer struct {
-	UnitName        string `db:"unit_name"`
-	SecretID        string `db:"secret_id"`
-	CurrentRevision int    `db:"current_revision"`
+	SecretID            string `db:"secret_id"`
+	OfferConnectionUUID string `db:"offer_connection_uuid"`
+	UnitName            string `db:"unit_name"`
+	CurrentRevision     int    `db:"current_revision"`
+}
+
+type offerConnectionUUID struct {
+	UUID string `db:"offer_connection_uuid"`
 }
 
 type secretRemoteUnitConsumers []secretRemoteUnitConsumer

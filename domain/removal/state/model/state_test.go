@@ -614,6 +614,46 @@ func (s *baseSuite) createRelationWithRemoteConsumer(c *tc.C) (relation.UUID, co
 	return relUUID, synthAppUUID, offerUUID
 }
 
+type secretRemoteUnitConsumerRow struct {
+	SecretID            string
+	OfferConnectionUUID string
+	UnitName            string
+	CurrentRevision     int
+}
+
+func (s *baseSuite) addSecretRemoteUnitConsumers(c *tc.C, consumers ...secretRemoteUnitConsumerRow) {
+	for _, consumer := range consumers {
+		_, err := s.DB().ExecContext(c.Context(), `
+INSERT INTO secret (id) VALUES (?) ON CONFLICT DO NOTHING`, consumer.SecretID)
+		c.Assert(err, tc.ErrorIsNil)
+		_, err = s.DB().ExecContext(c.Context(), `
+INSERT INTO secret_metadata (secret_id, version, rotate_policy_id, create_time, update_time)
+VALUES (?, 1, 0, ?, ?) ON CONFLICT DO NOTHING`, consumer.SecretID, s.now, s.now)
+		c.Assert(err, tc.ErrorIsNil)
+		_, err = s.DB().ExecContext(c.Context(), `
+INSERT INTO secret_remote_unit_consumer (secret_id, offer_connection_uuid, unit_name, current_revision)
+VALUES (?, ?, ?, ?)`, consumer.SecretID, consumer.OfferConnectionUUID, consumer.UnitName, consumer.CurrentRevision)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+}
+
+func (s *baseSuite) secretRemoteUnitConsumers(c *tc.C) []secretRemoteUnitConsumerRow {
+	rows, err := s.DB().QueryContext(c.Context(), `
+SELECT secret_id, offer_connection_uuid, unit_name, current_revision
+FROM secret_remote_unit_consumer`)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = rows.Close() }()
+	var consumers []secretRemoteUnitConsumerRow
+	for rows.Next() {
+		var consumer secretRemoteUnitConsumerRow
+		c.Assert(rows.Scan(&consumer.SecretID, &consumer.OfferConnectionUUID,
+			&consumer.UnitName, &consumer.CurrentRevision), tc.ErrorIsNil)
+		consumers = append(consumers, consumer)
+	}
+	c.Assert(rows.Err(), tc.ErrorIsNil)
+	return consumers
+}
+
 func (s *baseSuite) createRemoteRelationBetween(c *tc.C, synthAppName, appName string) relation.UUID {
 	relSvc := s.setupRelationService(c)
 
