@@ -167,7 +167,10 @@ AND k.fingerprint = $userPublicKeyInsert.fingerprint
 		)
 	}
 
-	// Execute writes without RETURNING so dqlite preserves retryable errors.
+	// Work around canonical/dqlite#918: RETURNING may report _sqlair_0
+	// instead of a retryable write conflict.
+	// See TestReturningWriteConflictWorkaroundStillRequired before replacing
+	// this insert and lookup with INSERT ... RETURNING.
 	if err := tx.Query(ctx, insertStmt, key).Run(); err != nil {
 		return 0, errors.Errorf(
 			"inserting public key for user %q: %w", key.UserId, err,
