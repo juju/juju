@@ -15,8 +15,11 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// ControllerBackupProvisioning records the selected source pod's images and storage.
-func (k *kubernetesClient) ControllerBackupProvisioning(ctx context.Context, controllerID string) (*backups.KubernetesProvisioning, error) {
+// ControllerBackupProvisioning records the selected source pod's images and
+// storage.
+func (k *kubernetesClient) ControllerBackupProvisioning(
+	ctx context.Context, controllerID string,
+) (*backups.KubernetesProvisioning, error) {
 	if controllerID == "" {
 		return nil, errors.New("source controller ID is required")
 	}
@@ -59,7 +62,9 @@ func (k *kubernetesClient) ControllerBackupProvisioning(ctx context.Context, con
 		if volume.Name != storageName || volume.PersistentVolumeClaim == nil {
 			continue
 		}
-		claim, err := k.client().CoreV1().PersistentVolumeClaims(k.namespace).Get(ctx, volume.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
+		claim, err := k.client().CoreV1().
+			PersistentVolumeClaims(k.namespace).
+			Get(ctx, volume.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
