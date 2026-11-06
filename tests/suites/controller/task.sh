@@ -24,9 +24,12 @@ test_controller() {
 
 	test_metrics
 
-	test_enable_ha
 	test_query_tracing
 	test_limit_access
+
+	# This leaves the controller in HA, so run it after the tests that
+	# expect a single controller.
+	test_enable_ha
 
 	# Leave this one last, as it can cause mongo to slowdown to a snails pace.
 	test_mongo_memory_profile

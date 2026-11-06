@@ -33,6 +33,20 @@ bases:
           - aarch64
           - arm64
           - s390x
+      - name: "ubuntu"
+        channel: "24.04"
+        architectures:
+          - amd64
+          - aarch64
+          - arm64
+          - s390x
+      - name: "ubuntu"
+        channel: "26.04"
+        architectures:
+          - amd64
+          - aarch64
+          - arm64
+          - s390x
 parts:
   tiny-bash:
     plugin: dump

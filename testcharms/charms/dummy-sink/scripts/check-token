@@ -5,7 +5,8 @@ if [[ -z $rel_id ]]; then
 	status-set blocked "Waiting for source relation"
 else
 	mkdir -p /var/run/dummy-sink
-	token=$(relation-get token -r "$rel_id" dummy-source/0)
+	remote_unit=${JUJU_REMOTE_UNIT:-$(relation-list -r "$rel_id" | head -n 1)}
+	token=$(relation-get token -r "$rel_id" "$remote_unit")
 	echo "$token" >/var/run/dummy-sink/token
 	if [ -z "$token" ]; then
 		juju-log -l INFO "Waiting for token"

@@ -465,8 +465,8 @@ github.com/juju/qthttptest v0.1.3 h1:M0HdpwsK/UTHRGRcIw5zvh5z+QOgdqyK+ecDMN+swwM
 github.com/juju/qthttptest v0.1.3/go.mod h1:2gayREyVSs/IovPmwYAtU+HZzuhDjytJQRRLzPTtDYE=
 github.com/juju/ratelimit v1.0.2 h1:sRxmtRiajbvrcLQT7S+JbqU0ntsb9W2yhSdNN8tWfaI=
 github.com/juju/ratelimit v1.0.2/go.mod h1:qapgC/Gy+xNh9UxzV13HGGl/6UXNN+ct+vwSgWNm/qk=
-github.com/juju/replicaset/v3 v3.0.1 h1:+w2z277yeiRTI1JQ+8sNgKIraUT1uQb+X9WmmlOuT9M=
-github.com/juju/replicaset/v3 v3.0.1/go.mod h1:2V11mLgGEaTOcQ4XBw6DbZn9mO6u5w7da1CflXCZ8gE=
+github.com/juju/replicaset/v3 v3.0.2 h1:oGXY2xWcJq0rR7wndrkN4XcnokcpCyXt0l26BFTxMKw=
+github.com/juju/replicaset/v3 v3.0.2/go.mod h1:jbN5/05jv3NbtzGOjxqlTnHZ7lvMC04ay/N8Vws0LBU=
 github.com/juju/retry v0.0.0-20151029024821-62c620325291/go.mod h1:OohPQGsr4pnxwD5YljhQ+TZnuVRYpa5irjugL1Yuif4=
 github.com/juju/retry v0.0.0-20180821225755-9058e192b216/go.mod h1:OohPQGsr4pnxwD5YljhQ+TZnuVRYpa5irjugL1Yuif4=
 github.com/juju/retry v1.0.0/go.mod h1:SssN1eYeK3A2qjnFGTiVMbdzGJ2BfluaJblJXvuvgqA=
