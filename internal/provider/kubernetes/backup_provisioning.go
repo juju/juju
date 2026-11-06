@@ -38,17 +38,15 @@ func (k *kubernetesClient) ControllerBackupProvisioning(
 	}
 	result := &backups.KubernetesProvisioning{Architecture: node.Status.NodeInfo.Architecture}
 	for _, container := range pod.Spec.Containers {
-		if container.Name != apiServerContainerName && container.Name != constants.ApplicationCharmContainer {
-			continue
-		}
-		running := false
-		for _, status := range pod.Status.ContainerStatuses {
-			if status.Name == container.Name && status.State.Running != nil {
-				running = true
-				break
+		switch container.Name {
+		case apiServerContainerName:
+			if !containerRunning(pod, container.Name) {
+				continue
 			}
-		}
-		if !running {
+		case constants.ApplicationCharmContainer:
+			// The charm container may be restarting; its spec image is still
+			// the source image the replacement needs.
+		default:
 			continue
 		}
 		if err := docker.ValidateDockerRegistryPath(container.Image); err != nil {
@@ -61,7 +59,7 @@ func (k *kubernetesClient) ControllerBackupProvisioning(
 		}
 	}
 	if result.AgentImage == "" || result.CharmImage == "" || result.Architecture == "" {
-		return nil, errors.New("source controller has no running agent, charm or platform identity")
+		return nil, errors.New("source controller has no agent image, charm image or platform identity")
 	}
 	for _, volume := range pod.Spec.Volumes {
 		if volume.Name != storageName || volume.PersistentVolumeClaim == nil {
@@ -106,4 +104,14 @@ func (k *kubernetesClient) ControllerBackupProvisioning(
 	result.ExternalName, result.ExternalIPs = service.Spec.ExternalName, service.Spec.ExternalIPs
 	result.LoadBalancerIP, result.ServiceAnnotations = service.Spec.LoadBalancerIP, service.Annotations
 	return result, nil
+}
+
+// containerRunning reports whether the named container is running.
+func containerRunning(pod *core.Pod, name string) bool {
+	for _, status := range pod.Status.ContainerStatuses {
+		if status.Name == name && status.State.Running != nil {
+			return true
+		}
+	}
+	return false
 }
