@@ -33,7 +33,6 @@ func (s *provisionerSuite) TestStub(c *tc.C) {
  - Test removing a machine
  - Test setting a machine status
  - Test setting a machine instance status
- - Test setting a machine modification status
  - Test machines with transient errors
  - Test machines with transient errors permission
  - Test machines with ensure dead

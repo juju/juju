@@ -86,6 +86,11 @@ test_model_destroy() {
 		cd .. || exit
 
 		run "run_model_destroy"
-		run "run_model_destroy_with_container"
+
+		if [[ ${BOOTSTRAP_PROVIDER:-} != "lxd" ]] || kvm-ok; then
+			run "run_model_destroy_with_container"
+		else
+			echo "==> TEST SKIPPED: model_destroy_with_container - lxd without kvm is not supported"
+		fi
 	)
 }

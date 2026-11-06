@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 
 	coreagent "github.com/juju/juju/core/agent"
-	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/objectstore"
 )
@@ -36,9 +35,8 @@ func (c SecretaryFinder) SecretaryFor(namespace string) (lease.Secretary, error)
 	return result, nil
 }
 
-// NewCabinet returns a SecretaryFinder with default set of secretaries
-// registered with it.
-// Note: a cabinet is a group of secretaries.
+// NewSecretaryFinder returns a SecretaryFinder with a default
+// set of secretaries registered with it.
 func NewSecretaryFinder(controllerUUID string) lease.SecretaryFinder {
 	finder := SecretaryFinder{
 		secretaries: map[string]lease.Secretary{
@@ -132,8 +130,7 @@ func (ObjectStoreSecretary) CheckHolder(name string) error {
 	return objectstore.ParseLeaseHolderName(name)
 }
 
-// BackupCreationSecretary implements Secretary; it checks that leases are
-// application names, and holders are unit names.
+// BackupCreationSecretary checks that lease and holder names are non-empty.
 type BackupCreationSecretary struct {
 	baseSecretary
 }
@@ -148,5 +145,8 @@ func (BackupCreationSecretary) CheckLease(key lease.Key) error {
 
 // CheckHolder is part of the lease.Secretary interface.
 func (BackupCreationSecretary) CheckHolder(name string) error {
-	return corebackups.ParseLeaseHolderName(name)
+	if name == "" {
+		return errors.NewNotValid(nil, "empty lease holder name")
+	}
+	return nil
 }

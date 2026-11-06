@@ -17,7 +17,17 @@ run_secrets_cmr() {
 
 	echo "Create and share a secret on the offer side"
 	secret_uri=$(juju_exec_output --unit source/0 -- secret-add foo=bar)
-	relation_id=$(juju --show-log show-unit -m model-secrets-offer source/0 --format json | yq '."source/0"."relation-info" | .[] | select(."endpoint"=="self-metrics-endpoint") | ."relation-id"')
+	# Without an explicit endpoint, show-unit can hide relations without data.
+	relation_id=$(
+		juju --show-log show-unit -m model-secrets-offer source/0 \
+			--endpoint self-metrics-endpoint --format json |
+			yq '."source/0"."relation-info" | .[] |
+				select(."endpoint"=="self-metrics-endpoint") | ."relation-id"'
+	)
+	if ! [[ ${relation_id} =~ ^[0-9]+$ ]]; then
+		echo "ERROR: invalid relation ID for source:self-metrics-endpoint" >&2
+		return 1
+	fi
 	juju exec --unit source/0 -- secret-grant "$secret_uri" -r "$relation_id"
 
 	echo "Checking: the secret can be read by the consumer"
@@ -113,11 +123,16 @@ run_secrets_cmr_cross_controller() {
 	# offers section instead.
 	wait_for "1" '.offers["source"]["active-connected-count"]'
 	secret_uri=$(juju_exec_output --unit source/0 -- secret-add foo=bar)
-	relation_id=$(juju --show-log show-unit -m model-secrets-offer-xc source/0 --format json | yq '."source/0"."relation-info" | .[] | select(."endpoint"=="self-metrics-endpoint") | ."relation-id"')
-	if [[ -z ${relation_id} ]]; then
-		echo "ERROR: could not extract the offer-side relation id for the"
-		echo "    cross-model relation from show-unit source/0"
-		exit 1
+	# Without an explicit endpoint, show-unit can hide relations without data.
+	relation_id=$(
+		juju --show-log show-unit -m model-secrets-offer-xc source/0 \
+			--endpoint self-metrics-endpoint --format json |
+			yq '."source/0"."relation-info" | .[] |
+				select(."endpoint"=="self-metrics-endpoint") | ."relation-id"'
+	)
+	if ! [[ ${relation_id} =~ ^[0-9]+$ ]]; then
+		echo "ERROR: invalid relation ID for source:self-metrics-endpoint" >&2
+		return 1
 	fi
 	juju exec --unit source/0 -- secret-grant "$secret_uri" -r "$relation_id"
 

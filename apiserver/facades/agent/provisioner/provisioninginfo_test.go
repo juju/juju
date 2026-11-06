@@ -16,7 +16,5 @@ func (s *withoutControllerSuite) TestStubSuite(c *tc.C) {
   attachment information where one provider is environ-managed and one is not.
 - TestStorageProviderVolumes: Check ProvisioningInfo for includes volume
   attachment information for already-provisioned volumes.
-- TestProvisioningInfoWithLXDProfile: Check ProvisioningInfo for includes
-  CharmLXDProfiles when a unit with an LXD profile is on the machine.
 `)
 }

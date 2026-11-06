@@ -49,7 +49,7 @@ import (
 	"github.com/juju/juju/internal/worker/apiserver"
 	"github.com/juju/juju/internal/worker/apiservercertwatcher"
 	"github.com/juju/juju/internal/worker/auditconfigupdater"
-	"github.com/juju/juju/internal/worker/backupcreation"
+	"github.com/juju/juju/internal/worker/backup"
 	"github.com/juju/juju/internal/worker/bootstrap"
 	"github.com/juju/juju/internal/worker/certupdater"
 	"github.com/juju/juju/internal/worker/changestream"
@@ -577,7 +577,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// renews the controller backup lease while the archive is
 		// generated, and the API server consumes its output when a backup
 		// is requested.
-		backupCreatorName: backupcreation.Manifold(backupcreation.ManifoldConfig{
+		backupCreatorName: backup.Manifold(backup.ManifoldConfig{
 			LeaseManagerName:    leaseManagerName,
 			DomainServicesName:  domainServicesName,
 			ObjectStoreName:     objectStoreFacadeName,
@@ -587,8 +587,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ControllerTag:       config.ControllerAgentTag,
 			LocalConfigReader:   config.StartupValueProvider,
 			Clock:               config.Clock,
-			Logger:              internallogger.GetLogger("juju.worker.backupcreation"),
-			NewWorker:           backupcreation.NewWorker,
+			Logger:              internallogger.GetLogger("juju.worker.backup"),
+			NewWorker:           backup.NewWorker,
 		}),
 
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
@@ -1305,7 +1305,7 @@ type ControllerStartupValueProvider interface {
 	controllerlogger.LoggingOverrideReader
 	identityfilewriter.SystemIdentityReader
 	logrouter.LokiConfigProvider
-	backupcreation.LocalConfigReader
+	backup.LocalConfigReader
 }
 
 const (

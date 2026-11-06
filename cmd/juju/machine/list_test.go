@@ -110,6 +110,8 @@ func (*fakeStatusAPI) Status(ctx context.Context, args *client.StatusArgs) (*par
 						},
 					},
 				},
+				// LXDProfiles remains on the RPC response for compatibility,
+				// but is no longer presented by the client.
 				LXDProfiles: map[string]params.LXDProfile{
 					"lxd-profile-name": {
 						Config: map[string]string{
@@ -210,16 +212,7 @@ func (s *MachineListCommandSuite) TestListMachineYaml(c *tc.C) {
 		"            - 10.0.0.3\n"+
 		"            - 10.0.1.3\n"+
 		"            mac-address: aa:bb:cc:dd:ee:ff\n"+
-		"            is-up: true\n"+
-		"    lxd-profiles:\n"+
-		"      lxd-profile-name:\n"+
-		"        config:\n"+
-		"          environment.http_proxy: \"\"\n"+
-		"        description: lxd-profile description\n"+
-		"        devices:\n"+
-		"          tun:\n"+
-		"            path: /dev/net/tun\n"+
-		"            type: unix-char\n",
+		"            is-up: true\n",
 	)
 }
 
@@ -244,7 +237,6 @@ func (s *MachineListCommandSuite) TestListMachineJson(c *tc.C) {
 		"		  ]," +
 		"		  \"instance-id\":\"juju-badd06-0\"," +
 		"		  \"machine-status\":{}," +
-		"		  \"modification-status\":{}," +
 		"		  \"base\":{\"name\":\"ubuntu\",\"channel\":\"22.04\"}," +
 		"		  \"network-interfaces\":{" +
 		"			 \"eth0\":{" +
@@ -270,7 +262,6 @@ func (s *MachineListCommandSuite) TestListMachineJson(c *tc.C) {
 		"		  ]," +
 		"		  \"instance-id\":\"juju-badd06-1\"," +
 		"		  \"machine-status\":{}," +
-		"		  \"modification-status\":{}," +
 		"		  \"base\":{\"name\":\"ubuntu\",\"channel\":\"22.04\"}," +
 		"		  \"network-interfaces\":{" +
 		"			 \"eth0\":{" +
@@ -294,7 +285,6 @@ func (s *MachineListCommandSuite) TestListMachineJson(c *tc.C) {
 		"				]," +
 		"				\"instance-id\":\"juju-badd06-1-lxd-0\"," +
 		"				\"machine-status\":{}," +
-		"				\"modification-status\":{}," +
 		"		        \"base\":{\"name\":\"ubuntu\",\"channel\":\"22.04\"}," +
 		"				\"network-interfaces\":{" +
 		"				   \"eth0\":{" +
@@ -304,20 +294,6 @@ func (s *MachineListCommandSuite) TestListMachineJson(c *tc.C) {
 		"					  ]," +
 		"					  \"mac-address\":\"aa:bb:cc:dd:ee:ff\"," +
 		"					  \"is-up\":true" +
-		"				   }" +
-		"				}" +
-		"			 }" +
-		"		  }," +
-		"		  \"lxd-profiles\":{" +
-		"			 \"lxd-profile-name\":{" +
-		"				\"config\":{" +
-		"				   \"environment.http_proxy\":\"\"" +
-		"				}," +
-		"				\"description\":\"lxd-profile description\"," +
-		"				\"devices\":{" +
-		"				   \"tun\":{" +
-		"					  \"path\":\"/dev/net/tun\"," +
-		"					  \"type\":\"unix-char\"" +
 		"				   }" +
 		"				}" +
 		"			 }" +

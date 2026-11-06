@@ -1,10 +1,11 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package backupcreation
+package backup
 
 import (
 	"context"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -17,10 +18,11 @@ import (
 	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/lease"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
-type workerSuite struct{}
+type workerSuite struct{ coretesting.BaseSuite }
 
 func TestWorkerSuite(t *testing.T) { tc.Run(t, &workerSuite{}) }
 
@@ -82,38 +84,63 @@ func (s *workerSuite) TestNewWorkerFailsWhenBindingLeaseOperations(c *tc.C) {
 	}
 }
 
-func (s *workerSuite) TestCreateClaimsChecksAndRevokesControllerNodeLease(c *tc.C) {
+func (s *workerSuite) TestCreateClaimsChecksRenewsAndRevokesAttemptLease(c *tc.C) {
 	cfg := workerConfig(c)
+	clk := &observedClock{Clock: testclock.NewClock(time.Now()), timers: make(chan struct{}, 1)}
+	cfg.Clock = clk
+	var attemptHolder string
+	var claims atomic.Int32
+	renewed := make(chan struct{})
 	var claimed, checked, revoked atomic.Bool
 	cfg.LeaseManager = leaseManagerStub{operations: leaseOperations{
 		claim: func(name, holder string, duration time.Duration) error {
 			c.Check(name, tc.Equals, cfg.ControllerUUID)
-			c.Check(holder, tc.Equals, cfg.ControllerNodeID)
 			c.Check(duration, tc.Equals, leaseDuration)
+			if claims.Add(1) == 1 {
+				attemptHolder = holder
+				c.Check(strings.HasPrefix(holder, cfg.ControllerNodeID+":"), tc.IsTrue)
+				_, err := uuid.UUIDFromString(strings.TrimPrefix(holder, cfg.ControllerNodeID+":"))
+				c.Assert(err, tc.ErrorIsNil)
+			} else {
+				c.Check(holder, tc.Equals, attemptHolder)
+				close(renewed)
+			}
 			claimed.Store(true)
 			return nil
 		},
 		check: func(name, holder string) error {
 			c.Check(claimed.Load(), tc.IsTrue)
 			c.Check(name, tc.Equals, cfg.ControllerUUID)
-			c.Check(holder, tc.Equals, cfg.ControllerNodeID)
+			c.Check(holder, tc.Equals, attemptHolder)
 			checked.Store(true)
 			return nil
 		},
 		revoke: func(name, holder string) error {
 			c.Check(checked.Load(), tc.IsTrue)
 			c.Check(name, tc.Equals, cfg.ControllerUUID)
-			c.Check(holder, tc.Equals, cfg.ControllerNodeID)
+			c.Check(holder, tc.Equals, attemptHolder)
 			revoked.Store(true)
 			return nil
 		},
 	}}
+	cfg.CreateArchive = backupCreatorFunc(func(context.Context, string) (*corebackups.Metadata, string, func(), error) {
+		<-renewed
+		return &corebackups.Metadata{}, "archive", func() {}, nil
+	})
 	w := startWorker(c, cfg)
-	_, _, cleanup, err := w.Create(c.Context(), "notes")
-	c.Assert(err, tc.ErrorIsNil)
+	done := make(chan result, 1)
+	go func() {
+		meta, archive, cleanup, err := w.Create(c.Context(), "notes")
+		done <- result{meta: meta, archive: archive, cleanup: cleanup, err: err}
+	}()
+	<-clk.timers
+	clk.Advance(renewInterval)
+	res := <-done
+	c.Assert(res.err, tc.ErrorIsNil)
+	c.Check(claims.Load(), tc.Equals, int32(2))
 	c.Check(checked.Load(), tc.IsTrue)
 	c.Check(revoked.Load(), tc.IsTrue)
-	cleanup()
+	res.cleanup()
 }
 
 func (s *workerSuite) TestClaimContentionDoesNotGenerateOrRevoke(c *tc.C) {

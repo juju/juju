@@ -202,7 +202,7 @@ func BootstrapInstance(
 		return nil
 	}
 
-	var startInstanceArgs = environs.StartInstanceParams{
+	startInstanceArgs := environs.StartInstanceParams{
 		ControllerUUID:  args.ControllerConfig.ControllerUUID(),
 		Constraints:     args.BootstrapConstraints,
 		Tools:           availableTools,
@@ -372,7 +372,8 @@ func startInstanceZones(env environs.Environ, ctx context.Context, args environs
 // This is all that is required for the bootstrap to continue. Further configured
 // rules will be opened by the firewaller, Once it has started
 func openControllerModelPorts(bootstrapContext context.Context,
-	modelFw models.ModelFirewaller, cfg *config.Config, envIPV6CIDRSupport bool) error {
+	modelFw models.ModelFirewaller, cfg *config.Config, envIPV6CIDRSupport bool,
+) error {
 	rules := firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22"), cfg.SSHAllow()...),
 	}
@@ -848,13 +849,28 @@ func WaitSSH(
 	defer checker.Kill()
 
 	fmt.Fprintln(stdErr, "Waiting for address")
+	var lastRefreshErr error
 	for {
 		select {
 		case <-pollAddresses.C:
 			pollAddresses.Reset(opts.AddressesDelay)
 			if err := inst.Refresh(ctx); err != nil {
-				return "", fmt.Errorf("refreshing addresses: %v", err)
+				switch {
+				case ctx.Err() != nil:
+					return "", bootstrap.Cancelled()
+				case !isRetryableRefreshError(err):
+					return "", fmt.Errorf("refreshing addresses: %w", err)
+				}
+				// The instance is not yet visible to the provider,
+				// which is an eventual consistency effect seen
+				// shortly after an instance is started. Keep
+				// polling for addresses until the instance appears
+				// or the bootstrap timeout is reached.
+				lastRefreshErr = err
+				logger.Debugf(ctx, "instance addresses not available yet, will retry: %v", err)
+				continue
 			}
+			lastRefreshErr = nil
 			instanceStatus := inst.Status(ctx)
 			if instanceStatus.Status == status.ProvisioningError {
 				if instanceStatus.Message != "" {
@@ -864,21 +880,34 @@ func WaitSSH(
 			}
 			addresses, err := inst.Addresses(ctx)
 			if err != nil {
-				return "", fmt.Errorf("getting addresses: %v", err)
+				return "", fmt.Errorf("getting addresses: %w", err)
 			}
 			checker.UpdateAddresses(addresses)
 		case <-globalTimeout:
+			// TODO (ice): This branch is unreachable in production: the bootstrap
+			// command creates the bootstrap context with the same BootstrapTimeout
+			// that is passed as opts.Timeout, and that timer starts before the
+			// bootstrap instance is launched, so ctx.Done() always fires first. The
+			// branch should be removed once the cancellation paths, which currently
+			// report a bare "cancelled" error without the cause of the wait, are
+			// fixed to include it.
 			checker.Close()
 			lastErr := checker.Wait()
 			format := "waited for %v "
 			args := []any{opts.Timeout}
 			if len(checker.active) == 0 {
 				format += "without getting any addresses"
+				if lastRefreshErr != nil {
+					// No addresses were ever obtained; include the last error from
+					// refreshing the instance so the cause is visible.
+					format += ", last refresh error: %w"
+					args = append(args, lastRefreshErr)
+				}
 			} else {
 				format += "without being able to connect"
 			}
 			if lastErr != nil && lastErr != parallel.ErrStopped {
-				format += ": %v"
+				format += ": %w"
 				args = append(args, lastErr)
 			}
 			return "", fmt.Errorf(format, args...)
@@ -892,6 +921,17 @@ func WaitSSH(
 			return result.(*hostChecker).addr.Value, nil
 		}
 	}
+}
+
+// isRetryableRefreshError returns true if the error returned by
+// refreshing an instance is transient: the instance may become visible
+// to the provider later, which is an eventual consistency effect seen
+// shortly after an instance is started. Such errors are retried until
+// the refresh succeeds or the bootstrap timeout is reached. All other
+// errors, such as invalid credentials, must be returned to the caller.
+func isRetryableRefreshError(err error) bool {
+	return errors.Is(err, environs.ErrNoInstances) ||
+		errors.Is(err, environs.ErrPartialInstances)
 }
 
 func generateSSHHostKeys() (instancecfg.SSHHostKeys, error) {

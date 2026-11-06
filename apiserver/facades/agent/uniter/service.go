@@ -224,6 +224,12 @@ type ApplicationService interface {
 	// GetCharmLocatorByApplicationName returns a CharmLocator by application name.
 	GetCharmLocatorByApplicationName(ctx context.Context, name string) (charm.CharmLocator, error)
 
+	// GetCharmLocatorByUnitName returns a CharmLocator for the charm the named
+	// unit is currently running. The unit's charm differs from the application's
+	// charm while the unit has not yet upgraded, such as during a rolling charm
+	// refresh.
+	GetCharmLocatorByUnitName(ctx context.Context, name coreunit.Name) (charm.CharmLocator, error)
+
 	// ShouldAllowCharmUpgradeOnError indicates if the units of an application should
 	// upgrade to the latest version of the application charm even if they are in
 	// error state.

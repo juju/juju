@@ -18,7 +18,7 @@ juju refresh [options] <application>
 | `--bind` |  | Configure application endpoint bindings to spaces |
 | `--channel` |  | Channel to use when getting the charm from Charmhub |
 | `--config` |  | Either a path to yaml-formatted application config file or a key=value pair  |
-| `--force` | false | Allow a charm to be refreshed which bypasses LXD profile allow list |
+| `--force` | false | Allow the charm to be upgraded on units in an error state |
 | `--force-base` | false | Refresh even if the base of the deployed application is not supported by the new charm |
 | `--force-units` | false | Refresh all units immediately, even if in error state |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
@@ -157,10 +157,6 @@ is determined by the contents of the charm at the specified path.
 Use of the `--force-units` option is not generally recommended; units upgraded
 while in an error state will not have `upgrade-charm` hooks executed, and may
 cause unexpected behavior.
-
-`--force` option for LXD Profiles is not generally recommended when upgrading an
-application; overriding profiles on the container may cause unexpected
-behavior.
 
 ### Behavior on machines vs. Kubernetes
 
