@@ -273,6 +273,8 @@ func generate(ctx context.Context, runner *txnRunner, pass generatorPass) error 
 // newExportTable adds null markers for types whose NULL values dqlite remaps
 // according to the column's declared type. The markers allow the generated
 // exporter to restore nil pointers after scanning each row.
+// Review the markers when a dqlite release containing canonical/dqlite#883
+// is bundled.
 func newExportTable(tableName, structName string, columns []column) exportTable {
 	table := exportTable{
 		Name:         tableName,
