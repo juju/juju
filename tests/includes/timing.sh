@@ -13,7 +13,8 @@
 #           introspect, destroy_controller or subtest
 #   detail  what the phase acted on (charm, model, controller, cloud...)
 #   seconds wall-clock duration, millisecond resolution
-#   result  ok, error (a teardown problem that was tolerated), or fail
+#   result  ok, error (a teardown problem that was tolerated), fail, or
+#           stopped (a background teardown no longer waited for)
 #   start   start time, seconds since the epoch
 #
 # A test that fails exits from inside its phases (errexit, wait_timed_out),
@@ -87,14 +88,23 @@ timing_end() {
 }
 
 # timing_flush_open records every phase that was started but never ended,
-# that is, a phase the test exited from, with the result "fail".
+# that is, a phase the test exited from, with the result "fail". Phases of
+# processes still running (such as a background model destroy) are left for
+# those processes to end.
 timing_flush_open() {
-	local file
+	local file id owner
 
 	_timing_enabled || return 0
 	for file in "${TEST_DIR}"/.timings-open/*; do
 		[[ -f ${file} ]] || continue
-		timing_end "$(basename "${file}")" fail
+		id=$(basename "${file}")
+		# The id is <start>-<owner pid>-<random>.
+		owner=${id#*-}
+		owner=${owner%%-*}
+		if [[ ${owner} != "${BASHPID}" ]] && kill -0 "${owner}" 2>/dev/null; then
+			continue
+		fi
+		timing_end "${id}" fail
 	done
 }
 

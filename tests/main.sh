@@ -312,6 +312,8 @@ cleanup() {
 	fi
 	echo "==> Test result: ${TEST_RESULT}"
 
+	# Background phases still open after the teardown never finished.
+	timing_flush_open
 	timing_finish
 
 	archive_logs "full"
