@@ -165,6 +165,8 @@ func (s *metadataSuite) TestNewMetadataJSONReaderV2(c *tc.C) {
 	c.Check(meta.Origin.Hostname, tc.Equals, "myhost")
 	c.Check(meta.Origin.Version.String(), tc.Equals, "1.21-alpha3")
 	c.Check(meta.FormatVersion, tc.Equals, int64(2))
+	c.Check(meta.Kubernetes, tc.IsNil)
+	c.Check(meta.DatabaseSizeBytes, tc.Equals, int64(0))
 	c.Check(meta.Controller.UUID, tc.Equals, "controller-uuid")
 	c.Check(meta.Controller.HANodes, tc.Equals, int64(3))
 	c.Check(meta.Controller.MachineInstanceID, tc.Equals, "inst-10101010")
@@ -228,8 +230,12 @@ func (s *metadataSuite) TestBuildMetadata(c *tc.C) {
 	c.Check(meta.Controller.HANodes, tc.Equals, backups.UnknownInt64)
 }
 
+// TestKubernetesProvisioningRoundTrip verifies that the Kubernetes
+// provisioning facts and the database size survive a serialise and decode
+// cycle in the archive metadata.
 func (s *metadataSuite) TestKubernetesProvisioningRoundTrip(c *tc.C) {
 	meta := s.createTestMetadata(c)
+	meta.DatabaseSizeBytes = 1 << 40
 	meta.Kubernetes = &backups.KubernetesProvisioning{
 		AgentImage: "example.com/agent@sha256:source", CharmImage: "example.com/charm@sha256:source",
 		Architecture: "arm64", StorageClass: "source", StorageSizeMiB: 65536,
@@ -242,4 +248,5 @@ func (s *metadataSuite) TestKubernetesProvisioningRoundTrip(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(decoded.FormatVersion, tc.Equals, int64(2))
 	c.Check(decoded.Kubernetes, tc.DeepEquals, meta.Kubernetes)
+	c.Check(decoded.DatabaseSizeBytes, tc.Equals, meta.DatabaseSizeBytes)
 }

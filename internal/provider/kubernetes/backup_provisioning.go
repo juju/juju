@@ -19,16 +19,17 @@ import (
 // bytesPerMiB is the number of bytes in one mebibyte.
 const bytesPerMiB = 1 << 20
 
-// ControllerBackupProvisioning records the selected source pod's images and
+// ReadControllerProvisioning reads the selected source pod's images and
 // storage.
-func (k *kubernetesClient) ControllerBackupProvisioning(
+func (k *kubernetesClient) ReadControllerProvisioning(
 	ctx context.Context, controllerID string,
 ) (*backups.KubernetesProvisioning, error) {
 	if controllerID == "" {
 		return nil, errors.New("source controller ID is required")
 	}
-	pod, err := k.client().CoreV1().Pods(k.namespace).Get(
-		ctx, getBootstrapResourceName(constants.JujuControllerStackName, controllerID), metav1.GetOptions{})
+	pod, err := k.client().CoreV1().
+		Pods(k.namespace).
+		Get(ctx, getBootstrapResourceName(constants.JujuControllerStackName, controllerID), metav1.GetOptions{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -39,13 +40,7 @@ func (k *kubernetesClient) ControllerBackupProvisioning(
 	result := &backups.KubernetesProvisioning{Architecture: node.Status.NodeInfo.Architecture}
 	for _, container := range pod.Spec.Containers {
 		switch container.Name {
-		case apiServerContainerName:
-			if !containerRunning(pod, container.Name) {
-				continue
-			}
-		case constants.ApplicationCharmContainer:
-			// The charm container may be restarting; its spec image is still
-			// the source image the replacement needs.
+		case apiServerContainerName, constants.ApplicationCharmContainer:
 		default:
 			continue
 		}
@@ -58,8 +53,14 @@ func (k *kubernetesClient) ControllerBackupProvisioning(
 			result.CharmImage = container.Image
 		}
 	}
-	if result.AgentImage == "" || result.CharmImage == "" || result.Architecture == "" {
-		return nil, errors.New("source controller has no agent image, charm image or platform identity")
+	if result.AgentImage == "" {
+		return nil, errors.New("source controller pod has no agent image")
+	}
+	if result.CharmImage == "" {
+		return nil, errors.New("source controller pod has no charm image")
+	}
+	if result.Architecture == "" {
+		return nil, errors.New("source controller node has no architecture")
 	}
 	for _, volume := range pod.Spec.Volumes {
 		if volume.Name != storageName || volume.PersistentVolumeClaim == nil {
@@ -87,7 +88,9 @@ func (k *kubernetesClient) ControllerBackupProvisioning(
 	if result.StorageSizeMiB == 0 {
 		return nil, errors.New("source controller data volume is missing")
 	}
-	service, err := k.client().CoreV1().Services(k.namespace).Get(ctx, constants.ControllerServiceName, metav1.GetOptions{})
+	service, err := k.client().CoreV1().
+		Services(k.namespace).
+		Get(ctx, constants.ControllerServiceName, metav1.GetOptions{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -104,14 +107,4 @@ func (k *kubernetesClient) ControllerBackupProvisioning(
 	result.ExternalName, result.ExternalIPs = service.Spec.ExternalName, service.Spec.ExternalIPs
 	result.LoadBalancerIP, result.ServiceAnnotations = service.Spec.LoadBalancerIP, service.Annotations
 	return result, nil
-}
-
-// containerRunning reports whether the named container is running.
-func containerRunning(pod *core.Pod, name string) bool {
-	for _, status := range pod.Status.ContainerStatuses {
-		if status.Name == name && status.State.Running != nil {
-			return true
-		}
-	}
-	return false
 }

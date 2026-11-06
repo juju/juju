@@ -44,7 +44,7 @@ type Creator struct {
 	controllerObjectStore ReadObjectStore
 	objectStoreForModel   ObjectStoreForModelFunc
 
-	kubernetesProvisioning func(context.Context) (*corebackups.KubernetesProvisioning, error)
+	readKubernetesProvisioning func(context.Context) (*corebackups.KubernetesProvisioning, error)
 
 	clock  clock.Clock
 	logger corelogger.Logger
@@ -132,22 +132,22 @@ func NewCreator(cfg CreatorConfig) (*Creator, error) {
 		return nil, err
 	}
 	return &Creator{
-		controllerUUID:         cfg.ControllerUUID,
-		controllerModelUUID:    cfg.ControllerModelUUID,
-		controllerID:           cfg.ControllerTag.Id(),
-		isMachine:              isMachineControllerTag(cfg.ControllerTag),
-		dataDir:                cfg.DataDir,
-		logDir:                 cfg.LogDir,
-		controllerExport:       cfg.ControllerExport,
-		modelServicesFor:       cfg.ModelServicesFor,
-		modelConfig:            cfg.ModelConfig,
-		controller:             cfg.Controller,
-		controllerNodes:        cfg.ControllerNodes,
-		controllerObjectStore:  cfg.ControllerObjectStore,
-		objectStoreForModel:    cfg.ObjectStoreForModel,
-		kubernetesProvisioning: cfg.KubernetesProvisioning,
-		clock:                  cfg.Clock,
-		logger:                 cfg.Logger,
+		controllerUUID:             cfg.ControllerUUID,
+		controllerModelUUID:        cfg.ControllerModelUUID,
+		controllerID:               cfg.ControllerTag.Id(),
+		isMachine:                  isMachineControllerTag(cfg.ControllerTag),
+		dataDir:                    cfg.DataDir,
+		logDir:                     cfg.LogDir,
+		controllerExport:           cfg.ControllerExport,
+		modelServicesFor:           cfg.ModelServicesFor,
+		modelConfig:                cfg.ModelConfig,
+		controller:                 cfg.Controller,
+		controllerNodes:            cfg.ControllerNodes,
+		controllerObjectStore:      cfg.ControllerObjectStore,
+		objectStoreForModel:        cfg.ObjectStoreForModel,
+		readKubernetesProvisioning: cfg.KubernetesProvisioning,
+		clock:                      cfg.Clock,
+		logger:                     cfg.Logger,
 	}, nil
 }
 
@@ -340,13 +340,15 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 	// the error is intentionally not fatal.
 	hostname, _ := os.Hostname()
 
-	machineBase, err := c.machineBase(ctx)
-	if err != nil {
-		return nil, "", nil, errors.Errorf("recording controller base for recovery: %w", err)
-	}
 	meta := corebackups.NewMetadata(c.clock.Now())
-	if !c.isMachine {
-		meta.Kubernetes, err = c.kubernetesProvisioning(ctx)
+	var machineBase string
+	if c.isMachine {
+		machineBase, err = c.machineBase(ctx)
+		if err != nil {
+			return nil, "", nil, errors.Errorf("recording controller base for recovery: %w", err)
+		}
+	} else {
+		meta.Kubernetes, err = c.readKubernetesProvisioning(ctx)
 		if err != nil {
 			return nil, "", nil, errors.Errorf("recording Kubernetes provisioning: %w", err)
 		}
@@ -406,9 +408,6 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 // metadata. Machine recovery requires this value. Kubernetes controllers
 // have no machine and take their base from the archived controller charm.
 func (c *Creator) machineBase(ctx context.Context) (string, error) {
-	if !c.isMachine {
-		return "", nil
-	}
 	services, err := c.modelServicesFor(ctx, c.controllerModelUUID)
 	if err != nil {
 		return "", errors.Capture(err)

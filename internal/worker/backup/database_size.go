@@ -14,7 +14,8 @@ import (
 )
 
 // dqliteDataDir is the controller data directory holding the Dqlite files.
-// It mirrors the layout defined by internal/database.
+// It must stay in step with internal/database.dqliteDataDir
+// (internal/database/node.go).
 const dqliteDataDir = "dqlite"
 
 // databaseSize records a capacity floor from the controller's Dqlite
@@ -43,6 +44,10 @@ func databaseSize(ctx context.Context, dataDir string) (int64, error) {
 		if err != nil {
 			return err
 		}
+		// The overflow guard is deliberately defensive: reaching it needs a
+		// total approaching the int64 limit, which a controller never
+		// produces. The info.Size() < 0 disjunct stops the subtraction
+		// below from underflowing.
 		if info.Size() < 0 || total > math.MaxInt64-info.Size() {
 			return errors.New("source database size exceeds supported range")
 		}

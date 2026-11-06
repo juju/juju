@@ -19,9 +19,12 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
-type backupProvisioningSuite struct{}
+type backupProvisioningSuite struct {
+	coretesting.BaseSuite
+}
 
 func TestBackupProvisioningSuite(t *testing.T) { tc.Run(t, &backupProvisioningSuite{}) }
 
@@ -51,7 +54,10 @@ func backupSourceClient(agent, charm string) *fake.Clientset {
 	)
 }
 
-func (s *backupProvisioningSuite) TestRunningImagesAndActualVolume(c *tc.C) {
+// TestSourceImagesAndActualVolume verifies that the images come from the
+// running pod rather than its stateful set template, for both tagged and
+// digest-addressed references, together with the volume and service facts.
+func (s *backupProvisioningSuite) TestSourceImagesAndActualVolume(c *tc.C) {
 	digest := "sha256:" + strings.Repeat("a", 64)
 	for _, images := range []struct{ agent, charm string }{
 		{"example.com/juju/agent:unpublished", "example.com/juju/charm:local"},
@@ -59,7 +65,7 @@ func (s *backupProvisioningSuite) TestRunningImagesAndActualVolume(c *tc.C) {
 	} {
 		client := backupSourceClient(images.agent, images.charm)
 		broker := &kubernetesClient{clientUnlocked: client, namespace: "controller-source"}
-		result, err := broker.ControllerBackupProvisioning(c.Context(), "1")
+		result, err := broker.ReadControllerProvisioning(c.Context(), "1")
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(result.AgentImage, tc.Equals, images.agent)
 		c.Check(result.CharmImage, tc.Equals, images.charm)
@@ -74,34 +80,41 @@ func (s *backupProvisioningSuite) TestRunningImagesAndActualVolume(c *tc.C) {
 	}
 }
 
-// TestCharmContainerNotRunning verifies that a restarting charm container
-// does not prevent recording its source image.
-func (s *backupProvisioningSuite) TestCharmContainerNotRunning(c *tc.C) {
+// TestContainerStatusNotRequired verifies that images are read from the pod
+// spec even when container status has not been populated.
+func (s *backupProvisioningSuite) TestContainerStatusNotRequired(c *tc.C) {
 	client := backupSourceClient("example.com/agent:tag", "example.com/charm:tag")
 	pod := getBackupPod(c, client)
-	pod.Status.ContainerStatuses = pod.Status.ContainerStatuses[:1]
+	pod.Status.ContainerStatuses = nil
 	updateBackupPod(c, client, pod)
 
 	broker := &kubernetesClient{clientUnlocked: client, namespace: "controller-source"}
-	result, err := broker.ControllerBackupProvisioning(c.Context(), "1")
+	result, err := broker.ReadControllerProvisioning(c.Context(), "1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.AgentImage, tc.Equals, "example.com/agent:tag")
 	c.Check(result.CharmImage, tc.Equals, "example.com/charm:tag")
 }
 
+// TestInvalidSourceImages verifies that a missing, empty or malformed source
+// image is rejected with a diagnosis naming the offending fact or container.
 func (s *backupProvisioningSuite) TestInvalidSourceImages(c *tc.C) {
 	for _, test := range []struct {
-		name   string
-		mutate func(*core.Pod)
+		name    string
+		mutate  func(*core.Pod)
+		wantErr string
 	}{
-		{"missing agent", func(p *core.Pod) { p.Spec.Containers = p.Spec.Containers[1:] }},
-		{"missing charm", func(p *core.Pod) { p.Spec.Containers = p.Spec.Containers[:1] }},
-		{"agent not running", func(p *core.Pod) { p.Status.ContainerStatuses[0].State.Running = nil }},
-		{"missing agent status", func(p *core.Pod) { p.Status.ContainerStatuses = p.Status.ContainerStatuses[1:] }},
-		{"empty agent", func(p *core.Pod) { p.Spec.Containers[0].Image = "" }},
-		{"empty charm", func(p *core.Pod) { p.Spec.Containers[1].Image = "" }},
-		{"invalid agent", func(p *core.Pod) { p.Spec.Containers[0].Image = "invalid image" }},
-		{"invalid charm", func(p *core.Pod) { p.Spec.Containers[1].Image = "invalid image" }},
+		{"missing agent", func(p *core.Pod) { p.Spec.Containers = p.Spec.Containers[1:] },
+			"source controller pod has no agent image"},
+		{"missing charm", func(p *core.Pod) { p.Spec.Containers = p.Spec.Containers[:1] },
+			"source controller pod has no charm image"},
+		{"empty agent", func(p *core.Pod) { p.Spec.Containers[0].Image = "" },
+			`source container "api-server": docker image path "" not valid`},
+		{"empty charm", func(p *core.Pod) { p.Spec.Containers[1].Image = "" },
+			`source container "charm": docker image path "" not valid`},
+		{"invalid agent", func(p *core.Pod) { p.Spec.Containers[0].Image = "invalid image" },
+			`source container "api-server": docker image path "invalid image" not valid`},
+		{"invalid charm", func(p *core.Pod) { p.Spec.Containers[1].Image = "invalid image" },
+			`source container "charm": docker image path "invalid image" not valid`},
 	} {
 		c.Logf("case: %s", test.name)
 		client := backupSourceClient("example.com/agent:tag", "example.com/charm:tag")
@@ -112,17 +125,19 @@ func (s *backupProvisioningSuite) TestInvalidSourceImages(c *tc.C) {
 		_, err = client.CoreV1().Pods("controller-source").Update(c.Context(), pod, metav1.UpdateOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 		broker := &kubernetesClient{clientUnlocked: client, namespace: "controller-source"}
-		_, err = broker.ControllerBackupProvisioning(c.Context(), "1")
-		c.Check(err, tc.NotNil)
+		_, err = broker.ReadControllerProvisioning(c.Context(), "1")
+		c.Check(err, tc.ErrorMatches, test.wantErr)
 	}
 }
 
+// TestSourceErrors verifies that each failed API read is reported with its
+// cause, and that an empty controller ID is rejected up front.
 func (s *backupProvisioningSuite) TestSourceErrors(c *tc.C) {
 	client := backupSourceClient("example.com/agent:tag", "example.com/charm:tag")
 	broker := &kubernetesClient{clientUnlocked: client, namespace: "controller-source"}
-	_, err := broker.ControllerBackupProvisioning(c.Context(), "")
+	_, err := broker.ReadControllerProvisioning(c.Context(), "")
 	c.Check(err, tc.ErrorMatches, "source controller ID is required")
-	_, err = broker.ControllerBackupProvisioning(c.Context(), "0")
+	_, err = broker.ReadControllerProvisioning(c.Context(), "0")
 	c.Check(err, tc.ErrorMatches, ".*controller-0.*not found")
 	for _, resource := range []string{"pods", "nodes", "persistentvolumeclaims", "services"} {
 		client := backupSourceClient("example.com/agent:tag", "example.com/charm:tag")
@@ -130,11 +145,14 @@ func (s *backupProvisioningSuite) TestSourceErrors(c *tc.C) {
 			return true, nil, fmt.Errorf("failure reading %s", resource)
 		})
 		broker := &kubernetesClient{clientUnlocked: client, namespace: "controller-source"}
-		_, err := broker.ControllerBackupProvisioning(c.Context(), "1")
+		_, err := broker.ReadControllerProvisioning(c.Context(), "1")
 		c.Check(err, tc.ErrorMatches, "failure reading "+resource)
 	}
 }
 
+// TestStorageAndService verifies the volume capacity fallback and rounding,
+// the storage and service guard messages, and the recorded exposure facts for
+// each supported service type.
 func (s *backupProvisioningSuite) TestStorageAndService(c *tc.C) {
 	tests := []struct {
 		name             string
@@ -240,7 +258,7 @@ func (s *backupProvisioningSuite) TestStorageAndService(c *tc.C) {
 		client := backupSourceClient("example.com/agent:tag", "example.com/charm:tag")
 		test.mutate(c, client)
 		broker := &kubernetesClient{clientUnlocked: client, namespace: "controller-source"}
-		result, err := broker.ControllerBackupProvisioning(c.Context(), "1")
+		result, err := broker.ReadControllerProvisioning(c.Context(), "1")
 		if test.wantErr != "" {
 			c.Check(err, tc.ErrorMatches, test.wantErr)
 			continue

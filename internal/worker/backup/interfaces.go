@@ -82,9 +82,9 @@ type ReadObjectStore interface {
 // UUID.
 type ObjectStoreForModelFunc func(ctx context.Context, modelUUID string) (ReadObjectStore, error)
 
-// ControllerBackupProvisioning reads the running controller's provisioning
+// ControllerProvisioningReader reads the running controller's provisioning
 // facts without modifying provider resources. A backup fails when a required
 // image or storage identity cannot be established.
-type ControllerBackupProvisioning interface {
-	ControllerBackupProvisioning(ctx context.Context, controllerID string) (*corebackups.KubernetesProvisioning, error)
+type ControllerProvisioningReader interface {
+	ReadControllerProvisioning(ctx context.Context, controllerID string) (*corebackups.KubernetesProvisioning, error)
 }

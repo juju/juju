@@ -201,9 +201,8 @@ func (g archiveGenerator) Create(ctx context.Context, notes string) (*corebackup
 
 	// Kubernetes controllers record their substrate from the provider: the
 	// archived controller charm's base is the recovery base.
-	kubernetesProvisioning := func(ctx context.Context) (*corebackups.KubernetesProvisioning, error) {
-		return g.controllerBackupProvisioning(ctx, controllerServices.ModelProvider(), controllerServices.Config())
-	}
+	readKubernetesProvisioning := g.provisioningReader(
+		controllerServices.ModelProvider(), controllerServices.Config())
 
 	creator, err := NewCreator(CreatorConfig{
 		ControllerTag:          g.config.ControllerTag,
@@ -211,7 +210,7 @@ func (g archiveGenerator) Create(ctx context.Context, notes string) (*corebackup
 		ControllerModelUUID:    coremodel.UUID(g.config.ControllerModelUUID),
 		DataDir:                g.paths.DataDir,
 		LogDir:                 g.paths.LogDir,
-		KubernetesProvisioning: kubernetesProvisioning,
+		KubernetesProvisioning: readKubernetesProvisioning,
 		ControllerExport:       controllerServices.ControllerExport(),
 		ModelServicesFor:       modelServicesFor,
 		ModelConfig:            controllerServices.Config(),
@@ -228,9 +227,21 @@ func (g archiveGenerator) Create(ctx context.Context, notes string) (*corebackup
 	return creator.Create(ctx, notes)
 }
 
-// controllerBackupProvisioning records the running controller's provisioning
+// provisioningReader returns the provisioning read the creator calls for a
+// Kubernetes controller. It captures the controller model's provider and
+// config services so the ephemeral provider is resolved per request.
+func (g archiveGenerator) provisioningReader(
+	modelProvider cloudSpecProvider,
+	configProvider modelConfigProvider,
+) func(context.Context) (*corebackups.KubernetesProvisioning, error) {
+	return func(ctx context.Context) (*corebackups.KubernetesProvisioning, error) {
+		return g.readControllerProvisioning(ctx, modelProvider, configProvider)
+	}
+}
+
+// readControllerProvisioning reads the running controller's provisioning
 // facts from the provider. It is only called on Kubernetes controllers.
-func (g archiveGenerator) controllerBackupProvisioning(
+func (g archiveGenerator) readControllerProvisioning(
 	ctx context.Context,
 	modelProvider cloudSpecProvider,
 	configProvider modelConfigProvider,
@@ -253,11 +264,11 @@ func (g archiveGenerator) controllerBackupProvisioning(
 	if err != nil {
 		return nil, err
 	}
-	reader, ok := provider.(ControllerBackupProvisioning)
+	reader, ok := provider.(ControllerProvisioningReader)
 	if !ok {
-		return nil, internalerrors.Errorf("provider cannot record controller provisioning").Add(coreerrors.NotSupported)
+		return nil, internalerrors.Errorf("provider cannot read controller provisioning").Add(coreerrors.NotSupported)
 	}
-	return reader.ControllerBackupProvisioning(ctx, g.config.ControllerNodeID)
+	return reader.ReadControllerProvisioning(ctx, g.config.ControllerNodeID)
 }
 
 // modelExportDomainServices narrows the model services factory for the creator.
