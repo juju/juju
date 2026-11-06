@@ -1011,6 +1011,52 @@ func (s *stateSuite) TestListSecretBackendsCAAS(c *tc.C) {
 	})
 }
 
+func (s *stateSuite) TestK8sBackendsPreserveAllCloudCACertificates(c *tc.C) {
+	modelUUID := s.createModel(c, coremodel.CAAS)
+	_, err := s.DB().ExecContext(c.Context(), `
+INSERT INTO cloud_ca_cert (cloud_uuid, ca_cert)
+SELECT uuid, 'my-other-ca-cert' FROM cloud WHERE name = 'my-cloud'`)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.SetModelSecretBackend(c.Context(), modelUUID, kubernetes.BackendName)
+	c.Assert(err, tc.ErrorIsNil)
+	for _, secretID := range []string{"secret1", "secret1", "secret2"} {
+		_, err := s.state.AddSecretBackendReference(c.Context(),
+			&secrets.ValueRef{BackendID: s.kubernetesBackendID}, modelUUID,
+			uuid.MustNewUUID().String(), secretID)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	backends, err := s.state.ListSecretBackends(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	var k8sBackend *secretbackend.SecretBackend
+	for _, backend := range backends {
+		if backend.ID == s.kubernetesBackendID {
+			k8sBackend = backend
+		}
+	}
+	c.Assert(k8sBackend, tc.NotNil)
+	c.Check(k8sBackend.NumSecrets, tc.Equals, 2)
+	c.Check(k8sBackend.Config["ca-certs"], tc.DeepEquals,
+		[]string{"my-ca-cert", "my-other-ca-cert"})
+
+	backends, err = s.state.ListSecretBackendsForModel(c.Context(), modelUUID, true)
+	c.Assert(err, tc.ErrorIsNil)
+	k8sBackend = nil
+	for _, backend := range backends {
+		if backend.ID == s.kubernetesBackendID {
+			k8sBackend = backend
+		}
+	}
+	c.Assert(k8sBackend, tc.NotNil)
+	c.Check(k8sBackend.Config["ca-certs"], tc.DeepEquals,
+		[]string{"my-ca-cert", "my-other-ca-cert"})
+
+	_, config, err := s.state.GetActiveModelSecretBackend(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config.Config["ca-certs"], tc.DeepEquals,
+		[]string{"my-ca-cert", "my-other-ca-cert"})
+}
+
 func (s *stateSuite) TestListSecretBackendIDs(c *tc.C) {
 	backendID1 := uuid.MustNewUUID().String()
 	_, err := s.state.CreateSecretBackend(c.Context(), secretbackend.CreateSecretBackendParams{

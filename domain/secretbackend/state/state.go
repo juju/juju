@@ -459,7 +459,7 @@ FROM secret_backend b
     LEFT JOIN secret_backend_config c ON b.uuid = c.backend_uuid
     LEFT JOIN secret_backend_reference sbr ON b.uuid = sbr.secret_backend_uuid
 WHERE b.name <> '%s'
-GROUP BY b.name, c.name`, kubernetes.BackendName)
+GROUP BY b.uuid, b.name, bt.type, b.token_rotate_interval, c.name, c.content`, kubernetes.BackendName)
 	nonK8sStmt, err := s.Prepare(nonK8sQuery, SecretBackendRow{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -533,7 +533,12 @@ FROM secret_backend_reference sbr
     JOIN cloud_ca_cert ccc ON vc.uuid = ccc.cloud_uuid
     JOIN v_cloud_credential_attribute vcca ON vm.cloud_credential_uuid = vcca.uuid
 WHERE b.name = '%s'
-GROUP BY vm.uuid, vcca.attribute_key`, kubernetes.BackendName)
+GROUP BY
+    sbr.secret_backend_uuid, b.name, vm.uuid, vm.name, bt.type,
+    vc.uuid, vc.name, vc.endpoint, vc.skip_tls_verify,
+    vc.is_controller_cloud, ccc.ca_cert,
+    vcca.uuid, vcca.name, vcca.auth_type, vcca.revoked,
+    vcca.attribute_key, vcca.attribute_value`, kubernetes.BackendName)
 	backendStmt, err := s.Prepare(backendQuery, secretBackendForK8sModelRow{}, cloudRow{}, cloudCredentialRow{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -696,7 +701,7 @@ WHERE  m.uuid = $M.uuid
 // specific to the requested model.
 func (s *State) getK8sSecretBackendForModel(ctx context.Context, tx *sqlair.TX, modelUUID coremodel.UUID) (*secretbackend.SecretBackend, error) {
 	stmt, err := s.Prepare(`
-SELECT
+SELECT DISTINCT
     vc.uuid       AS &secretBackendForK8sModelRow.cloud_uuid,
     vcca.uuid     AS &secretBackendForK8sModelRow.cloud_credential_uuid,
     vm.name       AS &modelDetails.name,
@@ -717,8 +722,7 @@ FROM v_model vm
     JOIN v_cloud_auth vc ON vm.cloud_uuid = vc.uuid
     JOIN cloud_ca_cert ccc ON vc.uuid = ccc.cloud_uuid
     JOIN v_cloud_credential_attribute vcca ON vm.cloud_credential_uuid = vcca.uuid
-WHERE vm.uuid = $modelIdentifier.uuid
-GROUP BY vm.name, vcca.attribute_key`, modelIdentifier{}, modelDetails{}, secretBackendForK8sModelRow{}, cloudRow{}, cloudCredentialRow{})
+WHERE vm.uuid = $modelIdentifier.uuid`, modelIdentifier{}, modelDetails{}, secretBackendForK8sModelRow{}, cloudRow{}, cloudCredentialRow{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

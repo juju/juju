@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"slices"
 	"sort"
 	"time"
 
@@ -351,7 +352,18 @@ type cloudRows []cloudRow
 func (rows cloudRows) toClouds() map[string]cloud.Cloud {
 	clouds := make(map[string]cloud.Cloud, len(rows))
 	for _, row := range rows {
-		clouds[row.ID] = row.toCloud()
+		cld, ok := clouds[row.ID]
+		if !ok {
+			clouds[row.ID] = row.toCloud()
+			continue
+		}
+		if !slices.Contains(cld.CACertificates, row.CACert) {
+			cld.CACertificates = append(cld.CACertificates, row.CACert)
+			clouds[row.ID] = cld
+		}
+	}
+	for _, cld := range clouds {
+		sort.Strings(cld.CACertificates)
 	}
 	return clouds
 }
