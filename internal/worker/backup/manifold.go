@@ -20,6 +20,8 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/environs/cloudspec"
+	environsconfig "github.com/juju/juju/environs/config"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/uuid"
@@ -162,6 +164,16 @@ type archiveGenerator struct {
 	providerFactory providertracker.ProviderFactory
 }
 
+// cloudSpecProvider provides the cloud spec for the controller model.
+type cloudSpecProvider interface {
+	GetCloudSpec(context.Context) (cloudspec.CloudSpec, error)
+}
+
+// modelConfigProvider provides the controller model config.
+type modelConfigProvider interface {
+	ModelConfig(context.Context) (*environsconfig.Config, error)
+}
+
 // Create creates a backup archive and returns its metadata, its path, and a
 // cleanup that removes it.
 func (g archiveGenerator) Create(ctx context.Context, notes string) (*corebackups.Metadata, string, func(), error) {
@@ -190,29 +202,7 @@ func (g archiveGenerator) Create(ctx context.Context, notes string) (*corebackup
 	// Kubernetes controllers record their substrate from the provider: the
 	// archived controller charm's base is the recovery base.
 	kubernetesProvisioning := func(ctx context.Context) (*corebackups.KubernetesProvisioning, error) {
-		spec, err := controllerServices.ModelProvider().GetCloudSpec(ctx)
-		if err != nil {
-			return nil, err
-		}
-		cfg, err := controllerServices.Config().ModelConfig(ctx)
-		if err != nil {
-			return nil, err
-		}
-		controllerUUID, err := uuid.UUIDFromString(g.config.ControllerUUID)
-		if err != nil {
-			return nil, err
-		}
-		provider, err := g.providerFactory.EphemeralProviderFromConfig(ctx, providertracker.EphemeralProviderConfig{
-			ModelType: coremodel.CAAS, ModelConfig: cfg, CloudSpec: spec, ControllerUUID: controllerUUID,
-		})
-		if err != nil {
-			return nil, err
-		}
-		reader, ok := provider.(ControllerBackupProvisioning)
-		if !ok {
-			return nil, internalerrors.Errorf("provider cannot record controller provisioning").Add(coreerrors.NotSupported)
-		}
-		return reader.ControllerBackupProvisioning(ctx, g.config.ControllerNodeID)
+		return g.controllerBackupProvisioning(ctx, controllerServices.ModelProvider(), controllerServices.Config())
 	}
 
 	creator, err := NewCreator(CreatorConfig{
@@ -236,6 +226,38 @@ func (g archiveGenerator) Create(ctx context.Context, notes string) (*corebackup
 		return nil, "", nil, err
 	}
 	return creator.Create(ctx, notes)
+}
+
+// controllerBackupProvisioning records the running controller's provisioning
+// facts from the provider. It is only called on Kubernetes controllers.
+func (g archiveGenerator) controllerBackupProvisioning(
+	ctx context.Context,
+	modelProvider cloudSpecProvider,
+	configProvider modelConfigProvider,
+) (*corebackups.KubernetesProvisioning, error) {
+	spec, err := modelProvider.GetCloudSpec(ctx)
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := configProvider.ModelConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	controllerUUID, err := uuid.UUIDFromString(g.config.ControllerUUID)
+	if err != nil {
+		return nil, err
+	}
+	provider, err := g.providerFactory.EphemeralProviderFromConfig(ctx, providertracker.EphemeralProviderConfig{
+		ModelType: coremodel.CAAS, ModelConfig: cfg, CloudSpec: spec, ControllerUUID: controllerUUID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	reader, ok := provider.(ControllerBackupProvisioning)
+	if !ok {
+		return nil, internalerrors.Errorf("provider cannot record controller provisioning").Add(coreerrors.NotSupported)
+	}
+	return reader.ControllerBackupProvisioning(ctx, g.config.ControllerNodeID)
 }
 
 // modelExportDomainServices narrows the model services factory for the creator.

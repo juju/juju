@@ -16,10 +16,14 @@ import (
 
 	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/environs/cloudspec"
+	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type manifoldSuite struct{}
@@ -147,6 +151,115 @@ func (s *manifoldSuite) TestWorkerFailure(c *tc.C) {
 	c.Check(err, tc.ErrorIs, failure)
 }
 
+func (s *manifoldSuite) TestControllerBackupProvisioning(c *tc.C) {
+	worker := workerConfig(c)
+	controllerUUID, err := uuid.UUIDFromString(worker.ControllerUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	spec := cloudspec.CloudSpec{Type: "kubernetes", Name: "test"}
+	cfg := &environsconfig.Config{}
+	provisioning := &corebackups.KubernetesProvisioning{
+		AgentImage:   "example.com/agent:latest",
+		CharmImage:   "example.com/charm:latest",
+		Architecture: "arm64",
+	}
+
+	tests := []struct {
+		name             string
+		cloudSpec        cloudSpecProviderStub
+		modelConfig      modelConfigProviderStub
+		provider         providertracker.Provider
+		factoryErr       error
+		wantErr          string
+		wantNotSupported bool
+		wantFactory      bool
+		wantResult       *corebackups.KubernetesProvisioning
+	}{
+		{
+			name:      "cloud spec failure",
+			cloudSpec: cloudSpecProviderStub{err: errors.New("cloud spec failed")},
+			wantErr:   "cloud spec failed",
+		},
+		{
+			name:        "model config failure",
+			cloudSpec:   cloudSpecProviderStub{spec: spec},
+			modelConfig: modelConfigProviderStub{err: errors.New("model config failed")},
+			wantErr:     "model config failed",
+		},
+		{
+			name:        "provider creation failure",
+			cloudSpec:   cloudSpecProviderStub{spec: spec},
+			modelConfig: modelConfigProviderStub{cfg: cfg},
+			factoryErr:  errors.New("provider creation failed"),
+			wantErr:     "provider creation failed",
+			wantFactory: true,
+		},
+		{
+			name:             "provider cannot record provisioning",
+			cloudSpec:        cloudSpecProviderStub{spec: spec},
+			modelConfig:      modelConfigProviderStub{cfg: cfg},
+			provider:         &unsupportedProviderStub{},
+			wantErr:          "provider cannot record controller provisioning",
+			wantNotSupported: true,
+			wantFactory:      true,
+		},
+		{
+			name:        "provisioning failure",
+			cloudSpec:   cloudSpecProviderStub{spec: spec},
+			modelConfig: modelConfigProviderStub{cfg: cfg},
+			provider:    &provisioningProviderStub{err: errors.New("provisioning failed")},
+			wantErr:     "provisioning failed",
+			wantFactory: true,
+		},
+		{
+			name:        "success",
+			cloudSpec:   cloudSpecProviderStub{spec: spec},
+			modelConfig: modelConfigProviderStub{cfg: cfg},
+			provider:    &provisioningProviderStub{provisioning: provisioning},
+			wantFactory: true,
+			wantResult:  provisioning,
+		},
+	}
+	for _, test := range tests {
+		c.Logf("case: %s", test.name)
+		factory := &provisioningProviderFactoryStub{
+			provider: test.provider,
+			err:      test.factoryErr,
+		}
+		generator := archiveGenerator{
+			config: ManifoldConfig{
+				ControllerUUID:   worker.ControllerUUID,
+				ControllerNodeID: "7",
+			},
+			providerFactory: factory,
+		}
+
+		result, err := generator.controllerBackupProvisioning(c.Context(), test.cloudSpec, test.modelConfig)
+		if test.wantErr != "" {
+			c.Check(err, tc.ErrorMatches, test.wantErr)
+		} else {
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(result, tc.Equals, test.wantResult)
+		}
+		if test.wantNotSupported {
+			c.Check(err, tc.ErrorIs, coreerrors.NotSupported)
+		}
+		if test.wantFactory {
+			c.Check(factory.called, tc.IsTrue)
+			c.Check(factory.got.ModelType, tc.Equals, coremodel.CAAS)
+			c.Check(factory.got.ModelConfig, tc.Equals, cfg)
+			c.Check(factory.got.CloudSpec, tc.DeepEquals, spec)
+			c.Check(factory.got.ControllerUUID, tc.Equals, controllerUUID)
+		} else {
+			c.Check(factory.called, tc.IsFalse)
+		}
+		if provider, ok := test.provider.(*provisioningProviderStub); ok {
+			c.Check(provider.called, tc.IsTrue)
+			c.Check(provider.controllerID, tc.Equals, "7")
+		}
+	}
+}
+
 type localConfigStub struct {
 	values LocalValues
 	err    error
@@ -173,4 +286,60 @@ func (s objectGetterStub) GetObjectStore(ctx context.Context, namespace string) 
 
 type providerFactoryStub struct {
 	providertracker.ProviderFactory
+}
+
+type cloudSpecProviderStub struct {
+	spec cloudspec.CloudSpec
+	err  error
+}
+
+func (s cloudSpecProviderStub) GetCloudSpec(context.Context) (cloudspec.CloudSpec, error) {
+	return s.spec, s.err
+}
+
+type modelConfigProviderStub struct {
+	cfg *environsconfig.Config
+	err error
+}
+
+func (s modelConfigProviderStub) ModelConfig(context.Context) (*environsconfig.Config, error) {
+	return s.cfg, s.err
+}
+
+type provisioningProviderFactoryStub struct {
+	providertracker.ProviderFactory
+	provider providertracker.Provider
+	err      error
+	got      providertracker.EphemeralProviderConfig
+	called   bool
+}
+
+func (f *provisioningProviderFactoryStub) EphemeralProviderFromConfig(
+	_ context.Context, cfg providertracker.EphemeralProviderConfig,
+) (providertracker.Provider, error) {
+	f.called = true
+	f.got = cfg
+	return f.provider, f.err
+}
+
+type provisioningProviderStub struct {
+	providertracker.Provider
+	provisioning *corebackups.KubernetesProvisioning
+	err          error
+	controllerID string
+	called       bool
+}
+
+func (p *provisioningProviderStub) ControllerBackupProvisioning(
+	_ context.Context, controllerID string,
+) (*corebackups.KubernetesProvisioning, error) {
+	p.called = true
+	p.controllerID = controllerID
+	return p.provisioning, p.err
+}
+
+// unsupportedProviderStub satisfies providertracker.Provider without
+// implementing ControllerBackupProvisioning.
+type unsupportedProviderStub struct {
+	providertracker.Provider
 }

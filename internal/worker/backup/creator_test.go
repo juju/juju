@@ -120,10 +120,10 @@ func (s *backupsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-// newCreator returns a Creator wired to the suite's mocked dependencies
-// and the given model services resolver.
-func (s *backupsSuite) newCreator(c *tc.C, modelServicesFor ModelServicesForFunc) *Creator {
-	creator, err := NewCreator(CreatorConfig{
+// newCreatorConfig returns a CreatorConfig wired to the suite's mocked
+// dependencies and the given model services resolver.
+func (s *backupsSuite) newCreatorConfig(c *tc.C, modelServicesFor ModelServicesForFunc) CreatorConfig {
+	return CreatorConfig{
 		MachineTag:            names.NewMachineTag("0"),
 		ControllerUUID:        s.controllerUUID,
 		ControllerModelUUID:   s.controllerModelUUID,
@@ -140,7 +140,17 @@ func (s *backupsSuite) newCreator(c *tc.C, modelServicesFor ModelServicesForFunc
 		}),
 		Clock:  clock.WallClock,
 		Logger: loggertesting.WrapCheckLog(c),
-	})
+	}
+}
+
+// newCreator returns a Creator wired to the suite's mocked dependencies
+// and the given model services resolver.
+func (s *backupsSuite) newCreator(c *tc.C, modelServicesFor ModelServicesForFunc) *Creator {
+	return s.newCreatorFromConfig(c, s.newCreatorConfig(c, modelServicesFor))
+}
+
+func (s *backupsSuite) newCreatorFromConfig(c *tc.C, cfg CreatorConfig) *Creator {
+	creator, err := NewCreator(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	return creator
 }
@@ -222,6 +232,20 @@ func (s *backupsSuite) expectControllerExport() {
 	s.controllerExport.EXPECT().Export(gomock.Any()).Return(&domainexport.ControllerExport{
 		Version: domainexport.LatestControllerExportVersion(),
 		Payload: &ctrlv4_1_0.ControllerExport{},
+	}, nil)
+}
+
+// expectCreateDependencies primes the mocks needed to reach metadata
+// assembly for a single-model controller.
+func (s *backupsSuite) expectCreateDependencies(c *tc.C, backupDir string) {
+	s.expectFilesToBackUp(c, backupDir)
+	s.expectModelConfig(c, backupDir)
+	s.expectControllerExport()
+	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{s.modelUUID}, nil)
+	s.modelServices.EXPECT().Export().Return(s.modelExport)
+	s.modelExport.EXPECT().Export(gomock.Any()).Return(&domainexport.ModelExport{
+		Version: domainexport.LatestSupportedPayloadVersion(),
+		Payload: &modelv4_1_0.ModelExport{},
 	}, nil)
 }
 
@@ -800,4 +824,103 @@ func (s *backupsSuite) TestCreateMachineBaseFailure(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, "recording controller base for recovery: base unavailable")
 	c.Check(cleanup, tc.IsNil)
 	s.assertNoArchive(c, backupDir)
+}
+
+// TestCreateKubernetesProvisioning verifies that a controller-agent tag
+// records the provider's provisioning facts in the archive metadata.
+func (s *backupsSuite) TestCreateKubernetesProvisioning(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	s.expectCreateDependencies(c, backupDir)
+	s.expectArchiveCreation(c, backupDir)
+
+	provisioning := &corebackups.KubernetesProvisioning{
+		AgentImage:     "example.com/juju/agent:latest",
+		CharmImage:     "example.com/juju/charm:latest",
+		Architecture:   "arm64",
+		StorageClass:   "fast",
+		StorageSizeMiB: 1024,
+		ServiceType:    "loadbalancer",
+	}
+	calls := 0
+	cfg := s.newCreatorConfig(c, s.modelServicesFor())
+	cfg.MachineTag = names.NewControllerAgentTag("0")
+	cfg.KubernetesProvisioning = func(context.Context) (*corebackups.KubernetesProvisioning, error) {
+		calls++
+		return provisioning, nil
+	}
+
+	meta, archivePath, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "test")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Cleanup(cleanup)
+
+	c.Check(calls, tc.Equals, 1)
+	c.Check(meta.Kubernetes, tc.DeepEquals, provisioning)
+	// Kubernetes controllers have no machine base to record.
+	c.Check(meta.Origin.Base, tc.Equals, "")
+	_, err = os.Stat(archivePath)
+	c.Check(err, tc.ErrorIsNil)
+}
+
+// TestCreateKubernetesProvisioningMissingReader verifies that a
+// Kubernetes controller without a provisioning reader fails before an
+// archive is published.
+func (s *backupsSuite) TestCreateKubernetesProvisioningMissingReader(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	s.expectCreateDependencies(c, backupDir)
+
+	cfg := s.newCreatorConfig(c, s.modelServicesFor())
+	cfg.MachineTag = names.NewControllerAgentTag("0")
+
+	_, _, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "")
+	c.Check(err, tc.ErrorMatches, "missing Kubernetes provisioning reader")
+	c.Check(cleanup, tc.IsNil)
+	s.assertNoArchive(c, backupDir)
+}
+
+// TestCreateKubernetesProvisioningFailure verifies that a provisioning
+// reader failure aborts the backup before an archive is published.
+func (s *backupsSuite) TestCreateKubernetesProvisioningFailure(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	s.expectCreateDependencies(c, backupDir)
+
+	cfg := s.newCreatorConfig(c, s.modelServicesFor())
+	cfg.MachineTag = names.NewControllerAgentTag("0")
+	cfg.KubernetesProvisioning = func(context.Context) (*corebackups.KubernetesProvisioning, error) {
+		return nil, errors.New("provisioning unavailable")
+	}
+
+	_, _, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "")
+	c.Check(err, tc.ErrorMatches, "recording Kubernetes provisioning: provisioning unavailable")
+	c.Check(cleanup, tc.IsNil)
+	s.assertNoArchive(c, backupDir)
+}
+
+// TestCreateMachineDoesNotRecordKubernetesProvisioning verifies that the
+// machine-controller path never calls the Kubernetes provisioning reader.
+func (s *backupsSuite) TestCreateMachineDoesNotRecordKubernetesProvisioning(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	s.expectCreateDependencies(c, backupDir)
+	s.expectArchiveCreation(c, backupDir)
+
+	called := false
+	cfg := s.newCreatorConfig(c, s.modelServicesFor())
+	cfg.KubernetesProvisioning = func(context.Context) (*corebackups.KubernetesProvisioning, error) {
+		called = true
+		return nil, nil
+	}
+
+	meta, _, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Cleanup(cleanup)
+
+	c.Check(called, tc.IsFalse)
+	c.Check(meta.Kubernetes, tc.IsNil)
 }
