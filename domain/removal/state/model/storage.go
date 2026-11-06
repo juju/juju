@@ -408,6 +408,73 @@ WHERE  uuid = $entityUUID.uuid`, saUUID)
 	return cascaded, nil
 }
 
+// CheckStorageAttachmentHasNoDyingChildren returns true if none of the
+// filesystem or volume attachments for the storage attachment's storage
+// instance, on the attached unit's net node, are dying. Attachments for other
+// net nodes belong to other units or machines and are not considered.
+func (st *State) CheckStorageAttachmentHasNoDyingChildren(
+	ctx context.Context, saUUID string,
+) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	input := entityUUID{UUID: saUUID}
+
+	stmt, err := st.Prepare(`
+WITH attachment AS (
+    SELECT sa.storage_instance_uuid AS storage_instance_uuid,
+           u.net_node_uuid AS net_node_uuid
+    FROM   storage_attachment AS sa
+    JOIN   unit AS u ON sa.unit_uuid = u.uuid
+    WHERE  sa.uuid = $entityUUID.uuid
+),
+dying_attachment AS (
+    SELECT sfa.uuid AS uuid
+    FROM   attachment AS a
+    JOIN   storage_instance_filesystem AS sif
+           ON a.storage_instance_uuid = sif.storage_instance_uuid
+    JOIN   storage_filesystem_attachment AS sfa
+           ON  sif.storage_filesystem_uuid = sfa.storage_filesystem_uuid
+           AND a.net_node_uuid = sfa.net_node_uuid
+    WHERE  sfa.life_id = 1
+    UNION ALL
+    SELECT sva.uuid AS uuid
+    FROM   attachment AS a
+    JOIN   storage_instance_volume AS siv
+           ON a.storage_instance_uuid = siv.storage_instance_uuid
+    JOIN   storage_volume_attachment AS sva
+           ON  siv.storage_volume_uuid = sva.storage_volume_uuid
+           AND a.net_node_uuid = sva.net_node_uuid
+    WHERE  sva.life_id = 1
+)
+SELECT COUNT(*) AS &count.count
+FROM   dying_attachment
+`, input, count{})
+	if err != nil {
+		return false, errors.Errorf(
+			"preparing storage attachment dying children query: %w", err,
+		)
+	}
+
+	var result count
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, input).Get(&result)
+		if err != nil {
+			return errors.Errorf(
+				"running storage attachment dying children query: %w", err,
+			)
+		}
+		return nil
+	})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return result.Count == 0, nil
+}
+
 // DeleteStorageAttachment removes a unit storage attachment from the database
 // completely. If the unit attached to the storage was its owner, then that
 // record is deleted too.
