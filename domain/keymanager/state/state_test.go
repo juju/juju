@@ -132,6 +132,10 @@ func (s *stateSuite) TestEnsureUserPublicKeyConcurrentWrite(c *tc.C) {
 	if !dqlite.Enabled {
 		_, err := s.DB().ExecContext(c.Context(), "PRAGMA journal_mode=WAL")
 		c.Assert(err, tc.ErrorIsNil)
+		var journalMode string
+		err = s.DB().QueryRowContext(c.Context(), "PRAGMA journal_mode").Scan(&journalMode)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(journalMode, tc.Equals, "wal")
 	}
 
 	state := NewState(s.TxnRunnerFactory())
