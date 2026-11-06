@@ -70,6 +70,15 @@ type entityAssociationCount struct {
 	Count int `db:"count"`
 }
 
+// charmUUIDCount holds a charm UUID and a count of the units running that
+// charm.
+type charmUUIDCount struct {
+	// CharmUUID uniquely identifies the charm.
+	CharmUUID string `db:"charm_uuid"`
+	// Count counts the number of units running the charm.
+	Count int `db:"count"`
+}
+
 type count struct {
 	Count int `db:"count"`
 }

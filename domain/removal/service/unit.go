@@ -64,10 +64,6 @@ type UnitState interface {
 	// MarkUnitAsDeadWithNoEntities marks the unit with the input UUID as dead
 	// only if there are no associated entities that are still alive.
 	MarkUnitAsDeadWithNoEntities(ctx context.Context, unitUUID string) error
-
-	// GetCharmForUnit returns the charm UUID for the unit with the input unit
-	// UUID. If the unit does not exist, it returns an empty string.
-	GetCharmForUnit(ctx context.Context, unitUUID string) (string, error)
 }
 
 // RemoveUnit checks if a unit with the input name exists.
@@ -309,27 +305,14 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 		return errors.Errorf("deleting unit owned secrets: %w", err)
 	}
 
-	charmUUID, err := s.modelState.GetCharmForUnit(ctx, job.EntityUUID)
-	if errors.Is(err, applicationerrors.UnitNotFound) {
-		// The unit has already been removed.
-		// Indicate success so that this job will be deleted.
-		return nil
-	} else if err != nil {
-		return errors.Errorf("getting charm for unit: %w", err)
-	}
-
+	// DeleteUnit schedules the removal of the departed unit's charm once no
+	// unit runs it any more.
 	if err := s.modelState.DeleteUnit(ctx, job.EntityUUID, job.Force); errors.Is(err, applicationerrors.UnitNotFound) {
 		// The unit has already been removed.
 		// Indicate success so that this job will be deleted.
 		return nil
 	} else if err != nil {
 		return errors.Errorf("deleting unit: %w", err)
-	}
-
-	// Try to delete the charm if it is unused.
-	if err := s.modelState.DeleteCharmIfUnused(ctx, charmUUID); err != nil {
-		// Log the error but do not fail the removal job.
-		s.logger.Warningf(ctx, "deleting charm for unit %q: %v", job.EntityUUID, err)
 	}
 
 	return nil

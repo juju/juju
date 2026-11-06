@@ -418,11 +418,9 @@ func (s *unitSuite) TestExecuteJobForUnitDeadDeleteUnit(c *tc.C) {
 	exp.GetRelationUnitsForUnit(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 	s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(nil)
-	exp.GetCharmForUnit(gomock.Any(), j.EntityUUID).Return(tc.Must(c, unit.NewUUID).String(), nil)
 	exp.GetUnitOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteUnitOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID, false).Return(nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	sbCfg := &provider.ModelBackendConfig{
@@ -449,11 +447,9 @@ func (s *unitSuite) TestExecuteJobForUnitDeadDyingUnitWithNoEntities(c *tc.C) {
 	exp.GetRelationUnitsForUnit(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 	s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(nil)
-	exp.GetCharmForUnit(gomock.Any(), j.EntityUUID).Return(tc.Must(c, unit.NewUUID).String(), nil)
 	exp.GetUnitOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteUnitOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID, false).Return(nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	sbCfg := &provider.ModelBackendConfig{
@@ -479,11 +475,9 @@ func (s *unitSuite) TestExecuteJobForUnitDeadJujuSecretsDeleteUnit(c *tc.C) {
 	exp.GetRelationUnitsForUnit(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 	s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(nil)
-	exp.GetCharmForUnit(gomock.Any(), j.EntityUUID).Return(tc.Must(c, unit.NewUUID).String(), nil)
 	exp.DeleteUnitOwnedSecretContent(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteUnitOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID, false).Return(nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	sbCfg := &provider.ModelBackendConfig{
@@ -509,11 +503,9 @@ func (s *unitSuite) TestExecuteJobForUnitDeadExternalSecretsDeleteUnit(c *tc.C) 
 	exp.GetRelationUnitsForUnit(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 	s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(nil)
-	exp.GetCharmForUnit(gomock.Any(), j.EntityUUID).Return(tc.Must(c, unit.NewUUID).String(), nil)
 	exp.GetUnitOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(secretExternalRefs, nil)
 	exp.DeleteUnitOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID, false).Return(nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	sbCfg := &provider.ModelBackendConfig{
@@ -553,11 +545,9 @@ func (s *unitSuite) TestExecuteJobWithForceRevokesLeadershipAfterLeavingScopes(c
 		exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil),
 		s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(nil),
 	)
-	exp.GetCharmForUnit(gomock.Any(), j.EntityUUID).Return(tc.Must(c, unit.NewUUID).String(), nil)
 	exp.GetUnitOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteUnitOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID, true).Return(nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	sbCfg := &provider.ModelBackendConfig{
@@ -597,7 +587,6 @@ func (s *unitSuite) TestExecuteJobForUnitDeadDeleteUnitError(c *tc.C) {
 	exp := s.modelState.EXPECT()
 	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
 	exp.GetRelationUnitsForUnit(gomock.Any(), j.EntityUUID).Return(nil, nil)
-	exp.GetCharmForUnit(gomock.Any(), j.EntityUUID).Return(tc.Must(c, unit.NewUUID).String(), nil)
 	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 	s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(nil)
 	exp.GetUnitOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
@@ -615,36 +604,6 @@ func (s *unitSuite) TestExecuteJobForUnitDeadDeleteUnitError(c *tc.C) {
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorMatches, ".*the front fell off")
-}
-
-func (s *unitSuite) TestDeleteCharmForUnitFails(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	j := newUnitJob(c)
-
-	exp := s.modelState.EXPECT()
-	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
-	exp.GetRelationUnitsForUnit(gomock.Any(), j.EntityUUID).Return(nil, nil)
-	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
-	s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(nil)
-	exp.GetCharmForUnit(gomock.Any(), j.EntityUUID).Return(tc.Must(c, unit.NewUUID).String(), nil)
-	exp.GetUnitOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
-	exp.DeleteUnitOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
-	exp.DeleteUnit(gomock.Any(), j.EntityUUID, false).Return(nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(errors.Errorf("the charm is still in use"))
-	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
-
-	sbCfg := &provider.ModelBackendConfig{
-		BackendConfig: provider.BackendConfig{
-			BackendType: vault.BackendType,
-		},
-	}
-	s.controllerState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).Return("", sbCfg, nil)
-	s.secretBackendProvider.EXPECT().Initialise(sbCfg).Return(nil)
-	s.secretBackendProvider.EXPECT().NewBackend(sbCfg).Return(s.secretBackend, nil)
-
-	err := s.newService(c).ExecuteJob(c.Context(), j)
-	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *unitSuite) TestExecuteJobForDyingUnitWithLiveEntitiesDoesNotRevokeLeadership(c *tc.C) {
@@ -686,11 +645,9 @@ func (s *unitSuite) TestExecuteJobForUnitDeadDeleteUnitClaimNotHeld(c *tc.C) {
 	exp.GetRelationUnitsForUnit(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 	s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(leadership.ErrClaimNotHeld)
-	exp.GetCharmForUnit(gomock.Any(), j.EntityUUID).Return(tc.Must(c, unit.NewUUID).String(), nil)
 	exp.GetUnitOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteUnitOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID, false).Return(nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	sbCfg := &provider.ModelBackendConfig{

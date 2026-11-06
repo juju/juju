@@ -1359,6 +1359,52 @@ func (s *unitSuite) getCharmUUIDForUnit(c *tc.C, unitUUID string) string {
 	return charmUUID
 }
 
+func (s *unitSuite) TestDeleteUnitSchedulesCharmRemovalForLastUnit(c *tc.C) {
+	// Arrange: An application with two units, both running the application's
+	// charm.
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app",
+		applicationservice.AddIAASUnitArg{}, applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 2)
+
+	charmUUID := s.getCharmUUIDForUnit(c, unitUUIDs[0].String())
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Act: Delete the first unit; another unit still runs the charm.
+	for _, unitUUID := range unitUUIDs {
+		s.advanceUnitLife(c, unitUUID, life.Dead)
+	}
+	err := st.DeleteUnit(c.Context(), unitUUIDs[0].String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert: The charm removal job is not scheduled while another unit
+	// still runs the charm.
+	var count int
+	err = s.DB().QueryRowContext(c.Context(),
+		"SELECT COUNT(*) FROM removal r JOIN removal_type t ON r.removal_type_id = t.id WHERE t.name = 'charm'",
+	).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+
+	// Act: Delete the last unit running the charm.
+	err = st.DeleteUnit(c.Context(), unitUUIDs[1].String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert: The charm removal job is scheduled, for the departed unit's
+	// charm.
+	row := s.DB().QueryRowContext(c.Context(), `
+SELECT r.entity_uuid
+FROM   removal r JOIN removal_type t ON r.removal_type_id = t.id
+WHERE  t.name = 'charm'`)
+	var entityUUID string
+	err = row.Scan(&entityUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entityUUID, tc.Equals, charmUUID)
+}
+
 func (s *unitSuite) addUnitStorageAttachment(
 	c *tc.C, unitUUID unit.UUID, unitOwned bool,
 ) (string, string) {
