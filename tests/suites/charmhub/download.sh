@@ -71,9 +71,10 @@ test_charmhub_download() {
 
 		cd .. || exit
 
-		run "run_charmhub_download"
-		run "run_charmhub_download_with_resources"
-		run "run_charmstore_download"
-		run "run_unknown_download"
+		run_concurrently "run_charmhub_download"
+		run_concurrently "run_charmhub_download_with_resources"
+		run_concurrently "run_charmstore_download"
+		run_concurrently "run_unknown_download"
+		wait_for_subtests
 	)
 }

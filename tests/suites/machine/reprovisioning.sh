@@ -22,17 +22,19 @@ test_reprovisioning() {
 
 		cd .. || exit
 
-		run "run_reprovisioning_workload"
-		run "run_reprovisioning_multiple_units"
-		run "run_reprovisioning_hooks"
-		run "run_reprovisioning_relations"
-		run "run_reprovisioning_relation_departure"
+		# Each subtest works in its own model and machines.
+		run_concurrently "run_reprovisioning_workload"
+		run_concurrently "run_reprovisioning_multiple_units"
+		run_concurrently "run_reprovisioning_hooks"
+		run_concurrently "run_reprovisioning_relations"
+		run_concurrently "run_reprovisioning_relation_departure"
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"aws" | "ec2")
-			run "run_reprovisioning_model_storage_rejection"
+			run_concurrently "run_reprovisioning_model_storage_rejection"
 			;;
 		esac
+		wait_for_subtests
 	)
 }
 

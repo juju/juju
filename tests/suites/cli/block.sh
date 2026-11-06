@@ -94,8 +94,9 @@ test_block_commands() {
 
 		cd .. || exit
 
-		run "run_block_destroy_model"
-		run "run_block_remove_object"
-		run "run_block_all"
+		run_concurrently "run_block_destroy_model"
+		run_concurrently "run_block_remove_object"
+		run_concurrently "run_block_all"
+		wait_for_subtests
 	)
 }

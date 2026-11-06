@@ -78,16 +78,17 @@ test_storage_hook_tools() {
 
 		cd .. || exit
 
-		run "run_storage_get"
-		run "run_storage_list"
+		run_concurrently "run_storage_get"
+		run_concurrently "run_storage_list"
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"k8s")
 			echo "==> TEST SKIPPED: storage_add"
 			;;
 		*)
-			run "run_storage_add"
+			run_concurrently "run_storage_add"
 			;;
 		esac
+		wait_for_subtests
 	)
 }

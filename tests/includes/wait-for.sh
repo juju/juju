@@ -1,6 +1,12 @@
 # SHORT_TIMEOUT is the time between polling attempts.
 SHORT_TIMEOUT=5
 
+# WAIT_FOR_POLL_INTERVAL is the time between wait_for's polling attempts,
+# which are cheap. It prints the full status only every
+# WAIT_FOR_STATUS_EVERY attempts, keeping the log as before.
+WAIT_FOR_POLL_INTERVAL=${WAIT_FOR_POLL_INTERVAL:-2}
+WAIT_FOR_STATUS_EVERY=${WAIT_FOR_STATUS_EVERY:-5}
+
 # TODO: temporary function added to diagnose why machines sometimes stay in
 # "pending" state in CI. Remove this function and its call site once root
 # cause is found and fixed.
@@ -133,13 +139,18 @@ wait_for() {
 	query=${2}
 	timeout=${3:-600} # default timeout: 600s = 10m
 
+	local timing_id
+	timing_start timing_id wait_for "${name}"
+
 	attempt=0
 	start_time="$(date -u +%s)"
 	# shellcheck disable=SC2046,SC2143
 	until [[ "$(juju status --format=json 2>/dev/null | yq "${query}" | grep "${name}")" ]]; do
 		echo "[+] (attempt ${attempt}) polling status for" "${query} => ${name}"
-		juju status --relations 2>&1 | sed 's/^/    | /g'
-		sleep "${SHORT_TIMEOUT}"
+		if ((attempt % WAIT_FOR_STATUS_EVERY == 0)); then
+			juju status --relations 2>&1 | sed 's/^/    | /g'
+		fi
+		sleep "${WAIT_FOR_POLL_INTERVAL}"
 
 		elapsed=$(date -u +%s)-$start_time
 		if [[ ${elapsed} -ge ${timeout} ]]; then
@@ -156,6 +167,8 @@ wait_for() {
 		# breathe period to ensure things have actually settled.
 		sleep "${SHORT_TIMEOUT}"
 	fi
+
+	timing_end "${timing_id}"
 }
 
 wait_for_resource_id() {
@@ -581,6 +594,9 @@ wait_for_storage() {
 	query=${2}
 	timeout=${3:-600} # default timeout: 600s = 10m
 
+	local timing_id
+	timing_start timing_id wait_for "storage:${name}"
+
 	attempt=0
 	start_time="$(date -u +%s)"
 	# shellcheck disable=SC2046,SC2143
@@ -605,6 +621,8 @@ wait_for_storage() {
 		# breathe period to ensure things have actually settled.
 		sleep "${SHORT_TIMEOUT}"
 	fi
+
+	timing_end "${timing_id}"
 }
 
 # wait_for_aws_ingress_cidrs_for_port_range blocks until the expected CIDRs

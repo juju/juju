@@ -144,7 +144,8 @@ test_start_hook_fires_after_reboot() {
 
 		cd .. || exit
 
-		run "run_start_hook_fires_after_reboot"
-		run "run_reboot_monitor_state_cleanup"
+		run_concurrently "run_start_hook_fires_after_reboot"
+		run_concurrently "run_reboot_monitor_state_cleanup"
+		wait_for_subtests
 	)
 }

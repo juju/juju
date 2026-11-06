@@ -343,11 +343,13 @@ test_resource_lifecycle() {
 
 		cd .. || exit
 
-		run "run_resource_charm_transition_same_store_resource"
-		run "run_resource_charm_transition_store_resource_revision"
-		run "run_resource_charm_transition_pinned_upload"
-		run "run_resource_charm_transition_resource_names"
-		run "run_resource_charm_transition_failed_staging"
-		run "run_resource_get_lifecycle"
+		# Each subtest works in its own model and files.
+		run_concurrently "run_resource_charm_transition_same_store_resource"
+		run_concurrently "run_resource_charm_transition_store_resource_revision"
+		run_concurrently "run_resource_charm_transition_pinned_upload"
+		run_concurrently "run_resource_charm_transition_resource_names"
+		run_concurrently "run_resource_charm_transition_failed_staging"
+		run_concurrently "run_resource_get_lifecycle"
+		wait_for_subtests
 	)
 }

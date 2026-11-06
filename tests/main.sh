@@ -268,6 +268,9 @@ else
 fi
 
 cleanup() {
+	# The status the script is exiting with.
+	local exit_code=$?
+
 	# Allow for failures and stop tracing everything
 	set +ex
 
@@ -285,17 +288,32 @@ cleanup() {
 
 	echo "==> Cleaning up"
 
+	# Phases still open are the ones the test failed or was interrupted in.
+	timing_flush_open
+
 	archive_logs "partial"
 
 	pop_daemon_scope 0
 
+	stop_concurrent_subtests
 	cleanup_jujus
+	remove_subtest_scratch_dirs
 	cleanup_funcs
 
 	# Migration controller cleanup still needs the 3.6 client. Restore the
 	# developer's snap only after every registered cleanup has finished.
 	if [[ -e "${TEST_DIR}/mig36-snap-was-installed" ]]; then
 		restore_juju36_channel
+	fi
+
+	# A teardown that had to be killed fails an otherwise passing run.
+	local timed_out fail_run=false
+	if timed_out=$(teardown_timed_out); then
+		echo "==> $(red "Teardown timed out") after ${DESTROY_TIMEOUT}, failing the run: ${timed_out//$'\n'/ }"
+		if [[ ${TEST_RESULT} == "success" && ${exit_code} -eq 0 ]]; then
+			fail_run=true
+		fi
+		TEST_RESULT=failure
 	fi
 
 	echo ""
@@ -309,6 +327,10 @@ cleanup() {
 	fi
 	echo "==> Test result: ${TEST_RESULT}"
 
+	# Background phases still open after the teardown never finished.
+	timing_flush_open
+	timing_finish
+
 	archive_logs "full"
 
 	if [ "${TEST_RESULT}" = "success" ]; then
@@ -317,6 +339,9 @@ cleanup() {
 	fi
 
 	echo "==> TEST COMPLETE"
+	if [[ ${fail_run} == "true" ]]; then
+		exit 1
+	fi
 }
 
 # Move any artifacts to the chosen location
@@ -350,6 +375,7 @@ trap cleanup EXIT HUP INT TERM
 
 # Setup test directory
 TEST_DIR=$(mktemp -d tmp.XXX | xargs -I % echo "$(pwd)/%")
+timing_init
 
 run_test() {
 	TEST_CURRENT=${1}
@@ -389,9 +415,10 @@ if [[ $# -gt 0 ]]; then
 		# every test_ function defined in the matched file (suites with
 		# multiple run_ subtests in one file would otherwise pass all
 		# wrapper names as arguments to the first wrapper).
-		TEST="$(grep -lr "run \"${2}\"" "suites/${1}" | xargs awk -v target="${2}" '
+		# Subtests are started with run or run_concurrently.
+		TEST="$(grep -lrE "run(_concurrently)? \"${2}\"" "suites/${1}" | xargs awk -v target="${2}" '
 			/^test_[[:alnum:]_]+\(\)/ { fn=$1; sub(/\(\).*/, "", fn) }
-			$0 ~ "run \"" target "\"" { print fn }
+			$0 ~ "run(_concurrently)? \"" target "\"" { print fn }
 		' | head -n1)"
 		if [[ -z ${TEST} ]]; then
 			echo "==> Unable to find parent test for ${2}."

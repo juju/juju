@@ -126,10 +126,11 @@ test_deploy_revision() {
 
 		cd .. || exit
 
-		run "run_deploy_revision"
-		run "run_deploy_revision_uses_consistent_resource"
-		run "run_deploy_revision_fail"
-		run "run_deploy_revision_refresh"
-		run "run_deploy_revision_resource"
+		run_concurrently "run_deploy_revision"
+		run_concurrently "run_deploy_revision_uses_consistent_resource"
+		run_concurrently "run_deploy_revision_fail"
+		run_concurrently "run_deploy_revision_refresh"
+		run_concurrently "run_deploy_revision_resource"
+		wait_for_subtests
 	)
 }

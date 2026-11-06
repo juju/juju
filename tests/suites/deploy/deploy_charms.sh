@@ -244,28 +244,30 @@ test_deploy_charms() {
 
 		cd .. || exit
 
-		run "run_deploy_charm"
-		run "run_deploy_specific_series"
-		run "run_resolve_charm"
-		run "run_deploy_charm_unsupported_series"
+		# Each subtest works in its own model.
+		run_concurrently "run_deploy_charm"
+		run_concurrently "run_deploy_specific_series"
+		run_concurrently "run_resolve_charm"
+		run_concurrently "run_deploy_charm_unsupported_series"
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"lxd")
 			if kvm-ok; then
-				run "run_deploy_charm_placement_directive"
-				run "run_deploy_charm_zone_placement_directive"
+				run_concurrently "run_deploy_charm_placement_directive"
+				run_concurrently "run_deploy_charm_zone_placement_directive"
 			else
 				echo "==> TEST SKIPPED: deploy_charm_placement_directive - lxd without kvm is not supported"
 				echo "==> TEST SKIPPED: deploy_charm_zone_placement_directive - lxd without kvm is not supported"
 			fi
-			run "run_deploy_local_predeployed_charm"
+			run_concurrently "run_deploy_local_predeployed_charm"
 			echo "==> TEST SKIPPED: deploy_lxd_to_container - tests for non LXD only"
 			;;
 		*)
-			run "run_deploy_charm_placement_directive"
-			run "run_deploy_charm_zone_placement_directive"
-			run "run_deploy_lxd_to_container"
+			run_concurrently "run_deploy_charm_placement_directive"
+			run_concurrently "run_deploy_charm_zone_placement_directive"
+			run_concurrently "run_deploy_lxd_to_container"
 			;;
 		esac
+		wait_for_subtests
 	)
 }

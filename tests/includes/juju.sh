@@ -162,9 +162,16 @@ bootstrap() {
 	version=$(juju_version)
 
 	START_TIME=$(date +%s)
+	local timing_id
+	if [[ ${BOOTSTRAP_REUSE} == "true" ]]; then
+		timing_start timing_id add_model "${model}"
+	else
+		timing_start timing_id bootstrap "${cloud}"
+	fi
 	if [[ ${BOOTSTRAP_REUSE} == "true" ]]; then
 		echo "====> Reusing bootstrapped juju ($(green "${version}:${cloud}"))"
 
+		wait_for_model_destroyed "${model}"
 		OUT=$(juju models -c "${bootstrapped_name}" --format=json 2>/dev/null | yq -r ".models[] | .[\"short-name\"] | select(. == \"${model}\")" || true)
 		if [[ -n ${OUT} ]]; then
 			echo "${model} already exists. Use the following to clean up the environment:"
@@ -193,6 +200,7 @@ bootstrap() {
 	fi
 
 	END_TIME=$(date +%s)
+	timing_end "${timing_id}"
 
 	echo "====> Bootstrapped juju ($((END_TIME - START_TIME))s)"
 
@@ -226,6 +234,7 @@ add_model() {
 
 	model=${1}
 
+	wait_for_model_destroyed "${model}"
 	juju add-model --show-log "${model}" 2>&1
 	post_add_model "" "${model}"
 }
@@ -288,7 +297,10 @@ juju_bootstrap() {
 
 	pre_bootstrap
 
-	command="juju bootstrap ${base} ${cloud_region} ${name} --model-default mode= ${BOOTSTRAP_ADDITIONAL_ARGS}"
+	# Charms that only report their status from update-status (such as
+	# ubuntu-plus) would otherwise keep a test waiting for up to the default
+	# 5m. UPDATE_STATUS_HOOK_INTERVAL overrides it.
+	command="juju bootstrap ${base} ${cloud_region} ${name} --model-default mode= --model-default update-status-hook-interval=${UPDATE_STATUS_HOOK_INTERVAL:-1m} ${BOOTSTRAP_ADDITIONAL_ARGS}"
 	# We run the command through the bash interpreter here to avoid some
 	# weird shell expansion behaviour when using --config and other arguments
 	# with white space.
@@ -483,6 +495,13 @@ add_client_ssh_key_to_juju_model() {
 # destroy_model takes a model name and destroys a model. It first checks if the
 # model is found before attempting to do so.
 #
+# The model is destroyed in the background, so the test carries on while the
+# controller tears it down. Teardown problems are reported but never fail a
+# test, so nothing is lost by not waiting. Adding a model of the same name
+# (ensure, add_model) first waits for it to be gone, and so does
+# destroy_controller for every model still being destroyed. Set
+# DESTROY_MODEL_WAIT=true to destroy in the foreground instead.
+#
 # ```
 # destroy_model <model name>
 # ```
@@ -492,7 +511,7 @@ destroy_model() {
 		return
 	fi
 
-	local name result
+	local name
 
 	name=${1}
 	shift
@@ -504,8 +523,92 @@ destroy_model() {
 		return
 	fi
 
+	if [[ ${DESTROY_MODEL_WAIT:-} == "true" ]]; then
+		_destroy_model "${name}"
+		return
+	fi
+
+	echo "====> Destroying juju model ${name} in the background"
+	# Redirect everything, so the background job holds no pipe of the test
+	# (or of the CI console) open.
+	_destroy_model "${name}" background </dev/null >"${TEST_DIR}/${name}-destroy-bg.log" 2>&1 &
+	_model_destroys append "$! ${name}"
+}
+
+# wait_for_model_destroyed waits for the background destroy of the named model
+# started by destroy_model, or for all of them when no name is given, and
+# prints what each one logged.
+#
+# ```
+# wait_for_model_destroyed [<model name>]
+# ```
+wait_for_model_destroyed() {
+	local pid name
+
+	# Each destroy is bounded by DESTROY_TIMEOUT, so this ends.
+	while read -r pid name; do
+		while kill -0 "${pid}" 2>/dev/null; do
+			sleep 1
+		done
+		sed 's/^/    | /' "${TEST_DIR}/${name}-destroy-bg.log" 2>/dev/null || true
+	done < <(_model_destroys take "${1:-}")
+}
+
+# stop_waiting_for_model_destroys forgets every background model destroy,
+# stopping the clients that wait for them. The controller carries on
+# destroying the models; this is for when the controller itself is about to
+# be killed.
+stop_waiting_for_model_destroys() {
+	local pid name
+
+	while read -r pid name; do
+		# Signal the job first: bash runs its TERM trap (recording the
+		# phase) once the client it is waiting for has been stopped.
+		kill "${pid}" 2>/dev/null || true
+		pkill -P "${pid}" 2>/dev/null || true
+	done < <(_model_destroys take)
+}
+
+# _model_destroys append <pid> <name> | take [<name>] keeps the list of
+# background model destroys. "take" prints the entries for the named model,
+# or all of them, and removes them from the list. The list is locked, as
+# concurrent subtests (run_concurrently) update it at the same time.
+_model_destroys() {
+	local file
+	file="${TEST_DIR}/destroying-models"
+	(
+		flock 9
+		case ${1} in
+		append)
+			echo "${2}" >>"${file}"
+			;;
+		take)
+			[[ -s ${file} ]] || exit 0
+			awk -v want="${2:-}" 'want == "" || $2 == want' "${file}"
+			awk -v want="${2:-}" 'want != "" && $2 != want' "${file}" >"${file}.new"
+			mv "${file}.new" "${file}"
+			;;
+		esac
+	) 9>"${file}.lock"
+}
+
+# _destroy_model <name> [background] destroys the named model and waits for
+# it to be gone.
+_destroy_model() {
+	local name background result output
+
+	name=${1}
+	background=${2:-}
+
 	output="${TEST_DIR}/${name}-destroy.log"
 
+	local timing_id
+	timing_start timing_id destroy_model "${name}"
+	if [[ -n ${background} ]]; then
+		# stop_waiting_for_model_destroys terminates a background destroy.
+		# shellcheck disable=SC2064
+		trap "timing_end '${timing_id}' stopped; exit 0" TERM
+	fi
 	echo "====> Destroying juju model ${name}"
 	if timeout "${DESTROY_TIMEOUT}" juju destroy-model --no-prompt --destroy-storage "${name}" >"${output}" 2>&1; then
 		result=0
@@ -528,9 +631,11 @@ destroy_model() {
 		# if [[ ${result} -eq 0 ]]; then
 		#	result=1
 		# fi
+		timing_end "${timing_id}" error
 		result=0
 		return "${result}"
 	fi
+	timing_end "${timing_id}"
 	echo "====> Destroyed juju model ${name}"
 }
 
@@ -546,10 +651,21 @@ destroy_controller() {
 		return
 	fi
 
-	local name
+	local name timing_id introspect
 
 	name=${1}
 	shift
+
+	# Introspection is for debugging a failure. A suite destroying its
+	# controller outside any subtest, or cleanup after a passing test, has
+	# nothing to debug. INTROSPECT_ON_SUCCESS=true keeps it.
+	introspect=true
+	if [[ ${INTROSPECT_ON_SUCCESS:-} != "true" ]]; then
+		if [[ -z ${IN_SUBTEST:-} && -z ${CLEANUP:-} ]] ||
+			[[ ${CLEANUP_AFTER_SUCCESS:-} == "true" ]]; then
+			introspect=false
+		fi
+	fi
 
 	# shellcheck disable=SC2034
 	OUT=$(juju controllers --format=json | yq 'select(.controllers) | .controllers | keys | .[]' | grep "${name}" || true)
@@ -563,17 +679,31 @@ destroy_controller() {
 		echo "====> Destroying model ($(green "${name}"))"
 
 		output="${TEST_DIR}/${name}-destroy-model.log"
+		timing_start timing_id destroy_model "${name}"
 		echo "${name}" | xargs -I % timeout "${DESTROY_TIMEOUT}" juju destroy-model --no-prompt % >"${output}" 2>&1 || true
+		timing_end "${timing_id}"
 
 		echo "====> Destroyed model ($(green "${name}"))"
 		return
 	fi
 
+	if [[ ${KILL_CONTROLLER:-} == "true" ]]; then
+		stop_waiting_for_model_destroys
+	else
+		wait_for_model_destroyed
+	fi
+
 	set +e
 
-	echo "====> Introspection gathering"
-	introspect_controller "${name}" || true
-	echo "====> Introspection gathered"
+	if [[ ${introspect} == "true" ]]; then
+		echo "====> Introspection gathering"
+		timing_start timing_id introspect "${name}"
+		introspect_controller "${name}" || true
+		timing_end "${timing_id}"
+		echo "====> Introspection gathered"
+	fi
+
+	timing_start timing_id destroy_controller "${name}"
 
 	# Unfortunately having any offers on a model, leads to failure to clean
 	# up a controller.
@@ -610,13 +740,13 @@ destroy_controller() {
 					) &
 				done < <(juju models -c "${name}" --format=json 2>/dev/null | yq -r '.models // [] | .[] | select(.["is-controller"] != "true") | .["model-uuid"]' || true)
 
-				echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models --destroy-storage --no-prompt % 2>&1 | OUTPUT "${output}"
+				_destroy_controller_gracefully "${name}" "${output}"
 			)
 		else
-			echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models --destroy-storage --no-prompt % 2>&1 | OUTPUT "${output}"
+			_destroy_controller_gracefully "${name}" "${output}"
 		fi
 	else
-		echo "${name}" | xargs -I % timeout "${DESTROY_TIMEOUT}" juju kill-controller -t 0 --no-prompt % 2>&1 | OUTPUT "${output}" || true
+		_kill_controller "${name}" "${output}"
 	fi
 
 	set +e
@@ -631,23 +761,88 @@ destroy_controller() {
 		# rather than on the teardown.
 		#		exit 1
 	fi
+	if [[ -n ${CHK} ]]; then
+		timing_end "${timing_id}" error
+	else
+		timing_end "${timing_id}"
+	fi
 	set_verbosity
 
 	sed -i "/^${name}$/d" "${TEST_DIR}/jujus"
 	echo "====> Destroyed juju ($(green "${name}"))"
 }
 
+# _destroy_controller_gracefully <name> <output> destroys a controller and
+# all its models. If that takes longer than DESTROY_TIMEOUT the controller is
+# killed instead, and the run is marked as failed (see teardown_timed_out):
+# without the limit a stuck teardown runs until the CI job times out, and
+# without the failure the stuck teardown would go unnoticed.
+_destroy_controller_gracefully() {
+	local name output result
+
+	name=${1}
+	output=${2}
+
+	# The caller runs with errexit and pipefail: capture the status rather
+	# than exit on a timeout.
+	result=0
+	timeout "${DESTROY_TIMEOUT}" juju destroy-controller --destroy-all-models \
+		--destroy-storage --no-prompt "${name}" 2>&1 | OUTPUT "${output}" ||
+		result=${PIPESTATUS[0]}
+	if [[ ${result} -eq 124 ]]; then
+		echo "====> $(red "ERROR") Timed out after ${DESTROY_TIMEOUT} destroying ${name}, killing it"
+		echo "${name}" >>"${TEST_DIR}/teardown-timed-out"
+		_kill_controller "${name}" "${output}"
+	fi
+}
+
+# _kill_controller <name> <output> kills a controller: its machines are
+# removed through the cloud's API without tearing the models down first.
+_kill_controller() {
+	local name output
+
+	name=${1}
+	output=${2}
+
+	timeout "${DESTROY_TIMEOUT}" juju kill-controller -t 0 --no-prompt "${name}" 2>&1 | OUTPUT "${output}" || true
+}
+
+# teardown_timed_out succeeds if a graceful controller teardown hit
+# DESTROY_TIMEOUT during this run, printing the controllers concerned.
+teardown_timed_out() {
+	if [[ -s "${TEST_DIR}/teardown-timed-out" ]]; then
+		cat "${TEST_DIR}/teardown-timed-out"
+		return 0
+	fi
+	return 1
+}
+
 # cleanup_jujus is used to destroy all the known controllers the test suite
 # knows about. This is for internal use only and shouldn't be used by any of the
 # tests directly.
 cleanup_jujus() {
+	local passed=false
+
+	if [[ ${TEST_RESULT:-} == "success" ]]; then
+		passed=true
+	fi
+
 	if [[ -f "${TEST_DIR}/jujus" ]]; then
 		echo "====> Cleaning up jujus"
 
 		while read -r juju_name; do
-			CLEANUP=true destroy_controller "${juju_name}"
+			CLEANUP=true CLEANUP_AFTER_SUCCESS=${passed} \
+				destroy_controller "${juju_name}"
 		done <"${TEST_DIR}/jujus"
 		rm -f "${TEST_DIR}/jujus" || true
+	fi
+
+	# Models destroyed on a controller the run did not bootstrap
+	# (BOOTSTRAP_REUSE_LOCAL) are still waited for here.
+	if [[ ${KILL_CONTROLLER:-} == "true" ]]; then
+		stop_waiting_for_model_destroys
+	else
+		wait_for_model_destroyed
 	fi
 	echo "====> Completed cleaning up jujus"
 }

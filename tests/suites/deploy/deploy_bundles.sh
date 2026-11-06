@@ -289,14 +289,15 @@ test_deploy_bundles() {
 
 		cd .. || exit
 
-		run "run_deploy_bundle"
-		run "run_deploy_bundle_overlay"
+		# Each subtest works in its own models.
+		run_concurrently "run_deploy_bundle"
+		run_concurrently "run_deploy_bundle_overlay"
 		# TODO: Restore these tests once export-bundle is restored.
 		# run "run_deploy_exported_charmhub_bundle_with_fixed_revisions"
 		# run "run_deploy_exported_charmhub_bundle_with_float_revisions"
-		run "run_deploy_trusted_bundle"
-		run "run_deploy_multi_app_single_charm_bundle"
-		run "run_deploy_cmr_bundle"
+		run_concurrently "run_deploy_trusted_bundle"
+		run_concurrently "run_deploy_multi_app_single_charm_bundle"
+		run_concurrently "run_deploy_cmr_bundle"
 
 		# AWS specific image id tests.
 		case "${BOOTSTRAP_PROVIDER:-}" in
@@ -307,9 +308,9 @@ test_deploy_bundles() {
 			export ami_id
 			create_ami_and_wait_available "ami_id"
 
-			run "run_deploy_bundle_overlay_with_image_id"
-			run "run_deploy_bundle_overlay_with_image_id_on_base_bundle"
-			run "run_deploy_bundle_overlay_with_image_id_no_base"
+			run_concurrently "run_deploy_bundle_overlay_with_image_id"
+			run_concurrently "run_deploy_bundle_overlay_with_image_id_on_base_bundle"
+			run_concurrently "run_deploy_bundle_overlay_with_image_id_no_base"
 			;;
 		*)
 			echo "==> TEST SKIPPED: deploy_bundle_with_image_id - tests for AWS only"
@@ -317,5 +318,6 @@ test_deploy_bundles() {
 			echo "==> TEST SKIPPED: deploy_bundle_with_image_id_no_base - tests for AWS only"
 			;;
 		esac
+		wait_for_subtests
 	)
 }
