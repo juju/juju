@@ -25,7 +25,7 @@ import (
 // caasfirewaller manifold.
 type manifoldSuite struct {
 	broker         *mocks.MockExtCAASBroker
-	domainServices *mocks.MockModelDomainServices
+	domainServices *mocks.MockDomainServices
 	worker         *mocks.MockWorker
 }
 
@@ -40,7 +40,7 @@ func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.broker = mocks.NewMockExtCAASBroker(ctrl)
-	s.domainServices = mocks.NewMockModelDomainServices(ctrl)
+	s.domainServices = mocks.NewMockDomainServices(ctrl)
 	s.worker = mocks.NewMockWorker(ctrl)
 
 	c.Cleanup(func() {
@@ -158,6 +158,8 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	}
 
 	s.domainServices.EXPECT().Application()
+	s.domainServices.EXPECT().ModelInfo()
+	s.domainServices.EXPECT().ControllerSSH()
 
 	manifold := Manifold(config)
 	_, err := manifold.Start(c.Context(), s.newGetter(nil))

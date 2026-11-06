@@ -10,6 +10,10 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	applicationservice "github.com/juju/juju/domain/application/service"
+	modelservice "github.com/juju/juju/domain/model/service"
+	portservice "github.com/juju/juju/domain/port/service"
+	sshcontrollerservice "github.com/juju/juju/domain/ssh/service/controller"
 )
 
 // PortService provides access to the port service.
@@ -42,4 +46,29 @@ type ApplicationService interface {
 	// WatchApplications returns a watcher that emits application uuids when
 	// applications are added or removed.
 	WatchApplications(context.Context) (watcher.StringsWatcher, error)
+}
+
+// ModelInfoService reports facts about the model the worker is running in.
+type ModelInfoService interface {
+	// IsControllerModel returns true if the model is the controller model.
+	IsControllerModel(context.Context) (bool, error)
+}
+
+// ControllerSSHService provides the controller SSH server port, which the
+// controller charm can change after bootstrap.
+type ControllerSSHService interface {
+	// GetSSHServerPort returns the port the controller SSH server listens on.
+	GetSSHServerPort(context.Context) (int, error)
+
+	// WatchSSHServerPort returns a watcher that notifies when the controller
+	// SSH server port changes.
+	WatchSSHServerPort(context.Context) (watcher.NotifyWatcher, error)
+}
+
+// DomainServices is the part of the domain services the manifold uses.
+type DomainServices interface {
+	Application() *applicationservice.WatchableService
+	Port() *portservice.WatchableService
+	ModelInfo() *modelservice.ProviderModelService
+	ControllerSSH() *sshcontrollerservice.WatchableService
 }
