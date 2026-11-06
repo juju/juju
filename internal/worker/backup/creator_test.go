@@ -125,7 +125,7 @@ func (s *backupsSuite) setupMocks(c *tc.C) *gomock.Controller {
 // dependencies and the given model services resolver.
 func (s *backupsSuite) newCreatorConfig(c *tc.C, modelServicesFor ModelServicesForFunc) CreatorConfig {
 	return CreatorConfig{
-		MachineTag:            names.NewMachineTag("0"),
+		ControllerTag:         names.NewMachineTag("0"),
 		ControllerUUID:        s.controllerUUID,
 		ControllerModelUUID:   s.controllerModelUUID,
 		DataDir:               s.dataDirPath,
@@ -160,7 +160,7 @@ func (s *backupsSuite) TestCreatorConfigValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config := CreatorConfig{
-		MachineTag:            names.NewMachineTag("0"),
+		ControllerTag:         names.NewMachineTag("0"),
 		ControllerUUID:        s.controllerUUID,
 		ControllerModelUUID:   s.controllerModelUUID,
 		DataDir:               s.dataDirPath,
@@ -181,7 +181,8 @@ func (s *backupsSuite) TestCreatorConfigValidate(c *tc.C) {
 		change  func(*CreatorConfig)
 		message string
 	}{
-		{func(c *CreatorConfig) { c.MachineTag = nil }, "nil MachineTag not valid"},
+		{func(c *CreatorConfig) { c.ControllerTag = nil }, "nil ControllerTag not valid"},
+		{func(c *CreatorConfig) { c.ControllerTag = names.NewControllerAgentTag("0") }, "nil KubernetesProvisioning not valid"},
 		{func(c *CreatorConfig) { c.ControllerUUID = "" }, "empty ControllerUUID not valid"},
 		{func(c *CreatorConfig) { c.ControllerModelUUID = "bad" }, "controller model UUID: .*"},
 		{func(c *CreatorConfig) { c.DataDir = "" }, "empty DataDir not valid"},
@@ -864,6 +865,38 @@ func (s *backupsSuite) TestCreateEmptyMachineBase(c *tc.C) {
 	s.assertNoArchive(c, backupDir)
 }
 
+// TestCreateDatabaseSizeFailure verifies that a failure observing the
+// source database size aborts Create before an archive is published.
+func (s *backupsSuite) TestCreateDatabaseSizeFailure(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	dataDir := filepath.Join(c.MkDir(), "data")
+	c.Assert(os.WriteFile(dataDir, nil, 0o600), tc.ErrorIsNil)
+
+	// The data directory is a regular file, so the dqlite directory cannot
+	// be walked. The file collection is patched to avoid reading it.
+	s.PatchValue(&corebackups.GetFilesToBackUp, func(string, *corebackups.Paths) ([]string, error) {
+		return nil, nil
+	})
+	s.expectModelConfig(c, backupDir)
+	s.expectControllerExport()
+	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{s.modelUUID}, nil)
+	s.modelServices.EXPECT().Export().Return(s.modelExport)
+	s.modelExport.EXPECT().Export(gomock.Any()).Return(&domainexport.ModelExport{
+		Version: domainexport.LatestSupportedPayloadVersion(),
+		Payload: &modelv4_1_0.ModelExport{},
+	}, nil)
+
+	cfg := s.newCreatorConfig(c, s.modelServicesFor())
+	cfg.DataDir = dataDir
+
+	_, _, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "")
+	c.Check(err, tc.ErrorMatches, "recording source database capacity: .*")
+	c.Check(cleanup, tc.IsNil)
+	s.assertNoArchive(c, backupDir)
+}
+
 // TestCreateKubernetesProvisioning verifies that a controller-agent tag
 // records the provider's provisioning facts in the archive metadata.
 func (s *backupsSuite) TestCreateKubernetesProvisioning(c *tc.C) {
@@ -883,7 +916,7 @@ func (s *backupsSuite) TestCreateKubernetesProvisioning(c *tc.C) {
 	}
 	calls := 0
 	cfg := s.newCreatorConfig(c, s.modelServicesFor())
-	cfg.MachineTag = names.NewControllerAgentTag("0")
+	cfg.ControllerTag = names.NewControllerAgentTag("0")
 	cfg.KubernetesProvisioning = func(context.Context) (*corebackups.KubernetesProvisioning, error) {
 		calls++
 		return provisioning, nil
@@ -901,24 +934,6 @@ func (s *backupsSuite) TestCreateKubernetesProvisioning(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 }
 
-// TestCreateKubernetesProvisioningMissingReader verifies that a
-// Kubernetes controller without a provisioning reader fails before an
-// archive is published.
-func (s *backupsSuite) TestCreateKubernetesProvisioningMissingReader(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	backupDir := c.MkDir()
-	s.expectCreateDependencies(c, backupDir)
-
-	cfg := s.newCreatorConfig(c, s.modelServicesFor())
-	cfg.MachineTag = names.NewControllerAgentTag("0")
-
-	_, _, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "")
-	c.Check(err, tc.ErrorMatches, "missing Kubernetes provisioning reader")
-	c.Check(cleanup, tc.IsNil)
-	s.assertNoArchive(c, backupDir)
-}
-
 // TestCreateKubernetesProvisioningFailure verifies that a provisioning
 // reader failure aborts the backup before an archive is published.
 func (s *backupsSuite) TestCreateKubernetesProvisioningFailure(c *tc.C) {
@@ -928,7 +943,7 @@ func (s *backupsSuite) TestCreateKubernetesProvisioningFailure(c *tc.C) {
 	s.expectCreateDependencies(c, backupDir)
 
 	cfg := s.newCreatorConfig(c, s.modelServicesFor())
-	cfg.MachineTag = names.NewControllerAgentTag("0")
+	cfg.ControllerTag = names.NewControllerAgentTag("0")
 	cfg.KubernetesProvisioning = func(context.Context) (*corebackups.KubernetesProvisioning, error) {
 		return nil, errors.New("provisioning unavailable")
 	}

@@ -206,7 +206,7 @@ func (g archiveGenerator) Create(ctx context.Context, notes string) (*corebackup
 	}
 
 	creator, err := NewCreator(CreatorConfig{
-		MachineTag:             g.config.ControllerTag,
+		ControllerTag:          g.config.ControllerTag,
 		ControllerUUID:         g.config.ControllerUUID,
 		ControllerModelUUID:    coremodel.UUID(g.config.ControllerModelUUID),
 		DataDir:                g.paths.DataDir,

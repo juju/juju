@@ -30,8 +30,8 @@ import (
 type Creator struct {
 	controllerUUID      string
 	controllerModelUUID coremodel.UUID
-	machineTag          names.Tag
-	machineID           string
+	controllerID        string
+	isMachine           bool
 	dataDir             string
 	logDir              string
 
@@ -52,7 +52,7 @@ type Creator struct {
 
 // CreatorConfig supplies the dependencies needed to create backup archives.
 type CreatorConfig struct {
-	MachineTag             names.Tag
+	ControllerTag          names.Tag
 	ControllerUUID         string
 	ControllerModelUUID    coremodel.UUID
 	DataDir                string
@@ -69,10 +69,20 @@ type CreatorConfig struct {
 	Logger                 corelogger.Logger
 }
 
+// isMachineControllerTag reports whether tag identifies a machine
+// controller. Kubernetes controllers use a controller-agent tag instead.
+func isMachineControllerTag(tag names.Tag) bool {
+	_, ok := tag.(names.MachineTag)
+	return ok
+}
+
 // Validate checks that archive creation dependencies are complete.
 func (c CreatorConfig) Validate() error {
-	if c.MachineTag == nil {
-		return jujuerrors.NotValidf("nil MachineTag")
+	if c.ControllerTag == nil {
+		return jujuerrors.NotValidf("nil ControllerTag")
+	}
+	if !isMachineControllerTag(c.ControllerTag) && c.KubernetesProvisioning == nil {
+		return jujuerrors.NotValidf("nil KubernetesProvisioning")
 	}
 	if c.ControllerUUID == "" {
 		return jujuerrors.NotValidf("empty ControllerUUID")
@@ -124,8 +134,8 @@ func NewCreator(cfg CreatorConfig) (*Creator, error) {
 	return &Creator{
 		controllerUUID:         cfg.ControllerUUID,
 		controllerModelUUID:    cfg.ControllerModelUUID,
-		machineTag:             cfg.MachineTag,
-		machineID:              cfg.MachineTag.Id(),
+		controllerID:           cfg.ControllerTag.Id(),
+		isMachine:              isMachineControllerTag(cfg.ControllerTag),
 		dataDir:                cfg.DataDir,
 		logDir:                 cfg.LogDir,
 		controllerExport:       cfg.ControllerExport,
@@ -335,30 +345,27 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 		return nil, "", nil, errors.Errorf("recording controller base for recovery: %w", err)
 	}
 	meta := corebackups.NewMetadata(c.clock.Now())
-	if _, machine := c.machineTag.(names.MachineTag); !machine {
-		if c.kubernetesProvisioning == nil {
-			return nil, "", nil, errors.New("missing Kubernetes provisioning reader")
-		}
+	if !c.isMachine {
 		meta.Kubernetes, err = c.kubernetesProvisioning(ctx)
 		if err != nil {
 			return nil, "", nil, errors.Errorf("recording Kubernetes provisioning: %w", err)
 		}
 	}
-	meta.DatabaseSizeBytes, err = databaseSize(c.dataDir)
+	meta.DatabaseSizeBytes, err = databaseSize(ctx, c.dataDir)
 	if err != nil {
 		return nil, "", nil, errors.Errorf("recording source database capacity: %w", err)
 	}
 	meta.Notes = notes
 	meta.Origin = corebackups.Origin{
 		Model:    c.controllerModelUUID.String(),
-		Machine:  c.machineID,
+		Machine:  c.controllerID,
 		Hostname: hostname,
 		Version:  coreversion.Current,
 		Base:     machineBase,
 	}
 	meta.Controller = corebackups.ControllerMetadata{
 		UUID:              c.controllerUUID,
-		MachineID:         c.machineID,
+		MachineID:         c.controllerID,
 		MachineInstanceID: corebackups.UnknownString,
 		HANodes:           int64(len(controllerIDs)),
 	}
@@ -399,14 +406,14 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 // metadata. Machine recovery requires this value. Kubernetes controllers
 // have no machine and take their base from the archived controller charm.
 func (c *Creator) machineBase(ctx context.Context) (string, error) {
-	if _, ok := c.machineTag.(names.MachineTag); !ok {
+	if !c.isMachine {
 		return "", nil
 	}
 	services, err := c.modelServicesFor(ctx, c.controllerModelUUID)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	machineBase, err := services.Machine().GetMachineBase(ctx, machine.Name(c.machineID))
+	machineBase, err := services.Machine().GetMachineBase(ctx, machine.Name(c.controllerID))
 	if err != nil {
 		return "", errors.Capture(err)
 	}

@@ -4,6 +4,7 @@
 package backup
 
 import (
+	"context"
 	"io/fs"
 	"math"
 	"os"
@@ -20,9 +21,12 @@ const dqliteDataDir = "dqlite"
 // directory. It is a sizing observation, not a filesystem snapshot; recovery
 // imports the logical dumps. Removed log segments need not contribute to this
 // observation.
-func databaseSize(dataDir string) (int64, error) {
+func databaseSize(ctx context.Context, dataDir string) (int64, error) {
 	var total int64
 	err := filepath.WalkDir(filepath.Join(dataDir, dqliteDataDir), func(path string, entry fs.DirEntry, err error) error {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
 		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
