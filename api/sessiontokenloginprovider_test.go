@@ -143,7 +143,7 @@ func (s *sessionTokenLoginProviderProviderSuite) TestSessionTokenLogin(c *tc.C) 
 	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = apiState.Close() }()
 
-	c.Check(output.String(), tc.Equals, "Please visit http://localhost:8080/test-verification and enter code 1234567 to log in.\n")
+	c.Check(output.String(), tc.Equals, "Please visit http://localhost:8080/test-verification?user_code=1234567 to log in.\n")
 	c.Check(obtainedSessionToken, tc.Equals, sessionToken)
 	c.Check(err, tc.ErrorIsNil)
 }

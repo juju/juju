@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 
 	"github.com/juju/errors"
 
@@ -125,8 +126,16 @@ func (p *sessionTokenLoginProvider) initiateDeviceLogin(ctx context.Context, cal
 		return errors.Trace(err)
 	}
 
+	verificationURI, err := verificationURIWithUserCode(
+		deviceResult.VerificationURI,
+		deviceResult.UserCode,
+	)
+	if err != nil {
+		return errors.Annotate(err, "building verification URL")
+	}
+
 	// We print the verification URL and the user code.
-	err = p.printOutput("Please visit %s and enter code %s to log in.", deviceResult.VerificationURI, deviceResult.UserCode)
+	err = p.printOutput("Please visit %s to log in.", verificationURI)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -145,6 +154,19 @@ func (p *sessionTokenLoginProvider) initiateDeviceLogin(ctx context.Context, cal
 	p.tokenCallback(sessionTokenResult.SessionToken)
 
 	return nil
+}
+
+func verificationURIWithUserCode(verificationURI, userCode string) (string, error) {
+	uri, err := url.Parse(verificationURI)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	query := uri.Query()
+	query.Set("user_code", userCode)
+	uri.RawQuery = query.Encode()
+
+	return uri.String(), nil
 }
 
 func (p *sessionTokenLoginProvider) login(ctx context.Context, caller base.APICaller) (*LoginResultParams, error) {
