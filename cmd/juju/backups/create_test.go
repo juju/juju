@@ -31,7 +31,8 @@ type createSuite struct {
 	wrappedCommand cmd.Command
 	command        *backups.CreateCommand
 
-	defaultFilename string
+	defaultFilename          string
+	defaultAssertionFilename string
 }
 
 func TestCreateSuite(t *testing.T) {
@@ -42,6 +43,7 @@ func (s *createSuite) SetUpTest(c *tc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
 	s.wrappedCommand, s.command = backups.NewCreateCommandForTest(s.store)
 	s.defaultFilename = "juju-backup-00010101-000000.tar.gz"
+	s.defaultAssertionFilename = "juju-backup-00010101-000000.assert"
 }
 
 func (s *createSuite) TearDownTest(c *tc.C) {
@@ -75,24 +77,24 @@ func (s *createSuite) setDownload() *fakeAPIClient {
 // checkDownload verifies that a successful run reports both saved files.
 // It returns the decoded assertion, with the checksum already
 // cross-checked against the archive's actual digest.
-func (s *createSuite) checkDownload(c *tc.C, ctx *cmd.Context, filename string) backups.Assertion {
+func (s *createSuite) checkDownload(c *tc.C, ctx *cmd.Context, filename, assertionFilename string) backups.Assertion {
 	c.Check(cmdtesting.Stderr(ctx), tc.Contains, filename+" ")
-	c.Check(cmdtesting.Stderr(ctx), tc.Contains, filename+".assert")
+	c.Check(cmdtesting.Stderr(ctx), tc.Contains, assertionFilename)
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, "")
 
 	s.filename = filename
 	s.checkArchive(c)
-	return s.checkAssertion(c, filename)
+	return s.checkAssertion(c, filename, assertionFilename)
 }
 
 // checkAssertion decodes the assertion saved beside the archive and
 // cross-checks its checksum against the archive's actual digest.
-func (s *createSuite) checkAssertion(c *tc.C, filename string) backups.Assertion {
+func (s *createSuite) checkAssertion(c *tc.C, filename, assertionFilename string) backups.Assertion {
 	archive, err := os.ReadFile(filename)
 	c.Assert(err, tc.ErrorIsNil)
 	sum := sha256.Sum256(archive)
 
-	assertion := s.readAssertion(c, filename+".assert")
+	assertion := s.readAssertion(c, assertionFilename)
 	// The checksum keeps the controller's hex spelling, so compare
 	// without case.
 	c.Check(strings.EqualFold(assertion.Checksum, corebackups.ChecksumSHA256(hex.EncodeToString(sum[:]))), tc.IsTrue)
@@ -101,7 +103,7 @@ func (s *createSuite) checkAssertion(c *tc.C, filename string) backups.Assertion
 }
 
 func (s *createSuite) checkNoAssertion(c *tc.C, filename string) {
-	_, err := os.Stat(filename + ".assert")
+	_, err := os.Stat(filename)
 	c.Check(err, tc.Satisfies, os.IsNotExist)
 }
 
@@ -163,7 +165,7 @@ func (s *createSuite) TestDefault(c *tc.C) {
 
 	client.Check(c, "", "Create")
 	client.CheckArgs(c, "")
-	assertion := s.checkDownload(c, ctx, s.defaultFilename)
+	assertion := s.checkDownload(c, ctx, s.defaultFilename, s.defaultAssertionFilename)
 	c.Check(assertion.Notes, tc.Equals, "")
 	c.Check(s.command.Filename, tc.Equals, backups.NotSet)
 }
@@ -183,7 +185,7 @@ func (s *createSuite) TestDefaultQuiet(c *tc.C) {
 
 	s.filename = s.defaultFilename
 	s.checkArchive(c)
-	s.checkAssertion(c, s.defaultFilename)
+	s.checkAssertion(c, s.defaultFilename, s.defaultAssertionFilename)
 }
 
 // TestNotes verifies that arbitrary notes — colons, quotes, Unicode and
@@ -198,31 +200,47 @@ func (s *createSuite) TestNotes(c *tc.C) {
 
 	client.Check(c, notes, "Create")
 	client.CheckArgs(c, notes)
-	assertion := s.checkDownload(c, ctx, s.defaultFilename)
+	assertion := s.checkDownload(c, ctx, s.defaultFilename, s.defaultAssertionFilename)
 	c.Check(assertion.Notes, tc.Equals, notes)
 }
 
 func (s *createSuite) TestFilename(c *tc.C) {
-	client := s.setDownload()
-	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
-	c.Assert(err, tc.ErrorIsNil)
-
-	client.Check(c, "", "Create")
-	client.CheckArgs(c, "")
-	s.checkDownload(c, ctx, "backup.tgz")
-	c.Check(s.command.Filename, tc.Equals, "backup.tgz")
+	for _, test := range []struct {
+		archive   string
+		assertion string
+	}{
+		{"backup.tar.gz", "backup.assert"},
+		{"backup.tgz", "backup.assert"},
+		{"backup", "backup.assert"},
+		{"backup.custom", "backup.custom.assert"},
+		{"backup.assert", "backup.assert.assert"},
+		{"backup.daily.tar.gz", "backup.daily.assert"},
+		{"backup.tgz.tar.gz", "backup.tgz.assert"},
+	} {
+		c.Logf("archive filename: %s", test.archive)
+		dir := c.MkDir()
+		filename := filepath.Join(dir, test.archive)
+		assertionFilename := filepath.Join(dir, test.assertion)
+		s.setDownload()
+		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", filename)
+		c.Assert(err, tc.ErrorIsNil)
+		s.checkDownload(c, ctx, filename, assertionFilename)
+		entries, err := os.ReadDir(dir)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(entries, tc.HasLen, 2)
+	}
 }
 
 // TestNestedFilename verifies that an archive requested inside a
 // subdirectory keeps its assertion beside it there.
 func (s *createSuite) TestNestedFilename(c *tc.C) {
 	s.setDownload()
-	c.Assert(os.MkdirAll("nested/backups", 0o755), tc.ErrorIsNil)
-	filename := "nested/backups/custom.tgz"
+	c.Assert(os.MkdirAll("nested.tar.gz/backups", 0o755), tc.ErrorIsNil)
+	filename := "nested.tar.gz/backups/custom.tar.gz"
 
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", filename)
 	c.Assert(err, tc.ErrorIsNil)
-	s.checkDownload(c, ctx, filename)
+	s.checkDownload(c, ctx, filename, "nested.tar.gz/backups/custom.assert")
 }
 
 // TestFullMetadataPreserved verifies that every summary value the
@@ -252,7 +270,7 @@ func (s *createSuite) TestFullMetadataPreserved(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand)
 	c.Assert(err, tc.ErrorIsNil)
 	client.CheckCalls(c, "Create")
-	assertion := s.checkDownload(c, ctx, filename)
+	assertion := s.checkDownload(c, ctx, filename, "juju-backup-20261030-123456.assert")
 
 	c.Check(assertion.FormatVersion, tc.Equals, int64(2))
 	c.Check(assertion.Size, tc.Equals, int64(12345))
@@ -290,7 +308,7 @@ func (s *createSuite) TestUnverifiableChecksumFormat(c *tc.C) {
 		c.Check(err, tc.Satisfies, os.IsNotExist)
 		_, err = os.Stat("juju-backup-00010101-000000.tar.gz.corrupt")
 		c.Check(err, tc.Satisfies, os.IsNotExist)
-		s.checkNoAssertion(c, "juju-backup-00010101-000000.tar.gz")
+		s.checkNoAssertion(c, s.defaultAssertionFilename)
 	}
 }
 
@@ -306,7 +324,7 @@ func (s *createSuite) TestChecksumUppercase(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand)
 	c.Assert(err, tc.ErrorIsNil)
 	client.CheckCalls(c, "Create")
-	assertion := s.checkDownload(c, ctx, s.defaultFilename)
+	assertion := s.checkDownload(c, ctx, s.defaultFilename, s.defaultAssertionFilename)
 	c.Check(assertion.Checksum, tc.Equals, "sha256-"+strings.ToUpper(lower))
 }
 
@@ -324,7 +342,7 @@ func (s *createSuite) TestCreateOnContainerController(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand)
 	c.Assert(err, tc.ErrorIsNil)
 	client.CheckCalls(c, "Create")
-	s.checkDownload(c, ctx, s.defaultFilename)
+	s.checkDownload(c, ctx, s.defaultFilename, s.defaultAssertionFilename)
 }
 
 func (s *createSuite) TestChecksumMismatch(c *tc.C) {
@@ -338,7 +356,7 @@ func (s *createSuite) TestChecksumMismatch(c *tc.C) {
 	// The assertion must not be created: the archive was never
 	// verified, so no assertion can describe it.
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, "")
-	s.checkNoAssertion(c, "juju-backup-00010101-000000.tar.gz")
+	s.checkNoAssertion(c, s.defaultAssertionFilename)
 
 	// The corrupt archive is kept under a suffix for inspection.
 	_, err = os.Stat("juju-backup-00010101-000000.tar.gz")
@@ -357,7 +375,7 @@ func (s *createSuite) TestStaleAssertionSurvivesFailedRerun(c *tc.C) {
 	client.metaresult.Notes = "first backup"
 	_, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
 	c.Assert(err, tc.ErrorIsNil)
-	first := s.checkAssertion(c, "backup.tgz")
+	first := s.checkAssertion(c, "backup.tgz", "backup.assert")
 	c.Check(first.Notes, tc.Equals, "first backup")
 
 	// A second run reporting a checksum that does not match the
@@ -374,7 +392,7 @@ func (s *createSuite) TestStaleAssertionSurvivesFailedRerun(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(data), tc.Equals, s.data)
 
-	stale := s.readAssertion(c, "backup.tgz.assert")
+	stale := s.readAssertion(c, "backup.assert")
 	c.Check(stale.Checksum, tc.Equals, first.Checksum)
 	c.Check(stale.Notes, tc.Equals, first.Notes)
 }
@@ -415,7 +433,7 @@ func (s *createSuite) TestPartialArchiveRemoved(c *tc.C) {
 	c.Check(err, tc.Satisfies, os.IsNotExist)
 	_, err = os.Stat("backup.tgz.corrupt")
 	c.Check(err, tc.Satisfies, os.IsNotExist)
-	s.checkNoAssertion(c, "backup.tgz")
+	s.checkNoAssertion(c, "backup.assert")
 }
 
 // TestNoChecksum verifies that a response without a checksum, which
@@ -430,18 +448,18 @@ func (s *createSuite) TestNoChecksum(c *tc.C) {
 
 	// No assertion: nothing was downloaded.
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, "")
-	s.checkNoAssertion(c, s.defaultFilename)
+	s.checkNoAssertion(c, s.defaultAssertionFilename)
 }
 
 // TestAssertionPublicationFailureKeepsArchive verifies that a destination
 // directory blocks publication without removing it or the verified archive.
 func (s *createSuite) TestAssertionPublicationFailureKeepsArchive(c *tc.C) {
 	client := s.setDownload()
-	err := os.Mkdir("backup.tgz.assert", 0o755)
+	err := os.Mkdir("backup.assert", 0o755)
 	c.Assert(err, tc.ErrorIsNil)
 
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
-	c.Assert(err, tc.ErrorMatches, `while publishing local assertion file backup.tgz.assert: .*`)
+	c.Assert(err, tc.ErrorMatches, `while publishing local assertion file backup.assert: .*`)
 	client.CheckCalls(c, "Create")
 
 	// The verified archive is kept and the obstructing directory is
@@ -449,7 +467,7 @@ func (s *createSuite) TestAssertionPublicationFailureKeepsArchive(c *tc.C) {
 	data, err := os.ReadFile("backup.tgz")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(data), tc.Equals, s.data)
-	info, err := os.Stat("backup.tgz.assert")
+	info, err := os.Stat("backup.assert")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.IsDir(), tc.IsTrue)
 	entries, err := os.ReadDir(".")
@@ -534,7 +552,7 @@ func (s *createSuite) TestAssertionFailureKeepsExistingFiles(c *tc.C) {
 		c.Logf("failure during %s", test.name)
 		dir := c.MkDir()
 		filename := filepath.Join(dir, "backup.tgz")
-		assertionPath := filename + ".assert"
+		assertionPath := filepath.Join(dir, "backup.assert")
 		const previousAssertion = "previous assertion"
 		c.Assert(os.WriteFile(assertionPath, []byte(previousAssertion), 0o600), tc.ErrorIsNil)
 		s.setDownload()
@@ -582,13 +600,14 @@ func (s *createSuite) TestAssertionLinksKeepArchive(c *tc.C) {
 		dir := c.MkDir()
 		filename := filepath.Join(dir, "backup.tgz")
 		c.Assert(os.WriteFile(filename, []byte("old backup"), 0o600), tc.ErrorIsNil)
-		c.Assert(test.link(filename, filename+".assert"), tc.ErrorIsNil)
+		assertionPath := filepath.Join(dir, "backup.assert")
+		c.Assert(test.link(filename, assertionPath), tc.ErrorIsNil)
 		s.setDownload()
 
 		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", filename)
 		c.Assert(err, tc.ErrorIsNil)
-		s.checkDownload(c, ctx, filename)
-		info, err := os.Lstat(filename + ".assert")
+		s.checkDownload(c, ctx, filename, assertionPath)
+		info, err := os.Lstat(assertionPath)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(info.Mode().IsRegular(), tc.IsTrue)
 		entries, err := os.ReadDir(dir)
@@ -604,16 +623,16 @@ func (s *createSuite) TestAssertionReplaced(c *tc.C) {
 	client.metaresult.Notes = "first backup"
 	_, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
 	c.Assert(err, tc.ErrorIsNil)
-	assertion := s.checkAssertion(c, "backup.tgz")
+	assertion := s.checkAssertion(c, "backup.tgz", "backup.assert")
 	c.Check(assertion.Notes, tc.Equals, "first backup")
 
 	client.metaresult.Notes = "second backup"
 	_, err = cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
 	c.Assert(err, tc.ErrorIsNil)
-	assertion = s.checkAssertion(c, "backup.tgz")
+	assertion = s.checkAssertion(c, "backup.tgz", "backup.assert")
 	c.Check(assertion.Notes, tc.Equals, "second backup")
 
-	data, err := os.ReadFile("backup.tgz.assert")
+	data, err := os.ReadFile("backup.assert")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(strings.Count(string(data), "notes:"), tc.Equals, 1)
 }

@@ -27,8 +27,9 @@
 // during a quiet window (see the create-backup help).
 
 // create-backup saves the backup summary, including the archive's SHA-256
-// checksum, as an unsigned YAML assertion file named by appending
-// ".assert" to the archive filename.
+// checksum, as an unsigned YAML assertion file. The archive's ".tar.gz"
+// or ".tgz" suffix is replaced with ".assert"; for other filenames,
+// ".assert" is appended.
 
 // Recovering a controller from a backup will require both files, the
 // archive and its assertion. The recover command in this build only

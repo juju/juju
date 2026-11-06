@@ -39,10 +39,11 @@ leaves no archive on either side: re-run the command to create the
 backup again.
 
 Once the archive is verified and saved, the backup summary is written
-beside it as an unsigned YAML assertion file, named by appending
-".assert" to the archive filename. The assertion records the archive's
-SHA-256 checksum together with the backup metadata. On success the
-command reports both filenames on stderr, unless --quiet is specified.
+beside it as an unsigned YAML assertion file. The archive's ".tar.gz"
+or ".tgz" suffix is replaced with ".assert"; for other filenames,
+".assert" is appended. The assertion records the archive's SHA-256
+checksum together with the backup metadata. On success the command
+reports both filenames on stderr, unless --quiet is specified.
 The assertion is published by replacing its destination only after writing
 and closing a temporary file successfully. If publication fails, the verified
 archive and any existing assertion are kept.
@@ -148,10 +149,15 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := c.writeAssertion(data, filename+".assert"); err != nil {
+	assertionFilename, hasArchiveSuffix := strings.CutSuffix(filename, ".tar.gz")
+	if !hasArchiveSuffix {
+		assertionFilename = strings.TrimSuffix(filename, ".tgz")
+	}
+	assertionFilename += ".assert"
+	if err := c.writeAssertion(data, assertionFilename); err != nil {
 		return errors.Trace(err)
 	}
-	ctx.Infof("Downloaded to %v (assertion: %v)", filename, filename+".assert")
+	ctx.Infof("Downloaded to %v (assertion: %v)", filename, assertionFilename)
 	return nil
 }
 

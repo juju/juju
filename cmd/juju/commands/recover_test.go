@@ -43,13 +43,13 @@ func (s *recoverySuite) TestInit(c *tc.C) {
 	}{
 		{nil, "a backup archive is required"},
 		{[]string{"backup.tar.gz"}, "a backup assertion file is required"},
-		{[]string{"", "backup.tar.gz.assert"}, "a backup archive is required"},
+		{[]string{"", "backup.assert"}, "a backup archive is required"},
 		{[]string{"backup.tar.gz", ""}, "a backup assertion file is required"},
-		{[]string{"", "backup.tar.gz.assert", "extra"}, "a backup archive is required"},
-		{[]string{"backup.tar.gz", "backup.tar.gz.assert", "extra"}, "unrecognized args.*"},
-		{[]string{"backup.tar.gz", "backup.tar.gz.assert", "--sha256", "bad"}, "(flag|option) provided but not defined.*"},
-		{[]string{"backup.tar.gz", "backup.tar.gz.assert", "--credential", "source"}, "(flag|option) provided but not defined.*"},
-		{[]string{"backup.tar.gz", "backup.tar.gz.assert", "--config", "ca-cert=override"}, "(flag|option) provided but not defined.*"},
+		{[]string{"", "backup.assert", "extra"}, "a backup archive is required"},
+		{[]string{"backup.tar.gz", "backup.assert", "extra"}, "unrecognized args.*"},
+		{[]string{"backup.tar.gz", "backup.assert", "--sha256", "bad"}, "(flag|option) provided but not defined.*"},
+		{[]string{"backup.tar.gz", "backup.assert", "--credential", "source"}, "(flag|option) provided but not defined.*"},
+		{[]string{"backup.tar.gz", "backup.assert", "--config", "ca-cert=override"}, "(flag|option) provided but not defined.*"},
 	} {
 		err := cmdtesting.InitCommand(newRecoveryCommand(), test.args)
 		c.Check(err, tc.ErrorMatches, test.pattern)
@@ -57,10 +57,10 @@ func (s *recoverySuite) TestInit(c *tc.C) {
 	// Both paths are recorded for recovery, as given.
 	command := &recoveryCommand{}
 	wrapped := modelcmd.Wrap(command, modelcmd.WrapSkipModelFlags, modelcmd.WrapSkipDefaultModel)
-	err := cmdtesting.InitCommand(wrapped, []string{"backup.tar.gz", "elsewhere/backup.tar.gz.assert"})
+	err := cmdtesting.InitCommand(wrapped, []string{"backup.tar.gz", "elsewhere/backup.assert"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(command.archivePath, tc.Equals, "backup.tar.gz")
-	c.Check(command.assertionPath, tc.Equals, "elsewhere/backup.tar.gz.assert")
+	c.Check(command.assertionPath, tc.Equals, "elsewhere/backup.assert")
 }
 
 // TestRun drives the wrapped recover command through every Run path:
@@ -91,7 +91,7 @@ func (s *recoverySuite) TestRun(c *tc.C) {
 
 	const (
 		archiveName   = "backup.tar.gz"
-		assertionName = "backup.tar.gz.assert"
+		assertionName = "backup.assert"
 	)
 
 	for i, test := range []struct {

@@ -67,7 +67,7 @@ var getAPI = func(ctx context.Context, c *CommandBase) (APIClient, error) {
 
 // Assertion records the summary of a created backup archive: the
 // metadata the controller reported alongside the archive, saved to a
-// local "<archive>.assert" file. The assertion is unsigned YAML; its
+// local ".assert" file beside the archive. The assertion is unsigned YAML; its
 // checksum is the archive's SHA-256 digest, which recovery verifies
 // against the archive before use. The format version is the archive
 // format version, not a version of the assertion itself.
