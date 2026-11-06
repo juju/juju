@@ -22,44 +22,7 @@ type sequence struct {
 // namespace.
 // The first such value starts at 0.
 func NextValue(ctx context.Context, preparer domain.Preparer, tx *sqlair.TX, namespace domainsequence.Namespace) (uint64, error) {
-	seq := sequence{
-		Namespace: namespace.String(),
-	}
-	updateStmt, err := preparer.Prepare(`
-INSERT INTO sequence (namespace, value) VALUES ($sequence.namespace, 0)
-ON CONFLICT DO UPDATE SET value = value + 1
-`, seq)
-	if err != nil {
-		return 0, errors.Capture(err)
-	}
-
-	nextStmt, err := preparer.Prepare(`
-SELECT &sequence.value FROM sequence WHERE namespace = $sequence.namespace
-`, seq)
-	if err != nil {
-		return 0, errors.Capture(err)
-	}
-
-	// Increment the sequence number, we need to ensure that we affected the
-	// sequence, otherwise we can end up with values that aren't unique.
-	var outcome sqlair.Outcome
-	err = tx.Query(ctx, updateStmt, seq).Get(&outcome)
-	if err != nil {
-		return 0, errors.Errorf("updating sequence number for namespace %q: %w", namespace, err)
-	}
-	if affected, err := outcome.Result().RowsAffected(); err != nil {
-		return 0, errors.Errorf("getting affected rows for sequence number for namespace %q: %w", namespace, err)
-	} else if affected != 1 {
-		return 0, errors.Errorf("updating sequence number for namespace %q", namespace)
-	}
-
-	// Read the new value to return.
-	err = tx.Query(ctx, nextStmt, seq).Get(&seq)
-	if err != nil {
-		return 0, errors.Errorf("reading sequence number for namespace %q: %w", namespace, err)
-	}
-	result := seq.Value
-	return result, nil
+	return incrementSequence(ctx, preparer, tx, 1, namespace)
 }
 
 type count struct {
@@ -83,53 +46,16 @@ func NextNValues(
 		return nil, nil
 	}
 
-	seq := sequence{
-		Namespace: namespace.String(),
-		Value:     n - 1,
-	}
-	cnt := count{
-		N: n,
-	}
-
-	updateStmt, err := preparer.Prepare(`
-INSERT INTO sequence (*) VALUES ($sequence.*)
-ON CONFLICT DO UPDATE SET value = value + $count.n
-`, sequence{}, count{})
+	latest, err := incrementSequence(ctx, preparer, tx, n, namespace)
 	if err != nil {
 		return nil, errors.Capture(err)
-	}
-
-	latestValStmt, err := preparer.Prepare(`
-SELECT &sequence.value FROM sequence WHERE namespace = $sequence.namespace
-`, seq)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	// Increment the sequence number, we need to ensure that we affected the
-	// sequence, otherwise we can end up with values that aren't unique.
-	var outcome sqlair.Outcome
-	err = tx.Query(ctx, updateStmt, seq, cnt).Get(&outcome)
-	if err != nil {
-		return nil, errors.Errorf("updating sequence number for namespace %q: %w", namespace, err)
-	}
-	if affected, err := outcome.Result().RowsAffected(); err != nil {
-		return nil, errors.Errorf("getting affected rows for sequence number for namespace %q: %w", namespace, err)
-	} else if affected != 1 {
-		return nil, errors.Errorf("updating sequence number for namespace %q", namespace)
-	}
-
-	// Read the new value to return.
-	err = tx.Query(ctx, latestValStmt, seq).Get(&seq)
-	if err != nil {
-		return nil, errors.Errorf("reading sequence number for namespace %q: %w", namespace, err)
 	}
 
 	// Be careful not to shoot ourselves in the foot.
-	if seq.Value+1 < n {
+	if latest+1 < n {
 		return nil, errors.Errorf("cannot reticulate splines")
 	}
-	start := seq.Value + 1
+	start := latest + 1
 	start -= n
 
 	rval := make([]uint64, 0, n)
@@ -138,4 +64,57 @@ SELECT &sequence.value FROM sequence WHERE namespace = $sequence.namespace
 		rval = append(rval, id)
 	}
 	return rval, nil
+}
+
+// incrementSequence allocates n values and returns the last allocated value.
+// Callers must supply a positive n.
+func incrementSequence(
+	ctx context.Context,
+	preparer domain.Preparer,
+	tx *sqlair.TX,
+	n uint64,
+	namespace domainsequence.Namespace,
+) (uint64, error) {
+	seq := sequence{
+		Namespace: namespace.String(),
+		Value:     n - 1,
+	}
+	cnt := count{N: n}
+
+	// Avoid RETURNING: dqlite can mask retryable write conflicts (see
+	// https://github.com/canonical/dqlite/pull/918), and SQLair can lose row
+	// iteration errors on SQLite. Review this workaround when both are fixed.
+	updateStmt, err := preparer.Prepare(`
+INSERT INTO sequence (*) VALUES ($sequence.*)
+ON CONFLICT (namespace) DO UPDATE SET value = sequence.value + $count.n
+`, seq, cnt)
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	selectStmt, err := preparer.Prepare(`
+SELECT s.value AS &sequence.value
+FROM sequence AS s
+WHERE s.namespace = $sequence.namespace
+`, seq)
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	var outcome sqlair.Outcome
+	if err := tx.Query(ctx, updateStmt, seq, cnt).Get(&outcome); err != nil {
+		return 0, errors.Errorf("updating sequence number for namespace %q: %w", namespace, err)
+	}
+	affected, err := outcome.Result().RowsAffected()
+	if err != nil {
+		return 0, errors.Errorf("getting affected rows for sequence number for namespace %q: %w", namespace, err)
+	}
+	if affected != 1 {
+		return 0, errors.Errorf("updating sequence number for namespace %q: affected %d rows", namespace, affected)
+	}
+
+	if err := tx.Query(ctx, selectStmt, seq).Get(&seq); err != nil {
+		return 0, errors.Errorf("reading sequence number for namespace %q: %w", namespace, err)
+	}
+	return seq.Value, nil
 }
