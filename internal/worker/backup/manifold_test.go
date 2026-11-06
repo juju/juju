@@ -110,7 +110,7 @@ func (s *manifoldSuite) TestObjectStoreFailure(c *tc.C) {
 }
 
 func (s *manifoldSuite) TestMissingDependencies(c *tc.C) {
-	for _, name := range []string{"leases", "services", "objects"} {
+	for _, name := range []string{"leases", "services", "objects", "providers"} {
 		resources := manifoldResources()
 		delete(resources, name)
 		_, err := Manifold(manifoldConfig(c)).Start(c.Context(), dt.StubGetter(resources))
@@ -126,6 +126,7 @@ func (s *manifoldSuite) TestInvalidConfiguration(c *tc.C) {
 		{func(c *ManifoldConfig) { c.LeaseManagerName = "" }, "empty LeaseManagerName not valid"},
 		{func(c *ManifoldConfig) { c.DomainServicesName = "" }, "empty DomainServicesName not valid"},
 		{func(c *ManifoldConfig) { c.ObjectStoreName = "" }, "empty ObjectStoreName not valid"},
+		{func(c *ManifoldConfig) { c.ProviderTrackerName = "" }, "empty ProviderTrackerName not valid"},
 		{func(c *ManifoldConfig) { c.ControllerTag = nil }, "nil ControllerTag not valid"},
 		{func(c *ManifoldConfig) { c.ControllerNodeID = "" }, "empty ControllerNodeID not valid"},
 		{func(c *ManifoldConfig) { c.LocalConfigReader = nil }, "nil LocalConfigReader not valid"},

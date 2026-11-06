@@ -102,8 +102,9 @@ func (s *backupsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.modelExport = NewMockModelExportService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
 
-	// The controller machine's base resolves through the model services:
-	// every machine-tagged Create test records it in the archive metadata.
+	// The controller machine's base resolves through the model services.
+	// Failure-path tests may not reach metadata assembly, so allow zero
+	// calls here; the success-path tests assert the recorded base.
 	s.modelServices.EXPECT().Machine().Return(s.machineService).AnyTimes()
 	s.machineService.EXPECT().GetMachineBase(gomock.Any(), machine.Name("0")).Return(corebase.MustParseBaseFromString("ubuntu@24.04"), nil).AnyTimes()
 
@@ -307,6 +308,11 @@ func (s *backupsSuite) TestCreate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	backupDir := c.MkDir()
+	dqliteDir := filepath.Join(s.dataDirPath, dqliteDataDir)
+	c.Assert(os.MkdirAll(filepath.Join(dqliteDir, "nested"), 0o755), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(filepath.Join(dqliteDir, "segment"), make([]byte, 42), 0o600), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(filepath.Join(dqliteDir, "nested", "segment"), make([]byte, 8), 0o600), tc.ErrorIsNil)
+
 	files := s.expectFilesToBackUp(c, backupDir)
 	s.expectArchiveCreation(c, backupDir)
 	s.expectModelConfig(c, backupDir)
@@ -335,6 +341,10 @@ func (s *backupsSuite) TestCreate(c *tc.C) {
 	c.Check(s.createdMeta.Notes, tc.Equals, "test")
 	c.Check(s.createdMeta.Origin.Model, tc.Equals, s.controllerModelUUID.String())
 	c.Check(s.createdMeta.Origin.Machine, tc.Equals, "0")
+	// The base records its default stable channel.
+	c.Check(s.createdMeta.Origin.Base, tc.Equals, "ubuntu@24.04/stable")
+	c.Check(s.createdMeta.DatabaseSizeBytes, tc.Equals, int64(50))
+	c.Check(s.createdMeta.Kubernetes, tc.IsNil)
 	c.Check(s.createdMeta.Controller.UUID, tc.Equals, s.controllerUUID)
 	c.Check(s.createdMeta.Controller.MachineID, tc.Equals, "0")
 	c.Check(s.createdMeta.Controller.HANodes, tc.Equals, int64(2))
@@ -822,6 +832,34 @@ func (s *backupsSuite) TestCreateMachineBaseFailure(c *tc.C) {
 
 	_, _, cleanup, err := s.newCreator(c, modelServicesFor).Create(c.Context(), "")
 	c.Check(err, tc.ErrorMatches, "recording controller base for recovery: base unavailable")
+	c.Check(cleanup, tc.IsNil)
+	s.assertNoArchive(c, backupDir)
+}
+
+// TestCreateEmptyMachineBase verifies that an empty controller machine
+// base aborts Create before an archive is published.
+func (s *backupsSuite) TestCreateEmptyMachineBase(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	s.expectCreateDependencies(c, backupDir)
+
+	// The controller model resolves to a machine service that reports an
+	// empty base; the workload model export is unaffected.
+	ctrl := gomock.NewController(c)
+	empty := NewMockMachineService(ctrl)
+	empty.EXPECT().GetMachineBase(gomock.Any(), machine.Name("0")).Return(corebase.Base{}, nil)
+	emptyServices := NewMockModelExportDomainServices(ctrl)
+	emptyServices.EXPECT().Machine().Return(empty)
+	modelServicesFor := ModelServicesForFunc(func(_ context.Context, modelUUID coremodel.UUID) (ModelExportDomainServices, error) {
+		if modelUUID == s.controllerModelUUID {
+			return emptyServices, nil
+		}
+		return s.modelServices, nil
+	})
+
+	_, _, cleanup, err := s.newCreator(c, modelServicesFor).Create(c.Context(), "")
+	c.Check(err, tc.ErrorMatches, "recording controller base for recovery: controller machine base is empty")
 	c.Check(cleanup, tc.IsNil)
 	s.assertNoArchive(c, backupDir)
 }
