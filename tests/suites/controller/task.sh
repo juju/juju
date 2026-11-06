@@ -27,6 +27,9 @@ test_controller() {
 	test_query_tracing
 	test_limit_access
 	#test_limit_access_ha
+	# Intentionally left failing: HA scale-out for the snap-based
+	# standalone controller is Phase 2 (JUJU-9740) and is not implemented.
+	# The failure keeps the gap visible; see enable_ha.sh.
 	test_enable_ha
 
 	destroy_controller "test-controller"

@@ -46,6 +46,14 @@ run_charmhub_deploy() {
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 	wait_for "dummy-source" "$(idle_condition "dummy-source")"
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
+
+	# The waits above proved the controller answers juju status. The CI
+	# smoke jobs run the suite as a whole, so embedding the boundary
+	# assertion in the deploy scenario keeps it covered while asserting
+	# machine-0's agent.conf immediately after the controller proved
+	# reachable.
+	assert_machine0_agent_conf_trimmed
+
 	# TODO(nvinuesa): When relations are finished implementing in 4.0, we
 	# should integrate dummy-source with dummy-sink.
 	# juju integrate dummy-source dummy-sink

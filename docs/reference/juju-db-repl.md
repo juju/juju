@@ -15,9 +15,9 @@ myst:
 See also: {ref}`database`, {ref}`manage-the-databases`
 ```
 
-`juju_db_repl` is a REPL (Read-Eval-Print Loop), an interactive SQL shell for querying Juju's embedded [Dqlite](https://canonical.com/dqlite) databases. Starting with Juju 4.0, the controller uses Dqlite as its embedded database system instead of MongoDB. The REPL provides direct access to the controller's relational database for inspection, debugging, and administrative tasks.
+`juju-db-repl` is a REPL (Read-Eval-Print Loop), an interactive SQL shell for querying Juju's embedded [Dqlite](https://canonical.com/dqlite) databases. Starting with Juju 4.0, the controller uses Dqlite as its embedded database system instead of MongoDB. The REPL provides direct access to the controller's relational database for inspection, debugging, and administrative tasks.
 
-Access it on any controller machine via SSH using the `juju_db_repl` helper command. In high-availability (HA) deployments, you can SSH into any controller node to access it.
+Access it on any controller machine via SSH using the `jujud.db-repl` snap app, for example `sudo snap run jujud.db-repl`. In high-availability (HA) deployments, you can SSH into any controller node to access it.
 
 The REPL provides an interactive interface to query the database using standard SQL syntax (SELECT, INSERT, UPDATE, DELETE) along with special dot commands for navigating between databases and introspecting the schema. Query features include multi-line queries (use `\` to continue and `;` to terminate), command history navigation (use arrow keys to browse previous commands), and formatted table output. It is a customized version built on top of the upstream [Dqlite](https://dqlite.io/) project, adding Juju-specific features like model-aware database switching, schema introspection for Juju's domain model, change log inspection, and multi-model query execution.
 
