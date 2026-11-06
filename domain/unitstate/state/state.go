@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -107,10 +106,7 @@ WHERE unit_uuid = $entityUUID.uuid`
 		unitState.CharmState = makeMapFromCharmUnitStateKeyVals(charmKVs)
 	}
 	if len(relationKVs) > 0 {
-		unitState.RelationState, err = makeMapFromRelationUnitStateKeyVals(relationKVs)
-		if err != nil {
-			return unitstate.RetrievedUnitState{}, errors.Errorf("getting unit relation state: %w", err)
-		}
+		unitState.RelationState = makeMapFromRelationUnitStateKeyVals(relationKVs)
 	}
 
 	return unitState, nil
@@ -294,16 +290,16 @@ func (st *State) setUnitStateRelation(ctx context.Context, tx *sqlair.TX, id ent
 	// If relations have been removed by force, we don't want a racing hook
 	// commit action to indicate that the unit is still in such relations.
 	q = `
-SELECT r.relation_id AS &relationID.relation_id
+SELECT r.relation_id AS &unitRelationStateKeyVal.key
 FROM   relation AS r
 WHERE  r.relation_id IN ($relationIDs[:])`
-	rStmt, err := st.Prepare(q, ids, relationID{})
+	rStmt, err := st.Prepare(q, ids, unitRelationStateKeyVal{})
 	if err != nil {
 		return errors.Errorf("preparing relation existence query: %w", err)
 	}
 
-	var existing []relationID
-	err = tx.Query(ctx, rStmt, ids).GetAll(&existing)
+	var keyVals []unitRelationStateKeyVal
+	err = tx.Query(ctx, rStmt, ids).GetAll(&keyVals)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		// If none of the relations indicated by the incoming
 		// state actually exist, then we set nothing.
@@ -312,13 +308,9 @@ WHERE  r.relation_id IN ($relationIDs[:])`
 		return errors.Errorf("getting existing relations: %w", err)
 	}
 
-	keyVals := make([]unitRelationStateKeyVal, len(existing))
-	for i, rel := range existing {
-		keyVals[i] = unitRelationStateKeyVal{
-			UUID:  id.UUID,
-			Key:   strconv.Itoa(rel.ID),
-			Value: state[rel.ID],
-		}
+	for i := range keyVals {
+		keyVals[i].UUID = id.UUID
+		keyVals[i].Value = state[keyVals[i].Key]
 	}
 
 	q = "INSERT INTO unit_state_relation(*) VALUES ($unitRelationStateKeyVal.*)"
