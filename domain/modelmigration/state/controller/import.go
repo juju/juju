@@ -347,17 +347,20 @@ WHERE model_uuid = $modelUUIDArg.model_uuid
 	})
 }
 
-// EnsureSourceControllerExists registers the migration source controller as an
+// EnsureSourceControllerExists saves the migration source controller as an
 // external controller and maps the given consumed (source-hosted) models to it
-// in external_model, mirroring how ImportExternalControllers records third-party
-// controllers. It is a primitive-typed wrapper for callers outside the
+// in external_model. It is a primitive-typed wrapper for callers outside the
 // domain/modelmigration tree (e.g. internal/migration) that cannot build the
-// internal representation. Both the controller registration and the model
-// mapping use compare-or-insert semantics and never overwrite live CMR data:
-// [modelmigrationerrors.ErrExternalControllerMismatch] is returned when the
-// controller, or any consumed model, is already registered with different
-// details. addrUUIDs supplies the caller-generated UUID for each address in
-// addrs and must have the same length.
+// internal representation.
+//
+// It matches 3.6 activation: the source is authoritative about its own
+// details, so an existing row's alias, CA certificate and addresses are
+// replaced, and a consumed model mapped to another controller is moved to the
+// source. A 3.6 source exports a filtered address list in the model
+// description, which the legacy importer records, but supplies its unfiltered
+// client addresses at activation; comparing them would reject the migration.
+// addrUUIDs supplies the caller-generated UUID for each address in addrs and
+// must have the same length.
 func (s *State) EnsureSourceControllerExists(
 	ctx context.Context,
 	controllerUUID, alias, caCert string,
@@ -373,27 +376,34 @@ func (s *State) EnsureSourceControllerExists(
 			Address: addr,
 		}
 	}
-	ref := modelmigrationinternal.ExternalController{
-		UUID:           controllerUUID,
-		Alias:          alias,
-		CACert:         caCert,
-		Addresses:      internalAddrs,
-		ConsumedModels: consumedModels,
+	info := externalControllerInfo{
+		UUID:   controllerUUID,
+		Alias:  alias,
+		CACert: caCert,
 	}
 
 	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
+	upsertModelStmt, err := s.Prepare(`
+INSERT INTO external_model (*) VALUES ($externalModelArg.*)
+ON CONFLICT (uuid) DO UPDATE SET controller_uuid = excluded.controller_uuid
+`, externalModelArg{})
+	if err != nil {
+		return errors.Capture(err)
+	}
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := s.ensureExternalControllerExists(ctx, tx, ref); err != nil {
+		if err := s.ensureExternalControllerSaved(ctx, tx, info, internalAddrs); err != nil {
 			return errors.Capture(err)
 		}
-		for _, consumedModelUUID := range ref.ConsumedModels {
-			if err := s.ensureExternalModelMatchesOrInsert(
-				ctx, tx, consumedModelUUID, ref.UUID,
-			); err != nil {
-				return errors.Capture(err)
+		for _, consumedModelUUID := range consumedModels {
+			arg := externalModelArg{
+				ModelUUID:      consumedModelUUID,
+				ControllerUUID: controllerUUID,
+			}
+			if err := tx.Query(ctx, upsertModelStmt, arg).Run(); err != nil {
+				return errors.Errorf("saving consumed model mapping: %w", err)
 			}
 		}
 		return nil

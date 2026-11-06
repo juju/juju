@@ -302,10 +302,11 @@ type ControllerState interface {
 	// phase. It is idempotent when no claim exists.
 	DeleteActivatedImport(ctx context.Context, modelUUID string) error
 
-	// EnsureSourceControllerExists compares-or-inserts the migration source
-	// controller's connection details and records the models it offers,
-	// failing with [modelmigrationerrors.ErrExternalControllerMismatch] on a
-	// mismatch rather than overwriting live CMR connection data.
+	// EnsureSourceControllerExists saves the migration source controller's
+	// connection details and maps the models it offers to it. As in 3.6, the
+	// source is authoritative: an existing row's alias, CA certificate and
+	// addresses are replaced, and a consumed model mapped to another
+	// controller is moved to the source.
 	EnsureSourceControllerExists(
 		ctx context.Context, controllerUUID, alias, caCert string, addrs, addrUUIDs, consumedModels []string,
 	) error
