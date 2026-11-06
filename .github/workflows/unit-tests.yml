@@ -29,3 +29,10 @@ jobs:
       - name: "Test"
         run: |
           make race-test
+
+      - name: "Test domains against dqlite"
+        shell: bash
+        run: |
+          make run-go-tests \
+            TEST_PACKAGES="./domain/..." \
+            TEST_ARGS="-race -count=1"

@@ -441,6 +441,58 @@ func (s *storageStatusSuite) TestGetStorageInstancesPersistent(c *tc.C) {
 	c.Check(instances[0].Persistent, tc.IsTrue)
 }
 
+func (s *storageStatusSuite) TestStorageInstancesNullablePersistent(c *tc.C) {
+	charmUUID := s.newCharm(c)
+	s.newCharmStorage(c, charmUUID, "blk", storage.StorageKindBlock)
+	s.newCharmStorage(c, charmUUID, "fs", storage.StorageKindFilesystem)
+	blockPool := s.newStoragePool(c, "blkpool", "blkpool", nil)
+	filesystemPool := s.newStoragePool(c, "fspool", "fspool", nil)
+	block, _ := s.newStorageInstance(c, charmUUID, "blk", blockPool, storage.StorageKindBlock)
+	filesystem, _ := s.newStorageInstance(c, charmUUID, "fs", filesystemPool, storage.StorageKindFilesystem)
+	volume, _ := s.newVolume(c)
+	s.newStorageInstanceVolume(c, block, volume)
+	st := s.NewModelState(c)
+
+	for _, test := range []struct {
+		name       string
+		persistent any
+		expected   bool
+	}{
+		{name: "null", persistent: nil},
+		{name: "false", persistent: false},
+		{name: "true", persistent: true, expected: true},
+	} {
+		_, err := s.DB().ExecContext(c.Context(),
+			"UPDATE storage_volume SET persistent = ? WHERE uuid = ?",
+			test.persistent, volume.String())
+		c.Assert(err, tc.ErrorIsNil)
+
+		for _, get := range []struct {
+			name string
+			call func() ([]status.StorageInstance, error)
+		}{
+			{"selected", func() ([]status.StorageInstance, error) {
+				return st.GetStorageInstances(c.Context(), []storage.StorageInstanceUUID{block, filesystem})
+			}},
+			{"all", func() ([]status.StorageInstance, error) {
+				return st.GetAllStorageInstances(c.Context())
+			}},
+		} {
+			instances, err := get.call()
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(instances, tc.HasLen, 2)
+			got := make(map[storage.StorageInstanceUUID]bool)
+			for _, instance := range instances {
+				got[instance.UUID] = instance.Persistent
+			}
+			c.Check(got, tc.DeepEquals, map[storage.StorageInstanceUUID]bool{
+				block:      test.expected,
+				filesystem: false,
+			}, tc.Commentf("%s, %s", test.name, get.name))
+		}
+	}
+}
+
 func (s *storageStatusSuite) TestGetAllStorageInstancesEmpty(c *tc.C) {
 	st := s.NewModelState(c)
 	res, err := st.GetAllStorageInstances(c.Context())

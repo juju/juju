@@ -385,7 +385,9 @@ SELECT &storageInstanceStatusDetails.* FROM (
               -- Persistent is a storage_volume property. A filesystem-kind
               -- storage instance has no storage_instance_volume row, so sv.
               -- persistent will always be NULL there and will resolve to false.
-              sv.persistent AS persistent,
+              -- Remove the cast when a dqlite release containing
+              -- canonical/dqlite#883 is bundled; it preserves NULL BOOLEAN.
+              CAST(sv.persistent AS INTEGER) AS persistent,
               u.name AS owner_unit_name,
               svs.status_id AS volume_status_id,
               svs.message AS volume_status_message,
@@ -486,7 +488,9 @@ SELECT &storageInstanceStatusDetails.* FROM (
               -- Persistent is a storage_volume property. A filesystem-kind
               -- storage instance has no storage_instance_volume row, so sv.
               -- persistent will always be NULL there and will resolve to false.
-              sv.persistent AS persistent,
+              -- Remove the cast when a dqlite release containing
+              -- canonical/dqlite#883 is bundled; it preserves NULL BOOLEAN.
+              CAST(sv.persistent AS INTEGER) AS persistent,
               u.name AS owner_unit_name,
               svs.status_id AS volume_status_id,
               svs.message AS volume_status_message,
