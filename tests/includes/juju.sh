@@ -297,7 +297,10 @@ juju_bootstrap() {
 
 	pre_bootstrap
 
-	command="juju bootstrap ${base} ${cloud_region} ${name} --model-default mode= ${BOOTSTRAP_ADDITIONAL_ARGS}"
+	# Charms that only report their status from update-status (such as
+	# ubuntu-plus) would otherwise keep a test waiting for up to the default
+	# 5m. UPDATE_STATUS_HOOK_INTERVAL overrides it.
+	command="juju bootstrap ${base} ${cloud_region} ${name} --model-default mode= --model-default update-status-hook-interval=${UPDATE_STATUS_HOOK_INTERVAL:-1m} ${BOOTSTRAP_ADDITIONAL_ARGS}"
 	# We run the command through the bash interpreter here to avoid some
 	# weird shell expansion behaviour when using --config and other arguments
 	# with white space.
