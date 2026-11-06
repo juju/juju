@@ -9,7 +9,6 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/pragma"
 	"github.com/juju/juju/internal/errors"
@@ -50,6 +49,7 @@ type DqliteSession struct {
 // The caller must have exclusive ownership of the node's data directory. The
 // session and its transaction runners must not be used after initialise returns.
 // No schemas or controller data are installed unless initialise requests them.
+// The caller must supply a bind address that resolves to this host.
 //
 // The caller selects the initialisation workflow: BootstrapDqlite supplies fresh
 // controller seeding; a restore workflow can supply archive import instead.
@@ -57,7 +57,7 @@ type DqliteSession struct {
 func WithDqlite(
 	ctx context.Context,
 	mgr BootstrapNodeManager,
-	addresses network.ProviderAddresses,
+	bindAddress string,
 	logger logger.Logger,
 	initialise func(context.Context, *DqliteSession) error,
 ) error {
@@ -66,11 +66,9 @@ func WithDqlite(
 		return errors.Capture(err)
 	}
 
-	address, ok := addresses.OneMatchingScope(network.ScopeMatchCloudLocal)
-	if !ok {
+	if bindAddress == "" {
 		return errors.New("Dqlite bootstrap address not found")
 	}
-	bindAddress := address.Value
 	tlsOpt, err := mgr.WithTLSOption()
 	if err != nil {
 		return errors.Errorf("generating TLS option: %w", err)
@@ -113,7 +111,7 @@ func (s *DqliteSession) NodeID() uint64 {
 	return s.app.ID()
 }
 
-// BindAddress returns the provider address selected for this node.
+// BindAddress returns the local identity selected for this node.
 func (s *DqliteSession) BindAddress() string {
 	return s.bindAddress
 }
