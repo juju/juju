@@ -26,7 +26,15 @@
 // a single point-in-time snapshot of the whole controller; create backups
 // during a quiet window (see the create-backup help).
 
-// Recovery tooling for bootstrapping a fresh replacement controller from
-// an archive is planned. The bootstrap command does not yet support it.
+// create-backup saves the backup summary, including the archive's SHA-256
+// checksum, as an unsigned YAML assertion file. The archive's ".tar.gz"
+// or ".tgz" suffix is replaced with ".assert"; for other filenames,
+// ".assert" is appended.
+
+// Recovering a controller from a backup will require both files, the
+// archive and its assertion. The recover command in this build only
+// validates the pair; provisioning a replacement controller is not
+// available yet:
+//   juju recover <backup-file> <assertion-file>
 
 package backups

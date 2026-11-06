@@ -301,6 +301,7 @@ var commandNames = []string{
 	"offer",
 	"offers",
 	"operations",
+	"recover",
 	"refresh",
 	"regions",
 	"register",
