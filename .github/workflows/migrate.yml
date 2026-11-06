@@ -65,7 +65,15 @@ jobs:
         if: ${{ matrix.channel != 'local' }}
         run: |
           mkdir -p ~/.local/share/juju
-          sudo snap install juju --channel ${{ matrix.channel }}
+          for attempt in 1 2 3; do
+            if sudo snap install juju --channel ${{ matrix.channel }}; then
+              break
+            fi
+            if [[ "$attempt" -eq 3 ]]; then
+              exit 1
+            fi
+            sleep "$((attempt * 10))"
+          done
 
       - name: Bootstrap a ${{ matrix.channel }} source controller and model
         if: ${{ matrix.channel != 'local' }}
