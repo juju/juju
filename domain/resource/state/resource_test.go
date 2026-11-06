@@ -2016,6 +2016,55 @@ func (s *resourceSuite) TestGetResourceNameAndTypeContainerImage(c *tc.C) {
 	c.Check(resourceType, tc.Equals, charmresource.TypeContainerImage.String())
 }
 
+// TestGetResourceNameAndTypeMultipleCharmResources verifies that each resource
+// of a charm with several resources of different types gets its own name and
+// type, and not those of another resource of the same charm.
+func (s *resourceSuite) TestGetResourceNameAndTypeMultipleCharmResources(c *tc.C) {
+	// Arrange: insert resources of a charm with file and container image
+	// resources. The image is inserted both first and last, so the result
+	// does not depend on row order.
+	inputs := []resourceData{{
+		UUID:            "image-first-id",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "image-first",
+		Type:            charmresource.TypeContainerImage,
+	}, {
+		UUID:            "ca-cert-file-id",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "ca-cert-file",
+		Type:            charmresource.TypeFile,
+	}, {
+		UUID:            "cert-file-id",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "cert-file",
+		Type:            charmresource.TypeFile,
+	}, {
+		UUID:            "image-last-id",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "image-last",
+		Type:            charmresource.TypeContainerImage,
+	}}
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		for _, input := range inputs {
+			if err := input.insert(ctx, tx); err != nil {
+				return errors.Capture(err)
+			}
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	for _, input := range inputs {
+		// Act.
+		name, resourceType, err := s.state.GetResourceNameAndType(c.Context(), coreresource.UUID(input.UUID))
+
+		// Assert.
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to get resource name and type of %q: %v", input.Name, errors.ErrorStack(err)))
+		c.Check(name, tc.Equals, input.Name)
+		c.Check(resourceType, tc.Equals, input.Type.String(), tc.Commentf("resource %q", input.Name))
+	}
+}
+
 // TestGetResourceNameAndTypeNotFound verifies that requesting a missing
 // resource returns ResourceNotFound.
 func (s *resourceSuite) TestGetResourceNameAndTypeNotFound(c *tc.C) {
