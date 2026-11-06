@@ -37,3 +37,6 @@ with the `--reveal` option in the `json` or `yaml` formats.
 
 Use `--revision` to inspect a particular revision, else latest is used.
 Use `--revisions` to see the metadata for each revision.
+
+A label must identify exactly one secret. If several secrets share the label,
+the command fails; use the secret ID instead.

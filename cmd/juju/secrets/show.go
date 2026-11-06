@@ -4,6 +4,10 @@
 package secrets
 
 import (
+	"maps"
+	"slices"
+	"strings"
+
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -34,6 +38,9 @@ with the ` + "`--reveal`" + ` option in the ` + "`json`" + ` or ` + "`yaml`" + `
 
 Use ` + "`--revision`" + ` to inspect a particular revision, else latest is used.
 Use ` + "`--revisions`" + ` to see the metadata for each revision.
+
+A label must identify exactly one secret. If several secrets share the label,
+the command fails; use the secret ID instead.
 `
 
 const showSecretsExamples = `
@@ -146,6 +153,17 @@ func (c *showSecretsCommand) Run(ctxt *cmd.Context) error {
 			return errors.NotFoundf("secret %q", c.uri.ID)
 		}
 		return errors.NotFoundf("secret %q", c.name)
+	}
+	if c.uri == nil && len(details) > 1 {
+		// The c.uri == nil conjunct is held deliberately: a URI-filtered
+		// ListSecrets returns at most one secret, so this only triggers on the
+		// label path unless the server regresses and returns several secrets
+		// for a URI filter.
+		ids := slices.Sorted(maps.Keys(details))
+		return errors.Errorf(
+			"secret label %q matches multiple secrets (%s); use a secret ID instead",
+			c.name, strings.Join(ids, ", "),
+		)
 	}
 
 	return c.out.Write(ctxt, details)
