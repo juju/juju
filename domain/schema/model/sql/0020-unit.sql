@@ -151,7 +151,7 @@ CREATE TABLE k8s_pod_port (
 
 -- Status values for unit agents.
 CREATE TABLE unit_agent_status_value (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     status TEXT NOT NULL
 );
 
@@ -166,7 +166,7 @@ INSERT INTO unit_agent_status_value VALUES
 
 -- Status values for cloud containers.
 CREATE TABLE k8s_pod_status_value (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     status TEXT NOT NULL
 );
 
@@ -331,7 +331,7 @@ CREATE TABLE unit_resolved (
 );
 
 CREATE TABLE resolve_mode (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL
 );
 

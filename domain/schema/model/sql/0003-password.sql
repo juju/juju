@@ -1,5 +1,5 @@
 CREATE TABLE password_hash_algorithm (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL
 );
 

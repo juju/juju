@@ -61,7 +61,7 @@ CREATE TABLE instance_tag (
 );
 
 CREATE TABLE machine_cloud_instance_status_value (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     status TEXT NOT NULL
 );
 

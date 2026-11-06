@@ -1,5 +1,5 @@
 CREATE TABLE ssh_fingerprint_hash_algorithm (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     algorithm TEXT NOT NULL
 );
 
