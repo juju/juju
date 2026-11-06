@@ -18,12 +18,12 @@ check_storage_account_type_controller() {
 		bs_cmd+=("${constraint_args[@]}")
 	fi
 
+	# Keep track even if bootstrap fails after provisioning the VM.
+	echo "${controller_name}" >>"${TEST_DIR}/jujus"
 	if ! "${bs_cmd[@]}" >>"${file}" 2>&1; then
 		echo "Bootstrap failed for ${controller_name}"
 		return 1
 	fi
-	# This will clean up the controller later.
-	echo "${controller_name}" >>"${TEST_DIR}/jujus"
 
 	juju add-model test
 

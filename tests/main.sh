@@ -267,6 +267,7 @@ else
 fi
 
 cleanup() {
+	local exit_status=$?
 	# Allow for failures and stop tracing everything
 	set +ex
 
@@ -288,8 +289,9 @@ cleanup() {
 
 	pop_daemon_scope 0
 
-	cleanup_jujus
-	cleanup_funcs
+	cleanup_models || TEST_RESULT=failure
+	cleanup_jujus || TEST_RESULT=failure
+	cleanup_funcs || TEST_RESULT=failure
 
 	# Migration controller cleanup still needs the 3.6 client. Restore the
 	# developer's snap only after every registered cleanup has finished.
@@ -310,12 +312,15 @@ cleanup() {
 
 	archive_logs "full"
 
-	if [ "${TEST_RESULT}" = "success" ]; then
+	if [[ ${TEST_RESULT} == "success" && -z ${SKIP_DESTROY} ]]; then
 		rm -rf "${TEST_DIR}"
 		echo "==> Tests Removed: ${TEST_DIR}"
 	fi
 
 	echo "==> TEST COMPLETE"
+	if [[ ${TEST_RESULT} != "success" && ${exit_status} -eq 0 ]]; then
+		exit 1
+	fi
 }
 
 # Move any artifacts to the chosen location
@@ -345,7 +350,10 @@ TEST_CURRENT=setup
 TEST_RESULT=failure
 
 push_daemon_scope
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # Setup test directory
 TEST_DIR=$(mktemp -d tmp.XXX | xargs -I % echo "$(pwd)/%")

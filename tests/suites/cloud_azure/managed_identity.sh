@@ -10,10 +10,13 @@ check_managed_identity_controller() {
 		cloud_region="${cloud}"
 	fi
 
+	echo "${name}" >>"${TEST_DIR}/jujus"
 	juju bootstrap "${cloud_region}" "${name}" \
 		--show-log \
 		--constraints="instance-role=${identity_name}" 2>&1 | OUTPUT "${file}"
-	echo "${name}" >>"${TEST_DIR}/jujus"
+	if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
+		return 1
+	fi
 
 	cred_name=${AZURE_CREDENTIAL_NAME:-credentials}
 	cred=$(juju show-credential --controller "${name}" azure "${cred_name}" 2>&1 || true)
