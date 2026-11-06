@@ -18,7 +18,9 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/internal/docker/registry"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
 )
 
 type backupProvisioningSuite struct{}
@@ -34,25 +36,25 @@ func (f backupImageTransport) RoundTrip(request *http.Request) (*http.Response, 
 func backupSourceClient(agent, charm, agentID, charmID string) *fake.Clientset {
 	class := "original-class"
 	return fake.NewClientset(
-		&apps.StatefulSet{ObjectMeta: metav1.ObjectMeta{Name: "controller", Namespace: "controller-source"},
+		&apps.StatefulSet{ObjectMeta: metav1.ObjectMeta{Name: constants.JujuControllerStackName, Namespace: "controller-source"},
 			Spec: apps.StatefulSetSpec{Template: core.PodTemplateSpec{Spec: core.PodSpec{Containers: []core.Container{
 				{Name: apiServerContainerName, Image: "example.com/replacement:latest"},
-				{Name: "charm", Image: "example.com/replacement-charm:latest"},
+				{Name: constants.ApplicationCharmContainer, Image: "example.com/replacement-charm:latest"},
 			}}}}},
-		&core.Pod{ObjectMeta: metav1.ObjectMeta{Name: "controller-1", Namespace: "controller-source"},
+		&core.Pod{ObjectMeta: metav1.ObjectMeta{Name: getBootstrapResourceName(constants.JujuControllerStackName, "1"), Namespace: "controller-source"},
 			Spec: core.PodSpec{NodeName: "worker", Containers: []core.Container{
-				{Name: apiServerContainerName, Image: agent}, {Name: "charm", Image: charm},
+				{Name: apiServerContainerName, Image: agent}, {Name: constants.ApplicationCharmContainer, Image: charm},
 			}, Volumes: []core.Volume{{Name: storageName,
 				VolumeSource: core.VolumeSource{PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{ClaimName: "controller-storage"}},
 			}}}, Status: core.PodStatus{ContainerStatuses: []core.ContainerStatus{
 				{Name: apiServerContainerName, ImageID: agentID, State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
-				{Name: "charm", ImageID: charmID, State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
+				{Name: constants.ApplicationCharmContainer, ImageID: charmID, State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
 			}}},
 		&core.Node{ObjectMeta: metav1.ObjectMeta{Name: "worker"}, Status: core.NodeStatus{NodeInfo: core.NodeSystemInfo{Architecture: "arm64"}}},
 		&core.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "controller-storage", Namespace: "controller-source"},
 			Spec:   core.PersistentVolumeClaimSpec{StorageClassName: &class},
 			Status: core.PersistentVolumeClaimStatus{Capacity: core.ResourceList{core.ResourceStorage: resource.MustParse("64Gi")}}},
-		&core.Service{ObjectMeta: metav1.ObjectMeta{Name: "controller-service", Namespace: "controller-source", Annotations: map[string]string{"source": "retained"}},
+		&core.Service{ObjectMeta: metav1.ObjectMeta{Name: constants.ControllerServiceName, Namespace: "controller-source", Annotations: map[string]string{"source": "retained"}},
 			Spec: core.ServiceSpec{Type: core.ServiceTypeLoadBalancer, LoadBalancerIP: "192.0.2.1", ExternalIPs: []string{"192.0.2.2"}}},
 	)
 }
@@ -79,6 +81,7 @@ func (s *backupProvisioningSuite) TestRunningImagesAndActualVolume(c *tc.C) {
 		c.Check(result.StorageSizeMiB, tc.Equals, uint64(64*1024))
 		c.Check(result.StorageClass, tc.Equals, "original-class")
 		c.Check(result.ServiceType, tc.Equals, "loadbalancer")
+		c.Check(result.ExternalName, tc.Equals, "")
 		c.Check(result.LoadBalancerIP, tc.Equals, "192.0.2.1")
 		c.Check(result.ExternalIPs, tc.DeepEquals, []string{"192.0.2.2"})
 		c.Check(result.ServiceAnnotations["source"], tc.Equals, "retained")
@@ -103,7 +106,8 @@ func (s *backupProvisioningSuite) TestInvalidSourceImages(c *tc.C) {
 	} {
 		c.Logf("case: %s", test.name)
 		client := backupSourceClient("example.com/agent:tag", "example.com/charm:tag", "", "")
-		pod, err := client.CoreV1().Pods("controller-source").Get(c.Context(), "controller-1", metav1.GetOptions{})
+		pod, err := client.CoreV1().Pods("controller-source").Get(
+			c.Context(), getBootstrapResourceName(constants.JujuControllerStackName, "1"), metav1.GetOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 		test.mutate(pod)
 		_, err = client.CoreV1().Pods("controller-source").Update(c.Context(), pod, metav1.UpdateOptions{})
@@ -130,4 +134,159 @@ func (s *backupProvisioningSuite) TestSourceErrors(c *tc.C) {
 		_, err := broker.ControllerBackupProvisioning(c.Context(), "1")
 		c.Check(err, tc.ErrorMatches, "failure reading "+resource)
 	}
+}
+
+func (s *backupProvisioningSuite) TestStorageAndService(c *tc.C) {
+	tests := []struct {
+		name             string
+		mutate           func(*tc.C, *fake.Clientset)
+		wantStorageMiB   uint64
+		wantServiceType  string
+		wantExternalName string
+		wantErr          string
+	}{
+		{
+			name: "request capacity fallback rounds up",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				claim := getBackupClaim(c, client)
+				claim.Status.Capacity = nil
+				claim.Spec.Resources.Requests = core.ResourceList{
+					core.ResourceStorage: resource.MustParse("1500Ki"),
+				}
+				updateBackupClaim(c, client, claim)
+			},
+			wantStorageMiB:  2,
+			wantServiceType: string(caas.ServiceLoadBalancer),
+		},
+		{
+			name: "missing storage class",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				claim := getBackupClaim(c, client)
+				claim.Spec.StorageClassName = nil
+				updateBackupClaim(c, client, claim)
+			},
+			wantErr: "controller volume has no storage class",
+		},
+		{
+			name: "zero capacity",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				claim := getBackupClaim(c, client)
+				claim.Status.Capacity = nil
+				claim.Spec.Resources.Requests = nil
+				updateBackupClaim(c, client, claim)
+			},
+			wantErr: "controller volume has no capacity",
+		},
+		{
+			name: "missing storage volume",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				pod := getBackupPod(c, client)
+				pod.Spec.Volumes = nil
+				updateBackupPod(c, client, pod)
+			},
+			wantErr: "source controller data volume is missing",
+		},
+		{
+			name: "missing PVC",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				err := client.CoreV1().PersistentVolumeClaims("controller-source").Delete(
+					c.Context(), "controller-storage", metav1.DeleteOptions{})
+				c.Assert(err, tc.ErrorIsNil)
+			},
+			wantErr: ".*controller-storage.*not found.*",
+		},
+		{
+			name: "unscheduled pod",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				pod := getBackupPod(c, client)
+				pod.Spec.NodeName = ""
+				updateBackupPod(c, client, pod)
+			},
+			wantErr: ".*not found.*",
+		},
+		{
+			name: "cluster IP service",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				service := getBackupService(c, client)
+				service.Spec.Type = core.ServiceTypeClusterIP
+				updateBackupService(c, client, service)
+			},
+			wantStorageMiB:  64 * 1024,
+			wantServiceType: string(caas.ServiceCluster),
+		},
+		{
+			name: "external name service",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				service := getBackupService(c, client)
+				service.Spec.Type = core.ServiceTypeExternalName
+				service.Spec.ExternalName = "example.com"
+				updateBackupService(c, client, service)
+			},
+			wantStorageMiB:   64 * 1024,
+			wantServiceType:  string(caas.ServiceExternal),
+			wantExternalName: "example.com",
+		},
+		{
+			name: "unsupported service type",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				service := getBackupService(c, client)
+				service.Spec.Type = core.ServiceTypeNodePort
+				updateBackupService(c, client, service)
+			},
+			wantErr: `unsupported source controller service type "NodePort"`,
+		},
+	}
+	for _, test := range tests {
+		c.Logf("case: %s", test.name)
+		client := backupSourceClient("example.com/agent:tag", "example.com/charm:tag", "", "")
+		test.mutate(c, client)
+		broker := &kubernetesClient{clientUnlocked: client, namespace: "controller-source"}
+		result, err := broker.ControllerBackupProvisioning(c.Context(), "1")
+		if test.wantErr != "" {
+			c.Check(err, tc.ErrorMatches, test.wantErr)
+			continue
+		}
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(result.StorageSizeMiB, tc.Equals, test.wantStorageMiB)
+		c.Check(result.ServiceType, tc.Equals, test.wantServiceType)
+		c.Check(result.ExternalName, tc.Equals, test.wantExternalName)
+	}
+}
+
+func getBackupPod(c *tc.C, client *fake.Clientset) *core.Pod {
+	pod, err := client.CoreV1().Pods("controller-source").Get(
+		c.Context(), getBootstrapResourceName(constants.JujuControllerStackName, "1"), metav1.GetOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	return pod
+}
+
+func updateBackupPod(c *tc.C, client *fake.Clientset, pod *core.Pod) {
+	_, err := client.CoreV1().Pods("controller-source").Update(c.Context(), pod, metav1.UpdateOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func getBackupClaim(c *tc.C, client *fake.Clientset) *core.PersistentVolumeClaim {
+	claim, err := client.CoreV1().PersistentVolumeClaims("controller-source").Get(
+		c.Context(), "controller-storage", metav1.GetOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	return claim
+}
+
+func updateBackupClaim(c *tc.C, client *fake.Clientset, claim *core.PersistentVolumeClaim) {
+	_, err := client.CoreV1().PersistentVolumeClaims("controller-source").Update(
+		c.Context(), claim, metav1.UpdateOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func getBackupService(c *tc.C, client *fake.Clientset) *core.Service {
+	service, err := client.CoreV1().Services("controller-source").Get(
+		c.Context(), constants.ControllerServiceName, metav1.GetOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	return service
+}
+
+func updateBackupService(c *tc.C, client *fake.Clientset, service *core.Service) {
+	_, err := client.CoreV1().Services("controller-source").Update(
+		c.Context(), service, metav1.UpdateOptions{})
+	c.Assert(err, tc.ErrorIsNil)
 }

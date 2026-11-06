@@ -13,7 +13,11 @@ import (
 	"github.com/juju/juju/core/backups"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
 )
+
+// bytesPerMiB is the number of bytes in one mebibyte.
+const bytesPerMiB = 1 << 20
 
 // ControllerBackupProvisioning records the selected source pod's images and
 // storage.
@@ -23,7 +27,8 @@ func (k *kubernetesClient) ControllerBackupProvisioning(
 	if controllerID == "" {
 		return nil, errors.New("source controller ID is required")
 	}
-	pod, err := k.client().CoreV1().Pods(k.namespace).Get(ctx, "controller-"+controllerID, metav1.GetOptions{})
+	pod, err := k.client().CoreV1().Pods(k.namespace).Get(
+		ctx, getBootstrapResourceName(constants.JujuControllerStackName, controllerID), metav1.GetOptions{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -33,7 +38,7 @@ func (k *kubernetesClient) ControllerBackupProvisioning(
 	}
 	result := &backups.KubernetesProvisioning{Architecture: node.Status.NodeInfo.Architecture}
 	for _, container := range pod.Spec.Containers {
-		if container.Name != apiServerContainerName && container.Name != "charm" {
+		if container.Name != apiServerContainerName && container.Name != constants.ApplicationCharmContainer {
 			continue
 		}
 		running := false
@@ -79,12 +84,12 @@ func (k *kubernetesClient) ControllerBackupProvisioning(
 		if capacity.Sign() <= 0 {
 			return nil, errors.New("controller volume has no capacity")
 		}
-		result.StorageSizeMiB = uint64((capacity.Value() + (1 << 20) - 1) >> 20)
+		result.StorageSizeMiB = (uint64(capacity.Value()) + bytesPerMiB - 1) / bytesPerMiB
 	}
 	if result.StorageSizeMiB == 0 {
 		return nil, errors.New("source controller data volume is missing")
 	}
-	service, err := k.client().CoreV1().Services(k.namespace).Get(ctx, "controller-service", metav1.GetOptions{})
+	service, err := k.client().CoreV1().Services(k.namespace).Get(ctx, constants.ControllerServiceName, metav1.GetOptions{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
