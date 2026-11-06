@@ -1426,13 +1426,13 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	}
 
 	// If the Kubernetes cloud has a workload storage class recorded (see
-	// add-k8s --storage), honouring a --config workload-storage override,
-	// nominate it for the controller's persistent volume claim regardless
-	// of the storage the user configures themselves: the recorded class
-	// nominates the PVC specifically.
+	// add-k8s --storage), honouring --config workload-storage and
+	// regional overrides, nominate it for the controller's persistent
+	// volume claim regardless of the storage the user configures
+	// themselves: the recorded class nominates the PVC specifically.
 	var controllerStorageClass string
 	if cloud.Type == jujucloud.CloudTypeKubernetes {
-		controllerStorageClass = workloadStorageClassForBootstrap(cloud, userConfigAttrs)
+		controllerStorageClass = workloadStorageClassForBootstrap(cloud, c.Region, userConfigAttrs)
 
 		// When the user has not configured the controller model's
 		// storage themselves, also schedule a storage pool for the
@@ -1442,7 +1442,7 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		// model from the recorded class.
 		if controllerStorageClass != "" &&
 			len(storagePools) == 0 &&
-			!defaultFilesystemSourceConfigured(userConfigAttrs, modelDefaultConfigAttrs, cloud.Config) {
+			!defaultFilesystemSourceConfigured(userConfigAttrs, modelDefaultConfigAttrs, cloud.RegionConfig[c.Region], cloud.Config) {
 			poolName := storagePoolNameForClass(controllerStorageClass)
 			storagePools = map[string]storage.Attrs{
 				poolName: {
@@ -1609,11 +1609,17 @@ func (c *bootstrapCommand) bootstrapConfigs(
 }
 
 // workloadStorageClassForBootstrap returns the Kubernetes storage class
-// recorded on the cloud for provisioning workload storage, honouring an
-// override supplied with a --config workload-storage attribute. An empty
-// string is returned if no class is recorded.
-func workloadStorageClassForBootstrap(cloud jujucloud.Cloud, userConfigAttrs map[string]any) string {
+// recorded on the cloud for provisioning workload storage, honouring
+// overrides in order of precedence: a --config workload-storage attribute,
+// then a workload-storage attribute recorded on the region, then the class
+// recorded on the cloud (mirroring the 3.6 configuration merge, in which a
+// regional value overrode the cloud-level one). An empty string is returned
+// if no class is recorded.
+func workloadStorageClassForBootstrap(cloud jujucloud.Cloud, region string, userConfigAttrs map[string]any) string {
 	if class, ok := userConfigAttrs[bootstrap.WorkloadStorageKey].(string); ok && class != "" {
+		return class
+	}
+	if class, ok := cloud.RegionConfig[region][bootstrap.WorkloadStorageKey].(string); ok && class != "" {
 		return class
 	}
 	class, _ := cloud.Config[bootstrap.WorkloadStorageKey].(string)
