@@ -86,18 +86,8 @@ FROM (
 	// storageInstAttachmentsQ gets all of the unit attachments of the Storage
 	// Instance. It is deliberate for processing that the returned attachments
 	// are ordered on Storage Attachment UUID.
-	/*
-		id	parent	notused	detail
-		20	0		62		SEARCH sa USING INDEX idx_storage_attachment_unit_uuid_storage_instance_uuid (storage_instance_uuid=?)
-		25	0		46		SEARCH u USING INDEX sqlite_autoindex_unit_1 (uuid=?)
-		30	0		46		SEARCH m USING INDEX idx_machine_net_node (net_node_uuid=?) LEFT-JOIN
-		37	0		47		SEARCH sif USING INDEX sqlite_autoindex_storage_instance_filesystem_1 (storage_instance_uuid=?) LEFT-JOIN
-		44	0		62		SEARCH sfa USING INDEX idx_storage_filesystem_attachment_net_node_uuid (net_node_uuid=?) LEFT-JOIN
-		54	0		47		SEARCH siv USING INDEX sqlite_autoindex_storage_instance_volume_1 (storage_instance_uuid=?) LEFT-JOIN
-		61	0		46		SEARCH sva USING INDEX idx_storage_volume_attachment_volume_uuid (storage_volume_uuid=?) LEFT-JOIN
-		68	0		44		SEARCH bd USING INDEX sqlite_autoindex_block_device_1 (uuid=?) LEFT-JOIN
-		72	0		0		USE TEMP B-TREE FOR GROUP BY
-	*/
+	// Multiple filesystem attachments may exist for a filesystem and node;
+	// select the lowest UUID to return one deterministic attachment.
 	const storageInstAttachmentsQ = `
 SELECT &storageInstanceInfoAttachment.*
 FROM (
@@ -115,16 +105,19 @@ FROM (
     JOIN      unit u ON sa.unit_uuid = u.uuid
     LEFT JOIN machine m ON u.net_node_uuid = m.net_node_uuid
     LEFT JOIN storage_instance_filesystem sif ON sif.storage_instance_uuid = sa.storage_instance_uuid
-    LEFT JOIN storage_filesystem_attachment sfa ON u.net_node_uuid = sfa.net_node_uuid
-          AND sfa.storage_filesystem_uuid = sif.storage_filesystem_uuid
+    LEFT JOIN storage_filesystem_attachment sfa ON sfa.uuid = (
+              SELECT MIN(sfa2.uuid)
+              FROM   storage_filesystem_attachment AS sfa2
+              WHERE  sfa2.net_node_uuid = u.net_node_uuid
+              AND    sfa2.storage_filesystem_uuid = sif.storage_filesystem_uuid
+          )
     LEFT JOIN storage_instance_volume siv ON siv.storage_instance_uuid = sa.storage_instance_uuid
     LEFT JOIN storage_volume_attachment sva ON m.net_node_uuid = sva.net_node_uuid
           AND sva.storage_volume_uuid = siv.storage_volume_uuid
     LEFT JOIN block_device bd ON sva.block_device_uuid = bd.uuid
     WHERE     sa.storage_instance_uuid = $entityUUID.uuid
-    GROUP BY  sa.uuid
-    ORDER BY  sa.uuid
 )
+ORDER BY uuid
 `
 
 	// storageInstAttachmentBlockDeviceLinkQ is responsible for getting all of
@@ -156,8 +149,8 @@ FROM (
     JOIN      block_device bd ON sva.block_device_uuid = bd.uuid
     JOIN      block_device_link_device bdld ON bd.uuid = bdld.block_device_uuid
     WHERE     sa.storage_instance_uuid = $entityUUID.uuid
-    ORDER BY  sa.uuid
 )
+ORDER BY storage_attachment_uuid
 `
 
 	storageInstStmt, err := s.Prepare(storageInstQ, inputUUID, siInfo)
