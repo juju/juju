@@ -303,9 +303,9 @@ func committedPredicates(
 //     controller other than the source, recorded in
 //     model_migration_import_external_controller_model during import.
 //
-// The source controller is registered via EnsureSourceControllerExists
-// (compare-or-insert) rather than the legacy blind upsert. All CMR updates are
-// idempotent.
+// The source controller is saved via EnsureSourceControllerExists, which
+// replaces any existing record, as 3.6 does: the source is authoritative about
+// its own details. All CMR updates are idempotent.
 func reconcileOffererControllers(
 	ctx context.Context,
 	domainServices services.DomainServices,
@@ -322,7 +322,7 @@ func reconcileOffererControllers(
 			crossModelUUIDs[i] = coremodel.UUID(u)
 		}
 
-		// Register the source controller using compare-or-insert semantics. The
+		// Save the source controller, replacing any existing record. The
 		// service generates the external-controller address row UUIDs.
 		if err := domainServices.ModelMigration().EnsureSourceControllerExists(
 			ctx,
