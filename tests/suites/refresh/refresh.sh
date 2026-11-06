@@ -163,10 +163,11 @@ test_basic() {
 
 		cd .. || exit
 
-		run "run_refresh_local"
-		run "run_refresh_local_resources"
-		run "run_refresh_channel"
-		run "run_refresh_channel_no_new_revision"
-		run "run_refresh_revision"
+		run_concurrently "run_refresh_local"
+		run_concurrently "run_refresh_local_resources"
+		run_concurrently "run_refresh_channel"
+		run_concurrently "run_refresh_channel_no_new_revision"
+		run_concurrently "run_refresh_revision"
+		wait_for_subtests
 	)
 }

@@ -150,9 +150,10 @@ test_upgrade_resources() {
 
 		cd .. || exit
 
-		run "run_resource_refresh"
-		run "run_resource_refresh_no_new_charm_rev"
-		run "run_resource_no_upgrade_after_upload"
-		run "run_resource_refresh_no_new_charm_rev_supply_res_rev"
+		run_concurrently "run_resource_refresh"
+		run_concurrently "run_resource_refresh_no_new_charm_rev"
+		run_concurrently "run_resource_no_upgrade_after_upload"
+		run_concurrently "run_resource_refresh_no_new_charm_rev_supply_res_rev"
+		wait_for_subtests
 	)
 }
