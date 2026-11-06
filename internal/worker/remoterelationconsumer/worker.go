@@ -175,6 +175,12 @@ type CrossModelRelationService interface {
 	// application.
 	SaveMacaroonForRelation(context.Context, corerelation.UUID, *macaroon.Macaroon) error
 
+	// GetMacaroonForRelation returns the macaroon saved for the specified
+	// relation. It returns an error satisfying
+	// [crossmodelrelationerrors.MacaroonNotFound] if no macaroon was saved for
+	// the relation.
+	GetMacaroonForRelation(context.Context, corerelation.UUID) (*macaroon.Macaroon, error)
+
 	// EnsureUnitsExist ensures that the specified units exist in the local
 	// model, creating any that are missing.
 	EnsureUnitsExist(ctx context.Context, appUUID application.UUID, units []unit.Name) error
