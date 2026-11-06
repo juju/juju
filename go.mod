@@ -73,7 +73,7 @@ require (
 	github.com/juju/proxy v1.0.0
 	github.com/juju/pubsub/v2 v2.0.0
 	github.com/juju/ratelimit v1.0.2
-	github.com/juju/replicaset/v3 v3.0.1
+	github.com/juju/replicaset/v3 v3.0.2
 	github.com/juju/retry v1.0.1
 	github.com/juju/rfc/v2 v2.0.0
 	github.com/juju/romulus v1.0.0
@@ -335,5 +335,3 @@ replace github.com/juju/testing => github.com/juju/testing v1.1.0
 
 // Needed to work around a broken transitive dependency of lxd, testcontainers-go/docker.
 replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.1.3
-
-replace github.com/juju/replicaset/v3 => github.com/xtrusia/replicaset/v3 v3.0.2-0.20260722233613-6b084fa0898e
