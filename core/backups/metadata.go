@@ -122,8 +122,10 @@ type Metadata struct {
 	Controller ControllerMetadata
 
 	// Kubernetes is the observed source controller substrate, when applicable.
-	Kubernetes        *KubernetesProvisioning `json:",omitempty"`
-	DatabaseSizeBytes int64                   `json:",omitempty"`
+	Kubernetes *KubernetesProvisioning
+
+	// DatabaseSizeBytes is the observed source database size in bytes.
+	DatabaseSizeBytes int64
 }
 
 // ControllerMetadata contains controller specific metadata.
