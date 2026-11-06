@@ -344,7 +344,7 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 			return nil, "", nil, errors.Errorf("recording Kubernetes provisioning: %w", err)
 		}
 	}
-	meta.DatabaseSizeBytes, err = corebackups.DatabaseSize(c.dataDir)
+	meta.DatabaseSizeBytes, err = databaseSize(c.dataDir)
 	if err != nil {
 		return nil, "", nil, errors.Errorf("recording source database capacity: %w", err)
 	}
