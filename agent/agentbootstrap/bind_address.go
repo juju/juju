@@ -77,10 +77,8 @@ func (r dqliteBindAddressResolver) resolve(
 	}
 
 	if len(resolved) == 0 {
-		if firstLookupError != nil {
-			return "", errors.Errorf("resolving potential Dqlite bind addresses: %w", firstLookupError)
-		}
-		return "", errors.New("suitable Dqlite bind address not found")
+		// The input is non-empty, so every lookup must have failed.
+		return "", errors.Errorf("resolving potential Dqlite bind addresses: %w", firstLookupError)
 	}
 
 	localAddresses, err := r.interfaceAddrs()
