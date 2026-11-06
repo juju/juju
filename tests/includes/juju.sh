@@ -162,6 +162,12 @@ bootstrap() {
 	version=$(juju_version)
 
 	START_TIME=$(date +%s)
+	local timing_id
+	if [[ ${BOOTSTRAP_REUSE} == "true" ]]; then
+		timing_start timing_id add_model "${model}"
+	else
+		timing_start timing_id bootstrap "${cloud}"
+	fi
 	if [[ ${BOOTSTRAP_REUSE} == "true" ]]; then
 		echo "====> Reusing bootstrapped juju ($(green "${version}:${cloud}"))"
 
@@ -193,6 +199,7 @@ bootstrap() {
 	fi
 
 	END_TIME=$(date +%s)
+	timing_end "${timing_id}"
 
 	echo "====> Bootstrapped juju ($((END_TIME - START_TIME))s)"
 
@@ -506,6 +513,8 @@ destroy_model() {
 
 	output="${TEST_DIR}/${name}-destroy.log"
 
+	local timing_id
+	timing_start timing_id destroy_model "${name}"
 	echo "====> Destroying juju model ${name}"
 	if timeout "${DESTROY_TIMEOUT}" juju destroy-model --no-prompt --destroy-storage "${name}" >"${output}" 2>&1; then
 		result=0
@@ -528,9 +537,11 @@ destroy_model() {
 		# if [[ ${result} -eq 0 ]]; then
 		#	result=1
 		# fi
+		timing_end "${timing_id}" error
 		result=0
 		return "${result}"
 	fi
+	timing_end "${timing_id}"
 	echo "====> Destroyed juju model ${name}"
 }
 
@@ -546,7 +557,7 @@ destroy_controller() {
 		return
 	fi
 
-	local name
+	local name timing_id
 
 	name=${1}
 	shift
@@ -563,7 +574,9 @@ destroy_controller() {
 		echo "====> Destroying model ($(green "${name}"))"
 
 		output="${TEST_DIR}/${name}-destroy-model.log"
+		timing_start timing_id destroy_model "${name}"
 		echo "${name}" | xargs -I % timeout "${DESTROY_TIMEOUT}" juju destroy-model --no-prompt % >"${output}" 2>&1 || true
+		timing_end "${timing_id}"
 
 		echo "====> Destroyed model ($(green "${name}"))"
 		return
@@ -572,8 +585,12 @@ destroy_controller() {
 	set +e
 
 	echo "====> Introspection gathering"
+	timing_start timing_id introspect "${name}"
 	introspect_controller "${name}" || true
+	timing_end "${timing_id}"
 	echo "====> Introspection gathered"
+
+	timing_start timing_id destroy_controller "${name}"
 
 	# Unfortunately having any offers on a model, leads to failure to clean
 	# up a controller.
@@ -630,6 +647,11 @@ destroy_controller() {
 		# be fixed. That will help to be move focus on issues in CI tests,
 		# rather than on the teardown.
 		#		exit 1
+	fi
+	if [[ -n ${CHK} ]]; then
+		timing_end "${timing_id}" error
+	else
+		timing_end "${timing_id}"
 	fi
 	set_verbosity
 

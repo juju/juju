@@ -133,6 +133,9 @@ wait_for() {
 	query=${2}
 	timeout=${3:-600} # default timeout: 600s = 10m
 
+	local timing_id
+	timing_start timing_id wait_for "${name}"
+
 	attempt=0
 	start_time="$(date -u +%s)"
 	# shellcheck disable=SC2046,SC2143
@@ -156,6 +159,8 @@ wait_for() {
 		# breathe period to ensure things have actually settled.
 		sleep "${SHORT_TIMEOUT}"
 	fi
+
+	timing_end "${timing_id}"
 }
 
 wait_for_resource_id() {
@@ -581,6 +586,9 @@ wait_for_storage() {
 	query=${2}
 	timeout=${3:-600} # default timeout: 600s = 10m
 
+	local timing_id
+	timing_start timing_id wait_for "storage:${name}"
+
 	attempt=0
 	start_time="$(date -u +%s)"
 	# shellcheck disable=SC2046,SC2143
@@ -605,6 +613,8 @@ wait_for_storage() {
 		# breathe period to ensure things have actually settled.
 		sleep "${SHORT_TIMEOUT}"
 	fi
+
+	timing_end "${timing_id}"
 }
 
 # wait_for_aws_ingress_cidrs_for_port_range blocks until the expected CIDRs

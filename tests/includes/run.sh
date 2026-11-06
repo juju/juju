@@ -16,6 +16,12 @@ run() {
 
 	START_TIME=$(date +%s)
 
+	# Dynamically scoped, so phases timed inside this subtest are attributed
+	# to it (see timing.sh).
+	# shellcheck disable=SC2034
+	local TIMING_TEST="${CMD}" timing_id
+	timing_start timing_id subtest "${CMD}"
+
 	push_daemon_scope
 	local expected_scope_depth
 	expected_scope_depth=${DAEMON_SCOPE_DEPTH}
@@ -37,6 +43,7 @@ run() {
 	pop_daemon_scope ${expected_scope_depth}
 
 	END_TIME=$(date +%s)
+	timing_end "${timing_id}"
 
 	echo -e "\r\033[1A\033[0K===> [ $(green "✔") ] Success: ${DESC} ($((END_TIME - START_TIME))s)"
 }
@@ -60,6 +67,10 @@ run_linter() {
 
 	START_TIME=$(date +%s)
 
+	# shellcheck disable=SC2034
+	local TIMING_TEST="${CMD}" timing_id
+	timing_start timing_id subtest "${CMD}"
+
 	# Prevent the sub-shell from killing our script if that sub-shell fails on an
 	# error. We need this so that we can capture the full output and collect the
 	# exit code when it does fail.
@@ -81,8 +92,10 @@ run_linter() {
 	END_TIME=$(date +%s)
 
 	if [[ ${cmd_status} -eq 0 ]]; then
+		timing_end "${timing_id}"
 		echo -e "\r\033[1A\033[0K===> [ $(green "✔") ] Success: ${DESC} ($((END_TIME - START_TIME))s)"
 	else
+		timing_end "${timing_id}" fail
 		echo -e "\r\033[1A\033[0K===> [ $(red "x") ] Fail: ${DESC} ($((END_TIME - START_TIME))s)"
 		exit 1
 	fi

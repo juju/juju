@@ -285,6 +285,9 @@ cleanup() {
 
 	echo "==> Cleaning up"
 
+	# Phases still open are the ones the test failed or was interrupted in.
+	timing_flush_open
+
 	archive_logs "partial"
 
 	pop_daemon_scope 0
@@ -308,6 +311,8 @@ cleanup() {
 		fi
 	fi
 	echo "==> Test result: ${TEST_RESULT}"
+
+	timing_finish
 
 	archive_logs "full"
 
@@ -350,6 +355,7 @@ trap cleanup EXIT HUP INT TERM
 
 # Setup test directory
 TEST_DIR=$(mktemp -d tmp.XXX | xargs -I % echo "$(pwd)/%")
+timing_init
 
 run_test() {
 	TEST_CURRENT=${1}
