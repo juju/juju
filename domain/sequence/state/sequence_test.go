@@ -16,6 +16,8 @@ import (
 	"github.com/juju/juju/domain"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainsequence "github.com/juju/juju/domain/sequence"
+	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/database/dqlite"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -140,8 +142,85 @@ func (s *sequenceSuite) TestSequenceAllocationRollback(c *tc.C) {
 	}
 }
 
+// TestSequenceAllocationStaleSnapshot checks that write conflicts are retryable
+// and that retrying does not lose or duplicate committed allocations.
+func (s *sequenceSuite) TestSequenceAllocationStaleSnapshot(c *tc.C) {
+	if !dqlite.Enabled {
+		var mode string
+		err := s.DB().QueryRowContext(c.Context(), "PRAGMA journal_mode=WAL").Scan(&mode)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(mode, tc.Equals, "wal")
+	}
+
+	state := NewState(s.TxnRunnerFactory())
+	err := state.ImportSequences(c.Context(), map[string]uint64{"seed": 0, "existing": 7})
+	c.Assert(err, tc.ErrorIsNil)
+
+	for _, test := range []struct {
+		namespace domainsequence.StaticNamespace
+		batch     bool
+	}{
+		{namespace: "new"},
+		{namespace: "existing", batch: true},
+	} {
+		tx, err := sqlair.NewDB(s.DB()).Begin(c.Context(), nil)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Cleanup(func() {
+			if err := tx.Rollback(); err != sql.ErrTxDone {
+				c.Check(err, tc.ErrorIsNil)
+			}
+		})
+
+		seed := sequence{Namespace: "seed"}
+		stmt, err := s.state.Prepare(`
+SELECT &sequence.value FROM sequence WHERE namespace = $sequence.namespace
+`, seed)
+		c.Assert(err, tc.ErrorIsNil)
+		err = tx.Query(c.Context(), stmt, seed).Get(&seed)
+		c.Assert(err, tc.ErrorIsNil)
+
+		err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+			_, err := NextValue(ctx, s.state, tx, domainsequence.StaticNamespace("competing"))
+			return err
+		})
+		c.Assert(err, tc.ErrorIsNil)
+
+		if test.batch {
+			_, err = NextNValues(c.Context(), s.state, tx, 3, test.namespace)
+		} else {
+			_, err = NextValue(c.Context(), s.state, tx, test.namespace)
+		}
+		c.Check(database.IsErrRetryable(err), tc.IsTrue, tc.Commentf("%v", err))
+		err = tx.Rollback()
+		c.Assert(err, tc.ErrorIsNil)
+
+		var value uint64
+		var values []uint64
+		err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+			if test.batch {
+				values, err = NextNValues(ctx, s.state, tx, 3, test.namespace)
+			} else {
+				value, err = NextValue(ctx, s.state, tx, test.namespace)
+			}
+			return err
+		})
+		c.Assert(err, tc.ErrorIsNil)
+		if test.batch {
+			c.Check(values, tc.DeepEquals, []uint64{8, 9, 10})
+		} else {
+			c.Check(value, tc.Equals, uint64(0))
+		}
+	}
+
+	stored, err := state.GetSequencesForExport(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(stored, tc.DeepEquals, map[string]uint64{
+		"seed": 0, "new": 0, "existing": 10, "competing": 1,
+	})
+}
+
 // TestSequenceAllocationNotApplied checks that a suppressed insert or update
-// cannot be reported as a successful allocation without a returned value.
+// cannot be reported as a successful allocation.
 func (s *sequenceSuite) TestSequenceAllocationNotApplied(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 	err := state.ImportSequences(c.Context(), map[string]uint64{"existing": 4})
@@ -171,7 +250,7 @@ BEGIN SELECT RAISE(IGNORE); END`,
 			next, err = NextValue(ctx, s.state, tx, namespace)
 			return err
 		})
-		c.Assert(err, tc.ErrorIs, sqlair.ErrNoRows)
+		c.Assert(err, tc.ErrorMatches, `updating sequence number for namespace ".*": affected 0 rows`)
 		c.Check(next, tc.Equals, uint64(0))
 
 		var batch []uint64
@@ -180,7 +259,7 @@ BEGIN SELECT RAISE(IGNORE); END`,
 			batch, err = NextNValues(ctx, s.state, tx, 3, namespace)
 			return err
 		})
-		c.Assert(err, tc.ErrorIs, sqlair.ErrNoRows)
+		c.Assert(err, tc.ErrorMatches, `updating sequence number for namespace ".*": affected 0 rows`)
 		c.Check(batch, tc.IsNil)
 	}
 

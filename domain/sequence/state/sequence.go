@@ -81,21 +81,40 @@ func incrementSequence(
 	}
 	cnt := count{N: n}
 
-	// Create the namespace on first use or increment its stored value in one
-	// statement. The allocation remains part of the caller's transaction, so
-	// it rolls back if the caller's other writes fail.
-	stmt, err := preparer.Prepare(`
+	// Avoid RETURNING: dqlite can mask retryable write conflicts (see
+	// https://github.com/canonical/dqlite/pull/918), and SQLair can lose row
+	// iteration errors on SQLite. Review this workaround when both are fixed.
+	updateStmt, err := preparer.Prepare(`
 INSERT INTO sequence (*) VALUES ($sequence.*)
 ON CONFLICT (namespace) DO UPDATE SET value = sequence.value + $count.n
-RETURNING &sequence.value
 `, seq, cnt)
 	if err != nil {
 		return 0, errors.Capture(err)
 	}
 
-	// The upsert targets one namespace; a returned row confirms it was updated.
-	if err := tx.Query(ctx, stmt, seq, cnt).Get(&seq); err != nil {
+	selectStmt, err := preparer.Prepare(`
+SELECT s.value AS &sequence.value
+FROM sequence AS s
+WHERE s.namespace = $sequence.namespace
+`, seq)
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	var outcome sqlair.Outcome
+	if err := tx.Query(ctx, updateStmt, seq, cnt).Get(&outcome); err != nil {
 		return 0, errors.Errorf("updating sequence number for namespace %q: %w", namespace, err)
+	}
+	affected, err := outcome.Result().RowsAffected()
+	if err != nil {
+		return 0, errors.Errorf("getting affected rows for sequence number for namespace %q: %w", namespace, err)
+	}
+	if affected != 1 {
+		return 0, errors.Errorf("updating sequence number for namespace %q: affected %d rows", namespace, affected)
+	}
+
+	if err := tx.Query(ctx, selectStmt, seq).Get(&seq); err != nil {
+		return 0, errors.Errorf("reading sequence number for namespace %q: %w", namespace, err)
 	}
 	return seq.Value, nil
 }
