@@ -280,7 +280,7 @@ SELECT COALESCE(SUM(
     octet_length(osm.sha_384) +
     octet_length(osm.size)), 0) AS &result.size
 FROM   object_store_metadata AS osm 
-WHERE  uuid IN uuids`, result{})
+WHERE  osm.uuid IN (SELECT u.metadata_uuid FROM uuids AS u)`, result{})
 	if err != nil {
 		return 0, errors.Capture(err)
 	}

@@ -631,7 +631,7 @@ WITH constraint_uuids AS (
 	WHERE application_uuid = $entityUUID.uuid
 )
 DELETE FROM device_constraint_attribute
-WHERE device_constraint_uuid IN constraint_uuids
+WHERE device_constraint_uuid IN (SELECT cu.uuid FROM constraint_uuids AS cu)
 `, appID)
 	if err != nil {
 		return errors.Capture(err)

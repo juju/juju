@@ -4759,6 +4759,42 @@ func (s *relationSuite) TestGetConsumerRelationUnitsChangeNoSettings(c *tc.C) {
 	c.Check(changes.DepartedUnits, tc.SameContents, []string{"noSetting/1"})
 }
 
+func (s *relationSuite) TestGetConsumerRelationUnitsChangeDepartureScope(c *tc.C) {
+	charmUUID := s.addCharm(c)
+	charmRelationUUID := s.addCharmRelationWithDefaults(c, charmUUID)
+	appUUID := s.addApplication(c, charmUUID, "consumer")
+	appEndpointUUID := s.addApplicationEndpoint(c, appUUID, charmRelationUUID)
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID := s.addRelationEndpoint(c, relationUUID, appEndpointUUID)
+
+	changes, err := s.state.GetConsumerRelationUnitsChange(c.Context(), relationUUID.String(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(changes.DepartedUnits, tc.IsNil)
+
+	unit0 := s.addUnit(c, "consumer/0", appUUID, charmUUID)
+	unit1 := s.addUnit(c, "consumer/1", appUUID, charmUUID)
+	otherAppUUID := s.addApplication(c, charmUUID, "other")
+	s.addUnit(c, "other/0", otherAppUUID, charmUUID)
+	otherRelationUUID := s.addRelation(c)
+	otherEndpointUUID := s.addRelationEndpoint(c, otherRelationUUID, appEndpointUUID)
+	s.addRelationUnit(c, unit0, otherEndpointUUID)
+
+	// Membership in another relation must not hide a departure here.
+	changes, err = s.state.GetConsumerRelationUnitsChange(c.Context(), relationUUID.String(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(changes.DepartedUnits, tc.SameContents, []string{"consumer/0", "consumer/1"})
+
+	s.addRelationUnit(c, unit0, relationEndpointUUID)
+	changes, err = s.state.GetConsumerRelationUnitsChange(c.Context(), relationUUID.String(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(changes.DepartedUnits, tc.SameContents, []string{"consumer/1"})
+
+	s.addRelationUnit(c, unit1, relationEndpointUUID)
+	changes, err = s.state.GetConsumerRelationUnitsChange(c.Context(), relationUUID.String(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(changes.DepartedUnits, tc.IsNil)
+}
+
 func (s *relationSuite) TestGetRelationUUIDsByUnitUUID(c *tc.C) {
 	// Arrange
 	endpoint1 := domainrelation.Endpoint{
