@@ -255,6 +255,52 @@ func (d deltas) UnitResource(
 	return result, nil
 }
 
+// CharmContainerMount converts v4_0_12 CharmContainerMount rows to v4_1_0. The
+// charm_container_key column is part of the primary key and became NOT NULL in
+// 4.1.0. Juju always writes the key, so a NULL key indicates data corruption
+// and the transform halts with an error rather than inventing a container.
+func (d deltas) CharmContainerMount(_ context.Context, src []v4_0_12.CharmContainerMount, _ *v4_0_12.ModelExport) ([]v4_1_0.CharmContainerMount, error) {
+	result := make([]v4_1_0.CharmContainerMount, 0, len(src))
+	for _, m := range src {
+		if m.CharmContainerKey == nil {
+			return nil, errors.Errorf("charm container mount %d for charm %q has no container key",
+				m.ArrayIndex, m.CharmUUID)
+		}
+		result = append(result, v4_1_0.CharmContainerMount{
+			ArrayIndex:        m.ArrayIndex,
+			CharmUUID:         m.CharmUUID,
+			CharmContainerKey: *m.CharmContainerKey,
+			Storage:           m.Storage,
+			Location:          m.Location,
+		})
+	}
+	return result, nil
+}
+
+// CharmManifestBase preserves each row's descriptive attributes, but rejects
+// duplicate positions. The legacy key included nullable descriptive columns,
+// allowing multiple rows where the 4.1.0 position-only key permits just one.
+// There is no lossless representation of these duplicates in 4.1.0.
+func (d deltas) CharmManifestBase(_ context.Context, src []v4_0_12.CharmManifestBase, _ *v4_0_12.ModelExport) ([]v4_1_0.CharmManifestBase, error) {
+	type position struct {
+		charmUUID        string
+		arrayIndex       int64
+		nestedArrayIndex int64
+	}
+	seen := make(map[position]struct{}, len(src))
+	result := make([]v4_1_0.CharmManifestBase, 0, len(src))
+	for _, base := range src {
+		key := position{base.CharmUUID, base.ArrayIndex, base.NestedArrayIndex}
+		if _, exists := seen[key]; exists {
+			return nil, errors.Errorf("duplicate charm manifest base position (%d, %d) for charm %q",
+				base.ArrayIndex, base.NestedArrayIndex, base.CharmUUID)
+		}
+		seen[key] = struct{}{}
+		result = append(result, v4_1_0.CharmManifestBase(base))
+	}
+	return result, nil
+}
+
 // MachineReprovision returns no rows for 4.0.12 payloads. The source schema has
 // no machine reprovision table.
 func (d deltas) MachineReprovision(_ context.Context, _ *v4_0_12.ModelExport) ([]v4_1_0.MachineReprovision, error) {
