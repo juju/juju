@@ -89,6 +89,19 @@ type relationUnit struct {
 	RelationEndpointUUID string `db:"relation_endpoint_uuid"`
 	RelationUUID         string `db:"relation_uuid"`
 	UnitUUID             string `db:"unit_uuid"`
+
+	// PrincipalUUID is the UUID of the unit's principal unit. It is only
+	// populated for subordinate units and remains empty otherwise.
+	PrincipalUUID string `db:"principal_uuid"`
+}
+
+// coLocationKey returns the key identifying the container the unit belongs
+// to: its principal unit if it is a subordinate, otherwise the unit itself.
+func (u relationUnit) coLocationKey() string {
+	if u.PrincipalUUID != "" {
+		return u.PrincipalUUID
+	}
+	return u.UnitUUID
 }
 
 // relationUnitWithUnit maps a unit to a relation unit and
