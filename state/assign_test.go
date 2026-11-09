@@ -533,6 +533,27 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesHost(c *gc.C) {
 	c.Assert(mid, gc.Equals, "2/lxd/0")
 }
 
+func (s *AssignSuite) TestAssignUnitToNewMachineRetryKeepsMachineId(c *gc.C) {
+	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Abort the first transaction, then restore the model so the retry
+	// can succeed.
+	defer state.SetTestHooks(c, s.State, jujutxn.TestHook{
+		Before: func() {
+			c.Assert(s.Model.SetMigrationMode(state.MigrationModeExporting), jc.ErrorIsNil)
+		},
+		After: func() {
+			c.Assert(s.Model.SetMigrationMode(state.MigrationModeNone), jc.ErrorIsNil)
+		},
+	}).Check()
+
+	c.Assert(unit.AssignToNewMachine(), jc.ErrorIsNil)
+	mid, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(mid, gc.Equals, "0")
+}
+
 func (s *AssignSuite) TestAssignUnitBadPolicy(c *gc.C) {
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)

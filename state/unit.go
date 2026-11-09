@@ -504,13 +504,23 @@ func (u *Unit) Destroy() error {
 // DestroyWithForce does the same thing as Destroy() but
 // ignores errors.
 func (u *Unit) DestroyWithForce(force bool, maxWait time.Duration) (errs []error, err error) {
+	op := u.DestroyOperation()
 	defer func() {
-		if err == nil {
-			// This is a white lie; the document might actually be removed.
-			u.doc.Life = Dying
+		switch op.unit.doc.Life {
+		case Dead:
+			u.doc.Life = op.unit.doc.Life
+		case Dying:
+			if err == nil {
+				u.doc.Life = op.unit.doc.Life
+			}
+		case Alive:
+			if err == nil && op.lifecycleChanged {
+				// The document might actually be removed, so keep the historical
+				// Dying approximation in that case.
+				u.doc.Life = Dying
+			}
 		}
 	}()
-	op := u.DestroyOperation()
 	op.Force = force
 	op.MaxWait = maxWait
 	err = u.st.ApplyOperation(op)
@@ -539,12 +549,20 @@ type DestroyUnitOperation struct {
 
 	// Removed is true if the destroy operation removed the unit.
 	Removed bool
+
+	// lifecycleChanged is true if the operation changed the unit lifecycle
+	// or observed that the unit was removed.
+	lifecycleChanged bool
 }
 
 // Build is part of the ModelOperation interface.
 func (op *DestroyUnitOperation) Build(attempt int) ([]txn.Op, error) {
+	op.Removed = false
+	op.lifecycleChanged = false
 	if attempt > 0 {
 		if err := op.unit.Refresh(); errors.IsNotFound(err) {
+			op.Removed = true
+			op.lifecycleChanged = true
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, err
@@ -572,16 +590,21 @@ func (op *DestroyUnitOperation) Build(attempt int) ([]txn.Op, error) {
 // Done is part of the ModelOperation interface.
 func (op *DestroyUnitOperation) Done(err error) error {
 	if err != nil {
+		op.Removed = false
+		op.lifecycleChanged = false
 		if !op.Force {
 			return errors.Annotatef(err, "cannot destroy unit %q", op.unit)
 		}
 		op.AddError(errors.Errorf("force destroy unit %q proceeded despite encountering ERROR %v", op.unit, err))
+		return nil
 	}
-	if err := op.eraseHistory(); err != nil {
-		if !op.Force {
-			logger.Errorf("cannot delete history for unit %q: %v", op.unit.globalKey(), err)
+	if op.lifecycleChanged {
+		if err := eraseUnitHistory(op.unit, &op.ForcedOperation); err != nil {
+			if !op.Force {
+				logger.Errorf("cannot delete history for unit %q: %v", op.unit.globalKey(), err)
+			}
+			op.AddError(errors.Errorf("force erase unit's %q history proceeded despite encountering ERROR %v", op.unit.globalKey(), err))
 		}
-		op.AddError(errors.Errorf("force erase unit's %q history proceeded despite encountering ERROR %v", op.unit.globalKey(), err))
 	}
 	if op.Removed {
 		if err := deleteUnitSecrets(op.unit); err != nil {
@@ -594,21 +617,21 @@ func (op *DestroyUnitOperation) Done(err error) error {
 	return nil
 }
 
-func (op *DestroyUnitOperation) eraseHistory() error {
+func eraseUnitHistory(unit *Unit, op *ForcedOperation) error {
 	var stop <-chan struct{} // stop not used here yet.
-	if err := eraseStatusHistory(stop, op.unit.st, op.unit.globalKey()); err != nil {
+	if err := eraseStatusHistory(stop, unit.st, unit.globalKey()); err != nil {
 		one := errors.Annotate(err, "workload")
 		if op.FatalError(one) {
 			return one
 		}
 	}
-	if err := eraseStatusHistory(stop, op.unit.st, op.unit.globalAgentKey()); err != nil {
+	if err := eraseStatusHistory(stop, unit.st, unit.globalAgentKey()); err != nil {
 		one := errors.Annotate(err, "agent")
 		if op.FatalError(one) {
 			return one
 		}
 	}
-	if err := eraseStatusHistory(stop, op.unit.st, op.unit.globalWorkloadVersionKey()); err != nil {
+	if err := eraseStatusHistory(stop, unit.st, unit.globalWorkloadVersionKey()); err != nil {
 		one := errors.Annotate(err, "version")
 		if op.FatalError(one) {
 			return one
@@ -638,6 +661,18 @@ func deleteUnitSecrets(unit *Unit) error {
 // as well as all operational errors encountered.
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
 func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
+	if op.unit.doc.Life == Dead {
+		if !op.Force {
+			return nil, errAlreadyDying
+		}
+		removeOp := op.unit.RemoveOperation(true)
+		removeOp.MaxWait = op.MaxWait
+		ops, err := removeOp.removeOps()
+		op.AddError(removeOp.Errors...)
+		op.Removed = removeOp.removed
+		op.lifecycleChanged = removeOp.removed
+		return ops, err
+	}
 	if op.unit.doc.Life != Alive {
 		if !op.Force {
 			return nil, errAlreadyDying
@@ -699,6 +734,7 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 		if dyingErr != nil {
 			op.AddError(errors.Errorf("force destroying dying unit %v despite error %v", op.unit.Name(), dyingErr))
 		}
+		op.lifecycleChanged = true
 		ops := []txn.Op{setDyingOp, cleanupOp}
 		if minUnitsExists {
 			ops = append(ops, minUnitsOp)
@@ -718,6 +754,9 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	agentStatusDocId := op.unit.globalAgentKey()
 	agentStatusInfo, agentErr := getStatus(op.unit.st.db(), agentStatusDocId, "agent")
 	if errors.IsNotFound(agentErr) {
+		if op.Force {
+			return setDyingOps(nil)
+		}
 		return nil, errAlreadyDying
 	} else if agentErr != nil {
 		if !op.Force {
@@ -781,11 +820,15 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	// When 'force' is set, this call will return some, if not all, needed operations.
 	// All operational errors encountered will be added to the operation.
 	// If the 'force' is not set, any error will be fatal and no operations will be returned.
-	op.Removed = true
 	removeOps, err := op.unit.removeOps(removeAsserts, &op.ForcedOperation, op.DestroyStorage)
 	if err == errAlreadyRemoved {
+		op.Removed = true
+		op.lifecycleChanged = true
 		return nil, errAlreadyDying
-	} else if op.FatalError(err) {
+	}
+	op.Removed = err == nil
+	op.lifecycleChanged = op.Removed
+	if op.FatalError(err) {
 		return nil, err
 	}
 	ops := []txn.Op{statusOp}
@@ -895,7 +938,7 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 		if !op.Force {
 			cleanupOps = []txn.Op{newCleanupOp(cleanupDyingMachine, m.doc.Id, op.Force)}
 		} else {
-			cleanupOps = []txn.Op{newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id, op.MaxWait)}
+			cleanupOps = []txn.Op{newCleanupOp(cleanupEvacuateMachine, m.doc.Id, op.Force, op.MaxWait)}
 		}
 	}
 
@@ -1010,12 +1053,17 @@ type RemoveUnitOperation struct {
 
 	// unit holds the unit to remove.
 	unit *Unit
+
+	// removed is true if the remove operation removed the unit.
+	removed bool
 }
 
 // Build is part of the ModelOperation interface.
 func (op *RemoveUnitOperation) Build(attempt int) ([]txn.Op, error) {
+	op.removed = false
 	if attempt > 0 {
 		if err := op.unit.Refresh(); errors.IsNotFound(err) {
+			op.removed = true
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, err
@@ -1043,16 +1091,26 @@ func (op *RemoveUnitOperation) Build(attempt int) ([]txn.Op, error) {
 // Done is part of the ModelOperation interface.
 func (op *RemoveUnitOperation) Done(err error) error {
 	if err != nil {
+		op.removed = false
 		if !op.Force {
 			return errors.Annotatef(err, "cannot remove unit %q", op.unit)
 		}
 		op.AddError(errors.Errorf("force removing unit %q proceeded despite encountering ERROR %v", op.unit, err))
+		return nil
 	}
-	if err := deleteUnitSecrets(op.unit); err != nil {
-		if !op.Force {
-			logger.Errorf("cannot delete secrets for unit %q: %v", op.unit, err)
+	if op.removed {
+		if err := eraseUnitHistory(op.unit, &op.ForcedOperation); err != nil {
+			if !op.Force {
+				logger.Errorf("cannot delete history for unit %q: %v", op.unit.globalKey(), err)
+			}
+			op.AddError(errors.Errorf("force erase unit's %q history proceeded despite encountering ERROR %v", op.unit.globalKey(), err))
 		}
-		op.AddError(errors.Errorf("force delete unit %q secrets proceeded despite encountering ERROR %v", op.unit.globalKey(), err))
+		if err := deleteUnitSecrets(op.unit); err != nil {
+			if !op.Force {
+				logger.Errorf("cannot delete secrets for unit %q: %v", op.unit, err)
+			}
+			op.AddError(errors.Errorf("force delete unit %q secrets proceeded despite encountering ERROR %v", op.unit.globalKey(), err))
+		}
 	}
 	return nil
 }
@@ -1115,6 +1173,11 @@ func (op *RemoveUnitOperation) removeOps() (ops []txn.Op, err error) {
 	// Now we're sure we haven't left any scopes occupied by this unit, we
 	// can safely remove the document.
 	unitRemoveOps, err := op.unit.removeOps(isDeadDoc, &op.ForcedOperation, false)
+	if err == errAlreadyRemoved {
+		op.removed = true
+		return nil, errAlreadyDying
+	}
+	op.removed = err == nil
 	if op.FatalError(err) {
 		return nil, err
 	}
@@ -1990,6 +2053,7 @@ func (u *Unit) assignToNewMachineOps(
 	template MachineTemplate,
 	parentId string,
 	containerType instance.ContainerType,
+	machineId string,
 ) (*Machine, []txn.Op, error) {
 
 	if u.Life() != Alive {
@@ -2009,7 +2073,7 @@ func (u *Unit) assignToNewMachineOps(
 	)
 	switch {
 	case parentId == "" && containerType == "":
-		mdoc, ops, err = u.st.addMachineOps(template)
+		mdoc, ops, err = u.st.addMachineWithIdOps(template, machineId)
 	case parentId == "":
 		if containerType == "" {
 			return nil, nil, errors.New("assignToNewMachine called without container type (should never happen)")
@@ -2018,9 +2082,9 @@ func (u *Unit) assignToNewMachineOps(
 		// regardless of its child.
 		parentParams := template
 		parentParams.Jobs = []MachineJob{JobHostUnits}
-		mdoc, ops, err = u.st.addMachineInsideNewMachineOps(template, parentParams, containerType)
+		mdoc, ops, err = u.st.addMachineInsideNewMachineOps(template, parentParams, containerType, machineId)
 	default:
-		mdoc, ops, err = u.st.addMachineInsideMachineOps(template, parentId, containerType)
+		mdoc, ops, err = u.st.addMachineInsideMachineOps(template, parentId, containerType, machineId)
 	}
 	if err != nil {
 		return nil, nil, err
@@ -2071,6 +2135,24 @@ func (u *Unit) assignToNewMachineOps(
 		removeStagedAssignmentOp(u.doc.DocID),
 	)
 	return &Machine{u.st, *mdoc}, ops, nil
+}
+
+// assignedMachineOnRetry returns the machine assigned to the unit by an earlier
+// attempt whose transaction committed but reported an error. machineId is the
+// machine that attempt created and retained across retries. A nil machine means
+// the unit is still unassigned and the builder should continue.
+func (u *Unit) assignedMachineOnRetry(machineId string) (*Machine, error) {
+	if u.doc.MachineId == "" {
+		return nil, nil
+	}
+	if machineId == "" || u.doc.MachineId != machineId {
+		return nil, alreadyAssignedErr
+	}
+	machine, err := u.st.Machine(u.doc.MachineId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return machine, nil
 }
 
 // Constraints returns the unit's deployment constraints.
@@ -2143,6 +2225,7 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 	}
 
 	var m *Machine
+	var machineId string
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var err error
 		u := u // don't change outer var
@@ -2151,6 +2234,13 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+			m, err = u.assignedMachineOnRetry(machineId)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if m != nil {
+				return nil, jujutxn.ErrNoOperations
+			}
 		}
 		template := MachineTemplate{
 			Base:        u.doc.Base,
@@ -2158,7 +2248,10 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 			Jobs:        []MachineJob{JobHostUnits},
 		}
 		var ops []txn.Op
-		m, ops, err = u.assignToNewMachineOps(template, host.Id, *cons.Container)
+		m, ops, err = u.assignToNewMachineOps(template, host.Id, *cons.Container, machineId)
+		if err == nil {
+			machineId = m.Id()
+		}
 		return ops, err
 	}
 	if err := u.st.db().Run(buildTxn); err != nil {
@@ -2190,6 +2283,7 @@ func (u *Unit) assignToNewMachine(placement string) error {
 	}
 
 	var m *Machine
+	var machineId string
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var err error
 		u := u // don't change outer var
@@ -2197,6 +2291,13 @@ func (u *Unit) assignToNewMachine(placement string) error {
 			u, err = u.st.Unit(u.Name())
 			if err != nil {
 				return nil, errors.Trace(err)
+			}
+			m, err = u.assignedMachineOnRetry(machineId)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if m != nil {
+				return nil, jujutxn.ErrNoOperations
 			}
 		}
 		cons, err := u.Constraints()
@@ -2226,7 +2327,10 @@ func (u *Unit) assignToNewMachine(placement string) error {
 		// machine doc that will be added with those operations
 		// (which includes the machine id).
 		var ops []txn.Op
-		m, ops, err = u.assignToNewMachineOps(template, "", containerType)
+		m, ops, err = u.assignToNewMachineOps(template, "", containerType, machineId)
+		if err == nil {
+			machineId = m.Id()
+		}
 		return ops, err
 	}
 	if err := u.st.db().Run(buildTxn); err != nil {

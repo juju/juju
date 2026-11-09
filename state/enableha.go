@@ -167,7 +167,7 @@ func (e *enableHAOperation) Build(attempt int) ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	intent, err := e.st.enableHAIntentions(controllerIds, e.placement)
+	intent, err := e.st.enableHAIntentions(attempt, controllerIds, e.placement)
 	if err != nil {
 		return nil, err
 	}
@@ -177,6 +177,11 @@ func (e *enableHAOperation) Build(attempt int) ([]txn.Op, error) {
 			voteCount++
 		}
 	}
+	// A retry after a committed transaction with a lost acknowledgement
+	// lands here: new controller nodes want votes and the placement machines
+	// converted by the committed transaction are now controllers, so the
+	// desired count is already met. e.change still holds the committed
+	// attempt's result.
 	if voteCount == desiredControllerCount {
 		return nil, jujutxn.ErrNoOperations
 	}
@@ -267,6 +272,9 @@ func (st *State) enableHAIntentionOps(
 			template.Dirty = true
 			template.principals = []string{controllerUnitName}
 		}
+		// Allocate a fresh ID on each attempt. Build re-derives the plan
+		// every time, and a concurrent EnableHA can change how many
+		// machines are required, so previous IDs are not reused.
 		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {
 			return nil, ControllersChanges{}, errors.Trace(err)
@@ -342,7 +350,7 @@ type enableHAIntent struct {
 // mentioned in the given info, including:
 //
 //	gathering available, non-voting machines that may be promoted;
-func (st *State) enableHAIntentions(controllerIds []string, placement []string) (*enableHAIntent, error) {
+func (st *State) enableHAIntentions(attempt int, controllerIds []string, placement []string) (*enableHAIntent, error) {
 	var intent enableHAIntent
 	for _, s := range placement {
 		// TODO(natefinch): Unscoped placements can end up here, though they
@@ -370,7 +378,12 @@ func (st *State) enableHAIntentions(controllerIds []string, placement []string) 
 				return nil, errors.Annotatef(err, "can't find machine for placement directive %q", s)
 			}
 			if m.IsManager() {
-				return nil, errors.Errorf("machine for placement directive %q is already a controller", s)
+				if attempt == 0 {
+					return nil, errors.Errorf("machine for placement directive %q is already a controller", s)
+				}
+				// A previous attempt converted this machine before its
+				// committed transaction acknowledgement was lost.
+				continue
 			}
 			intent.convert = append(intent.convert, m)
 			continue
@@ -789,38 +802,29 @@ func setControllerWantsVoteOp(st *State, id string, wantsVote bool) txn.Op {
 	}
 }
 
-type controllerReference interface {
-	Id() string
-	Refresh() error
-	WantsVote() bool
-	HasVote() bool
-}
-
 // RemoveControllerReference will unregister Controller from being part of the set of Controllers.
 // It must not have or want to vote, and it must not be the last controller.
-func (st *State) RemoveControllerReference(c controllerReference) error {
-	logger.Infof("removing controller machine %q", c.Id())
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt != 0 {
-			// Something changed, make sure we're still up to date
-			if err := c.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
+func (st *State) RemoveControllerReference(controllerID string) error {
+	logger.Infof("removing controller machine %q", controllerID)
+	buildTxn := func(_ int) ([]txn.Op, error) {
+		node, err := st.ControllerNode(controllerID)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		if c.WantsVote() {
-			return nil, errors.Errorf("controller %s cannot be removed as it still wants to vote", c.Id())
+		if node.WantsVote() {
+			return nil, errors.Errorf("controller %s cannot be removed as it still wants to vote", controllerID)
 		}
-		if c.HasVote() {
-			return nil, errors.Errorf("controller %s cannot be removed as it still has a vote", c.Id())
+		if node.HasVote() {
+			return nil, errors.Errorf("controller %s cannot be removed as it still has a vote", controllerID)
 		}
 		controllerIds, err := st.ControllerIds()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		if len(controllerIds) <= 1 {
-			return nil, errors.Errorf("controller %s cannot be removed as it is the last controller", c.Id())
+			return nil, errors.Errorf("controller %s cannot be removed as it is the last controller", controllerID)
 		}
-		return st.removeControllerReferenceOps(c.Id(), controllerIds), nil
+		return st.removeControllerReferenceOps(controllerID, controllerIds), nil
 	}
 	if err := st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
