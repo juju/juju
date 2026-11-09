@@ -23,9 +23,9 @@ check_storage_account_type_controller() {
 		return 1
 	fi
 	# This will clean up the controller later.
-	echo "${controller_name}" >>"${TEST_DIR}/jujus"
+	echo "${controller_name}" >>"${TEST_DIR}/jujus" || return 1
 
-	juju add-model test
+	juju add-model test || return 1
 
 	# Validate controller VM's storageAccountType.
 	local controller_instance_id controller_resource_group
@@ -49,16 +49,20 @@ check_storage_account_type_controller() {
 		fi
 	fi
 
+	# Use optional test storage, without PostgreSQL's Juju version restriction.
 	# Run the deploy steps for all cases.
 	echo "Deploying ps1..ps4" >>"${file}"
-	# Default azure account type with no additional charm storage.
-	juju deploy postgresql ps1 2>&1 | OUTPUT "${file}" || true
-	# Premium azure account type with no additional charm storage.
-	juju deploy postgresql ps2 --constraints "instance-type=Standard_D8as_v5 root-disk-source=azure-premium" 2>&1 | OUTPUT "${file}" || true
-	# Default azure account type with additional premium charm storage.
-	juju deploy postgresql ps3 --constraints "instance-type=Standard_D8as_v5" --storage pgdata=2G,azure-premium 2>&1 | OUTPUT "${file}" || true
-	# Premium azure account type with additional default charm storage.
-	juju deploy postgresql ps4 --constraints "instance-type=Standard_D8as_v5 root-disk-source=azure-premium" --storage pgdata=2G,azure 2>&1 | OUTPUT "${file}" || true
+	(
+		set -o pipefail
+		# Default azure account type with no additional charm storage.
+		juju deploy juju-qa-dummy-storage ps1 --channel latest/stable --revision 1 --base ubuntu@24.04 2>&1 | OUTPUT "${file}" || exit 1
+		# Premium azure account type with no additional charm storage.
+		juju deploy juju-qa-dummy-storage ps2 --channel latest/stable --revision 1 --base ubuntu@24.04 --constraints "instance-type=Standard_D8as_v5 root-disk-source=azure-premium" 2>&1 | OUTPUT "${file}" || exit 1
+		# Default azure account type with additional premium charm storage.
+		juju deploy juju-qa-dummy-storage ps3 --channel latest/stable --revision 1 --base ubuntu@24.04 --constraints "instance-type=Standard_D8as_v5" --storage single-fs=2G,azure-premium 2>&1 | OUTPUT "${file}" || exit 1
+		# Premium azure account type with additional default charm storage.
+		juju deploy juju-qa-dummy-storage ps4 --channel latest/stable --revision 1 --base ubuntu@24.04 --constraints "instance-type=Standard_D8as_v5 root-disk-source=azure-premium" --storage single-fs=2G,azure 2>&1 | OUTPUT "${file}" || exit 1
+	) || return 1
 
 	# Wait for Juju to register machines for the deployed units and provide instance-ids.
 	echo "Waiting up to 5min for instance-ids for ps1..ps4" >>"${file}"
@@ -169,12 +173,55 @@ check_storage_account_type_controller() {
 	echo "check_storage_account_type_controller run for ${controller_name} completed successfully." >>"${file}"
 }
 
+# Wait for graceful cloud cleanup before starting the next scenario.
+cleanup_storage_account_type_controller() {
+	local controller_name="${1}"
+	local file="${TEST_DIR}/${controller_name}-destroy-controller.log"
+	local result registry_tmp
+
+	if [[ -n ${SKIP_DESTROY:-} ]]; then
+		# Preserve the opt-out, including its overlapping resource usage.
+		echo "====> Skipping destroy controller ${controller_name}"
+		return 0
+	fi
+
+	echo "====> Destroying controller ${controller_name} before continuing"
+	if timeout "${DESTROY_TIMEOUT}" juju destroy-controller --destroy-all-models --destroy-storage --no-prompt "${controller_name}" >"${file}" 2>&1; then
+		cat "${file}" || return 1
+	else
+		result=$?
+		echo "ERROR: destroying controller ${controller_name} failed (${result}); retaining cleanup tracking"
+		cat "${file}" || return 1
+		return "${result}"
+	fi
+
+	# Only remove this exact controller after synchronous destruction succeeds.
+	registry_tmp=$(mktemp "${TEST_DIR}/jujus.XXXXXX") || return 1
+	if grep -Fvx -- "${controller_name}" "${TEST_DIR}/jujus" >"${registry_tmp}"; then
+		result=0
+	else
+		result=$?
+	fi
+	# grep returns 1 when the owned controller was the last entry, not on I/O failure.
+	if [[ ${result} -gt 1 ]]; then
+		echo "ERROR: could not read controller cleanup tracking"
+		rm -f "${registry_tmp}" || return 1
+		return "${result}"
+	fi
+	if ! mv "${registry_tmp}" "${TEST_DIR}/jujus"; then
+		rm -f "${registry_tmp}" || return 1
+		return 1
+	fi
+}
+
 run_storage_account_type() {
 	local default_controller_name="azure-default-controller"
 	local premium_controller_name="azure-premium-controller"
 
-	check_storage_account_type_controller "${default_controller_name}" "" "StandardSSD_LRS"
-	check_storage_account_type_controller "${premium_controller_name}" "--storage-pool name=azp --storage-pool type=azure --storage-pool account-type=Premium_LRS --bootstrap-constraints=root-disk-source=azp" "Premium_LRS"
+	check_storage_account_type_controller "${default_controller_name}" "" "StandardSSD_LRS" || return 1
+	cleanup_storage_account_type_controller "${default_controller_name}" || return 1
+	check_storage_account_type_controller "${premium_controller_name}" "--storage-pool name=azp --storage-pool type=azure --storage-pool account-type=Premium_LRS --bootstrap-constraints=root-disk-source=azp" "Premium_LRS" || return 1
+	cleanup_storage_account_type_controller "${premium_controller_name}" || return 1
 }
 
 test_storage_account_type() {
