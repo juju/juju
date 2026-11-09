@@ -86,5 +86,9 @@ type ObjectStoreForModelFunc func(ctx context.Context, modelUUID string) (ReadOb
 // facts without modifying provider resources. A backup fails when a required
 // image or storage identity cannot be established.
 type ControllerProvisioningReader interface {
+	// ReadControllerProvisioning returns the running controller's
+	// provisioning facts for the archive metadata. It returns an error
+	// when a required image, architecture or storage identity cannot be
+	// established.
 	ReadControllerProvisioning(ctx context.Context, controllerID string) (*corebackups.KubernetesProvisioning, error)
 }

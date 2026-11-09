@@ -38,7 +38,11 @@ func backupSourceClient(agent, charm string) *fake.Clientset {
 			}}}}},
 		&core.Pod{ObjectMeta: metav1.ObjectMeta{Name: getBootstrapResourceName(constants.JujuControllerStackName, "1"), Namespace: "controller-source"},
 			Spec: core.PodSpec{NodeName: "worker", Containers: []core.Container{
-				{Name: apiServerContainerName, Image: agent}, {Name: constants.ApplicationCharmContainer, Image: charm},
+				{Name: apiServerContainerName, Image: agent},
+				{Name: constants.ApplicationCharmContainer, Image: charm},
+				// A third container exercises the reader's skip branch for
+				// sidecars that are neither the API server nor the charm.
+				{Name: "juju-sidebar", Image: "example.com/sidecar:latest"},
 			}, Volumes: []core.Volume{{Name: storageName,
 				VolumeSource: core.VolumeSource{PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{ClaimName: "controller-storage"}},
 			}}}, Status: core.PodStatus{ContainerStatuses: []core.ContainerStatus{
@@ -118,14 +122,11 @@ func (s *backupProvisioningSuite) TestInvalidSourceImages(c *tc.C) {
 	} {
 		c.Logf("case: %s", test.name)
 		client := backupSourceClient("example.com/agent:tag", "example.com/charm:tag")
-		pod, err := client.CoreV1().Pods("controller-source").Get(
-			c.Context(), getBootstrapResourceName(constants.JujuControllerStackName, "1"), metav1.GetOptions{})
-		c.Assert(err, tc.ErrorIsNil)
+		pod := getBackupPod(c, client)
 		test.mutate(pod)
-		_, err = client.CoreV1().Pods("controller-source").Update(c.Context(), pod, metav1.UpdateOptions{})
-		c.Assert(err, tc.ErrorIsNil)
+		updateBackupPod(c, client, pod)
 		broker := &kubernetesClient{clientUnlocked: client, namespace: "controller-source"}
-		_, err = broker.ReadControllerProvisioning(c.Context(), "1")
+		_, err := broker.ReadControllerProvisioning(c.Context(), "1")
 		c.Check(err, tc.ErrorMatches, test.wantErr)
 	}
 }
@@ -139,14 +140,14 @@ func (s *backupProvisioningSuite) TestSourceErrors(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, "source controller ID is required")
 	_, err = broker.ReadControllerProvisioning(c.Context(), "0")
 	c.Check(err, tc.ErrorMatches, ".*controller-0.*not found")
-	for _, resource := range []string{"pods", "nodes", "persistentvolumeclaims", "services"} {
+	for _, kind := range []string{"pods", "nodes", "persistentvolumeclaims", "services"} {
 		client := backupSourceClient("example.com/agent:tag", "example.com/charm:tag")
-		client.PrependReactor("get", resource, func(ktesting.Action) (bool, runtime.Object, error) {
-			return true, nil, fmt.Errorf("failure reading %s", resource)
+		client.PrependReactor("get", kind, func(ktesting.Action) (bool, runtime.Object, error) {
+			return true, nil, fmt.Errorf("failure reading %s", kind)
 		})
 		broker := &kubernetesClient{clientUnlocked: client, namespace: "controller-source"}
 		_, err := broker.ReadControllerProvisioning(c.Context(), "1")
-		c.Check(err, tc.ErrorMatches, "failure reading "+resource)
+		c.Check(err, tc.ErrorMatches, "failure reading "+kind)
 	}
 }
 
@@ -155,12 +156,15 @@ func (s *backupProvisioningSuite) TestSourceErrors(c *tc.C) {
 // each supported service type.
 func (s *backupProvisioningSuite) TestStorageAndService(c *tc.C) {
 	tests := []struct {
-		name             string
-		mutate           func(*tc.C, *fake.Clientset)
-		wantStorageMiB   uint64
-		wantServiceType  string
-		wantExternalName string
-		wantErr          string
+		name               string
+		mutate             func(*tc.C, *fake.Clientset)
+		wantStorageMiB     uint64
+		wantServiceType    string
+		wantExternalName   string
+		wantLoadBalancerIP string
+		wantExternalIPs    []string
+		wantAnnotations    map[string]string
+		wantErr            string
 	}{
 		{
 			name: "request capacity fallback rounds up",
@@ -172,8 +176,11 @@ func (s *backupProvisioningSuite) TestStorageAndService(c *tc.C) {
 				}
 				updateBackupClaim(c, client, claim)
 			},
-			wantStorageMiB:  2,
-			wantServiceType: string(caas.ServiceLoadBalancer),
+			wantStorageMiB:     2,
+			wantServiceType:    string(caas.ServiceLoadBalancer),
+			wantLoadBalancerIP: "192.0.2.1",
+			wantExternalIPs:    []string{"192.0.2.2"},
+			wantAnnotations:    map[string]string{"source": "retained"},
 		},
 		{
 			name: "missing storage class",
@@ -195,10 +202,31 @@ func (s *backupProvisioningSuite) TestStorageAndService(c *tc.C) {
 			wantErr: "controller volume has no capacity",
 		},
 		{
+			name: "no node architecture",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				node := getBackupNode(c, client)
+				node.Status.NodeInfo.Architecture = ""
+				updateBackupNode(c, client, node)
+			},
+			wantErr: "source controller node has no architecture",
+		},
+		{
 			name: "missing storage volume",
 			mutate: func(c *tc.C, client *fake.Clientset) {
 				pod := getBackupPod(c, client)
 				pod.Spec.Volumes = nil
+				updateBackupPod(c, client, pod)
+			},
+			wantErr: "source controller data volume is missing",
+		},
+		{
+			name: "non-pvc storage volume",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				pod := getBackupPod(c, client)
+				pod.Spec.Volumes = []core.Volume{{Name: storageName,
+					VolumeSource: core.VolumeSource{
+						HostPath: &core.HostPathVolumeSource{Path: "/data"},
+					}}}
 				updateBackupPod(c, client, pod)
 			},
 			wantErr: "source controller data volume is missing",
@@ -228,8 +256,11 @@ func (s *backupProvisioningSuite) TestStorageAndService(c *tc.C) {
 				service.Spec.Type = core.ServiceTypeClusterIP
 				updateBackupService(c, client, service)
 			},
-			wantStorageMiB:  64 * 1024,
-			wantServiceType: string(caas.ServiceCluster),
+			wantStorageMiB:     64 * 1024,
+			wantServiceType:    string(caas.ServiceCluster),
+			wantLoadBalancerIP: "192.0.2.1",
+			wantExternalIPs:    []string{"192.0.2.2"},
+			wantAnnotations:    map[string]string{"source": "retained"},
 		},
 		{
 			name: "external name service",
@@ -239,9 +270,25 @@ func (s *backupProvisioningSuite) TestStorageAndService(c *tc.C) {
 				service.Spec.ExternalName = "example.com"
 				updateBackupService(c, client, service)
 			},
-			wantStorageMiB:   64 * 1024,
-			wantServiceType:  string(caas.ServiceExternal),
-			wantExternalName: "example.com",
+			wantStorageMiB:     64 * 1024,
+			wantServiceType:    string(caas.ServiceExternal),
+			wantExternalName:   "example.com",
+			wantLoadBalancerIP: "192.0.2.1",
+			wantExternalIPs:    []string{"192.0.2.2"},
+			wantAnnotations:    map[string]string{"source": "retained"},
+		},
+		{
+			name: "no annotations",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				service := getBackupService(c, client)
+				service.Annotations = nil
+				updateBackupService(c, client, service)
+			},
+			wantStorageMiB:     64 * 1024,
+			wantServiceType:    string(caas.ServiceLoadBalancer),
+			wantLoadBalancerIP: "192.0.2.1",
+			wantExternalIPs:    []string{"192.0.2.2"},
+			wantAnnotations:    nil,
 		},
 		{
 			name: "unsupported service type",
@@ -267,6 +314,9 @@ func (s *backupProvisioningSuite) TestStorageAndService(c *tc.C) {
 		c.Check(result.StorageSizeMiB, tc.Equals, test.wantStorageMiB)
 		c.Check(result.ServiceType, tc.Equals, test.wantServiceType)
 		c.Check(result.ExternalName, tc.Equals, test.wantExternalName)
+		c.Check(result.LoadBalancerIP, tc.Equals, test.wantLoadBalancerIP)
+		c.Check(result.ExternalIPs, tc.DeepEquals, test.wantExternalIPs)
+		c.Check(result.ServiceAnnotations, tc.DeepEquals, test.wantAnnotations)
 	}
 }
 
@@ -275,6 +325,18 @@ func getBackupPod(c *tc.C, client *fake.Clientset) *core.Pod {
 		c.Context(), getBootstrapResourceName(constants.JujuControllerStackName, "1"), metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	return pod
+}
+
+func getBackupNode(c *tc.C, client *fake.Clientset) *core.Node {
+	node, err := client.CoreV1().Nodes().Get(
+		c.Context(), "worker", metav1.GetOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	return node
+}
+
+func updateBackupNode(c *tc.C, client *fake.Clientset, node *core.Node) {
+	_, err := client.CoreV1().Nodes().Update(c.Context(), node, metav1.UpdateOptions{})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func updateBackupPod(c *tc.C, client *fake.Clientset, pod *core.Pod) {

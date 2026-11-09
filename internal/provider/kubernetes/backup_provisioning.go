@@ -19,8 +19,11 @@ import (
 // bytesPerMiB is the number of bytes in one mebibyte.
 const bytesPerMiB = 1 << 20
 
-// ReadControllerProvisioning reads the selected source pod's images and
-// storage.
+// ReadControllerProvisioning records the running controller pod's source
+// images, the node architecture, the data volume's storage class and
+// capacity, and the controller Service's exposure. A missing required
+// image, architecture or storage identity, or an unsupported service
+// type, returns an error.
 func (k *kubernetesClient) ReadControllerProvisioning(
 	ctx context.Context, controllerID string,
 ) (*backups.KubernetesProvisioning, error) {

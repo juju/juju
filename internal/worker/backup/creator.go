@@ -349,6 +349,9 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 		}
 	} else {
 		meta.Kubernetes, err = c.readKubernetesProvisioning(ctx)
+		if err == nil && meta.Kubernetes == nil {
+			err = errors.New("no provisioning facts recorded")
+		}
 		if err != nil {
 			return nil, "", nil, errors.Errorf("recording Kubernetes provisioning: %w", err)
 		}

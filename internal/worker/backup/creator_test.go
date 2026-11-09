@@ -807,15 +807,7 @@ func (s *backupsSuite) TestCreateMachineBaseFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	backupDir := c.MkDir()
-	s.expectFilesToBackUp(c, backupDir)
-	s.expectModelConfig(c, backupDir)
-	s.expectControllerExport()
-	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{s.modelUUID}, nil)
-	s.modelServices.EXPECT().Export().Return(s.modelExport)
-	s.modelExport.EXPECT().Export(gomock.Any()).Return(&domainexport.ModelExport{
-		Version: domainexport.LatestSupportedPayloadVersion(),
-		Payload: &modelv4_1_0.ModelExport{},
-	}, nil)
+	s.expectCreateDependencies(c, backupDir)
 
 	// The controller model resolves to services whose machine base lookup
 	// fails; the workload model export is unaffected.
@@ -950,6 +942,27 @@ func (s *backupsSuite) TestCreateKubernetesProvisioningFailure(c *tc.C) {
 
 	_, _, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "")
 	c.Check(err, tc.ErrorMatches, "recording Kubernetes provisioning: provisioning unavailable")
+	c.Check(cleanup, tc.IsNil)
+	s.assertNoArchive(c, backupDir)
+}
+
+// TestCreateKubernetesProvisioningEmpty verifies that a Kubernetes
+// controller whose reader returns no provisioning facts aborts the backup
+// before an archive is published.
+func (s *backupsSuite) TestCreateKubernetesProvisioningEmpty(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	s.expectCreateDependencies(c, backupDir)
+
+	cfg := s.newCreatorConfig(c, s.modelServicesFor())
+	cfg.ControllerTag = names.NewControllerAgentTag("0")
+	cfg.KubernetesProvisioning = func(context.Context) (*corebackups.KubernetesProvisioning, error) {
+		return nil, nil
+	}
+
+	_, _, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "")
+	c.Check(err, tc.ErrorMatches, "recording Kubernetes provisioning: no provisioning facts recorded")
 	c.Check(cleanup, tc.IsNil)
 	s.assertNoArchive(c, backupDir)
 }
