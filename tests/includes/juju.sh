@@ -237,18 +237,28 @@ cleanup_models() {
 	if [[ -f "${TEST_DIR}/models" ]]; then
 		while read -r name; do
 			[[ -z ${name} ]] && continue
+			if ! model_exists "${name}"; then
+				# The model is already gone, either destroyed during the
+				# test or never created by a failed add-model. Remove the
+				# stale entry without reporting a possible leak.
+				echo "====> Model ${name} no longer exists"
+				remove_tracked_model "${name}"
+				continue
+			fi
 			output="${TEST_DIR}/${name//:/-}-destroy-model.log"
 			if ! timeout "${DESTROY_TIMEOUT}" juju destroy-model --no-prompt --destroy-storage "${name}" >"${output}" 2>&1; then
 				echo "====> Destroy failed for model ${name}; trying --force"
 				cat "${output}"
 				if ! timeout "${DESTROY_TIMEOUT}" juju destroy-model --no-prompt --destroy-storage --force "${name}" >>"${output}" 2>&1; then
 					cat "${output}"
-					failed=1
-					continue
+					if model_exists "${name}"; then
+						echo "====> Possible leak: model ${name} still exists" >&2
+						failed=1
+						continue
+					fi
 				fi
 			fi
-			grep -Fvx "${name}" "${TEST_DIR}/models" >"${TEST_DIR}/models.remaining" || true
-			mv "${TEST_DIR}/models.remaining" "${TEST_DIR}/models"
+			remove_tracked_model "${name}"
 		done < <(sort -u "${TEST_DIR}/models")
 		if [[ ${failed} -eq 0 ]]; then
 			rm -f "${TEST_DIR}/models"
@@ -543,6 +553,7 @@ destroy_model() {
 	OUT=$(juju models --format=json | yq '.models | .[] | .["short-name"]' | grep "${name}" || true)
 	# shellcheck disable=SC2181
 	if [[ -z ${OUT} ]]; then
+		remove_tracked_model "${name}"
 		return
 	fi
 
@@ -573,7 +584,44 @@ destroy_model() {
 		result=0
 		return "${result}"
 	fi
+	remove_tracked_model "${name}"
 	echo "====> Destroyed juju model ${name}"
+}
+
+# model_exists reports whether the tracked "controller:model" entry still
+# refers to a model on its controller. A controller that can no longer be
+# reached counts as the model being gone.
+model_exists() {
+	local controller model
+
+	controller=${1%%:*}
+	model=${1#*:}
+
+	juju models -c "${controller}" --format=json 2>/dev/null |
+		yq -r '.models // [] | .[] | .["short-name"]' 2>/dev/null |
+		grep -Fxq "${model}"
+}
+
+# remove_tracked_model removes the entry for the given model from the tracked
+# models file. Entries are recorded as "controller:model" before the model is
+# created, so match both the full entry and its model part.
+remove_tracked_model() {
+	local name line model
+
+	name=${1}
+
+	if [[ ! -f "${TEST_DIR}/models" ]]; then
+		return 0
+	fi
+	while read -r line; do
+		[[ -z ${line} ]] && continue
+		model=${line#*:}
+		if [[ ${line} == "${name}" || ${model} == "${name}" ]]; then
+			continue
+		fi
+		echo "${line}"
+	done <"${TEST_DIR}/models" >"${TEST_DIR}/models.remaining"
+	mv "${TEST_DIR}/models.remaining" "${TEST_DIR}/models"
 }
 
 # destroy_controller takes a controller name and destroys the controller. It
