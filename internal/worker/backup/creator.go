@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/clock"
 	jujuerrors "github.com/juju/errors"
-	"github.com/juju/names/v6"
 
 	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/database"
@@ -27,11 +26,14 @@ import (
 // Creator creates backup archives on demand. It is used by the
 // controller's backups HTTP endpoint, which streams the archive to the
 // client in the same request.
+//
+// The substrate-specific source facts are recorded through recordSource,
+// which the creator constructor for the running controller's substrate
+// binds: NewMachineCreator or NewK8sCreator.
 type Creator struct {
 	controllerUUID      string
 	controllerModelUUID coremodel.UUID
 	controllerID        string
-	isMachine           bool
 	dataDir             string
 	logDir              string
 
@@ -44,51 +46,70 @@ type Creator struct {
 	controllerObjectStore ReadObjectStore
 	objectStoreForModel   ObjectStoreForModelFunc
 
-	readKubernetesProvisioning func(context.Context) (*corebackups.KubernetesProvisioning, error)
+	// recordSource records the substrate-specific source facts in the
+	// archive metadata.
+	recordSource func(context.Context, *corebackups.Metadata) error
+
+	// readControllerProvisioning reads the running controller's
+	// provisioning facts from the provider. Only NewK8sCreator binds it.
+	readControllerProvisioning func(context.Context) (*corebackups.K8sControllerMetadata, error)
 
 	clock  clock.Clock
 	logger corelogger.Logger
 }
 
-// CreatorConfig supplies the dependencies needed to create backup archives.
+// CreatorConfig supplies the substrate-independent dependencies needed to
+// create backup archives.
 type CreatorConfig struct {
-	ControllerTag          names.Tag
-	ControllerUUID         string
-	ControllerModelUUID    coremodel.UUID
-	DataDir                string
-	LogDir                 string
-	KubernetesProvisioning func(context.Context) (*corebackups.KubernetesProvisioning, error)
-	ControllerExport       ControllerExportService
-	ModelServicesFor       ModelServicesForFunc
-	ModelConfig            ModelConfigService
-	Controller             ControllerModelLister
-	ControllerNodes        ControllerNodeLister
-	ControllerObjectStore  ReadObjectStore
-	ObjectStoreForModel    ObjectStoreForModelFunc
-	Clock                  clock.Clock
-	Logger                 corelogger.Logger
+	ControllerUUID        string
+	ControllerModelUUID   coremodel.UUID
+	ControllerID          string
+	DataDir               string
+	LogDir                string
+	ControllerExport      ControllerExportService
+	ModelServicesFor      ModelServicesForFunc
+	ModelConfig           ModelConfigService
+	Controller            ControllerModelLister
+	ControllerNodes       ControllerNodeLister
+	ControllerObjectStore ReadObjectStore
+	ObjectStoreForModel   ObjectStoreForModelFunc
+	Clock                 clock.Clock
+	Logger                corelogger.Logger
 }
 
-// isMachineControllerTag reports whether tag identifies a machine
-// controller. Kubernetes controllers use a controller-agent tag instead.
-func isMachineControllerTag(tag names.Tag) bool {
-	_, ok := tag.(names.MachineTag)
-	return ok
+// K8sCreatorConfig supplies the dependencies needed to create backup
+// archives on a Kubernetes controller.
+type K8sCreatorConfig struct {
+	CreatorConfig
+
+	// ControllerProvisioning reads the running controller's provisioning
+	// facts from the provider, without modifying provider resources. A
+	// backup fails when a required image, architecture or storage
+	// identity cannot be established.
+	ControllerProvisioning func(context.Context) (*corebackups.K8sControllerMetadata, error)
 }
 
-// Validate checks that archive creation dependencies are complete.
+// CreatorConstructor returns the archive creator for a creation request.
+// The manifold injects the substrate-specific version, so the archive
+// generator is decoupled from the concrete creator.
+type CreatorConstructor func(CreatorConfig) (corebackups.BackupCreator, error)
+
+// K8sCreatorConstructor returns the archive creator for a Kubernetes
+// controller, given the provisioning read resolved from the provider
+// tracker.
+type K8sCreatorConstructor func(K8sCreatorConfig) (corebackups.BackupCreator, error)
+
+// Validate checks that the substrate-independent archive creation
+// dependencies are complete.
 func (c CreatorConfig) Validate() error {
-	if c.ControllerTag == nil {
-		return jujuerrors.NotValidf("nil ControllerTag")
-	}
-	if !isMachineControllerTag(c.ControllerTag) && c.KubernetesProvisioning == nil {
-		return jujuerrors.NotValidf("nil KubernetesProvisioning")
-	}
 	if c.ControllerUUID == "" {
 		return jujuerrors.NotValidf("empty ControllerUUID")
 	}
 	if err := c.ControllerModelUUID.Validate(); err != nil {
 		return jujuerrors.Annotate(err, "controller model UUID")
+	}
+	if c.ControllerID == "" {
+		return jujuerrors.NotValidf("empty ControllerID")
 	}
 	if c.DataDir == "" {
 		return jujuerrors.NotValidf("empty DataDir")
@@ -126,29 +147,58 @@ func (c CreatorConfig) Validate() error {
 	return nil
 }
 
-// NewCreator creates a new backup archive creator.
-func NewCreator(cfg CreatorConfig) (*Creator, error) {
+// Validate checks that the Kubernetes archive creation dependencies are
+// complete.
+func (c K8sCreatorConfig) Validate() error {
+	if c.ControllerProvisioning == nil {
+		return jujuerrors.NotValidf("nil ControllerProvisioning")
+	}
+	return c.CreatorConfig.Validate()
+}
+
+// NewMachineCreator creates the archive creator for a machine controller.
+// It records the controller machine's base in the archive metadata, which
+// machine recovery requires.
+func NewMachineCreator(cfg CreatorConfig) (corebackups.BackupCreator, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	creator := newCreator(cfg)
+	creator.recordSource = creator.recordMachineBase
+	return creator, nil
+}
+
+// NewK8sCreator creates the archive creator for a Kubernetes controller.
+// It records the controller's Kubernetes provisioning facts in the
+// archive metadata, which Kubernetes recovery requires; a reader that
+// reports no facts fails the backup.
+func NewK8sCreator(cfg K8sCreatorConfig) (corebackups.BackupCreator, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	creator := newCreator(cfg.CreatorConfig)
+	creator.readControllerProvisioning = cfg.ControllerProvisioning
+	creator.recordSource = creator.recordK8sController
+	return creator, nil
+}
+
+func newCreator(cfg CreatorConfig) *Creator {
 	return &Creator{
-		controllerUUID:             cfg.ControllerUUID,
-		controllerModelUUID:        cfg.ControllerModelUUID,
-		controllerID:               cfg.ControllerTag.Id(),
-		isMachine:                  isMachineControllerTag(cfg.ControllerTag),
-		dataDir:                    cfg.DataDir,
-		logDir:                     cfg.LogDir,
-		controllerExport:           cfg.ControllerExport,
-		modelServicesFor:           cfg.ModelServicesFor,
-		modelConfig:                cfg.ModelConfig,
-		controller:                 cfg.Controller,
-		controllerNodes:            cfg.ControllerNodes,
-		controllerObjectStore:      cfg.ControllerObjectStore,
-		objectStoreForModel:        cfg.ObjectStoreForModel,
-		readKubernetesProvisioning: cfg.KubernetesProvisioning,
-		clock:                      cfg.Clock,
-		logger:                     cfg.Logger,
-	}, nil
+		controllerUUID:        cfg.ControllerUUID,
+		controllerModelUUID:   cfg.ControllerModelUUID,
+		controllerID:          cfg.ControllerID,
+		dataDir:               cfg.DataDir,
+		logDir:                cfg.LogDir,
+		controllerExport:      cfg.ControllerExport,
+		modelServicesFor:      cfg.ModelServicesFor,
+		modelConfig:           cfg.ModelConfig,
+		controller:            cfg.Controller,
+		controllerNodes:       cfg.ControllerNodes,
+		controllerObjectStore: cfg.ControllerObjectStore,
+		objectStoreForModel:   cfg.ObjectStoreForModel,
+		clock:                 cfg.Clock,
+		logger:                cfg.Logger,
+	}
 }
 
 // Create builds a fresh backup archive in a per-request temporary
@@ -341,38 +391,25 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 	hostname, _ := os.Hostname()
 
 	meta := corebackups.NewMetadata(c.clock.Now())
-	var machineBase string
-	if c.isMachine {
-		machineBase, err = c.machineBase(ctx)
-		if err != nil {
-			return nil, "", nil, errors.Errorf("recording controller base for recovery: %w", err)
-		}
-	} else {
-		meta.Kubernetes, err = c.readKubernetesProvisioning(ctx)
-		if err == nil && meta.Kubernetes == nil {
-			err = errors.New("no provisioning facts recorded")
-		}
-		if err != nil {
-			return nil, "", nil, errors.Errorf("recording Kubernetes provisioning: %w", err)
-		}
-	}
-	meta.DatabaseSizeBytes, err = databaseSize(ctx, c.dataDir)
-	if err != nil {
-		return nil, "", nil, errors.Errorf("recording source database capacity: %w", err)
-	}
 	meta.Notes = notes
 	meta.Origin = corebackups.Origin{
 		Model:    c.controllerModelUUID.String(),
 		Machine:  c.controllerID,
 		Hostname: hostname,
 		Version:  coreversion.Current,
-		Base:     machineBase,
 	}
 	meta.Controller = corebackups.ControllerMetadata{
 		UUID:              c.controllerUUID,
 		MachineID:         c.controllerID,
 		MachineInstanceID: corebackups.UnknownString,
 		HANodes:           int64(len(controllerIDs)),
+	}
+	if err := c.recordSource(ctx, meta); err != nil {
+		return nil, "", nil, errors.Capture(err)
+	}
+	meta.DatabaseSizeBytes, err = databaseSize(ctx, c.dataDir)
+	if err != nil {
+		return nil, "", nil, errors.Errorf("recording source database capacity: %w", err)
 	}
 
 	// The archive is written into a per-request temporary directory
@@ -407,20 +444,36 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 	return meta, filename, cleanup, nil
 }
 
-// machineBase resolves the controller machine's base for the archive
+// recordMachineBase records the controller machine's base in the archive
 // metadata. Machine recovery requires this value. Kubernetes controllers
 // have no machine and take their base from the archived controller charm.
-func (c *Creator) machineBase(ctx context.Context) (string, error) {
+func (c *Creator) recordMachineBase(ctx context.Context, meta *corebackups.Metadata) error {
 	services, err := c.modelServicesFor(ctx, c.controllerModelUUID)
 	if err != nil {
-		return "", errors.Capture(err)
+		return errors.Errorf("recording controller base for recovery: %w", errors.Capture(err))
 	}
 	machineBase, err := services.Machine().GetMachineBase(ctx, machine.Name(c.controllerID))
 	if err != nil {
-		return "", errors.Capture(err)
+		return errors.Errorf("recording controller base for recovery: %w", errors.Capture(err))
 	}
 	if machineBase.Empty() {
-		return "", errors.New("controller machine base is empty")
+		return errors.New("recording controller base for recovery: controller machine base is empty")
 	}
-	return machineBase.String(), nil
+	meta.Origin.Base = machineBase.String()
+	return nil
+}
+
+// recordK8sController records the running controller's Kubernetes
+// provisioning facts in the archive metadata. Kubernetes recovery
+// requires them, so a reader that reports no facts fails the backup.
+func (c *Creator) recordK8sController(ctx context.Context, meta *corebackups.Metadata) error {
+	k8sController, err := c.readControllerProvisioning(ctx)
+	if err == nil && k8sController == nil {
+		err = errors.New("no provisioning facts recorded")
+	}
+	if err != nil {
+		return errors.Errorf("recording Kubernetes provisioning: %w", err)
+	}
+	meta.K8sController = k8sController
+	return nil
 }

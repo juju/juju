@@ -26,7 +26,7 @@ const bytesPerMiB = 1 << 20
 // type, returns an error.
 func (k *kubernetesClient) ReadControllerProvisioning(
 	ctx context.Context, controllerID string,
-) (*backups.KubernetesProvisioning, error) {
+) (*backups.K8sControllerMetadata, error) {
 	if controllerID == "" {
 		return nil, errors.New("source controller ID is required")
 	}
@@ -40,7 +40,7 @@ func (k *kubernetesClient) ReadControllerProvisioning(
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	result := &backups.KubernetesProvisioning{Architecture: node.Status.NodeInfo.Architecture}
+	result := &backups.K8sControllerMetadata{Architecture: node.Status.NodeInfo.Architecture}
 	for _, container := range pod.Spec.Containers {
 		switch container.Name {
 		case apiServerContainerName, constants.ApplicationCharmContainer:
@@ -86,9 +86,9 @@ func (k *kubernetesClient) ReadControllerProvisioning(
 		if capacity.Sign() <= 0 {
 			return nil, errors.New("controller volume has no capacity")
 		}
-		result.StorageSizeMiB = (uint64(capacity.Value()) + bytesPerMiB - 1) / bytesPerMiB
+		result.StorageCapacityMiB = (uint64(capacity.Value()) + bytesPerMiB - 1) / bytesPerMiB
 	}
-	if result.StorageSizeMiB == 0 {
+	if result.StorageCapacityMiB == 0 {
 		return nil, errors.New("source controller data volume is missing")
 	}
 	service, err := k.client().CoreV1().

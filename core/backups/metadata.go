@@ -121,8 +121,9 @@ type Metadata struct {
 	// Controller contains metadata about the controller where the backup was taken.
 	Controller ControllerMetadata
 
-	// Kubernetes is the observed source controller substrate, when applicable.
-	Kubernetes *KubernetesProvisioning
+	// K8sController contains the Kubernetes controller metadata, recorded
+	// when the backup is taken on a Kubernetes controller.
+	K8sController *K8sControllerMetadata
 
 	// DatabaseSizeBytes is the observed source database size in bytes.
 	DatabaseSizeBytes int64
@@ -205,8 +206,8 @@ type flatMetadata struct {
 	HANodes                     int64
 	ControllerMachineID         string
 	ControllerMachineInstanceID string
-	Kubernetes                  *KubernetesProvisioning `json:",omitempty"`
-	DatabaseSizeBytes           int64                   `json:",omitempty"`
+	K8sController               *K8sControllerMetadata `json:",omitempty"`
+	DatabaseSizeBytes           int64                  `json:",omitempty"`
 }
 
 func (m *Metadata) flat() flatMetadata {
@@ -224,7 +225,7 @@ func (m *Metadata) flat() flatMetadata {
 		ControllerMachineID:         m.Controller.MachineID,
 		ControllerMachineInstanceID: m.Controller.MachineInstanceID,
 		HANodes:                     m.Controller.HANodes,
-		Kubernetes:                  m.Kubernetes,
+		K8sController:               m.K8sController,
 		DatabaseSizeBytes:           m.DatabaseSizeBytes,
 	}
 	stored := m.Stored()
@@ -251,7 +252,7 @@ func (flat *flatMetadata) inflate() (*Metadata, error) {
 		meta.Finished = &flat.Finished
 	}
 	meta.Notes = flat.Notes
-	meta.Kubernetes = flat.Kubernetes
+	meta.K8sController = flat.K8sController
 	meta.DatabaseSizeBytes = flat.DatabaseSizeBytes
 	meta.Origin = Origin{
 		Model:    flat.ModelUUID,

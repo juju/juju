@@ -74,7 +74,7 @@ func (s *backupProvisioningSuite) TestSourceImagesAndActualVolume(c *tc.C) {
 		c.Check(result.AgentImage, tc.Equals, images.agent)
 		c.Check(result.CharmImage, tc.Equals, images.charm)
 		c.Check(result.Architecture, tc.Equals, "arm64")
-		c.Check(result.StorageSizeMiB, tc.Equals, uint64(64*1024))
+		c.Check(result.StorageCapacityMiB, tc.Equals, uint64(64*1024))
 		c.Check(result.StorageClass, tc.Equals, "original-class")
 		c.Check(result.ServiceType, tc.Equals, "loadbalancer")
 		c.Check(result.ExternalName, tc.Equals, "")
@@ -311,7 +311,7 @@ func (s *backupProvisioningSuite) TestStorageAndService(c *tc.C) {
 			continue
 		}
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(result.StorageSizeMiB, tc.Equals, test.wantStorageMiB)
+		c.Check(result.StorageCapacityMiB, tc.Equals, test.wantStorageMiB)
 		c.Check(result.ServiceType, tc.Equals, test.wantServiceType)
 		c.Check(result.ExternalName, tc.Equals, test.wantExternalName)
 		c.Check(result.LoadBalancerIP, tc.Equals, test.wantLoadBalancerIP)

@@ -39,7 +39,9 @@ func manifoldConfig(c *tc.C) ManifoldConfig {
 		ControllerTag:     names.NewControllerAgentTag("0"),
 		LocalConfigReader: localConfigStub{values: LocalValues{DataDir: "/data", LogDir: "/logs"}},
 		Clock:             worker.Clock, Logger: worker.Logger,
-		NewWorker: NewWorker,
+		NewWorker:         NewWorker,
+		NewMachineCreator: NewMachineCreator,
+		NewK8sCreator:     NewK8sCreator,
 	}
 }
 
@@ -53,6 +55,14 @@ func manifoldResources() map[string]any {
 }
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
+	// Machine controllers record their machine base and do not read the
+	// provider tracker.
+	cfg := manifoldConfig(c)
+	cfg.ControllerTag = names.NewMachineTag("0")
+	c.Check(Manifold(cfg).Inputs, tc.SameContents, []string{"leases", "services", "objects"})
+
+	// Kubernetes controllers read their provisioning facts from the
+	// provider tracker.
 	c.Check(Manifold(manifoldConfig(c)).Inputs, tc.SameContents, []string{"leases", "services", "objects", "providers"})
 }
 
@@ -110,6 +120,8 @@ func (s *manifoldSuite) TestObjectStoreFailure(c *tc.C) {
 }
 
 func (s *manifoldSuite) TestMissingDependencies(c *tc.C) {
+	// Only the Kubernetes creator reads the provider tracker; machine
+	// controllers start without it (TestStartInjectsMachineCreator).
 	for _, name := range []string{"leases", "services", "objects", "providers"} {
 		resources := manifoldResources()
 		delete(resources, name)
@@ -133,6 +145,8 @@ func (s *manifoldSuite) TestInvalidConfiguration(c *tc.C) {
 		{func(c *ManifoldConfig) { c.Clock = nil }, "nil Clock not valid"},
 		{func(c *ManifoldConfig) { c.Logger = nil }, "nil Logger not valid"},
 		{func(c *ManifoldConfig) { c.NewWorker = nil }, "nil NewWorker not valid"},
+		{func(c *ManifoldConfig) { c.NewMachineCreator = nil }, "nil NewMachineCreator not valid"},
+		{func(c *ManifoldConfig) { c.NewK8sCreator = nil }, "nil NewK8sCreator not valid"},
 		{func(c *ManifoldConfig) { c.LocalConfigReader = localConfigStub{} }, "empty backup paths not valid"},
 		{func(c *ManifoldConfig) { c.LocalConfigReader = localConfigStub{err: errors.New("paths failed")} }, "reading backup paths: paths failed"},
 	}
@@ -152,9 +166,79 @@ func (s *manifoldSuite) TestWorkerFailure(c *tc.C) {
 	c.Check(err, tc.ErrorIs, failure)
 }
 
-// TestReadControllerProvisioning verifies that the generator resolves the
-// controller model's cloud spec and config, creates an ephemeral CAAS
-// provider, and reports each failure with its cause.
+// TestStartInjectsMachineCreator verifies that a machine controller wires
+// the machine creator the manifold was given, and starts without resolving
+// the provider tracker.
+func (s *manifoldSuite) TestStartInjectsMachineCreator(c *tc.C) {
+	cfg := manifoldConfig(c)
+	cfg.ControllerTag = names.NewMachineTag("0")
+	sentinel := errors.New("creator constructed")
+	var gotConfig CreatorConfig
+	cfg.NewMachineCreator = func(cfg CreatorConfig) (corebackups.BackupCreator, error) {
+		gotConfig = cfg
+		return nil, sentinel
+	}
+	var startConfig Config
+	cfg.NewWorker = func(config Config) (worker.Worker, error) {
+		startConfig = config
+		return NewWorker(config)
+	}
+	resources := manifoldResources()
+	delete(resources, "providers")
+	w, err := Manifold(cfg).Start(c.Context(), dt.StubGetter(resources))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Cleanup(func() { w.Kill(); c.Check(w.Wait(), tc.ErrorIsNil) })
+
+	generator, ok := startConfig.CreateArchive.(archiveGenerator)
+	c.Assert(ok, tc.IsTrue)
+	_, err = generator.newCreator(CreatorConfig{DataDir: "/data"})
+	c.Check(err, tc.ErrorIs, sentinel)
+	c.Check(gotConfig.DataDir, tc.Equals, "/data")
+}
+
+// TestStartInjectsK8sCreator verifies that a Kubernetes controller wires
+// the K8s creator the manifold was given, with the provisioning read
+// resolving the controller model's services on each call.
+func (s *manifoldSuite) TestStartInjectsK8sCreator(c *tc.C) {
+	cfg := manifoldConfig(c)
+	failure := errors.New("services unavailable")
+	resources := manifoldResources()
+	resources["services"] = servicesGetterStub{get: func(context.Context, coremodel.UUID) (services.DomainServices, error) {
+		return nil, failure
+	}}
+	resources["providers"] = &provisioningProviderFactoryStub{}
+	sentinel := errors.New("creator constructed")
+	var gotConfig K8sCreatorConfig
+	cfg.NewK8sCreator = func(cfg K8sCreatorConfig) (corebackups.BackupCreator, error) {
+		gotConfig = cfg
+		return nil, sentinel
+	}
+	var startConfig Config
+	cfg.NewWorker = func(config Config) (worker.Worker, error) {
+		startConfig = config
+		return NewWorker(config)
+	}
+	w, err := Manifold(cfg).Start(c.Context(), dt.StubGetter(resources))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Cleanup(func() { w.Kill(); c.Check(w.Wait(), tc.ErrorIsNil) })
+
+	generator, ok := startConfig.CreateArchive.(archiveGenerator)
+	c.Assert(ok, tc.IsTrue)
+	_, err = generator.newCreator(CreatorConfig{DataDir: "/data"})
+	c.Check(err, tc.ErrorIs, sentinel)
+	c.Check(gotConfig.DataDir, tc.Equals, "/data")
+
+	// The provisioning read defers the controller model's services to
+	// each backup; a failure reaching them fails the read.
+	read := gotConfig.ControllerProvisioning
+	c.Assert(read, tc.NotNil)
+	_, err = read(c.Context())
+	c.Check(err, tc.ErrorIs, failure)
+}
+
+// TestReadControllerProvisioning verifies that the provisioning read
+// resolves the controller model's cloud spec and config, creates an
+// ephemeral CAAS provider, and reports each failure with its cause.
 func (s *manifoldSuite) TestReadControllerProvisioning(c *tc.C) {
 	worker := workerConfig(c)
 	controllerUUID, err := uuid.UUIDFromString(worker.ControllerUUID)
@@ -162,7 +246,7 @@ func (s *manifoldSuite) TestReadControllerProvisioning(c *tc.C) {
 
 	spec := cloudspec.CloudSpec{Type: "kubernetes", Name: "test"}
 	cfg := &environsconfig.Config{}
-	provisioning := &corebackups.KubernetesProvisioning{
+	provisioning := &corebackups.K8sControllerMetadata{
 		AgentImage:   "example.com/agent:latest",
 		CharmImage:   "example.com/charm:latest",
 		Architecture: "arm64",
@@ -177,7 +261,7 @@ func (s *manifoldSuite) TestReadControllerProvisioning(c *tc.C) {
 		wantErr          string
 		wantNotSupported bool
 		wantFactory      bool
-		wantResult       *corebackups.KubernetesProvisioning
+		wantResult       *corebackups.K8sControllerMetadata
 	}{
 		{
 			name:      "cloud spec failure",
@@ -230,15 +314,12 @@ func (s *manifoldSuite) TestReadControllerProvisioning(c *tc.C) {
 			provider: test.provider,
 			err:      test.factoryErr,
 		}
-		generator := archiveGenerator{
-			config: ManifoldConfig{
-				ControllerUUID:   worker.ControllerUUID,
-				ControllerNodeID: "7",
-			},
-			providerFactory: factory,
+		config := ManifoldConfig{
+			ControllerUUID:   worker.ControllerUUID,
+			ControllerNodeID: "7",
 		}
 
-		result, err := generator.readControllerProvisioning(c.Context(), test.cloudSpec, test.modelConfig)
+		result, err := readControllerProvisioning(c.Context(), test.cloudSpec, test.modelConfig, factory, config)
 		if test.wantErr != "" {
 			c.Check(err, tc.ErrorMatches, test.wantErr)
 		} else {
@@ -264,66 +345,25 @@ func (s *manifoldSuite) TestReadControllerProvisioning(c *tc.C) {
 	}
 }
 
-// TestStartWiresProviderFactoryIntoGenerator verifies that the provider
-// factory resolved by the dependency engine reaches the archive generator
-// that the manifold hands to the worker.
-func (s *manifoldSuite) TestStartWiresProviderFactoryIntoGenerator(c *tc.C) {
-	cfg := manifoldConfig(c)
-	factory := &provisioningProviderFactoryStub{}
-	resources := manifoldResources()
-	resources["providers"] = factory
+// TestK8sProvisioningReaderDefersServices verifies that the provisioning
+// read handed to the K8s creator resolves the controller model's services
+// on each call, not when the creator is wired.
+func (s *manifoldSuite) TestK8sProvisioningReaderDefersServices(c *tc.C) {
+	failure := errors.New("services unavailable")
+	calls := 0
+	getter := servicesGetterStub{get: func(_ context.Context, model coremodel.UUID) (services.DomainServices, error) {
+		calls++
+		c.Check(model.String(), tc.Equals, "controller-model")
+		return nil, failure
+	}}
+	read := k8sProvisioningReader(getter, providerFactoryStub{}, ManifoldConfig{
+		ControllerModelUUID: "controller-model",
+	})
+	c.Check(calls, tc.Equals, 0)
 
-	var startConfig Config
-	cfg.NewWorker = func(config Config) (worker.Worker, error) {
-		startConfig = config
-		return NewWorker(config)
-	}
-	w, err := Manifold(cfg).Start(c.Context(), dt.StubGetter(resources))
-	c.Assert(err, tc.ErrorIsNil)
-	c.Cleanup(func() { w.Kill(); c.Check(w.Wait(), tc.ErrorIsNil) })
-
-	generator, ok := startConfig.CreateArchive.(archiveGenerator)
-	c.Assert(ok, tc.IsTrue)
-	c.Check(generator.providerFactory, tc.Equals, factory)
-}
-
-// TestProvisioningReader verifies that the read handed to the creator
-// resolves the provider factory's ephemeral provider and records the
-// provisioning facts it reports.
-func (s *manifoldSuite) TestProvisioningReader(c *tc.C) {
-	worker := workerConfig(c)
-	controllerUUID, err := uuid.UUIDFromString(worker.ControllerUUID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	provisioning := &corebackups.KubernetesProvisioning{
-		AgentImage:   "example.com/agent:latest",
-		CharmImage:   "example.com/charm:latest",
-		Architecture: "arm64",
-	}
-	factory := &provisioningProviderFactoryStub{
-		provider: &provisioningProviderStub{provisioning: provisioning},
-	}
-	generator := archiveGenerator{
-		config: ManifoldConfig{
-			ControllerUUID:   worker.ControllerUUID,
-			ControllerNodeID: "7",
-		},
-		providerFactory: factory,
-	}
-	spec := cloudspec.CloudSpec{Type: "kubernetes", Name: "test"}
-	cfg := &environsconfig.Config{}
-
-	read := generator.provisioningReader(
-		cloudSpecProviderStub{spec: spec}, modelConfigProviderStub{cfg: cfg})
-	result, err := read(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Check(result, tc.DeepEquals, provisioning)
-	c.Check(factory.called, tc.IsTrue)
-	c.Check(factory.got.ModelType, tc.Equals, coremodel.CAAS)
-	c.Check(factory.got.ModelConfig, tc.Equals, cfg)
-	c.Check(factory.got.CloudSpec, tc.DeepEquals, spec)
-	c.Check(factory.got.ControllerUUID, tc.Equals, controllerUUID)
+	_, err := read(c.Context())
+	c.Check(err, tc.ErrorIs, failure)
+	c.Check(calls, tc.Equals, 1)
 }
 
 type localConfigStub struct {
@@ -390,7 +430,7 @@ func (f *provisioningProviderFactoryStub) EphemeralProviderFromConfig(
 
 type provisioningProviderStub struct {
 	providertracker.Provider
-	provisioning *corebackups.KubernetesProvisioning
+	provisioning *corebackups.K8sControllerMetadata
 	err          error
 	controllerID string
 	called       bool
@@ -398,7 +438,7 @@ type provisioningProviderStub struct {
 
 func (p *provisioningProviderStub) ReadControllerProvisioning(
 	_ context.Context, controllerID string,
-) (*corebackups.KubernetesProvisioning, error) {
+) (*corebackups.K8sControllerMetadata, error) {
 	p.called = true
 	p.controllerID = controllerID
 	return p.provisioning, p.err

@@ -783,6 +783,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:               config.Clock,
 			Logger:              internallogger.GetLogger("juju.worker.backup"),
 			NewWorker:           backup.NewWorker,
+			NewMachineCreator:   backup.NewMachineCreator,
+			NewK8sCreator:       backup.NewK8sCreator,
 		})),
 
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{

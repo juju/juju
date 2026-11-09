@@ -3,9 +3,10 @@
 
 package backups
 
-// KubernetesProvisioning records the running controller's substrate. Images
-// are source pod references and may be tagged or digest-addressed.
-type KubernetesProvisioning struct {
+// K8sControllerMetadata records the running controller's Kubernetes
+// substrate facts. Images are source pod references and may be tagged
+// or digest-addressed.
+type K8sControllerMetadata struct {
 	// AgentImage is the container image running the controller API server.
 	AgentImage string
 	// CharmImage is the container image running the controller charm.
@@ -15,9 +16,9 @@ type KubernetesProvisioning struct {
 	Architecture string
 	// StorageClass is the storage class of the controller's data volume.
 	StorageClass string
-	// StorageSizeMiB is the controller data volume capacity in mebibytes,
-	// rounded up to the next whole mebibyte.
-	StorageSizeMiB uint64
+	// StorageCapacityMiB is the controller data volume capacity in
+	// mebibytes, rounded up to the next whole mebibyte.
+	StorageCapacityMiB uint64
 	// ServiceType is the controller service exposure mode, using the
 	// caas.ServiceType values "cluster", "loadbalancer" or "external".
 	ServiceType string
