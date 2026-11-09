@@ -106,12 +106,24 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	// storage-default-filesystem-source model config, resolving to the
 	// Kubernetes storage pool that the storage pool import derives from
 	// the same key. A model that nominates its own default filesystem
-	// source is not overridden.
+	// source is not overridden. A pool of the derived name that
+	// provisions from another class is left alone, mirroring 3.6, where
+	// the existing pool won regardless of its attributes.
 	if cloudType == jujucloud.CloudTypeKubernetes {
 		if class, ok := attrs[k8sconstants.WorkloadStorageKey].(string); ok && class != "" {
 			if source, ok := attrs[config.StorageDefaultFilesystemSourceKey].(string); !ok || source == "" {
-				attrs[config.StorageDefaultFilesystemSourceKey] =
-					storage.PoolNameForStorageClass(class)
+				poolName := storage.PoolNameForStorageClass(class)
+				usable := true
+				for _, pool := range model.StoragePools() {
+					if pool.Name() != poolName {
+						continue
+					}
+					poolClass, _ := pool.Attributes()[k8sconstants.StorageClass].(string)
+					usable = poolClass == class
+				}
+				if usable {
+					attrs[config.StorageDefaultFilesystemSourceKey] = poolName
+				}
 			}
 		}
 	}

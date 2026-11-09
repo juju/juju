@@ -234,9 +234,15 @@ func importWorkloadStoragePool(model description.Model) {
 	}
 	poolName := internalstorage.PoolNameForStorageClass(class)
 	for _, pool := range model.StoragePools() {
-		if pool.Name() == poolName {
-			return
+		if pool.Name() != poolName {
+			continue
 		}
+		// A pool of the derived name already exists: the model keeps it
+		// and nothing is synthesized, mirroring 3.6, where the existing
+		// pool won regardless of its attributes. When it provisions from a
+		// class other than the nominated one, the model config import
+		// correspondingly leaves the default filesystem source unset.
+		return
 	}
 	model.AddStoragePool(description.StoragePoolArgs{
 		Name:     poolName,

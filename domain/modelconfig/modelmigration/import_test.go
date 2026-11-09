@@ -130,6 +130,91 @@ func (s *importSuite) TestKubernetesWorkloadStorageBecomesDefaultSource(c *tc.C)
 	c.Check(model.Config(), tc.DeepEquals, originalConfig)
 }
 
+func (s *importSuite) TestKubernetesWorkloadAndOperatorStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// A 3.x model carrying both storage keys: workload-storage is
+	// translated while operator-storage (removed with podspec charms) is
+	// dropped by the schema filter with no side effect.
+	model := description.NewModel(description.ModelArgs{
+		Config: map[string]any{
+			"type":             "kubernetes",
+			"workload-storage": "ceph-rbd",
+			"operator-storage": "otherstorage",
+		},
+	})
+
+	s.service.EXPECT().GetModelConfigSchemaForCloudType(gomock.Any(), "kubernetes").Return(configschema.Fields{
+		"type":                              configschema.Attr{},
+		"storage-default-filesystem-source": configschema.Attr{},
+	}, nil)
+	s.service.EXPECT().SetModelConfig(gomock.Any(), map[string]any{
+		"type":                              "kubernetes",
+		"storage-default-filesystem-source": "ceph-rbd",
+	}).Return(nil)
+
+	op := s.newImportOperation(c)
+	err := op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestKubernetesWorkloadStorageDottedClassBecomesPoolSource(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// The derived default source must name the pool the storage pool
+	// import derives from the same key: here the class contains dots, so
+	// the derived pool name differs from the class name.
+	model := description.NewModel(description.ModelArgs{
+		Config: map[string]any{
+			"type":             "kubernetes",
+			"workload-storage": "ebs.csi.aws.com",
+		},
+	})
+
+	s.service.EXPECT().GetModelConfigSchemaForCloudType(gomock.Any(), "kubernetes").Return(configschema.Fields{
+		"type":                              configschema.Attr{},
+		"storage-default-filesystem-source": configschema.Attr{},
+	}, nil)
+	s.service.EXPECT().SetModelConfig(gomock.Any(), map[string]any{
+		"type":                              "kubernetes",
+		"storage-default-filesystem-source": "ebs-csi-aws-com",
+	}).Return(nil)
+
+	op := s.newImportOperation(c)
+	err := op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestKubernetesWorkloadStorageForeignPoolNotRedirected(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// A pool of the derived name that provisions from another class is
+	// left alone: the nomination gets no default source, mirroring 3.6,
+	// where the existing pool won regardless of its attributes.
+	model := description.NewModel(description.ModelArgs{
+		Config: map[string]any{
+			"type":             "kubernetes",
+			"workload-storage": "fast.ssd",
+		},
+	})
+	model.AddStoragePool(description.StoragePoolArgs{
+		Name:       "fast-ssd",
+		Provider:   "kubernetes",
+		Attributes: map[string]any{"storage-class": "other-sc"},
+	})
+
+	s.service.EXPECT().GetModelConfigSchemaForCloudType(gomock.Any(), "kubernetes").Return(configschema.Fields{
+		"type": configschema.Attr{},
+	}, nil)
+	s.service.EXPECT().SetModelConfig(gomock.Any(), map[string]any{
+		"type": "kubernetes",
+	}).Return(nil)
+
+	op := s.newImportOperation(c)
+	err := op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *importSuite) TestKubernetesWorkloadStorageRespectsDefaultSource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
