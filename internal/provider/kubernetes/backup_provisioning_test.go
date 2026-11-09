@@ -40,12 +40,19 @@ func backupSourceClient(agent, charm string) *fake.Clientset {
 			Spec: core.PodSpec{NodeName: "worker", Containers: []core.Container{
 				{Name: apiServerContainerName, Image: agent},
 				{Name: constants.ApplicationCharmContainer, Image: charm},
-				// A third container exercises the reader's skip branch for
-				// sidecars that are neither the API server nor the charm.
-				{Name: "juju-sidebar", Image: "example.com/sidecar:latest"},
-			}, Volumes: []core.Volume{{Name: storageName,
-				VolumeSource: core.VolumeSource{PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{ClaimName: "controller-storage"}},
-			}}}, Status: core.PodStatus{ContainerStatuses: []core.ContainerStatus{
+				// A third container carrying an invalid image pins the
+				// skip branch: sidecars that are neither the API server
+				// nor the charm are skipped, not validated.
+				{Name: "juju-sidebar", Image: "invalid image"},
+			}, Volumes: []core.Volume{
+				// A differently-named claim-backed volume, whose claim
+				// carries no storage class, pins the storage filter: only
+				// the controller's storage volume contributes facts.
+				{Name: "other-data", VolumeSource: core.VolumeSource{PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{ClaimName: "unrelated-claim"}}},
+				{Name: storageName,
+					VolumeSource: core.VolumeSource{PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{ClaimName: "controller-storage"}},
+				},
+			}}, Status: core.PodStatus{ContainerStatuses: []core.ContainerStatus{
 				{Name: apiServerContainerName, State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
 				{Name: constants.ApplicationCharmContainer, State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
 			}}},
@@ -53,6 +60,7 @@ func backupSourceClient(agent, charm string) *fake.Clientset {
 		&core.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "controller-storage", Namespace: "controller-source"},
 			Spec:   core.PersistentVolumeClaimSpec{StorageClassName: &class},
 			Status: core.PersistentVolumeClaimStatus{Capacity: core.ResourceList{core.ResourceStorage: resource.MustParse("64Gi")}}},
+		&core.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "unrelated-claim", Namespace: "controller-source"}},
 		&core.Service{ObjectMeta: metav1.ObjectMeta{Name: constants.ControllerServiceName, Namespace: "controller-source", Annotations: map[string]string{"source": "retained"}},
 			Spec: core.ServiceSpec{Type: core.ServiceTypeLoadBalancer, LoadBalancerIP: "192.0.2.1", ExternalIPs: []string{"192.0.2.2"}}},
 	)

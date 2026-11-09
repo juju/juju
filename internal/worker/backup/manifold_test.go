@@ -140,7 +140,9 @@ func (s *manifoldSuite) TestInvalidConfiguration(c *tc.C) {
 		{func(c *ManifoldConfig) { c.ObjectStoreName = "" }, "empty ObjectStoreName not valid"},
 		{func(c *ManifoldConfig) { c.ProviderTrackerName = "" }, "empty ProviderTrackerName not valid"},
 		{func(c *ManifoldConfig) { c.ControllerTag = nil }, "nil ControllerTag not valid"},
+		{func(c *ManifoldConfig) { c.ControllerTag = names.NewModelTag("model") }, "ControllerTag kind names.ModelTag not valid"},
 		{func(c *ManifoldConfig) { c.ControllerNodeID = "" }, "empty ControllerNodeID not valid"},
+		{func(c *ManifoldConfig) { c.ControllerUUID = "bad" }, "parsing controller UUID: .*"},
 		{func(c *ManifoldConfig) { c.LocalConfigReader = nil }, "nil LocalConfigReader not valid"},
 		{func(c *ManifoldConfig) { c.Clock = nil }, "nil Clock not valid"},
 		{func(c *ManifoldConfig) { c.Logger = nil }, "nil Logger not valid"},
@@ -238,7 +240,7 @@ func (s *manifoldSuite) TestStartInjectsK8sCreator(c *tc.C) {
 
 // TestReadControllerProvisioning verifies that the provisioning read
 // resolves the controller model's cloud spec and config, creates an
-// ephemeral CAAS provider, and reports each failure with its cause.
+// ephemeral Kubernetes provider, and reports each failure with its cause.
 func (s *manifoldSuite) TestReadControllerProvisioning(c *tc.C) {
 	worker := workerConfig(c)
 	controllerUUID, err := uuid.UUIDFromString(worker.ControllerUUID)
@@ -314,12 +316,7 @@ func (s *manifoldSuite) TestReadControllerProvisioning(c *tc.C) {
 			provider: test.provider,
 			err:      test.factoryErr,
 		}
-		config := ManifoldConfig{
-			ControllerUUID:   worker.ControllerUUID,
-			ControllerNodeID: "7",
-		}
-
-		result, err := readControllerProvisioning(c.Context(), test.cloudSpec, test.modelConfig, factory, config)
+		result, err := readControllerProvisioning(c.Context(), test.cloudSpec, test.modelConfig, factory, controllerUUID, "7")
 		if test.wantErr != "" {
 			c.Check(err, tc.ErrorMatches, test.wantErr)
 		} else {
@@ -356,12 +353,14 @@ func (s *manifoldSuite) TestK8sProvisioningReaderDefersServices(c *tc.C) {
 		c.Check(model.String(), tc.Equals, "controller-model")
 		return nil, failure
 	}}
-	read := k8sProvisioningReader(getter, providerFactoryStub{}, ManifoldConfig{
+	controllerUUID, err := uuid.UUIDFromString("0d9138be-335f-4b63-9aab-685c5c895f1f")
+	c.Assert(err, tc.ErrorIsNil)
+	read := k8sProvisioningReader(getter, providerFactoryStub{}, controllerUUID, ManifoldConfig{
 		ControllerModelUUID: "controller-model",
 	})
 	c.Check(calls, tc.Equals, 0)
 
-	_, err := read(c.Context())
+	_, err = read(c.Context())
 	c.Check(err, tc.ErrorIs, failure)
 	c.Check(calls, tc.Equals, 1)
 }

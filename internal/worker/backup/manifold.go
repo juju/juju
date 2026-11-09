@@ -75,11 +75,19 @@ func (c ManifoldConfig) Validate() error {
 	if c.ControllerTag == nil {
 		return errors.NotValidf("nil ControllerTag")
 	}
+	switch c.ControllerTag.(type) {
+	case names.MachineTag, names.ControllerAgentTag:
+	default:
+		return errors.NotValidf("ControllerTag kind %T", c.ControllerTag)
+	}
 	if !isMachineControllerTag(c.ControllerTag) && c.ProviderTrackerName == "" {
 		return errors.NotValidf("empty ProviderTrackerName")
 	}
 	if c.ControllerNodeID == "" {
 		return errors.NotValidf("empty ControllerNodeID")
+	}
+	if _, err := uuid.UUIDFromString(c.ControllerUUID); err != nil {
+		return errors.Annotate(err, "parsing controller UUID")
 	}
 	if c.LocalConfigReader == nil {
 		return errors.NotValidf("nil LocalConfigReader")
@@ -151,6 +159,13 @@ func Manifold(c ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 
+			// The controller UUID is parsed once at start; the provider
+			// config takes its typed form.
+			controllerUUID, err := uuid.UUIDFromString(c.ControllerUUID)
+			if err != nil {
+				return nil, errors.Annotate(err, "parsing controller UUID")
+			}
+
 			// The manifold, not the archive generator, knows the creator
 			// to build: the machine creator, or the Kubernetes creator
 			// with the provisioning read resolved from the provider
@@ -161,7 +176,7 @@ func Manifold(c ManifoldConfig) dependency.Manifold {
 				if err := getter.Get(c.ProviderTrackerName, &providerFactory); err != nil {
 					return nil, err
 				}
-				readProvisioning := k8sProvisioningReader(domainServices, providerFactory, c)
+				readProvisioning := k8sProvisioningReader(domainServices, providerFactory, controllerUUID, c)
 				newCreator = func(cfg CreatorConfig) (corebackups.BackupCreator, error) {
 					return c.NewK8sCreator(K8sCreatorConfig{
 						CreatorConfig:          cfg,
@@ -278,6 +293,7 @@ func (g archiveGenerator) Create(ctx context.Context, notes string) (*corebackup
 func k8sProvisioningReader(
 	domainServices services.DomainServicesGetter,
 	providerFactory providertracker.ProviderFactory,
+	controllerUUID uuid.UUID,
 	config ManifoldConfig,
 ) func(context.Context) (*corebackups.K8sControllerMetadata, error) {
 	return func(ctx context.Context) (*corebackups.K8sControllerMetadata, error) {
@@ -287,7 +303,7 @@ func k8sProvisioningReader(
 		}
 		return readControllerProvisioning(ctx,
 			controllerServices.ModelProvider(), controllerServices.Config(),
-			providerFactory, config)
+			providerFactory, controllerUUID, config.ControllerNodeID)
 	}
 }
 
@@ -298,17 +314,14 @@ func readControllerProvisioning(
 	modelProvider cloudSpecProvider,
 	configProvider modelConfigProvider,
 	providerFactory providertracker.ProviderFactory,
-	config ManifoldConfig,
+	controllerUUID uuid.UUID,
+	controllerNodeID string,
 ) (*corebackups.K8sControllerMetadata, error) {
 	spec, err := modelProvider.GetCloudSpec(ctx)
 	if err != nil {
 		return nil, err
 	}
 	cfg, err := configProvider.ModelConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-	controllerUUID, err := uuid.UUIDFromString(config.ControllerUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -322,7 +335,7 @@ func readControllerProvisioning(
 	if !ok {
 		return nil, internalerrors.New("provider cannot read controller provisioning").Add(coreerrors.NotSupported)
 	}
-	return reader.ReadControllerProvisioning(ctx, config.ControllerNodeID)
+	return reader.ReadControllerProvisioning(ctx, controllerNodeID)
 }
 
 // modelExportDomainServices narrows the model services factory for the creator.

@@ -41,29 +41,11 @@ func (k *kubernetesClient) ReadControllerProvisioning(
 		return nil, errors.Capture(err)
 	}
 	result := &backups.K8sControllerMetadata{Architecture: node.Status.NodeInfo.Architecture}
-	for _, container := range pod.Spec.Containers {
-		switch container.Name {
-		case apiServerContainerName, constants.ApplicationCharmContainer:
-		default:
-			continue
-		}
-		if err := docker.ValidateDockerRegistryPath(container.Image); err != nil {
-			return nil, errors.Errorf("source container %q: %w", container.Name, err)
-		}
-		if container.Name == apiServerContainerName {
-			result.AgentImage = container.Image
-		} else {
-			result.CharmImage = container.Image
-		}
-	}
-	if result.AgentImage == "" {
-		return nil, errors.New("source controller pod has no agent image")
-	}
-	if result.CharmImage == "" {
-		return nil, errors.New("source controller pod has no charm image")
-	}
 	if result.Architecture == "" {
 		return nil, errors.New("source controller node has no architecture")
+	}
+	if err := k.readSourceImages(pod.Spec.Containers, result); err != nil {
+		return nil, err
 	}
 	for _, volume := range pod.Spec.Volumes {
 		if volume.Name != storageName || volume.PersistentVolumeClaim == nil {
@@ -110,4 +92,34 @@ func (k *kubernetesClient) ReadControllerProvisioning(
 	result.ExternalName, result.ExternalIPs = service.Spec.ExternalName, service.Spec.ExternalIPs
 	result.LoadBalancerIP, result.ServiceAnnotations = service.Spec.LoadBalancerIP, service.Annotations
 	return result, nil
+}
+
+// readSourceImages records the running controller's agent and charm
+// images from its source containers. An image that is not a valid
+// registry reference, or a missing agent or charm image, is an error.
+func (k *kubernetesClient) readSourceImages(
+	containers []core.Container, result *backups.K8sControllerMetadata,
+) error {
+	for _, container := range containers {
+		var target *string
+		switch container.Name {
+		case apiServerContainerName:
+			target = &result.AgentImage
+		case constants.ApplicationCharmContainer:
+			target = &result.CharmImage
+		default:
+			continue
+		}
+		if err := docker.ValidateDockerRegistryPath(container.Image); err != nil {
+			return errors.Errorf("source container %q: %w", container.Name, err)
+		}
+		*target = container.Image
+	}
+	if result.AgentImage == "" {
+		return errors.New("source controller pod has no agent image")
+	}
+	if result.CharmImage == "" {
+		return errors.New("source controller pod has no charm image")
+	}
+	return nil
 }
