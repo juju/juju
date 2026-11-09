@@ -51,7 +51,7 @@ bootstrap_controller_36() {
 	file="${TEST_DIR}/${name}-bootstrap36.log"
 
 	local bootstrap_args=()
-	if [[ ${BOOTSTRAP_PROVIDER} == "ec2" ]]; then
+	if [[ ${BOOTSTRAP_PROVIDER:-} == "ec2" && -n ${PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS} ]]; then
 		bootstrap_args+=(--bootstrap-constraints "${PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS}")
 	fi
 	if [[ -n ${BOOTSTRAP_ARCH:-} ]]; then

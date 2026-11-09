@@ -1,8 +1,9 @@
 #!/usr/bin/env -S bash -e
 
 # Minimum controller resources for public-cloud integration tests. These match
-# small 2-vCPU/8-GiB instances and Azure's minimum 30-GiB OS disk.
-PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS="cores=2 mem=8G root-disk=30G"
+# small 2-vCPU/8-GiB instances and Azure's minimum 30-GiB OS disk. Set to a
+# different value (or empty, to disable) to change the default for a whole run.
+PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS="${PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS:-cores=2 mem=8G root-disk=30G}"
 
 # juju_version will return only the version and not the architecture/substrate
 # of the juju version. If JUJU_VERSION is defined in CI this value will be used
@@ -318,9 +319,15 @@ pre_bootstrap() {
 	export BOOTSTRAP_ADDITIONAL_ARGS=${BOOTSTRAP_ADDITIONAL_ARGS:-}
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"ec2" | "gce" | "azure")
-		# Keep caller-supplied constraints last so individual tests can override
-		# these defaults when they need a different controller machine.
-		export BOOTSTRAP_ADDITIONAL_ARGS="--bootstrap-constraints='${PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS}' ${BOOTSTRAP_ADDITIONAL_ARGS}"
+		# --bootstrap-constraints accumulates and repeated constraint keys
+		# fail to parse, so the default sizing is skipped when the caller
+		# already passes their own --bootstrap-constraints; that value wins.
+		# Setting PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS to an empty value
+		# disables the default sizing entirely.
+		if [[ -n ${PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS} &&
+			${BOOTSTRAP_ADDITIONAL_ARGS} != *--bootstrap-constraints* ]]; then
+			export BOOTSTRAP_ADDITIONAL_ARGS="--bootstrap-constraints='${PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS}' ${BOOTSTRAP_ADDITIONAL_ARGS}"
+		fi
 		;;
 	"vsphere")
 		echo "====> Creating image simplestream metadata for juju ($(green "${version}:${cloud}"))"
