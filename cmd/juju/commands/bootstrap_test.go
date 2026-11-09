@@ -22,7 +22,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	"k8s.io/apimachinery/pkg/util/validation"
 	k8scmd "k8s.io/client-go/tools/clientcmd"
 
 	"github.com/juju/juju/api/jujuclient"
@@ -39,7 +38,6 @@ import (
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
-	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -730,362 +728,16 @@ func (s *BootstrapSuite) TestBootstrapAttributesInheritedOverDefaults(c *tc.C) {
 	})
 }
 
-func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageConfig(c *tc.C) {
-	// Test that a workload storage class recorded on a Kubernetes cloud
-	// schedules a storage pool for the recorded class as the controller
-	// model's default filesystem source, and that the class itself is not
-	// leaked into model config.
+func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageCloudConfigIgnored(c *tc.C) {
+	// The 3.x workload-storage cloud attribute is ignored with a warning
+	// pointing at the supported mechanism, and no longer synthesises a
+	// storage pool or a default filesystem source.
 	s.patchVersion(c)
+	s.tw.Clear()
 
 	ctx := cmdtesting.Context(c)
 	env := &openstack.Environ{}
 	provider := env.Provider()
-
-	testCloud := cloud.Cloud{
-		Name: "myk8s",
-		Type: cloud.CloudTypeKubernetes,
-		Config: map[string]any{
-			"workload-storage": "ceph-rbd",
-		},
-	}
-	configs, err := s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Check(configs.storagePools, tc.DeepEquals, map[string]storage.Attrs{
-		"ceph-rbd": {
-			"name":          "ceph-rbd",
-			"type":          "kubernetes",
-			"storage-class": "ceph-rbd",
-		},
-	})
-	c.Check(configs.bootstrapModel["storage-default-filesystem-source"], tc.Equals, "ceph-rbd")
-	_, inheritedDefault := configs.inheritedControllerAttrs["storage-default-filesystem-source"]
-	c.Check(inheritedDefault, tc.IsFalse)
-	_, workloadInModel := configs.bootstrapModel["workload-storage"]
-	c.Check(workloadInModel, tc.IsFalse)
-	_, workloadInherited := configs.inheritedControllerAttrs["workload-storage"]
-	c.Check(workloadInherited, tc.IsFalse)
-	c.Check(configs.controllerStorageClass, tc.Equals, "ceph-rbd")
-}
-
-func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageUserOverride(c *tc.C) {
-	// A workload storage class supplied with --config overrides the class
-	// recorded on the cloud: the synthesized pool uses the overridden
-	// class.
-	s.patchVersion(c)
-
-	ctx := cmdtesting.Context(c)
-	env := &openstack.Environ{}
-	provider := env.Provider()
-
-	err := s.bootstrapCmd.config.Set("workload-storage=override-sc")
-	c.Assert(err, tc.ErrorIsNil)
-
-	testCloud := cloud.Cloud{
-		Name: "myk8s",
-		Type: cloud.CloudTypeKubernetes,
-		Config: map[string]any{
-			"workload-storage": "ceph-rbd",
-		},
-	}
-	configs, err := s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Check(configs.storagePools, tc.DeepEquals, map[string]storage.Attrs{
-		"override-sc": {
-			"name":          "override-sc",
-			"type":          "kubernetes",
-			"storage-class": "override-sc",
-		},
-	})
-	c.Check(configs.bootstrapModel["storage-default-filesystem-source"], tc.Equals, "override-sc")
-	c.Check(configs.controllerStorageClass, tc.Equals, "override-sc")
-}
-
-func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageUserOverrideNoCloudRecord(c *tc.C) {
-	// A workload storage class supplied with --config synthesises the
-	// controller model's pool even when no class is recorded on the
-	// cloud: synthesis comes solely from the user's config.
-	s.patchVersion(c)
-
-	ctx := cmdtesting.Context(c)
-	env := &openstack.Environ{}
-	provider := env.Provider()
-
-	err := s.bootstrapCmd.config.Set("workload-storage=override-sc")
-	c.Assert(err, tc.ErrorIsNil)
-
-	testCloud := cloud.Cloud{
-		Name: "myk8s",
-		Type: cloud.CloudTypeKubernetes,
-	}
-	configs, err := s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Check(configs.storagePools, tc.DeepEquals, map[string]storage.Attrs{
-		"override-sc": {
-			"name":          "override-sc",
-			"type":          "kubernetes",
-			"storage-class": "override-sc",
-		},
-	})
-	c.Check(configs.bootstrapModel["storage-default-filesystem-source"], tc.Equals, "override-sc")
-	c.Check(configs.controllerStorageClass, tc.Equals, "override-sc")
-}
-
-func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageRegionOverride(c *tc.C) {
-	// A workload storage class recorded on the region overrides the class
-	// recorded on the cloud, mirroring the 3.6 configuration merge: the
-	// synthesized pool uses the regional class.
-	s.patchVersion(c)
-
-	ctx := cmdtesting.Context(c)
-	env := &openstack.Environ{}
-	provider := env.Provider()
-
-	s.bootstrapCmd.Region = "region-1"
-	defer func() { s.bootstrapCmd.Region = "" }()
-
-	testCloud := cloud.Cloud{
-		Name: "myk8s",
-		Type: cloud.CloudTypeKubernetes,
-		Config: map[string]any{
-			"workload-storage": "ceph-rbd",
-		},
-		Regions: []cloud.Region{{Name: "region-1"}},
-		RegionConfig: cloud.RegionConfig{
-			"region-1": {
-				"workload-storage": "regional-sc",
-			},
-		},
-	}
-	configs, err := s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Check(configs.storagePools, tc.DeepEquals, map[string]storage.Attrs{
-		"regional-sc": {
-			"name":          "regional-sc",
-			"type":          "kubernetes",
-			"storage-class": "regional-sc",
-		},
-	})
-	c.Check(configs.bootstrapModel["storage-default-filesystem-source"], tc.Equals, "regional-sc")
-	c.Check(configs.controllerStorageClass, tc.Equals, "regional-sc")
-}
-
-func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageRegionOnly(c *tc.C) {
-	// A workload storage class recorded on the region alone, with no class
-	// recorded on the cloud, synthesises the controller model's pool from
-	// the regional class.
-	s.patchVersion(c)
-
-	ctx := cmdtesting.Context(c)
-	env := &openstack.Environ{}
-	provider := env.Provider()
-
-	s.bootstrapCmd.Region = "region-1"
-	defer func() { s.bootstrapCmd.Region = "" }()
-
-	testCloud := cloud.Cloud{
-		Name:    "myk8s",
-		Type:    cloud.CloudTypeKubernetes,
-		Regions: []cloud.Region{{Name: "region-1"}},
-		RegionConfig: cloud.RegionConfig{
-			"region-1": {
-				"workload-storage": "regional-sc",
-			},
-		},
-	}
-	configs, err := s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Check(configs.storagePools, tc.DeepEquals, map[string]storage.Attrs{
-		"regional-sc": {
-			"name":          "regional-sc",
-			"type":          "kubernetes",
-			"storage-class": "regional-sc",
-		},
-	})
-	c.Check(configs.bootstrapModel["storage-default-filesystem-source"], tc.Equals, "regional-sc")
-	c.Check(configs.controllerStorageClass, tc.Equals, "regional-sc")
-}
-
-func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageUserOverrideRegion(c *tc.C) {
-	// A workload storage class supplied with --config overrides both the
-	// regional and the cloud-recorded classes.
-	s.patchVersion(c)
-
-	ctx := cmdtesting.Context(c)
-	env := &openstack.Environ{}
-	provider := env.Provider()
-
-	err := s.bootstrapCmd.config.Set("workload-storage=override-sc")
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.bootstrapCmd.Region = "region-1"
-	defer func() { s.bootstrapCmd.Region = "" }()
-
-	testCloud := cloud.Cloud{
-		Name: "myk8s",
-		Type: cloud.CloudTypeKubernetes,
-		Config: map[string]any{
-			"workload-storage": "ceph-rbd",
-		},
-		Regions: []cloud.Region{{Name: "region-1"}},
-		RegionConfig: cloud.RegionConfig{
-			"region-1": {
-				"workload-storage": "regional-sc",
-			},
-		},
-	}
-	configs, err := s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Check(configs.storagePools, tc.DeepEquals, map[string]storage.Attrs{
-		"override-sc": {
-			"name":          "override-sc",
-			"type":          "kubernetes",
-			"storage-class": "override-sc",
-		},
-	})
-	c.Check(configs.bootstrapModel["storage-default-filesystem-source"], tc.Equals, "override-sc")
-	c.Check(configs.controllerStorageClass, tc.Equals, "override-sc")
-}
-
-func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageRegionDefaultSource(c *tc.C) {
-	// A default filesystem source recorded on the region suppresses pool
-	// synthesis: the user has taken control of default charm storage in
-	// that region themselves.
-	s.patchVersion(c)
-
-	ctx := cmdtesting.Context(c)
-	env := &openstack.Environ{}
-	provider := env.Provider()
-
-	s.bootstrapCmd.Region = "region-1"
-	defer func() { s.bootstrapCmd.Region = "" }()
-
-	testCloud := cloud.Cloud{
-		Name: "myk8s",
-		Type: cloud.CloudTypeKubernetes,
-		Config: map[string]any{
-			"workload-storage": "ceph-rbd",
-		},
-		Regions: []cloud.Region{{Name: "region-1"}},
-		RegionConfig: cloud.RegionConfig{
-			"region-1": {
-				"storage-default-filesystem-source": "my-pool",
-			},
-		},
-	}
-	configs, err := s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Check(configs.storagePools, tc.HasLen, 0)
-	// The regional default source itself reaches the model config via the
-	// region config merge; the synthesis must not have replaced it.
-	c.Check(configs.bootstrapModel["storage-default-filesystem-source"], tc.Equals, "my-pool")
-	c.Check(configs.controllerStorageClass, tc.Equals, "ceph-rbd")
-}
-
-func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageReservedPoolName(c *tc.C) {
-	// Test that a workload storage class colliding with one of the model's
-	// default storage pool names does not shadow the seeded pool.
-	s.patchVersion(c)
-
-	ctx := cmdtesting.Context(c)
-	env := &openstack.Environ{}
-	provider := env.Provider()
-
-	testCloud := cloud.Cloud{
-		Name: "myk8s",
-		Type: cloud.CloudTypeKubernetes,
-		Config: map[string]any{
-			"workload-storage": "kubernetes",
-		},
-	}
-	configs, err := s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Check(configs.storagePools, tc.DeepEquals, map[string]storage.Attrs{
-		"k8s-kubernetes": {
-			"name":          "k8s-kubernetes",
-			"type":          "kubernetes",
-			"storage-class": "kubernetes",
-		},
-	})
-	c.Check(configs.bootstrapModel["storage-default-filesystem-source"], tc.Equals, "k8s-kubernetes")
-	c.Check(configs.controllerStorageClass, tc.Equals, "kubernetes")
-}
-
-func (s *BootstrapSuite) TestBootstrapK8sWorkloadStoragePoolNames(c *tc.C) {
-	s.patchVersion(c)
-	ctx := cmdtesting.Context(c)
-	env := &openstack.Environ{}
-	provider := env.Provider()
-
-	for _, test := range []struct {
-		className string
-		poolName  string
-	}{
-		{className: "fast.ssd", poolName: "fast-ssd"},
-		{className: "0-fast", poolName: "k8s-0-fast"},
-		{className: "0", poolName: "k8s-0"},
-		{className: "a", poolName: "a"},
-		{className: "kubernetes", poolName: "k8s-kubernetes"},
-		{className: "rootfs", poolName: "k8s-rootfs"},
-		{className: "tmpfs", poolName: "k8s-tmpfs"},
-		{
-			className: "rootfs" + strings.Repeat("-", 122) + "a",
-			poolName:  "k8s-rootfs",
-		},
-		{
-			className: strings.Repeat("a", 63) + "." + strings.Repeat("b", 63) +
-				"." + strings.Repeat("c", 63) + "." + strings.Repeat("d", 61),
-			poolName: strings.Repeat("a", 63) + "-" + strings.Repeat("b", 63),
-		},
-		{
-			className: "0." + strings.Repeat("a", 63) + "." + strings.Repeat("b", 63),
-			poolName:  "k8s-0-" + strings.Repeat("a", 63) + "-" + strings.Repeat("b", 58),
-		},
-	} {
-		c.Run(test.className, func(t *testing.T) {
-			c := &tc.TBC{TB: t}
-			c.Assert(validation.IsDNS1123Subdomain(test.className), tc.HasLen, 0)
-			testCloud := cloud.Cloud{
-				Name: "myk8s",
-				Type: cloud.CloudTypeKubernetes,
-				Config: map[string]any{
-					"workload-storage": test.className,
-				},
-			}
-			configs, err := s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
-			c.Assert(err, tc.ErrorIsNil)
-			c.Check(configs.storagePools, tc.DeepEquals, map[string]storage.Attrs{
-				test.poolName: {
-					"name":          test.poolName,
-					"type":          "kubernetes",
-					"storage-class": test.className,
-				},
-			})
-			c.Check(domainstorage.IsValidStoragePoolName(test.poolName), tc.IsTrue)
-			c.Check(configs.bootstrapModel["storage-default-filesystem-source"], tc.Equals, test.poolName)
-			c.Check(configs.controllerStorageClass, tc.Equals, test.className)
-		})
-	}
-}
-
-func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageUserDefaultSource(c *tc.C) {
-	// Test that no pool is synthesized when the user has nominated their
-	// own default filesystem source.
-	s.patchVersion(c)
-
-	ctx := cmdtesting.Context(c)
-	env := &openstack.Environ{}
-	provider := env.Provider()
-
-	err := s.bootstrapCmd.config.Set("storage-default-filesystem-source=rootfs")
-	c.Assert(err, tc.ErrorIsNil)
 
 	testCloud := cloud.Cloud{
 		Name: "myk8s",
@@ -1098,109 +750,104 @@ func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageUserDefaultSource(c *tc.
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(configs.storagePools, tc.HasLen, 0)
-	c.Check(configs.bootstrapModel["storage-default-filesystem-source"], tc.Equals, "rootfs")
-	c.Check(configs.controllerStorageClass, tc.Equals, "ceph-rbd")
-}
-
-func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageModelDefaultSource(c *tc.C) {
-	// No pool is synthesized when the user has nominated a default
-	// filesystem source as a model default.
-	s.patchVersion(c)
-
-	ctx := cmdtesting.Context(c)
-	env := &openstack.Environ{}
-	provider := env.Provider()
-
-	err := s.bootstrapCmd.modelDefaults.Set("storage-default-filesystem-source=rootfs")
-	c.Assert(err, tc.ErrorIsNil)
-
-	testCloud := cloud.Cloud{
-		Name: "myk8s",
-		Type: cloud.CloudTypeKubernetes,
-		Config: map[string]any{
-			"workload-storage": "ceph-rbd",
-		},
-	}
-	configs, err := s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Check(configs.storagePools, tc.HasLen, 0)
-	c.Check(configs.bootstrapModel["storage-default-filesystem-source"], tc.Equals, "rootfs")
-	c.Check(configs.controllerStorageClass, tc.Equals, "ceph-rbd")
-}
-
-func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageCloudDefaultSource(c *tc.C) {
-	// No pool is synthesized when the default filesystem source is
-	// nominated in the cloud's config attributes.
-	s.patchVersion(c)
-
-	ctx := cmdtesting.Context(c)
-	env := &openstack.Environ{}
-	provider := env.Provider()
-
-	testCloud := cloud.Cloud{
-		Name: "myk8s",
-		Type: cloud.CloudTypeKubernetes,
-		Config: map[string]any{
-			"workload-storage":                  "ceph-rbd",
-			"storage-default-filesystem-source": "rootfs",
-		},
-	}
-	configs, err := s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Check(configs.storagePools, tc.HasLen, 0)
-	c.Check(configs.bootstrapModel["storage-default-filesystem-source"], tc.Equals, "rootfs")
-	c.Check(configs.controllerStorageClass, tc.Equals, "ceph-rbd")
-}
-
-func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageUserPool(c *tc.C) {
-	// Test that no pool is synthesized when the user has scheduled their
-	// own storage pool for the controller model.
-	s.patchVersion(c)
-
-	ctx := cmdtesting.Context(c)
-	env := &openstack.Environ{}
-	provider := env.Provider()
-
-	for _, attr := range []string{
-		"name=my-storage",
-		"type=kubernetes",
-		"storage-class=ceph-rbd",
-	} {
-		err := s.bootstrapCmd.storagePool.Set(attr)
-		c.Assert(err, tc.ErrorIsNil)
-	}
-
-	testCloud := cloud.Cloud{
-		Name: "myk8s",
-		Type: cloud.CloudTypeKubernetes,
-		Config: map[string]any{
-			"workload-storage": "ceph-rbd",
-		},
-	}
-	configs, err := s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Check(configs.storagePools, tc.DeepEquals, map[string]storage.Attrs{
-		"my-storage": {
-			"name":          "my-storage",
-			"type":          "kubernetes",
-			"storage-class": "ceph-rbd",
-		},
-	})
-	// The user did not nominate a default filesystem source, so the
-	// model's storage resolves through their pool unaided.
 	_, hasDefault := configs.bootstrapModel["storage-default-filesystem-source"]
 	c.Check(hasDefault, tc.IsFalse)
-	c.Check(configs.controllerStorageClass, tc.Equals, "ceph-rbd")
+	_, workloadInModel := configs.bootstrapModel["workload-storage"]
+	c.Check(workloadInModel, tc.IsFalse)
+
+	s.checkWorkloadStorageWarning(c, 1, `ignoring workload-storage="ceph-rbd" set by cloud "myk8s"`)
+}
+
+func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageUserConfigIgnored(c *tc.C) {
+	// A --config workload-storage attribute is ignored with a warning too,
+	// and does not leak into the controller model's config.
+	s.patchVersion(c)
+	s.tw.Clear()
+
+	ctx := cmdtesting.Context(c)
+	env := &openstack.Environ{}
+	provider := env.Provider()
+
+	err := s.bootstrapCmd.config.Set("workload-storage=override-sc")
+	c.Assert(err, tc.ErrorIsNil)
+
+	testCloud := cloud.Cloud{
+		Name: "myk8s",
+		Type: cloud.CloudTypeKubernetes,
+	}
+	configs, err := s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(configs.storagePools, tc.HasLen, 0)
+	_, hasDefault := configs.bootstrapModel["storage-default-filesystem-source"]
+	c.Check(hasDefault, tc.IsFalse)
+	_, workloadInModel := configs.bootstrapModel["workload-storage"]
+	c.Check(workloadInModel, tc.IsFalse)
+
+	s.checkWorkloadStorageWarning(c, 1, `ignoring workload-storage="override-sc" set by the --config workload-storage attribute`)
+}
+
+func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageRegionConfigIgnored(c *tc.C) {
+	// A workload-storage attribute recorded for the bootstrapped region is
+	// ignored with a warning.
+	s.patchVersion(c)
+	s.tw.Clear()
+
+	ctx := cmdtesting.Context(c)
+	env := &openstack.Environ{}
+	provider := env.Provider()
+
+	s.bootstrapCmd.Region = "my-region"
+
+	testCloud := cloud.Cloud{
+		Name: "myk8s",
+		Type: cloud.CloudTypeKubernetes,
+		RegionConfig: cloud.RegionConfig{
+			"my-region": {"workload-storage": "ceph-rbd"},
+		},
+	}
+	configs, err := s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(configs.storagePools, tc.HasLen, 0)
+
+	s.checkWorkloadStorageWarning(c, 1,
+		`ignoring workload-storage="ceph-rbd" set by region "my-region" of cloud "myk8s"`)
+}
+
+func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageWarnsOnce(c *tc.C) {
+	// When the key is set in several places, the most specific origin is
+	// warned about once.
+	s.patchVersion(c)
+	s.tw.Clear()
+
+	ctx := cmdtesting.Context(c)
+	env := &openstack.Environ{}
+	provider := env.Provider()
+
+	err := s.bootstrapCmd.config.Set("workload-storage=override-sc")
+	c.Assert(err, tc.ErrorIsNil)
+
+	testCloud := cloud.Cloud{
+		Name: "myk8s",
+		Type: cloud.CloudTypeKubernetes,
+		Config: map[string]any{
+			"workload-storage": "ceph-rbd",
+		},
+	}
+	_, err = s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.checkWorkloadStorageWarning(c, 1,
+		`ignoring workload-storage="override-sc" set by the --config workload-storage attribute`)
 }
 
 func (s *BootstrapSuite) TestBootstrapNonK8sWorkloadStorageConfig(c *tc.C) {
-	// Test that a workload storage class recorded on a non-Kubernetes
-	// cloud does nothing: the bootstrap only understands the attribute for
-	// Kubernetes clouds.
+	// The workload-storage attribute on a non-Kubernetes cloud does
+	// nothing: no warning is emitted and the key is not routed to the
+	// controller model's config.
 	s.patchVersion(c)
+	s.tw.Clear()
 
 	ctx := cmdtesting.Context(c)
 	env := &openstack.Environ{}
@@ -1217,11 +864,29 @@ func (s *BootstrapSuite) TestBootstrapNonK8sWorkloadStorageConfig(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(configs.storagePools, tc.HasLen, 0)
-	_, hasDefault := configs.bootstrapModel["storage-default-filesystem-source"]
-	c.Check(hasDefault, tc.IsFalse)
 	_, workloadInModel := configs.bootstrapModel["workload-storage"]
 	c.Check(workloadInModel, tc.IsFalse)
-	c.Check(configs.controllerStorageClass, tc.Equals, "")
+
+	for _, e := range s.tw.Log() {
+		c.Check(strings.Contains(e.Message, "workload-storage"), tc.IsFalse,
+			tc.Commentf("unexpected log: %v", e))
+	}
+}
+
+// checkWorkloadStorageWarning asserts that exactly count warnings about an
+// ignored workload-storage key were logged, the first of which contains
+// the supplied prefix.
+func (s *BootstrapSuite) checkWorkloadStorageWarning(c *tc.C, count int, prefix string) {
+	var found []loggo.Entry
+	for _, e := range s.tw.Log() {
+		if e.Level == loggo.WARNING && strings.HasPrefix(e.Message, "ignoring workload-storage=") {
+			found = append(found, e)
+		}
+	}
+	c.Check(found, tc.HasLen, count)
+	if count > 0 {
+		c.Check(found[0].Message, tc.Matches, prefix+".*")
+	}
 }
 
 func (s *BootstrapSuite) TestBootstrapRegionConfigNoRegionSpecified(c *tc.C) {

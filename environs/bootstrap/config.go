@@ -76,14 +76,15 @@ const (
 	// list of external IPs for a k8s controller of type external.
 	ControllerExternalIPs = "controller-external-ips"
 
-	// WorkloadStorageKey is the cloud config attribute recording the name
-	// of the Kubernetes storage class used to provision workload storage,
-	// including the persistent volume claim backing the controller, for a
-	// Kubernetes cloud. It is a bootstrap-only attribute: add-k8s records
-	// it on the cloud and bootstrap consumes it when creating the default
-	// storage pool for the controller model. The same value is defined,
-	// with the Kubernetes provider context, in
-	// internal/provider/kubernetes/constants.
+	// WorkloadStorageKey was the 3.x cloud config attribute recording the
+	// name of the Kubernetes storage class used to provision workload
+	// storage for a Kubernetes cloud. The key is removed in 4.0: it is
+	// registered here only so 3.x cloud definitions are routed (and
+	// ignored, with a warning) rather than leaking into model config.
+	// Workload storage is nominated with the
+	// storage-default-filesystem-source model config and a matching
+	// storage pool. The same value is defined, with the Kubernetes
+	// provider context, in internal/provider/kubernetes/constants.
 	WorkloadStorageKey = "workload-storage"
 
 	// OperatorStorageKey was the 3.x cloud config attribute used to record
@@ -499,21 +500,20 @@ var configSchema = configschema.Fields{
 			string(caas.ServiceExternal),
 		},
 	},
-	// WorkloadStorageKey and OperatorStorageKey are accepted so that a
-	// Kubernetes cloud's recorded storage choices are valid bootstrap
-	// attributes. The values are consumed (workload storage) or ignored
-	// (operator storage, unsupported since 4.0) when constructing the
-	// controller model's storage configuration.
+	// WorkloadStorageKey and OperatorStorageKey are 3.x Kubernetes cloud
+	// attributes, removed in 4.0. Both remain registered (and
+	// bootstrap-only) so 3.x cloud definitions are valid but ignored when
+	// constructing the controller model's storage configuration.
 	WorkloadStorageKey: {
 		Type:  configschema.Tstring,
 		Group: configschema.JujuGroup,
 		Description: `
-The name of the Kubernetes storage class recorded on the cloud by
-add-k8s --storage, used for the controller's persistent volume claim.
-A value supplied with --config overrides the recorded class. The
-nominated class is used for the controller's persistent volume claim
-even when the controller model's default storage is configured
-separately.`,
+A 3.x Kubernetes cloud attribute, removed in Juju 4.0 and accepted
+only so existing cloud definitions remain valid; the value is ignored.
+Nominate workload storage by scheduling a Kubernetes storage pool and
+making it the default filesystem source: --storage-pool
+name=<pool>,type=kubernetes,storage-class=<class> and --config
+storage-default-filesystem-source=<pool>.`,
 	},
 	OperatorStorageKey: {
 		Type:  configschema.Tstring,

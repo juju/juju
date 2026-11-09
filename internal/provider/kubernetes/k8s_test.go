@@ -275,8 +275,10 @@ func (s *K8sBrokerSuite) TestBootstrapNoWorkloadStorage(c *tc.C) {
 	msg := strings.Replace(err.Error(), "\n", "", -1)
 	c.Check(msg, tc.Equals, strings.Replace(`controller storage class not identified.
 Juju could not find a Kubernetes storage class for the controller's
-persistent volume claim. Record one with add-k8s --storage=<name>, or
-bootstrap with --storage-pool name=<pool>,type=kubernetes,storage-class=<name>`, "\n", "", -1))
+persistent volume claim. Nominate one with
+--storage-pool name=<pool>,type=kubernetes,storage-class=<name> and
+--config storage-default-filesystem-source=<pool>, or ensure the
+cluster has a default storage class`, "\n", "", -1))
 }
 
 func (s *K8sBrokerSuite) TestBootstrap(c *tc.C) {
@@ -316,29 +318,7 @@ func (s *K8sBrokerSuite) TestBootstrapWithDefaultFilesystemSourcePool(c *tc.C) {
 	sc := storagev1.StorageClass{
 		ObjectMeta: v1.ObjectMeta{Name: "ceph-rbd"},
 	}
-	result, err := s.bootstrapWithStoragePools(c, "ceph-rbd", "",
-		map[string]storage.Attrs{
-			"ceph-rbd": {
-				"name":          "ceph-rbd",
-				"type":          "kubernetes",
-				"storage-class": "ceph-rbd",
-			},
-		},
-		[]storagev1.StorageClass{sc},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result.Arch, tc.Equals, "amd64")
-	c.Check(result.CaasBootstrapFinalizer, tc.NotNil)
-}
-
-func (s *K8sBrokerSuite) TestBootstrapWithStoragePoolNoDefaultSource(c *tc.C) {
-	// With no default filesystem source nominated, the single Kubernetes
-	// storage pool scheduled for the controller model resolves the
-	// controller's storage class.
-	sc := storagev1.StorageClass{
-		ObjectMeta: v1.ObjectMeta{Name: "ceph-rbd"},
-	}
-	result, err := s.bootstrapWithStoragePools(c, "", "",
+	result, err := s.bootstrapWithStoragePools(c, "ceph-rbd",
 		map[string]storage.Attrs{
 			"ceph-rbd": {
 				"name":          "ceph-rbd",
@@ -356,7 +336,7 @@ func (s *K8sBrokerSuite) TestBootstrapWithStoragePoolNoDefaultSource(c *tc.C) {
 func (s *K8sBrokerSuite) TestBootstrapWithNominatedStorageClassMissing(c *tc.C) {
 	// A storage class resolved from the scheduled storage pools must exist
 	// on the cluster: the bootstrap fails naming the missing class.
-	_, err := s.bootstrapWithStoragePools(c, "ceph-rbd", "",
+	_, err := s.bootstrapWithStoragePools(c, "ceph-rbd",
 		map[string]storage.Attrs{
 			"ceph-rbd": {
 				"name":          "ceph-rbd",
@@ -369,10 +349,16 @@ func (s *K8sBrokerSuite) TestBootstrapWithNominatedStorageClassMissing(c *tc.C) 
 	c.Check(err, tc.ErrorMatches, `nominated storage "ceph-rbd" not found`)
 }
 
-func (s *K8sBrokerSuite) TestBootstrapWithStoragePoolClassMissing(c *tc.C) {
-	// As above, but for a pool resolved without a default filesystem
-	// source.
-	_, err := s.bootstrapWithStoragePools(c, "", "",
+func (s *K8sBrokerSuite) TestBootstrapWithStoragePoolClassNotOnCluster(c *tc.C) {
+	// A storage pool scheduled without a default filesystem source does
+	// not drive the controller's persistent volume claim: the claim's
+	// class is discovered on the cluster instead, so a pool naming a
+	// class that does not exist yet does not block bootstrap. This
+	// restores the 3.6 workflow of creating the class later.
+	sc := storagev1.StorageClass{
+		ObjectMeta: v1.ObjectMeta{Name: "some-storage"},
+	}
+	result, err := s.bootstrapWithStoragePools(c, "",
 		map[string]storage.Attrs{
 			"ceph-rbd": {
 				"name":          "ceph-rbd",
@@ -380,9 +366,37 @@ func (s *K8sBrokerSuite) TestBootstrapWithStoragePoolClassMissing(c *tc.C) {
 				"storage-class": "ceph-rbd",
 			},
 		},
-		nil,
+		[]storagev1.StorageClass{sc},
 	)
-	c.Check(err, tc.ErrorMatches, `nominated storage "ceph-rbd" not found`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Arch, tc.Equals, "amd64")
+	c.Check(result.CaasBootstrapFinalizer, tc.NotNil)
+}
+
+func (s *K8sBrokerSuite) TestBootstrapWithDefaultSourceUndefinedPool(c *tc.C) {
+	// A default filesystem source naming a pool that is neither scheduled
+	// for the controller model nor seeded by the model is a
+	// misconfiguration: fail fast instead of silently falling back to
+	// cluster discovery. No cluster query is made.
+	cfg, err := s.cfg.Apply(testing.Attrs{
+		config.StorageDefaultFilesystemSourceKey: "cephfs",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	s.cfg = cfg
+
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	ctx := envtesting.BootstrapContext(c.Context(), c)
+	_, err = s.broker.Bootstrap(ctx, environs.BootstrapParams{
+		ControllerConfig:        testing.FakeControllerConfig(),
+		BootstrapConstraints:    constraints.MustParse("mem=3.5G"),
+		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+	})
+	c.Check(err, tc.ErrorMatches,
+		`storage pool "cephfs" named by storage-default-filesystem-source is not defined in the controller model.`+
+			` Schedule it with --storage-pool name=cephfs,type=kubernetes,storage-class=<class>,`+
+			` or name one of the pools seeded in every model: kubernetes, rootfs, tmpfs`)
 }
 
 func (s *K8sBrokerSuite) TestBootstrapWithDefaultSourceSeededPool(c *tc.C) {
@@ -393,63 +407,12 @@ func (s *K8sBrokerSuite) TestBootstrapWithDefaultSourceSeededPool(c *tc.C) {
 	sc := storagev1.StorageClass{
 		ObjectMeta: v1.ObjectMeta{Name: "some-storage"},
 	}
-	result, err := s.bootstrapWithStoragePools(c, "kubernetes", "", nil,
+	result, err := s.bootstrapWithStoragePools(c, "kubernetes", nil,
 		[]storagev1.StorageClass{sc},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Arch, tc.Equals, "amd64")
 	c.Check(result.CaasBootstrapFinalizer, tc.NotNil)
-}
-
-func (s *K8sBrokerSuite) TestBootstrapWithPoolsAmbiguousClasses(c *tc.C) {
-	// Storage pools scheduled for the controller model that name distinct
-	// storage classes nominate none of them: the controller's storage class
-	// is discovered on the cluster instead. Were one of the classes
-	// nominated, the bootstrap would fail naming it, as the cluster does
-	// not expose "sc-a".
-	sc := storagev1.StorageClass{
-		ObjectMeta: v1.ObjectMeta{Name: "sc-b"},
-	}
-	result, err := s.bootstrapWithStoragePools(c, "", "",
-		map[string]storage.Attrs{
-			"p1": {
-				"name":          "p1",
-				"type":          "kubernetes",
-				"storage-class": "sc-a",
-			},
-			"p2": {
-				"name":          "p2",
-				"type":          "kubernetes",
-				"storage-class": "sc-b",
-			},
-		},
-		[]storagev1.StorageClass{sc},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result.Arch, tc.Equals, "amd64")
-	c.Check(result.CaasBootstrapFinalizer, tc.NotNil)
-}
-
-func (s *K8sBrokerSuite) TestBootstrapWithPoolsAgreeingClass(c *tc.C) {
-	// Storage pools scheduled for the controller model that all name the
-	// same storage class nominate that class: the bootstrap fails naming
-	// it, as the cluster does not expose it.
-	_, err := s.bootstrapWithStoragePools(c, "", "",
-		map[string]storage.Attrs{
-			"p1": {
-				"name":          "p1",
-				"type":          "kubernetes",
-				"storage-class": "ceph-rbd",
-			},
-			"p2": {
-				"name":          "p2",
-				"type":          "kubernetes",
-				"storage-class": "ceph-rbd",
-			},
-		},
-		nil,
-	)
-	c.Check(err, tc.ErrorMatches, `nominated storage "ceph-rbd" not found`)
 }
 
 func (s *K8sBrokerSuite) TestBootstrapWithDefaultSourceWrongTypePool(c *tc.C) {
@@ -461,7 +424,7 @@ func (s *K8sBrokerSuite) TestBootstrapWithDefaultSourceWrongTypePool(c *tc.C) {
 	sc := storagev1.StorageClass{
 		ObjectMeta: v1.ObjectMeta{Name: "some-storage"},
 	}
-	result, err := s.bootstrapWithStoragePools(c, "rootfs-pool", "",
+	result, err := s.bootstrapWithStoragePools(c, "rootfs-pool",
 		map[string]storage.Attrs{
 			"rootfs-pool": {
 				"name":          "rootfs-pool",
@@ -480,78 +443,13 @@ func (s *K8sBrokerSuite) TestBootstrapWithDefaultSourceWrongTypePool(c *tc.C) {
 	c.Check(result.CaasBootstrapFinalizer, tc.NotNil)
 }
 
-func (s *K8sBrokerSuite) TestBootstrapWithControllerStorageClass(c *tc.C) {
-	// The storage class recorded on the cloud nominates the controller's
-	// persistent volume claim even when the user has configured the
-	// controller model's default storage themselves: here the default
-	// filesystem source names a pool the model seeds, which cannot
-	// resolve a class. The recorded class is used rather than discovery,
-	// which would fail here as the cluster exposes no default class.
-	sc := storagev1.StorageClass{
-		ObjectMeta: v1.ObjectMeta{Name: "ceph-rbd"},
-	}
-	result, err := s.bootstrapWithStoragePools(c, "rootfs", "ceph-rbd", nil,
-		[]storagev1.StorageClass{sc},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result.Arch, tc.Equals, "amd64")
-	c.Check(result.CaasBootstrapFinalizer, tc.NotNil)
-}
-
-func (s *K8sBrokerSuite) TestBootstrapWithControllerStorageClassNonK8sPool(c *tc.C) {
-	// A storage pool the user scheduled that does not use the Kubernetes
-	// storage provider cannot resolve a class, so the one recorded on the
-	// cloud is used: user pool configuration does not void the recorded
-	// nomination.
-	sc := storagev1.StorageClass{
-		ObjectMeta: v1.ObjectMeta{Name: "ceph-rbd"},
-	}
-	result, err := s.bootstrapWithStoragePools(c, "", "ceph-rbd",
-		map[string]storage.Attrs{
-			"cephfs": {
-				"name": "cephfs",
-				"type": "cephfs",
-			},
-		},
-		[]storagev1.StorageClass{sc},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result.Arch, tc.Equals, "amd64")
-	c.Check(result.CaasBootstrapFinalizer, tc.NotNil)
-}
-
-func (s *K8sBrokerSuite) TestBootstrapWithControllerStorageClassMissing(c *tc.C) {
-	// A storage class recorded on the cloud that is no longer on the
-	// cluster is reported by name, not left to discovery.
-	_, err := s.bootstrapWithStoragePools(c, "rootfs", "ceph-rbd", nil, nil)
-	c.Check(err, tc.ErrorMatches, `nominated storage "ceph-rbd" not found`)
-}
-
-func (s *K8sBrokerSuite) TestBootstrapPoolsOverrideControllerStorageClass(c *tc.C) {
-	// Storage pools scheduled for the controller model that resolve a
-	// class take precedence over the class recorded on the cloud: the
-	// bootstrap fails naming the pools' class, which the cluster does
-	// not expose.
-	_, err := s.bootstrapWithStoragePools(c, "", "recorded-sc",
-		map[string]storage.Attrs{
-			"p1": {
-				"name":          "p1",
-				"type":          "kubernetes",
-				"storage-class": "sc-from-pool",
-			},
-		},
-		nil,
-	)
-	c.Check(err, tc.ErrorMatches, `nominated storage "sc-from-pool" not found`)
-}
-
 // bootstrapWithStoragePools runs a controller bootstrap with the supplied
 // storage-default-filesystem-source model config value, storage pools
 // scheduled for the controller model, and storage classes present on the
 // cluster, returning the bootstrap result.
 func (s *K8sBrokerSuite) bootstrapWithStoragePools(
 	c *tc.C,
-	defaultSource, controllerStorageClass string,
+	defaultSource string,
 	pools map[string]storage.Attrs,
 	storageClasses []storagev1.StorageClass,
 ) (*environs.BootstrapResult, error) {
@@ -577,7 +475,6 @@ func (s *K8sBrokerSuite) bootstrapWithStoragePools(
 		BootstrapConstraints:    constraints.MustParse("mem=3.5G"),
 		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		StoragePools:            pools,
-		ControllerStorageClass:  controllerStorageClass,
 	}
 	return s.broker.Bootstrap(ctx, bootstrapParams)
 }
