@@ -4,6 +4,7 @@
 package modelmigration
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -676,6 +677,217 @@ func (s *importSuite) TestImportVolumesZeroLength(c *tc.C) {
 	// Act
 	op := s.newImportOperation()
 	err := op.Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestImportWorkloadStoragePool tests that a 3.x workload-storage model
+// config nomination is represented as a Kubernetes storage pool named
+// after the recorded class, so charm storage in the imported model
+// provisions from the nominated class.
+func (s *importSuite) TestImportWorkloadStoragePool(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.CAAS.String(),
+		Config: map[string]any{
+			"workload-storage": "ceph-rbd",
+		},
+	})
+	ctx := c.Context()
+
+	gomock.InOrder(
+		s.service.EXPECT().
+			GetStoragePoolsToImport(ctx, gomock.Any()).
+			DoAndReturn(func(ctx context.Context, pools []description.StoragePool) (
+				[]domainstorage.ImportStoragePoolParams,
+				[]domainstorage.RecommendedStoragePoolParams,
+				error,
+			) {
+				c.Assert(pools, tc.HasLen, 1)
+				c.Check(pools[0].Name(), tc.Equals, "ceph-rbd")
+				c.Check(pools[0].Provider(), tc.Equals, "kubernetes")
+				c.Check(pools[0].Attributes(), tc.DeepEquals, map[string]any{
+					"storage-class": "ceph-rbd",
+				})
+				return nil, nil, nil
+			}),
+		s.service.EXPECT().ImportStoragePools(ctx, nil).Return(nil),
+		s.service.EXPECT().SetRecommendedStoragePools(ctx, nil).Return(nil),
+	)
+
+	// Act
+	op := s.newStoragePoolImportOperation()
+	err := op.Execute(ctx, model)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestImportWorkloadStoragePoolRespectsDefaultSource tests that no pool is
+// derived from the 3.x workload-storage nomination when the model already
+// nominates its own default filesystem source.
+func (s *importSuite) TestImportWorkloadStoragePoolRespectsDefaultSource(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.CAAS.String(),
+		Config: map[string]any{
+			"workload-storage":                  "ceph-rbd",
+			"storage-default-filesystem-source": "my-pool",
+		},
+	})
+	ctx := c.Context()
+
+	gomock.InOrder(
+		s.service.EXPECT().
+			GetStoragePoolsToImport(ctx, gomock.Any()).
+			DoAndReturn(func(ctx context.Context, pools []description.StoragePool) (
+				[]domainstorage.ImportStoragePoolParams,
+				[]domainstorage.RecommendedStoragePoolParams,
+				error,
+			) {
+				// No pool is derived from the nomination.
+				c.Assert(pools, tc.HasLen, 0)
+				return nil, nil, nil
+			}),
+		s.service.EXPECT().ImportStoragePools(ctx, nil).Return(nil),
+		s.service.EXPECT().SetRecommendedStoragePools(ctx, nil).Return(nil),
+	)
+
+	// Act
+	op := s.newStoragePoolImportOperation()
+	err := op.Execute(ctx, model)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestImportWorkloadStoragePoolExistingPool tests that no duplicate pool is
+// derived when the model description already defines a pool of the derived
+// name.
+func (s *importSuite) TestImportWorkloadStoragePoolExistingPool(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.CAAS.String(),
+		Config: map[string]any{
+			"workload-storage": "ceph-rbd",
+		},
+	})
+	model.AddStoragePool(description.StoragePoolArgs{
+		Name:       "ceph-rbd",
+		Provider:   "kubernetes",
+		Attributes: map[string]any{"storage-class": "ceph-rbd"},
+	})
+	ctx := c.Context()
+
+	gomock.InOrder(
+		s.service.EXPECT().
+			GetStoragePoolsToImport(ctx, gomock.Any()).
+			DoAndReturn(func(ctx context.Context, pools []description.StoragePool) (
+				[]domainstorage.ImportStoragePoolParams,
+				[]domainstorage.RecommendedStoragePoolParams,
+				error,
+			) {
+				// The description's own pool is not shadowed or duplicated.
+				c.Assert(pools, tc.HasLen, 1)
+				c.Check(pools[0].Attributes(), tc.DeepEquals, map[string]any{
+					"storage-class": "ceph-rbd",
+				})
+				return nil, nil, nil
+			}),
+		s.service.EXPECT().ImportStoragePools(ctx, nil).Return(nil),
+		s.service.EXPECT().SetRecommendedStoragePools(ctx, nil).Return(nil),
+	)
+
+	// Act
+	op := s.newStoragePoolImportOperation()
+	err := op.Execute(ctx, model)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestImportWorkloadStoragePoolIAAS tests that the 3.x workload-storage
+// nomination, only meaningful for Kubernetes models, does not add a pool
+// to models of other types.
+func (s *importSuite) TestImportWorkloadStoragePoolIAAS(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+		Config: map[string]any{
+			"workload-storage": "ceph-rbd",
+		},
+	})
+	ctx := c.Context()
+
+	gomock.InOrder(
+		s.service.EXPECT().
+			GetStoragePoolsToImport(ctx, gomock.Any()).
+			DoAndReturn(func(ctx context.Context, pools []description.StoragePool) (
+				[]domainstorage.ImportStoragePoolParams,
+				[]domainstorage.RecommendedStoragePoolParams,
+				error,
+			) {
+				c.Assert(pools, tc.HasLen, 0)
+				return nil, nil, nil
+			}),
+		s.service.EXPECT().ImportStoragePools(ctx, nil).Return(nil),
+		s.service.EXPECT().SetRecommendedStoragePools(ctx, nil).Return(nil),
+	)
+
+	// Act
+	op := s.newStoragePoolImportOperation()
+	err := op.Execute(ctx, model)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestImportWorkloadStoragePoolReservedName tests that a class named after
+// one of the pools seeded in every Kubernetes model derives a prefixed
+// pool name that does not shadow the seeded pool.
+func (s *importSuite) TestImportWorkloadStoragePoolReservedName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.CAAS.String(),
+		Config: map[string]any{
+			"workload-storage": "kubernetes",
+		},
+	})
+	ctx := c.Context()
+
+	gomock.InOrder(
+		s.service.EXPECT().
+			GetStoragePoolsToImport(ctx, gomock.Any()).
+			DoAndReturn(func(ctx context.Context, pools []description.StoragePool) (
+				[]domainstorage.ImportStoragePoolParams,
+				[]domainstorage.RecommendedStoragePoolParams,
+				error,
+			) {
+				c.Assert(pools, tc.HasLen, 1)
+				c.Check(pools[0].Name(), tc.Equals, "k8s-kubernetes")
+				c.Check(pools[0].Attributes(), tc.DeepEquals, map[string]any{
+					"storage-class": "kubernetes",
+				})
+				return nil, nil, nil
+			}),
+		s.service.EXPECT().ImportStoragePools(ctx, nil).Return(nil),
+		s.service.EXPECT().SetRecommendedStoragePools(ctx, nil).Return(nil),
+	)
+
+	// Act
+	op := s.newStoragePoolImportOperation()
+	err := op.Execute(ctx, model)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)

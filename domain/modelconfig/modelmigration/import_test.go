@@ -4,6 +4,7 @@
 package modelmigration
 
 import (
+	"maps"
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
@@ -89,6 +90,90 @@ func (s *importSuite) TestModelConfig(c *tc.C) {
 
 	op := s.newImportOperation(c)
 	err = op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestKubernetesWorkloadStorageBecomesDefaultSource(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{
+		Config: map[string]any{
+			"name":             "foo",
+			"uuid":             "a677bdfd-3c96-46b2-912f-38e25faceaf7",
+			"type":             "kubernetes",
+			"workload-storage": "ceph-rbd",
+		},
+	})
+	originalConfig := maps.Clone(model.Config())
+
+	// The 4.0 Kubernetes model config schema has no workload-storage key,
+	// and the 3.x nomination becomes the default filesystem source.
+	s.service.EXPECT().GetModelConfigSchemaForCloudType(gomock.Any(), "kubernetes").Return(configschema.Fields{
+		"name":                              configschema.Attr{},
+		"uuid":                              configschema.Attr{},
+		"type":                              configschema.Attr{},
+		"storage-default-filesystem-source": configschema.Attr{},
+	}, nil)
+	s.service.EXPECT().SetModelConfig(gomock.Any(), map[string]any{
+		"name":                              "foo",
+		"uuid":                              "a677bdfd-3c96-46b2-912f-38e25faceaf7",
+		"type":                              "kubernetes",
+		"storage-default-filesystem-source": "ceph-rbd",
+	}).Return(nil)
+
+	op := s.newImportOperation(c)
+	err := op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The description's own config is not mutated: the storage pool
+	// import reads the workload-storage key from it.
+	c.Check(model.Config(), tc.DeepEquals, originalConfig)
+}
+
+func (s *importSuite) TestKubernetesWorkloadStorageRespectsDefaultSource(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{
+		Config: map[string]any{
+			"type":                              "kubernetes",
+			"workload-storage":                  "ceph-rbd",
+			"storage-default-filesystem-source": "my-pool",
+		},
+	})
+
+	s.service.EXPECT().GetModelConfigSchemaForCloudType(gomock.Any(), "kubernetes").Return(configschema.Fields{
+		"type":                              configschema.Attr{},
+		"storage-default-filesystem-source": configschema.Attr{},
+	}, nil)
+	s.service.EXPECT().SetModelConfig(gomock.Any(), map[string]any{
+		"type":                              "kubernetes",
+		"storage-default-filesystem-source": "my-pool",
+	}).Return(nil)
+
+	op := s.newImportOperation(c)
+	err := op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestNonKubernetesWorkloadStorageNotTranslated(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{
+		Config: map[string]any{
+			"type":             "ec2",
+			"workload-storage": "ceph-rbd",
+		},
+	})
+
+	s.service.EXPECT().GetModelConfigSchemaForCloudType(gomock.Any(), "ec2").Return(configschema.Fields{
+		"type": configschema.Attr{},
+	}, nil)
+	s.service.EXPECT().SetModelConfig(gomock.Any(), map[string]any{
+		"type": "ec2",
+	}).Return(nil)
+
+	op := s.newImportOperation(c)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

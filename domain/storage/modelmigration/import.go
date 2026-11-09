@@ -17,7 +17,9 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storage/service"
 	"github.com/juju/juju/domain/storage/state"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
 
@@ -180,6 +182,14 @@ func (i *importStoragePoolOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute the import on the storage pools contained in the model.
 func (i *importStoragePoolOperation) Execute(ctx context.Context, model description.Model) error {
+	// Models migrated from 3.x Kubernetes clusters may nominate their
+	// workload storage class with the workload-storage model config key,
+	// removed in 4.0. The model config import represents the nomination
+	// as the model's default filesystem source; create the Kubernetes
+	// storage pool the source resolves to, so charm storage in the
+	// imported model provisions from the nominated class.
+	importWorkloadStoragePool(model)
+
 	// TODO: Combine the storage pool import calls into a single service call,
 	// and stop passing through a description entity into the service layer.
 	// This must be done ASAP
@@ -199,6 +209,42 @@ func (i *importStoragePoolOperation) Execute(ctx context.Context, model descript
 	}
 
 	return nil
+}
+
+// importWorkloadStoragePool adds a Kubernetes storage pool to the model
+// description, representing the 3.x workload-storage model config
+// nomination that the model config import translates into the model's
+// default filesystem source. The pool is named after the recorded class,
+// using the same derivation as the model config import so the source
+// resolves to it. Nothing is added when the model nominates its own
+// default filesystem source, or already defines a pool of that name.
+func importWorkloadStoragePool(model description.Model) {
+	if model.Type() != coremodel.CAAS.String() {
+		return
+	}
+	attrs := model.Config()
+	class, ok := attrs[k8sconstants.WorkloadStorageKey].(string)
+	if !ok || class == "" {
+		return
+	}
+	if source, ok := attrs[config.StorageDefaultFilesystemSourceKey].(string); ok && source != "" {
+		// The model nominates its own default filesystem source; the
+		// 3.x nomination is not needed.
+		return
+	}
+	poolName := internalstorage.PoolNameForStorageClass(class)
+	for _, pool := range model.StoragePools() {
+		if pool.Name() == poolName {
+			return
+		}
+	}
+	model.AddStoragePool(description.StoragePoolArgs{
+		Name:     poolName,
+		Provider: string(k8sconstants.StorageProviderType),
+		Attributes: map[string]any{
+			k8sconstants.StorageClass: class,
+		},
+	})
 }
 
 // importStorageOperation imports the storage instances, volumes and filesystems

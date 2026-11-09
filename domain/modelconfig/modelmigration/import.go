@@ -5,10 +5,12 @@ package modelmigration
 
 import (
 	"context"
+	"maps"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v12"
 
+	jujucloud "github.com/juju/juju/cloud"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
@@ -17,6 +19,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/internal/errors"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/storage"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -80,7 +84,10 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute the import on the model config description.
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
-	attrs := model.Config()
+	// The description returns its own config map; work on a copy so the
+	// filtering below does not mutate the description, which other import
+	// operations also read.
+	attrs := maps.Clone(model.Config())
 
 	// If we don't have any model config, then there is something seriously
 	// wrong. In this case, we should return an error.
@@ -91,6 +98,22 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	cloudType, ok := attrs[config.TypeKey].(string)
 	if !ok {
 		return errors.Errorf("model config missing cloud type").Add(coreerrors.NotValid)
+	}
+
+	// Models migrated from 3.x Kubernetes clusters may nominate their
+	// workload storage class with the workload-storage model config key,
+	// removed in 4.0. Represent the nomination with the
+	// storage-default-filesystem-source model config, resolving to the
+	// Kubernetes storage pool that the storage pool import derives from
+	// the same key. A model that nominates its own default filesystem
+	// source is not overridden.
+	if cloudType == jujucloud.CloudTypeKubernetes {
+		if class, ok := attrs[k8sconstants.WorkloadStorageKey].(string); ok && class != "" {
+			if source, ok := attrs[config.StorageDefaultFilesystemSourceKey].(string); !ok || source == "" {
+				attrs[config.StorageDefaultFilesystemSourceKey] =
+					storage.PoolNameForStorageClass(class)
+			}
+		}
 	}
 
 	// Models imported from older controllers may contain config attributes
