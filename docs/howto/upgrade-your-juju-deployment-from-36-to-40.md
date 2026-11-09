@@ -452,3 +452,28 @@ entities for the same offer.
 Juju `4.0` allows a maximum of one SAAS per remote offer in a consuming model.
 
 If importing multiple SAAS entities for the same offer, Juju `4.0` will unify them into a single SAAS.
+
+### 17. `add-k8s --storage` removed; `workload-storage` cloud keys ignored
+
+Juju `3.6` recorded the storage class for Kubernetes workload storage with `juju add-k8s --storage`, or with the
+`workload-storage` (and `operator-storage`) keys in a cloud definition. Juju `4.0` removes this mechanism: storage
+provisioning is always driven by the storage pools in the model and their configuration.
+
+- `juju add-k8s` no longer accepts `--storage`. A cluster where no storage class can be detected is still added, with
+  a warning; the storage class is nominated at bootstrap time instead.
+- Cloud definitions may still contain `workload-storage` / `operator-storage`; both keys are ignored with a warning
+  and no longer affect storage provisioning.
+
+To nominate the storage class for a Kubernetes controller's persistent volume claim and the controller model's charm
+storage, bootstrap with a Kubernetes storage pool and make it the model's default filesystem source:
+
+```text
+juju bootstrap <k8s cloud> \
+    --storage-pool name=<pool>,type=kubernetes,storage-class=<class> \
+    --config storage-default-filesystem-source=<pool>
+```
+
+Models migrated from `3.6` that carry the `workload-storage` model configuration key are translated on import: Juju
+creates a Kubernetes storage pool named after the recorded class (with the class as its `storage-class` attribute)
+and makes it the model's `storage-default-filesystem-source`, unless the model already nominates its own default
+filesystem source.
