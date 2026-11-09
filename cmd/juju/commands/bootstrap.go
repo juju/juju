@@ -39,7 +39,6 @@ import (
 	corestorage "github.com/juju/juju/core/storage"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/deployment/charm"
-	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -1443,7 +1442,7 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		if controllerStorageClass != "" &&
 			len(storagePools) == 0 &&
 			!defaultFilesystemSourceConfigured(userConfigAttrs, modelDefaultConfigAttrs, cloud.RegionConfig[c.Region], cloud.Config) {
-			poolName := storagePoolNameForClass(controllerStorageClass)
+			poolName := storage.PoolNameForStorageClass(controllerStorageClass)
 			storagePools = map[string]storage.Attrs{
 				poolName: {
 					corestorage.BootstrapStoragePoolNameKey: poolName,
@@ -1639,42 +1638,6 @@ func defaultFilesystemSourceConfigured(attrMaps ...map[string]any) bool {
 		}
 	}
 	return false
-}
-
-// storagePoolNameForClass derives a Juju pool name from a Kubernetes storage
-// class name. Class names allow dots, leading digits and lengths beyond Juju's
-// pool name limit. Only the pool name is changed, not its storage-class attribute.
-// No user pools are scheduled when this is called, so names need not be unique
-// across classes, but must not shadow the seeded Kubernetes pools.
-func storagePoolNameForClass(className string) string {
-	poolName := strings.Map(func(r rune) rune {
-		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' ||
-			r >= '0' && r <= '9' || r == '-' {
-			return r
-		}
-		return '-'
-	}, className)
-	poolName = strings.Trim(poolName, "-")
-	if poolName == "" || poolName[0] >= '0' && poolName[0] <= '9' {
-		poolName = "k8s-" + poolName
-	}
-	if len(poolName) > domainstorage.StoragePoolNameMaxLength {
-		poolName = poolName[:domainstorage.StoragePoolNameMaxLength]
-	}
-	poolName = strings.TrimRight(poolName, "-")
-	if reservedStoragePoolName(poolName) {
-		poolName = "k8s-" + poolName
-	}
-	return poolName
-}
-
-// reservedStoragePoolName reports whether the supplied storage pool name
-// collides with one of the default pools Juju seeds in every model, which
-// the pool scheduled for the controller model must not shadow.
-func reservedStoragePoolName(name string) bool {
-	return name == string(k8sconstants.StorageProviderType) ||
-		name == string(k8sconstants.StorageProviderTypeRootfs) ||
-		name == string(k8sconstants.StorageProviderTypeTmpfs)
 }
 
 // runInteractive queries the user about bootstrap config interactively at the
