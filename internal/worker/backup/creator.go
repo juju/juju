@@ -16,6 +16,7 @@ import (
 	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	coreversion "github.com/juju/juju/core/version"
 	domainexport "github.com/juju/juju/domain/export"
@@ -30,6 +31,7 @@ type Creator struct {
 	controllerUUID      string
 	controllerModelUUID coremodel.UUID
 	machineID           string
+	isMachine           bool
 	dataDir             string
 	logDir              string
 
@@ -116,10 +118,12 @@ func NewCreator(cfg CreatorConfig) (*Creator, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	_, isMachine := cfg.MachineTag.(names.MachineTag)
 	return &Creator{
 		controllerUUID:        cfg.ControllerUUID,
 		controllerModelUUID:   cfg.ControllerModelUUID,
 		machineID:             cfg.MachineTag.Id(),
+		isMachine:             isMachine,
 		dataDir:               cfg.DataDir,
 		logDir:                cfg.LogDir,
 		controllerExport:      cfg.ControllerExport,
@@ -324,6 +328,18 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 	hostname, _ := os.Hostname()
 
 	meta := corebackups.NewMetadata(c.clock.Now())
+	// Kubernetes controllers have no machine, so the field is left empty.
+	// Machine controllers resolve their cloud instance ID from the
+	// controller model. The lookup is fatal, unlike machine status
+	// rendering, which tolerates an unprovisioned machine: the archive
+	// metadata must not record a missing or incorrect instance ID.
+	instanceID := ""
+	if c.isMachine {
+		instanceID, err = c.machineInstanceID(ctx)
+		if err != nil {
+			return nil, "", nil, errors.Errorf("recording controller machine instance ID: %w", err)
+		}
+	}
 	meta.Notes = notes
 	meta.Origin = corebackups.Origin{
 		Model:    c.controllerModelUUID.String(),
@@ -337,7 +353,7 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 	meta.Controller = corebackups.ControllerMetadata{
 		UUID:              c.controllerUUID,
 		MachineID:         c.machineID,
-		MachineInstanceID: corebackups.UnknownString,
+		MachineInstanceID: instanceID,
 		HANodes:           int64(len(controllerIDs)),
 	}
 
@@ -371,4 +387,30 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 	completed = true
 	cleanup := func() { _ = os.RemoveAll(tmpDir) }
 	return meta, filename, cleanup, nil
+}
+
+// machineInstanceID resolves the controller machine's cloud instance ID for
+// the archive metadata.
+func (c *Creator) machineInstanceID(ctx context.Context) (string, error) {
+	services, err := c.modelServicesFor(ctx, c.controllerModelUUID)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	machineService := services.Machine()
+	machineUUID, err := machineService.GetMachineUUID(ctx, machine.Name(c.machineID))
+	if err != nil {
+		return "", errors.Errorf("retrieving controller machine UUID: %w", err)
+	}
+	instanceID, err := machineService.GetInstanceID(ctx, machineUUID)
+	if err != nil {
+		return "", errors.Errorf("retrieving controller machine cloud instance ID: %w", err)
+	}
+	// GetInstanceID errors if the machine has no cloud instance ID, so
+	// an empty result indicates an implementation that violates the
+	// MachineService contract; return an error rather than write an
+	// empty instance ID to the archive metadata.
+	if instanceID == "" {
+		return "", errors.New("controller machine cloud instance ID is empty")
+	}
+	return string(instanceID), nil
 }

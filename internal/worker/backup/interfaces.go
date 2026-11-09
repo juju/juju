@@ -7,6 +7,8 @@ import (
 	"context"
 	"io"
 
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	domainexport "github.com/juju/juju/domain/export"
@@ -25,10 +27,25 @@ type ModelExportService interface {
 	Export(ctx context.Context) (*domainexport.ModelExport, error)
 }
 
-// ModelExportDomainServices provides access to the model export service.
+// MachineService provides the machine lookup used to record the controller
+// machine's cloud instance ID in the archive metadata.
+type MachineService interface {
+	// GetMachineUUID returns the UUID for the given machine.
+	GetMachineUUID(ctx context.Context, mName machine.Name) (machine.UUID, error)
+	// GetInstanceID returns the cloud instance ID for the given machine.
+	// It errors if the machine has not been provisioned with a cloud
+	// instance ID; implementations never return an empty ID with a nil
+	// error.
+	GetInstanceID(ctx context.Context, machineUUID machine.UUID) (instance.Id, error)
+}
+
+// ModelExportDomainServices provides access to the model export and machine
+// services.
 type ModelExportDomainServices interface {
 	// Export returns the model export service.
 	Export() ModelExportService
+	// Machine returns the machine service.
+	Machine() MachineService
 }
 
 // ModelServicesForFunc returns the export services for a given model UUID.

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/internal/services"
 )
 
@@ -103,6 +104,18 @@ func (s *manifoldSuite) TestObjectStoreFailure(c *tc.C) {
 	c.Check(err, tc.ErrorIs, failure)
 }
 
+// TestModelExportDomainServicesMachine verifies the archive generator's
+// services adapter forwards the domain machine service. The rest of the
+// machine wiring (tag routing and the lookup paths) is covered by the
+// creator tests; this adapter is the hop they cannot reach, and its
+// DomainServices getters return concrete service types that cannot be
+// faked without a database.
+func (s *manifoldSuite) TestModelExportDomainServicesMachine(c *tc.C) {
+	sentinel := &machineservice.WatchableService{}
+	adapter := modelExportDomainServices{domainServices: domainServicesStub{machine: sentinel}}
+	c.Check(adapter.Machine(), tc.Equals, sentinel)
+}
+
 func (s *manifoldSuite) TestMissingDependencies(c *tc.C) {
 	for _, name := range []string{"leases", "services", "objects"} {
 		resources := manifoldResources()
@@ -152,7 +165,16 @@ type localConfigStub struct {
 
 func (s localConfigStub) BackupLocalValues() (LocalValues, error) { return s.values, s.err }
 
-type domainServicesStub struct{ services.DomainServices }
+// domainServicesStub shadows Machine on the embedded DomainServices
+// interface, so tests can pin the machine service without a database; the
+// other getters stay nil and panic if reached.
+type domainServicesStub struct {
+	services.DomainServices
+	machine *machineservice.WatchableService
+}
+
+func (s domainServicesStub) Machine() *machineservice.WatchableService { return s.machine }
+
 type servicesGetterStub struct {
 	get func(context.Context, coremodel.UUID) (services.DomainServices, error)
 }

@@ -198,3 +198,5 @@ func (g archiveGenerator) Create(ctx context.Context, notes string) (*corebackup
 type modelExportDomainServices struct{ domainServices services.DomainServices }
 
 func (s modelExportDomainServices) Export() ModelExportService { return s.domainServices.Export() }
+
+func (s modelExportDomainServices) Machine() MachineService { return s.domainServices.Machine() }
