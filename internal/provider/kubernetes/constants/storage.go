@@ -42,9 +42,11 @@ const (
 
 	// OperatorStorageKey was the 3.x cloud config attribute used to record
 	// the storage class for operator (podspec) storage. Operator storage is
-	// no longer supported. The key is retained only so 3.x cloud definitions
-	// are routed (and ignored) rather than leaking into model config. The
-	// same value is registered in environs/bootstrap for the same reason.
+	// no longer supported, and nothing in this package consumes the key:
+	// it is documented here alongside WorkloadStorageKey as the historical
+	// Kubernetes storage attribute. The routing of legacy cloud
+	// definitions away from model config is done by the same value
+	// registered in environs/bootstrap.
 	OperatorStorageKey = "operator-storage"
 )
 

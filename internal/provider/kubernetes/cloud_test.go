@@ -6,9 +6,11 @@ package kubernetes_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 	corev1 "k8s.io/api/core/v1"
@@ -156,6 +158,100 @@ func (s *cloudSuite) TestFinalizeCloudNoWorkloadStorageClass(c *tc.C) {
 	c.Check(cloud.Config, tc.DeepEquals, map[string]any{})
 	c.Check(cloud.HostCloudRegion, tc.Equals,
 		fmt.Sprintf("%s/%s", k8s.K8sCloudMicrok8s, k8s.Microk8sRegion))
+}
+
+func (s *cloudSuite) TestFinalizeCloudNoWorkloadStorageClassWarns(c *tc.C) {
+	// As above, but pinning the warning the user sees when no workload
+	// storage class is discoverable.
+	s.fakeBroker.Call("ListStorageClasses", k8slabels.NewSelector()).Returns(
+		[]storagev1.StorageClass{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "microk8s-hostpath",
+					Annotations: map[string]string{
+						"storageclass.kubernetes.io/is-default-class": "true",
+					},
+				},
+			},
+		}, nil,
+	)
+	s.fakeBroker.Call(
+		"ListPods", "kube-system",
+		k8sutils.LabelsToSelector(map[string]string{"k8s-app": "kube-dns"}),
+	).Returns([]corev1.Pod{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "coredns-xx",
+				Labels: map[string]string{
+					"k8s-app": "kube-dns",
+				},
+			},
+		},
+	}, nil)
+
+	p := s.getProvider()
+	s.fakeBroker.Call("GetClusterMetadata", "").Returns(&k8s.ClusterMetadata{
+		Cloud:   k8s.K8sCloudMicrok8s,
+		Regions: set.NewStrings(k8s.Microk8sRegion),
+	}, nil)
+
+	var tw loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("finalize-cloud-test", &tw), tc.ErrorIsNil)
+	c.Cleanup(func() { loggo.RemoveWriter("finalize-cloud-test") })
+
+	cloudFinalizer := p.(environs.CloudFinalizer)
+	ctx := mockContext{Context: c.Context()}
+	_, err := cloudFinalizer.FinalizeCloud(&ctx, defaultK8sCloud)
+	c.Assert(err, tc.ErrorIsNil)
+
+	warned := false
+	for _, e := range tw.Log() {
+		if e.Level == loggo.WARNING && strings.HasPrefix(e.Message,
+			fmt.Sprintf("unable to determine a workload storage class for k8s cloud %q", defaultK8sCloud.Name)) {
+			warned = true
+		}
+	}
+	c.Check(warned, tc.IsTrue)
+}
+
+func (s *cloudSuite) TestFinalizeCloudClusterQueryError(c *tc.C) {
+	// A cluster metadata failure that is not a missing workload storage
+	// class fails FinalizeCloud: only the no-class case is tolerated.
+	s.fakeBroker.Call("ListStorageClasses", k8slabels.NewSelector()).Returns(
+		[]storagev1.StorageClass{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "microk8s-hostpath",
+					Annotations: map[string]string{
+						"storageclass.kubernetes.io/is-default-class": "true",
+					},
+				},
+			},
+		}, nil,
+	)
+	s.fakeBroker.Call(
+		"ListPods", "kube-system",
+		k8sutils.LabelsToSelector(map[string]string{"k8s-app": "kube-dns"}),
+	).Returns([]corev1.Pod{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "coredns-xx",
+				Labels: map[string]string{
+					"k8s-app": "kube-dns",
+				},
+			},
+		},
+	}, nil)
+
+	p := s.getProvider()
+	var nilMetadata *k8s.ClusterMetadata
+	s.fakeBroker.Call("GetClusterMetadata", "").Returns(nilMetadata, errors.New("boom"))
+
+	cloudFinalizer := p.(environs.CloudFinalizer)
+	ctx := mockContext{Context: c.Context()}
+	_, err := cloudFinalizer.FinalizeCloud(&ctx, defaultK8sCloud)
+	c.Assert(err, tc.NotNil)
+	c.Check(err, tc.ErrorMatches, "boom")
 }
 
 func (s *cloudSuite) getProvider() caas.ContainerEnvironProvider {

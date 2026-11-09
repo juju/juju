@@ -87,9 +87,8 @@ func (*ConfigSuite) TestKubernetesStorageAttributesAreBootstrapOnly(c *tc.C) {
 	}
 
 	// The attributes are accepted when a cloud definition or the user
-	// supplies them, and carry no bootstrap configuration of their own:
-	// the workload storage class is consumed when constructing the
-	// controller model's storage pools.
+	// supplies them: they are 3.x keys, routed out of model config so
+	// legacy cloud definitions stay loadable, and otherwise ignored.
 	cfg, err := bootstrap.NewConfig(map[string]any{
 		bootstrap.WorkloadStorageKey: "ceph-rbd",
 		bootstrap.OperatorStorageKey: "ceph-rbd",

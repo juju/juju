@@ -873,6 +873,42 @@ func (s *BootstrapSuite) TestBootstrapNonK8sWorkloadStorageConfig(c *tc.C) {
 	}
 }
 
+func (s *BootstrapSuite) TestBootstrapK8sOperatorStorageCloudConfigIgnored(c *tc.C) {
+	// The 3.x operator-storage cloud attribute is ignored with a warning
+	// explaining that operator storage was removed with podspec charms,
+	// and it does not leak into the controller model's config.
+	s.patchVersion(c)
+	s.tw.Clear()
+
+	ctx := cmdtesting.Context(c)
+	env := &openstack.Environ{}
+	provider := env.Provider()
+
+	testCloud := cloud.Cloud{
+		Name: "myk8s",
+		Type: cloud.CloudTypeKubernetes,
+		Config: map[string]any{
+			"operator-storage": "ceph-rbd",
+		},
+	}
+	configs, err := s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(configs.storagePools, tc.HasLen, 0)
+	_, operatorInModel := configs.bootstrapModel["operator-storage"]
+	c.Check(operatorInModel, tc.IsFalse)
+
+	var found []loggo.Entry
+	for _, e := range s.tw.Log() {
+		if e.Level == loggo.WARNING && strings.HasPrefix(e.Message, "ignoring operator-storage=") {
+			found = append(found, e)
+		}
+	}
+	c.Assert(found, tc.HasLen, 1)
+	c.Check(found[0].Message, tc.Matches,
+		`ignoring operator-storage="ceph-rbd" set by cloud "myk8s": the key was removed in Juju 4.0 with podspec charms`+".*")
+}
+
 // checkWorkloadStorageWarning asserts that exactly count warnings about an
 // ignored workload-storage key were logged, the first of which contains
 // the supplied prefix.
@@ -883,7 +919,7 @@ func (s *BootstrapSuite) checkWorkloadStorageWarning(c *tc.C, count int, prefix 
 			found = append(found, e)
 		}
 	}
-	c.Check(found, tc.HasLen, count)
+	c.Assert(found, tc.HasLen, count)
 	if count > 0 {
 		c.Check(found[0].Message, tc.Matches, prefix+".*")
 	}

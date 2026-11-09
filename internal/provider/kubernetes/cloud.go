@@ -193,7 +193,7 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 	storageUpdateParams := KubeCloudStorageParams{
 		MetadataChecker: broker,
 		GetClusterMetadataFunc: func(storageParams KubeCloudStorageParams) (*k8s.ClusterMetadata, error) {
-			return broker.GetClusterMetadata(ctx, "")
+			return storageParams.MetadataChecker.GetClusterMetadata(ctx, "")
 		},
 	}
 

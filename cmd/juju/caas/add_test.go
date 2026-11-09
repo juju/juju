@@ -172,7 +172,7 @@ type fakeK8sClusterMetadataChecker struct {
 }
 
 func (api *fakeK8sClusterMetadataChecker) GetClusterMetadata(ctx context.Context, storageClass string) (result *k8s.ClusterMetadata, err error) {
-	results := api.MethodCall(api, "GetClusterMetadata")
+	results := api.MethodCall(api, "GetClusterMetadata", storageClass)
 	return results[0].(*k8s.ClusterMetadata), testhelpers.TypeAssertError(results[1])
 }
 
@@ -327,7 +327,7 @@ func (s *addCAASSuite) SetUpTest(c *tc.C) {
 		CallMocker: testhelpers.NewCallMocker(logger),
 		existingSC: true,
 	}
-	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(defaultClusterMetadata, nil)
+	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata", "").Returns(defaultClusterMetadata, nil)
 	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(nil)
 
 	s.publicCloudMap = map[string]cloud.Cloud{
@@ -860,8 +860,9 @@ func (s *addCAASSuite) assertAddCloudResult(
 
 	_, region, err := cloud.SplitHostCloudRegion(cloudRegion)
 	c.Assert(err, tc.ErrorIsNil)
-	s.fakeK8sClusterMetadataChecker.CheckCall(c, 0, "GetClusterMetadata")
-	expectedConfig := map[string]any{}
+	// add-k8s always queries the cluster without nominating a storage
+	// class: the class is nominated at bootstrap instead.
+	s.fakeK8sClusterMetadataChecker.CheckCall(c, 0, "GetClusterMetadata", "")
 	expectedCloudToAdd := cloud.Cloud{
 		Name:             "myk8s",
 		HostCloudRegion:  cloudRegion,
@@ -871,7 +872,7 @@ func (s *addCAASSuite) assertAddCloudResult(
 		Endpoint:         "https://1.1.1.1:8888",
 		IdentityEndpoint: "",
 		StorageEndpoint:  "",
-		Config:           expectedConfig,
+		Config:           map[string]any{},
 		RegionConfig:     cloud.RegionConfig(nil),
 		CACertificates:   []string{"A"},
 	}
@@ -937,7 +938,7 @@ You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
 
 func (s *addCAASSuite) TestGatherClusterMetadataError(c *tc.C) {
 	var result *k8s.ClusterMetadata
-	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(result, errors.New("oops"))
+	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata", "").Returns(result, errors.New("oops"))
 
 	err := SetKubeConfigData(kubeConfigStr)
 	c.Assert(err, tc.ErrorIsNil)
@@ -962,7 +963,7 @@ func (s *addCAASSuite) TestGatherClusterMetadataNoRegions(c *tc.C) {
 			ObjectMeta: meta.ObjectMeta{Name: "mystorage"},
 		},
 	}
-	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(result, nil)
+	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata", "").Returns(result, nil)
 
 	err := SetKubeConfigData(kubeConfigStr)
 	c.Assert(err, tc.ErrorIsNil)
@@ -984,7 +985,7 @@ func (s *addCAASSuite) TestNoRecommendedStorageWarnsAndAddsCloud(c *tc.C) {
 	result := &k8s.ClusterMetadata{
 		Cloud: "gce", Regions: set.NewStrings("us-east1"),
 	}
-	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(result, nil)
+	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata", "").Returns(result, nil)
 
 	err := SetKubeConfigData(kubeConfigStr)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1014,7 +1015,7 @@ func (s *addCAASSuite) TestSkipStorage(c *tc.C) {
 	defer ctrl.Finish()
 
 	result := &k8s.ClusterMetadata{}
-	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(result, nil)
+	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata", "").Returns(result, nil)
 	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(errors.NotFoundf("foo"))
 
 	err := SetKubeConfigData(kubeConfigStr)
@@ -1036,7 +1037,7 @@ func (s *addCAASSuite) TestFoundStorageProvisionerViaAnnationForMAASWIthoutStora
 		ObjectMeta:  meta.ObjectMeta{Name: "mystorage"},
 		Provisioner: "my disk provisioner",
 	}
-	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(&k8s.ClusterMetadata{
+	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata", "").Returns(&k8s.ClusterMetadata{
 		Cloud:                "maas",
 		WorkloadStorageClass: sc,
 	}, nil)
@@ -1070,7 +1071,7 @@ func (s *addCAASSuite) TestLocalOnly(c *tc.C) {
 			ObjectMeta: meta.ObjectMeta{Name: "workload-sc"},
 		},
 	}
-	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(defaultClusterMetadata, nil)
+	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata", "").Returns(defaultClusterMetadata, nil)
 
 	s.assertAddCloudResult(c, func() {
 		command := s.makeCommand(c, true, false, true)

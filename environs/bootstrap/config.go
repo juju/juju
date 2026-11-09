@@ -214,10 +214,9 @@ func BootstrapConfigSchema() configschema.Fields {
 			Type: configschema.Tlist,
 		},
 		WorkloadStorageKey: {
-			Description: "Sets the name of the Kubernetes storage class used to " +
-				"provision workload storage for a Kubernetes cloud, including the " +
-				"persistent volume claim backing the controller. Usually this is " +
-				"recorded on the cloud by add-k8s",
+			Description: "A 3.x Kubernetes cloud attribute, removed in Juju 4.0 " +
+				"and accepted only so existing cloud definitions remain valid; " +
+				"the value is ignored.",
 			Type: configschema.Tstring,
 		},
 	}
@@ -511,9 +510,9 @@ var configSchema = configschema.Fields{
 A 3.x Kubernetes cloud attribute, removed in Juju 4.0 and accepted
 only so existing cloud definitions remain valid; the value is ignored.
 Nominate workload storage by scheduling a Kubernetes storage pool and
-making it the default filesystem source: --storage-pool
-name=<pool>,type=kubernetes,storage-class=<class> and --config
-storage-default-filesystem-source=<pool>.`,
+making it the default filesystem source: --storage-pool name=<pool>
+--storage-pool type=kubernetes --storage-pool storage-class=<class>
+and --config storage-default-filesystem-source=<pool>.`,
 	},
 	OperatorStorageKey: {
 		Type:  configschema.Tstring,
