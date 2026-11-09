@@ -152,6 +152,7 @@ func WaitForAgentInitialisation(
 func isRetryableErrorMessage(errorMessage string) bool {
 	switch {
 	case strings.HasSuffix(errorMessage, "no such host"), // wait for dns getting resolvable, aws elb for example.
+		strings.HasSuffix(errorMessage, "no route to host "),
 		strings.HasSuffix(errorMessage, "operation not permitted"),
 		strings.HasSuffix(errorMessage, "connection refused"),
 		strings.HasSuffix(errorMessage, "target machine actively refused it."), // Winsock message for connection refused
