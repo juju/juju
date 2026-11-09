@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/provider/kubernetes/constants"
 	k8sutils "github.com/juju/juju/internal/provider/kubernetes/utils"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -43,7 +42,6 @@ type KubeCloudParams struct {
 
 // KubeCloudStorageParams defines the parameters used to determine storage details for a k8s cluster.
 type KubeCloudStorageParams struct {
-	WorkloadStorage        string
 	HostCloudRegion        string
 	MetadataChecker        k8s.ClusterMetadataChecker
 	GetClusterMetadataFunc GetClusterMetadataFunc
@@ -91,25 +89,18 @@ func UpdateKubeCloudWithStorage(k8sCloud cloud.Cloud, storageParams KubeCloudSto
 		k8sCloud.Config = make(map[string]any)
 	}
 
-	if clusterMetadata.WorkloadStorageClass != nil {
-		// Record the storage class on the cloud so that bootstrap can
-		// create the default storage pool for the controller model from
-		// it, and so that subsequent add-k8s and bootstrap calls retain
-		// and re-validate the choice.
-		k8sCloud.Config[constants.WorkloadStorageKey] =
-			clusterMetadata.WorkloadStorageClass.Name
-		return k8sCloud, nil
-	}
-
 	// The controller stack always creates a persistent volume claim, so a
 	// workload storage class is required to bootstrap. Let the caller
-	// decide how to report this: add-k8s errors out while bootstrap's
-	// FinalizeCloud tolerates it, because the controller storage class can
-	// still be resolved at bootstrap time from the storage pools scheduled
-	// for the controller model.
-	return k8sCloud, &environs.PreferredStorageNotFound{
-		Message: "no preferred workload storage class found in Kubernetes cluster",
+	// decide how to report this: both add-k8s and bootstrap's FinalizeCloud
+	// warn and continue, because the controller storage class can still be
+	// resolved at bootstrap time from the storage pools scheduled for the
+	// controller model, or fail with a specific message if it cannot.
+	if clusterMetadata.WorkloadStorageClass == nil {
+		return k8sCloud, &environs.PreferredStorageNotFound{
+			Message: "no preferred workload storage class found in Kubernetes cluster",
+		}
 	}
+	return k8sCloud, nil
 }
 
 // BaseKubeCloudOpenParams provides a basic OpenParams for a cluster
@@ -199,44 +190,22 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 			return cld, errors.Trace(err)
 		}
 	}
-	// A workload storage class recorded on the cloud (by add-k8s) is
-	// re-validated here so that a stale or missing choice is surfaced
-	// early. There is nothing to nominate for the built-in microk8s
-	// cloud, whose storage is validated by ensureMicroK8sSuitable above.
-	nominatedStorageClass, _ := cld.Config[constants.WorkloadStorageKey].(string)
 	storageUpdateParams := KubeCloudStorageParams{
 		MetadataChecker: broker,
 		GetClusterMetadataFunc: func(storageParams KubeCloudStorageParams) (*k8s.ClusterMetadata, error) {
-			clusterMetadata, err := broker.GetClusterMetadata(ctx, nominatedStorageClass)
-			if err != nil {
-				var notFoundNominated *environs.NominatedStorageNotFound
-				if nominatedStorageClass != "" && errors.As(err, &notFoundNominated) {
-					// The class recorded on the cloud no longer exists on
-					// the cluster. Fall back to discovery rather than
-					// failing bootstrap here, keeping the stale recorded
-					// class so that a later unresolvable bootstrap failure
-					// names the class that needs fixing.
-					logger.Warningf(ctx,
-						"workload storage class %q recorded on k8s cloud %q not found on the cluster",
-						nominatedStorageClass, cld.Name)
-					clusterMetadata, err = broker.GetClusterMetadata(ctx, "")
-				}
-			}
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return clusterMetadata, nil
+			return broker.GetClusterMetadata(ctx, "")
 		},
 	}
 
 	updatedCloud, err := UpdateKubeCloudWithStorage(cld, storageUpdateParams)
 	if err != nil {
-		// add-k8s reports a missing workload storage class as an error, but
-		// FinalizeCloud tolerates it: bootstrap can still resolve a
-		// controller storage class from the storage pools scheduled for
-		// the controller model, and an unresolvable bootstrap fails later
+		// A cluster with no discoverable workload storage class does not
+		// fail bootstrap here: bootstrap can still resolve a controller
+		// storage class from the storage pools scheduled for the
+		// controller model, and an unresolvable bootstrap fails later
 		// with a more specific message. The partially updated cloud is
-		// kept, so any updates made before the failure are not lost.
+		// kept, so any updates made before the failure (such as the
+		// detected cloud/region) are not lost.
 		var notFoundPreferred *environs.PreferredStorageNotFound
 		if !errors.As(err, &notFoundPreferred) {
 			return cld, errors.Trace(err)

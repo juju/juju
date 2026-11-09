@@ -30,13 +30,14 @@ const (
 	StorageMedium      = "storage-medium"
 	StorageMode        = "storage-mode"
 
-	// WorkloadStorageKey is the cloud config attribute used to record the
-	// name of the storage class used to provision workload storage for a
-	// Kubernetes cloud, including the persistent volume claim backing the
-	// controller. It is a bootstrap-only attribute: add-k8s records it on
-	// the cloud and bootstrap consumes it when creating the default
-	// storage pool for the controller model. The same value is registered
-	// in environs/bootstrap for routing cloud attributes at bootstrap.
+	// WorkloadStorageKey was the 3.x cloud config attribute used to record
+	// the name of the storage class used to provision workload storage for
+	// a Kubernetes cloud, including the persistent volume claim backing
+	// the controller. It is removed in 4.0: nothing records or consumes
+	// it. The key remains defined (and is registered in
+	// environs/bootstrap as a bootstrap-only attribute) so 3.x cloud
+	// definitions are routed and ignored with a warning rather than
+	// leaking into model config.
 	WorkloadStorageKey = "workload-storage"
 
 	// OperatorStorageKey was the 3.x cloud config attribute used to record
