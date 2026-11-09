@@ -463,13 +463,19 @@ provisioning is always driven by the storage pools in the model and their config
   a warning; the storage class is nominated at bootstrap time instead.
 - Cloud definitions may still contain `workload-storage` / `operator-storage`; both keys are ignored with a warning
   and no longer affect storage provisioning.
+- Since both keys are bootstrap-only attributes, `juju bootstrap --model-default workload-storage=<class>` now fails
+  with `is a bootstrap only attribute, and cannot be set as a model-default`.
+- A `storage-default-filesystem-source` naming a pool that is neither scheduled with `--storage-pool` nor one of the
+  pools seeded in every model (`kubernetes`, `rootfs`, `tmpfs`) now fails bootstrap fast, instead of silently falling
+  back to storage class discovery. This applies whether the source is set with `--config`, `--model-default`, or in
+  a cloud definition's `config:`; bootstrap with the flags above to make the pool exist first.
 
 To nominate the storage class for a Kubernetes controller's persistent volume claim and the controller model's charm
 storage, bootstrap with a Kubernetes storage pool and make it the model's default filesystem source:
 
 ```text
 juju bootstrap <k8s cloud> \
-    --storage-pool name=<pool>,type=kubernetes,storage-class=<class> \
+    --storage-pool name=<pool> --storage-pool type=kubernetes --storage-pool storage-class=<class> \
     --config storage-default-filesystem-source=<pool>
 ```
 

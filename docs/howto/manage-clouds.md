@@ -86,7 +86,7 @@ The command also allows you to specify a non-default kubeconfig file path (via t
 If Juju cannot detect a storage class for workload storage, the cluster is still added, with a warning. Nominate the storage class at bootstrap time by scheduling a Kubernetes storage pool and making it the model's default filesystem source:
 
 ```text
-juju bootstrap <cloud name> --storage-pool name=ceph-rbd,type=kubernetes,storage-class=ceph-rbd --config storage-default-filesystem-source=ceph-rbd
+juju bootstrap <cloud name> --storage-pool name=ceph-rbd --storage-pool type=kubernetes --storage-pool storage-class=ceph-rbd --config storage-default-filesystem-source=ceph-rbd
 ```
 
 If the cluster has no storage provisioning capability at all, use `--skip-storage` to add it without workload storage.

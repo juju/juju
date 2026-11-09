@@ -486,7 +486,8 @@ func (k *kubernetesClient) resolveControllerStorageClass(
 		default:
 			return "", errors.NewNotValid(nil, fmt.Sprintf(
 				"storage pool %q named by %s is not defined in the controller model."+
-					" Schedule it with --storage-pool name=%[1]s,type=kubernetes,storage-class=<class>,"+
+					" Schedule it with --storage-pool name=%[1]s --storage-pool type=kubernetes"+
+					" --storage-pool storage-class=<class>,"+
 					" or name one of the pools seeded in every model: kubernetes, rootfs, tmpfs",
 				defaultSource, config.StorageDefaultFilesystemSourceKey))
 		}
@@ -503,7 +504,7 @@ func (k *kubernetesClient) resolveControllerStorageClass(
 		return "", errors.NewNotValid(nil, `controller storage class not identified.
 Juju could not find a Kubernetes storage class for the controller's
 persistent volume claim. Nominate one with
---storage-pool name=<pool>,type=kubernetes,storage-class=<name> and
+--storage-pool name=<pool> --storage-pool type=kubernetes --storage-pool storage-class=<class> and
 --config storage-default-filesystem-source=<pool>, or ensure the
 cluster has a default storage class`)
 	}

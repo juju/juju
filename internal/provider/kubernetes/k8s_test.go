@@ -276,7 +276,7 @@ func (s *K8sBrokerSuite) TestBootstrapNoWorkloadStorage(c *tc.C) {
 	c.Check(msg, tc.Equals, strings.Replace(`controller storage class not identified.
 Juju could not find a Kubernetes storage class for the controller's
 persistent volume claim. Nominate one with
---storage-pool name=<pool>,type=kubernetes,storage-class=<name> and
+--storage-pool name=<pool> --storage-pool type=kubernetes --storage-pool storage-class=<class> and
 --config storage-default-filesystem-source=<pool>, or ensure the
 cluster has a default storage class`, "\n", "", -1))
 }
@@ -395,7 +395,7 @@ func (s *K8sBrokerSuite) TestBootstrapWithDefaultSourceUndefinedPool(c *tc.C) {
 	})
 	c.Check(err, tc.ErrorMatches,
 		`storage pool "cephfs" named by storage-default-filesystem-source is not defined in the controller model.`+
-			` Schedule it with --storage-pool name=cephfs,type=kubernetes,storage-class=<class>,`+
+			` Schedule it with --storage-pool name=cephfs --storage-pool type=kubernetes --storage-pool storage-class=<class>,`+
 			` or name one of the pools seeded in every model: kubernetes, rootfs, tmpfs`)
 }
 
@@ -419,8 +419,7 @@ func (s *K8sBrokerSuite) TestBootstrapWithDefaultSourceWrongTypePool(c *tc.C) {
 	// A default filesystem source naming a scheduled pool that does not
 	// use the Kubernetes storage provider cannot resolve a storage class:
 	// the controller's storage class is discovered on the cluster, not
-	// taken from the class the pool records. The class-less seeded
-	// "kubernetes" pool is skipped the same way.
+	// taken from the class the pool records.
 	sc := storagev1.StorageClass{
 		ObjectMeta: v1.ObjectMeta{Name: "some-storage"},
 	}
@@ -431,8 +430,68 @@ func (s *K8sBrokerSuite) TestBootstrapWithDefaultSourceWrongTypePool(c *tc.C) {
 				"type":          "rootfs",
 				"storage-class": "other-sc",
 			},
+		},
+		[]storagev1.StorageClass{sc},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Arch, tc.Equals, "amd64")
+	c.Check(result.CaasBootstrapFinalizer, tc.NotNil)
+}
+
+func (s *K8sBrokerSuite) TestBootstrapWithDefaultSourcePoolNameDiffersFromClass(c *tc.C) {
+	// The pool nominated by the default filesystem source drives the claim
+	// through its storage-class attribute, not its name: here the pool is
+	// named differently from the class it defines.
+	sc := storagev1.StorageClass{
+		ObjectMeta: v1.ObjectMeta{Name: "ceph-rbd"},
+	}
+	result, err := s.bootstrapWithStoragePools(c, "fast-pool",
+		map[string]storage.Attrs{
+			"fast-pool": {
+				"name":          "fast-pool",
+				"type":          "kubernetes",
+				"storage-class": "ceph-rbd",
+			},
+		},
+		[]storagev1.StorageClass{sc},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Arch, tc.Equals, "amd64")
+	c.Check(result.CaasBootstrapFinalizer, tc.NotNil)
+}
+
+func (s *K8sBrokerSuite) TestBootstrapWithSeededNamePoolScheduledWithClass(c *tc.C) {
+	// A scheduled pool named after one of the seeded pools takes
+	// precedence over the seeded-pool arm when it defines a storage
+	// class: scheduling a pool shadows the seeded name.
+	sc := storagev1.StorageClass{
+		ObjectMeta: v1.ObjectMeta{Name: "ceph-rbd"},
+	}
+	result, err := s.bootstrapWithStoragePools(c, "kubernetes",
+		map[string]storage.Attrs{
 			"kubernetes": {
-				"name": "kubernetes",
+				"name":          "kubernetes",
+				"type":          "kubernetes",
+				"storage-class": "ceph-rbd",
+			},
+		},
+		[]storagev1.StorageClass{sc},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Arch, tc.Equals, "amd64")
+	c.Check(result.CaasBootstrapFinalizer, tc.NotNil)
+}
+
+func (s *K8sBrokerSuite) TestBootstrapWithDefaultSourceScheduledPoolNoClass(c *tc.C) {
+	// A default filesystem source naming a scheduled Kubernetes pool that
+	// defines no storage class leaves the claim to discovery.
+	sc := storagev1.StorageClass{
+		ObjectMeta: v1.ObjectMeta{Name: "some-storage"},
+	}
+	result, err := s.bootstrapWithStoragePools(c, "fast-pool",
+		map[string]storage.Attrs{
+			"fast-pool": {
+				"name": "fast-pool",
 				"type": "kubernetes",
 			},
 		},
