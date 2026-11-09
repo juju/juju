@@ -499,6 +499,16 @@ func destroyMachineEntities(machineTags []string) params.Entities {
 }
 
 func (mm *MachineManagerAPI) destroyMachine(args params.Entities, options destroyMachineOptions) (params.DestroyMachineResults, error) {
+	return mm.destroyMachineInternal(args, options, false)
+}
+
+// destroyMachineInternal destroys the supplied machines. allowMissing reports
+// an already-removed machine as a successful no-op. Recursive container
+// removal sets it because host cleanup can remove a container after it was
+// listed.
+func (mm *MachineManagerAPI) destroyMachineInternal(
+	args params.Entities, options destroyMachineOptions, allowMissing bool,
+) (params.DestroyMachineResults, error) {
 	if err := mm.authorizer.CanWrite(); err != nil {
 		return params.DestroyMachineResults{}, err
 	}
@@ -520,6 +530,14 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, options destro
 		}
 		machine, err := mm.st.Machine(machineTag.Id())
 		if err != nil {
+			if allowMissing && errors.Is(err, errors.NotFound) {
+				// Host cleanup removed the container after it was listed.
+				result.Info = &params.DestroyMachineInfo{
+					MachineId: machineTag.Id(),
+				}
+				results[i] = result
+				continue
+			}
 			fail(err)
 			continue
 		}
@@ -713,7 +731,7 @@ func (mm *MachineManagerAPI) destoryContainer(containers []string, options destr
 	for i, container := range containers {
 		entities.Entities[i] = params.Entity{Tag: names.NewMachineTag(container).String()}
 	}
-	results, err := mm.destroyMachine(entities, options)
+	results, err := mm.destroyMachineInternal(entities, options, true)
 	return results.Results, err
 }
 

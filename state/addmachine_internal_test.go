@@ -10,6 +10,7 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 )
 
@@ -40,6 +41,24 @@ func (db *retryCommittedDatabase) Run(source jujutxn.TransactionSource) error {
 		}
 		// Replay the builder after a committed transaction, as Run does
 		// when the commit succeeds but its acknowledgement is lost.
+		return nil, jujutxn.ErrTransientFailure
+	})
+}
+
+// abortOnceDatabase discards the first transaction without applying it, then
+// delegates. It forces builders to retry using their retained IDs.
+type abortOnceDatabase struct {
+	Database
+	aborted bool
+}
+
+func (db *abortOnceDatabase) Run(source jujutxn.TransactionSource) error {
+	return db.Database.Run(func(attempt int) ([]txn.Op, error) {
+		ops, err := source(attempt)
+		if err != nil || db.aborted {
+			return ops, err
+		}
+		db.aborted = true
 		return nil, jujutxn.ErrTransientFailure
 	})
 }
@@ -147,4 +166,114 @@ func (s *addMachineInternalSuite) TestAddMachinesRetryAfterCommitReadError(c *gc
 		}
 		c.Check(err, jc.ErrorIs, failure)
 	}
+}
+
+func (s *addMachineInternalSuite) TestAssignToNewMachineRetryAfterCommit(c *gc.C) {
+	st := s.newState(c)
+	application := AddTestingApplication(c, st, "dummy", AddTestingCharm(c, st, "dummy"))
+	unit, err := application.AddUnit(AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	db := &retryCommittedDatabase{Database: st.database}
+	st.database = db
+	s.AddCleanup(func(*gc.C) { st.database = db.Database })
+
+	c.Assert(unit.AssignToNewMachine(), jc.ErrorIsNil)
+	c.Check(db.committed, jc.IsTrue)
+	mid, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(mid, gc.Equals, "0")
+	all, err := st.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(all, gc.HasLen, 1)
+}
+
+func (s *addMachineInternalSuite) TestAssignToNewMachineContainerRetry(c *gc.C) {
+	st := s.newState(c)
+	c.Assert(st.SetModelConstraints(constraints.MustParse("container=lxd")), jc.ErrorIsNil)
+	application := AddTestingApplication(c, st, "dummy", AddTestingCharm(c, st, "dummy"))
+	unit, err := application.AddUnit(AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	db := &abortOnceDatabase{Database: st.database}
+	st.database = db
+	s.AddCleanup(func(*gc.C) { st.database = db.Database })
+
+	c.Assert(unit.AssignToNewMachine(), jc.ErrorIsNil)
+	c.Check(db.aborted, jc.IsTrue)
+	mid, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(mid, gc.Equals, "0/lxd/0")
+	all, err := st.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(all, gc.HasLen, 2)
+}
+
+func (s *addMachineInternalSuite) TestAssignToNewMachineOrContainerRetryAfterCommit(c *gc.C) {
+	st := s.newState(c)
+	c.Assert(st.SetModelConstraints(constraints.MustParse("container=lxd")), jc.ErrorIsNil)
+	application := AddTestingApplication(c, st, "dummy", AddTestingCharm(c, st, "dummy"))
+	host, err := st.AddOneMachine(MachineTemplate{
+		Base: application.Base(),
+		Jobs: []MachineJob{JobHostUnits},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	amdArch := "amd64"
+	c.Assert(host.SetProvisioned("inst-id", "", "fake_nonce", &instance.HardwareCharacteristics{
+		Arch: &amdArch,
+	}), jc.ErrorIsNil)
+	unit, err := application.AddUnit(AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	db := &retryCommittedDatabase{Database: st.database}
+	st.database = db
+	s.AddCleanup(func(*gc.C) { st.database = db.Database })
+
+	c.Assert(unit.AssignToNewMachineOrContainer(), jc.ErrorIsNil)
+	c.Check(db.committed, jc.IsTrue)
+	mid, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(mid, gc.Equals, host.Id()+"/lxd/0")
+	children, err := host.Containers()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(children, gc.DeepEquals, []string{mid})
+}
+
+func (s *addMachineInternalSuite) TestEnableHARetryAfterCommit(c *gc.C) {
+	st := s.state
+	db := &retryCommittedDatabase{Database: st.database}
+	st.database = db
+	s.AddCleanup(func(*gc.C) { st.database = db.Database })
+
+	changes, err := st.EnableHA(3, constraints.Value{}, UbuntuBase("22.04"), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(db.committed, jc.IsTrue)
+	c.Check(changes.Added, gc.DeepEquals, []string{"0", "1", "2"})
+	all, err := st.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(all, gc.HasLen, 3)
+}
+
+func (s *addMachineInternalSuite) TestEnableHAPlacementRetryAfterCommit(c *gc.C) {
+	st := s.state
+	template := MachineTemplate{
+		Base: UbuntuBase("22.04"),
+		Jobs: []MachineJob{JobHostUnits},
+	}
+	for i := 0; i < 2; i++ {
+		_, err := st.AddOneMachine(template)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	db := &retryCommittedDatabase{Database: st.database}
+	st.database = db
+	s.AddCleanup(func(*gc.C) { st.database = db.Database })
+
+	changes, err := st.EnableHA(3, constraints.Value{}, UbuntuBase("22.04"), []string{"0", "1"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(db.committed, jc.IsTrue)
+	c.Check(changes.Added, gc.DeepEquals, []string{"2"})
+	c.Check(changes.Converted, gc.DeepEquals, []string{"0", "1"})
+	all, err := st.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(all, gc.HasLen, 3)
 }

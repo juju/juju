@@ -1033,49 +1033,51 @@ func (s *StateSuite) TestAddContainerModelUnavailable(c *gc.C) {
 	for _, existingParent := range []bool{false, true} {
 		for _, migrating := range []bool{false, true} {
 			for _, concurrent := range []bool{false, true} {
-				c.Logf("existing parent: %v, migrating: %v, concurrent: %v", existingParent, migrating, concurrent)
-				st := s.Factory.MakeModel(c, nil)
-				defer st.Close()
-				model, err := st.Model()
-				c.Assert(err, jc.ErrorIsNil)
-				template := state.MachineTemplate{Base: state.UbuntuBase("22.04"), Jobs: []state.MachineJob{state.JobHostUnits}}
-				var parent *state.Machine
-				if existingParent {
-					parent, err = st.AddOneMachine(template)
+				func() {
+					c.Logf("existing parent: %v, migrating: %v, concurrent: %v", existingParent, migrating, concurrent)
+					st := s.Factory.MakeModel(c, nil)
+					defer st.Close()
+					model, err := st.Model()
 					c.Assert(err, jc.ErrorIsNil)
-				}
-				changeModel := func() {
-					if migrating {
-						c.Assert(model.SetMigrationMode(state.MigrationModeExporting), jc.ErrorIsNil)
-					} else {
-						c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+					template := state.MachineTemplate{Base: state.UbuntuBase("22.04"), Jobs: []state.MachineJob{state.JobHostUnits}}
+					var parent *state.Machine
+					if existingParent {
+						parent, err = st.AddOneMachine(template)
+						c.Assert(err, jc.ErrorIsNil)
 					}
-				}
-				if concurrent {
-					defer state.SetBeforeHooks(c, st, changeModel).Check()
-				} else {
-					changeModel()
-				}
-				if existingParent {
-					_, err = st.AddMachineInsideMachine(template, parent.Id(), instance.LXD)
-				} else {
-					_, err = st.AddMachineInsideNewMachine(template, template, instance.LXD)
-				}
-				if migrating {
-					c.Assert(err, gc.ErrorMatches, `model ".*" is being migrated`)
-				} else {
-					c.Assert(err, gc.ErrorMatches, `model ".*" is dying`)
-				}
-				machines, err := st.AllMachines()
-				c.Assert(err, jc.ErrorIsNil)
-				if existingParent {
-					c.Assert(machines, gc.HasLen, 1)
-					children, err := parent.Containers()
+					changeModel := func() {
+						if migrating {
+							c.Assert(model.SetMigrationMode(state.MigrationModeExporting), jc.ErrorIsNil)
+						} else {
+							c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+						}
+					}
+					if concurrent {
+						defer state.SetBeforeHooks(c, st, changeModel).Check()
+					} else {
+						changeModel()
+					}
+					if existingParent {
+						_, err = st.AddMachineInsideMachine(template, parent.Id(), instance.LXD)
+					} else {
+						_, err = st.AddMachineInsideNewMachine(template, template, instance.LXD)
+					}
+					if migrating {
+						c.Assert(err, gc.ErrorMatches, `model ".*" is being migrated`)
+					} else {
+						c.Assert(err, gc.ErrorMatches, `model ".*" is dying`)
+					}
+					machines, err := st.AllMachines()
 					c.Assert(err, jc.ErrorIsNil)
-					c.Check(children, gc.HasLen, 0)
-				} else {
-					c.Check(machines, gc.HasLen, 0)
-				}
+					if existingParent {
+						c.Assert(machines, gc.HasLen, 1)
+						children, err := parent.Containers()
+						c.Assert(err, jc.ErrorIsNil)
+						c.Check(children, gc.HasLen, 0)
+					} else {
+						c.Check(machines, gc.HasLen, 0)
+					}
+				}()
 			}
 		}
 	}

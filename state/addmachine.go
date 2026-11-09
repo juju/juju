@@ -8,7 +8,6 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
@@ -222,6 +221,8 @@ func (st *State) addMachine(buildOps func(string) (*machineDoc, []txn.Op, error)
 
 // refreshCreatedMachines returns ErrNoOperations if a previous creation attempt
 // committed despite returning an error. Machine IDs are retained across retries.
+// Machine creation is a single transaction, so a committed attempt finds every
+// machine and a failed attempt finds none of them.
 func refreshCreatedMachines(machines ...*Machine) error {
 	for _, machine := range machines {
 		if err := machine.Refresh(); errors.IsNotFound(err) {
@@ -444,7 +445,7 @@ func (st *State) addMachineInsideMachineOps(
 		txn.Op{
 			C:      machinesC,
 			Id:     parent.doc.DocID,
-			Assert: bson.D{{"life", Alive}},
+			Assert: isAliveDoc,
 		},
 		// Update containers record for host machine.
 		addChildToContainerRefOp(st, parentId, mdoc.Id),

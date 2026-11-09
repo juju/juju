@@ -2053,6 +2053,7 @@ func (u *Unit) assignToNewMachineOps(
 	template MachineTemplate,
 	parentId string,
 	containerType instance.ContainerType,
+	machineId string,
 ) (*Machine, []txn.Op, error) {
 
 	if u.Life() != Alive {
@@ -2072,7 +2073,7 @@ func (u *Unit) assignToNewMachineOps(
 	)
 	switch {
 	case parentId == "" && containerType == "":
-		mdoc, ops, err = u.st.addMachineOps(template)
+		mdoc, ops, err = u.st.addMachineWithIdOps(template, machineId)
 	case parentId == "":
 		if containerType == "" {
 			return nil, nil, errors.New("assignToNewMachine called without container type (should never happen)")
@@ -2081,9 +2082,9 @@ func (u *Unit) assignToNewMachineOps(
 		// regardless of its child.
 		parentParams := template
 		parentParams.Jobs = []MachineJob{JobHostUnits}
-		mdoc, ops, err = u.st.addMachineInsideNewMachineOps(template, parentParams, containerType, "")
+		mdoc, ops, err = u.st.addMachineInsideNewMachineOps(template, parentParams, containerType, machineId)
 	default:
-		mdoc, ops, err = u.st.addMachineInsideMachineOps(template, parentId, containerType, "")
+		mdoc, ops, err = u.st.addMachineInsideMachineOps(template, parentId, containerType, machineId)
 	}
 	if err != nil {
 		return nil, nil, err
@@ -2134,6 +2135,24 @@ func (u *Unit) assignToNewMachineOps(
 		removeStagedAssignmentOp(u.doc.DocID),
 	)
 	return &Machine{u.st, *mdoc}, ops, nil
+}
+
+// assignedMachineOnRetry returns the machine assigned to the unit by an earlier
+// attempt whose transaction committed but reported an error. machineId is the
+// machine that attempt created and retained across retries. A nil machine means
+// the unit is still unassigned and the builder should continue.
+func (u *Unit) assignedMachineOnRetry(machineId string) (*Machine, error) {
+	if u.doc.MachineId == "" {
+		return nil, nil
+	}
+	if machineId == "" || u.doc.MachineId != machineId {
+		return nil, alreadyAssignedErr
+	}
+	machine, err := u.st.Machine(u.doc.MachineId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return machine, nil
 }
 
 // Constraints returns the unit's deployment constraints.
@@ -2206,6 +2225,7 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 	}
 
 	var m *Machine
+	var machineId string
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var err error
 		u := u // don't change outer var
@@ -2214,6 +2234,13 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+			m, err = u.assignedMachineOnRetry(machineId)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if m != nil {
+				return nil, jujutxn.ErrNoOperations
+			}
 		}
 		template := MachineTemplate{
 			Base:        u.doc.Base,
@@ -2221,7 +2248,10 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 			Jobs:        []MachineJob{JobHostUnits},
 		}
 		var ops []txn.Op
-		m, ops, err = u.assignToNewMachineOps(template, host.Id, *cons.Container)
+		m, ops, err = u.assignToNewMachineOps(template, host.Id, *cons.Container, machineId)
+		if err == nil {
+			machineId = m.Id()
+		}
 		return ops, err
 	}
 	if err := u.st.db().Run(buildTxn); err != nil {
@@ -2253,6 +2283,7 @@ func (u *Unit) assignToNewMachine(placement string) error {
 	}
 
 	var m *Machine
+	var machineId string
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var err error
 		u := u // don't change outer var
@@ -2260,6 +2291,13 @@ func (u *Unit) assignToNewMachine(placement string) error {
 			u, err = u.st.Unit(u.Name())
 			if err != nil {
 				return nil, errors.Trace(err)
+			}
+			m, err = u.assignedMachineOnRetry(machineId)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if m != nil {
+				return nil, jujutxn.ErrNoOperations
 			}
 		}
 		cons, err := u.Constraints()
@@ -2289,7 +2327,10 @@ func (u *Unit) assignToNewMachine(placement string) error {
 		// machine doc that will be added with those operations
 		// (which includes the machine id).
 		var ops []txn.Op
-		m, ops, err = u.assignToNewMachineOps(template, "", containerType)
+		m, ops, err = u.assignToNewMachineOps(template, "", containerType, machineId)
+		if err == nil {
+			machineId = m.Id()
+		}
 		return ops, err
 	}
 	if err := u.st.db().Run(buildTxn); err != nil {

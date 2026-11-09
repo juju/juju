@@ -41,7 +41,6 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 	// Add machine
 	s.machine, err = s.State.AddMachine(
 		state.UbuntuBase("12.10"),
-		state.JobHostUnits,
 		state.JobManageModel,
 	)
 	c.Assert(err, jc.ErrorIsNil)

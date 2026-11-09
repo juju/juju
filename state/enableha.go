@@ -167,7 +167,7 @@ func (e *enableHAOperation) Build(attempt int) ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	intent, err := e.st.enableHAIntentions(controllerIds, e.placement)
+	intent, err := e.st.enableHAIntentions(attempt, controllerIds, e.placement)
 	if err != nil {
 		return nil, err
 	}
@@ -177,6 +177,11 @@ func (e *enableHAOperation) Build(attempt int) ([]txn.Op, error) {
 			voteCount++
 		}
 	}
+	// A retry after a committed transaction with a lost acknowledgement
+	// lands here: new controller nodes want votes and the placement machines
+	// converted by the committed transaction are now controllers, so the
+	// desired count is already met. e.change still holds the committed
+	// attempt's result.
 	if voteCount == desiredControllerCount {
 		return nil, jujutxn.ErrNoOperations
 	}
@@ -267,6 +272,9 @@ func (st *State) enableHAIntentionOps(
 			template.Dirty = true
 			template.principals = []string{controllerUnitName}
 		}
+		// Allocate a fresh ID on each attempt. Build re-derives the plan
+		// every time, and a concurrent EnableHA can change how many
+		// machines are required, so previous IDs are not reused.
 		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {
 			return nil, ControllersChanges{}, errors.Trace(err)
@@ -342,7 +350,7 @@ type enableHAIntent struct {
 // mentioned in the given info, including:
 //
 //	gathering available, non-voting machines that may be promoted;
-func (st *State) enableHAIntentions(controllerIds []string, placement []string) (*enableHAIntent, error) {
+func (st *State) enableHAIntentions(attempt int, controllerIds []string, placement []string) (*enableHAIntent, error) {
 	var intent enableHAIntent
 	for _, s := range placement {
 		// TODO(natefinch): Unscoped placements can end up here, though they
@@ -370,7 +378,12 @@ func (st *State) enableHAIntentions(controllerIds []string, placement []string) 
 				return nil, errors.Annotatef(err, "can't find machine for placement directive %q", s)
 			}
 			if m.IsManager() {
-				return nil, errors.Errorf("machine for placement directive %q is already a controller", s)
+				if attempt == 0 {
+					return nil, errors.Errorf("machine for placement directive %q is already a controller", s)
+				}
+				// A previous attempt converted this machine before its
+				// committed transaction acknowledgement was lost.
+				continue
 			}
 			intent.convert = append(intent.convert, m)
 			continue
