@@ -132,17 +132,17 @@ repository root and use it as the structure for the PR description. Fill in
 each section according to the changes being made. Do not omit sections; use
 strikethrough (`~text~`) for items that are not applicable.
 
-Treat the PR description as the prospective merge commit message: describe the
-final change and its rationale. Explain the problem or motivation behind the
-change rather than merely restating the diff. Include context that helps
-reviewers understand the proposal, and revise the description before merging
-if that context would not be useful in the commit history.
+The PR description SHOULD be treated as the prospective merge commit message.
+It SHOULD describe the final change and its rationale, explaining the problem
+or motivation rather than merely restating the diff. It SHOULD include context
+that helps reviewers understand the proposal, and be revised before merging if
+that context would not be useful in the commit history.
 
-Provide reproducible QA steps for the reviewer to verify the change, not a
-record of QA already performed. Keep the description and QA steps current as
-the change evolves. Put review responses, review chronology, and follow-up
-validation results in comments; incorporate decisions needed to understand the
-final change into the description.
+QA steps SHOULD be reproducible instructions for the reviewer to verify the
+change, not a record of QA already performed. The description and QA steps
+SHOULD be kept current as the change evolves. Review responses, review
+chronology, and follow-up validation results SHOULD go in comments; decisions
+needed to understand the final change SHOULD be included in the description.
 
 ## References
 
