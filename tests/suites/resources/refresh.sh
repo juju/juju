@@ -89,7 +89,7 @@ run_resource_refresh_no_new_charm_rev_supply_res_rev() {
 		check '^2$'
 
 	juju deploy juju-qa-test --channel latest/stable -n 2
-	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+	wait_for_units_idle juju-qa-test 2
 	juju config juju-qa-test foo-file=true
 
 	# wait for update-status
@@ -100,6 +100,7 @@ run_resource_refresh_no_new_charm_rev_supply_res_rev() {
 	juju config juju-qa-test foo-file=false
 
 	juju refresh juju-qa-test --revision "${charm_revision}" --resource foo-file=3
+	wait_for_units_idle juju-qa-test 2
 
 	juju config juju-qa-test foo-file=true
 	wait_for "resource line one: testing one plus one." "$(workload_status juju-qa-test 0).message"
