@@ -4762,37 +4762,37 @@ func (s *relationSuite) TestGetConsumerRelationUnitsChangeNoSettings(c *tc.C) {
 func (s *relationSuite) TestGetConsumerRelationUnitsChangeDepartureScope(c *tc.C) {
 	charmUUID := s.addCharm(c)
 	charmRelationUUID := s.addCharmRelationWithDefaults(c, charmUUID)
-	appUUID := s.addApplication(c, charmUUID, "consumer")
-	appEndpointUUID := s.addApplicationEndpoint(c, appUUID, charmRelationUUID)
+	consumerAppUUID := s.addApplication(c, charmUUID, "consumer")
+	appEndpointUUID := s.addApplicationEndpoint(c, consumerAppUUID, charmRelationUUID)
 	relationUUID := s.addRelation(c)
 	relationEndpointUUID := s.addRelationEndpoint(c, relationUUID, appEndpointUUID)
 
-	changes, err := s.state.GetConsumerRelationUnitsChange(c.Context(), relationUUID.String(), appUUID.String())
+	changes, err := s.state.GetConsumerRelationUnitsChange(c.Context(), relationUUID.String(), consumerAppUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(changes.DepartedUnits, tc.IsNil)
+	c.Check(changes.DepartedUnits, tc.SameContents, []string{})
 
-	unit0 := s.addUnit(c, "consumer/0", appUUID, charmUUID)
-	unit1 := s.addUnit(c, "consumer/1", appUUID, charmUUID)
+	consumerUnit0UUID := s.addUnit(c, "consumer/0", consumerAppUUID, charmUUID)
+	consumerUnit1UUID := s.addUnit(c, "consumer/1", consumerAppUUID, charmUUID)
 	otherAppUUID := s.addApplication(c, charmUUID, "other")
 	s.addUnit(c, "other/0", otherAppUUID, charmUUID)
 	otherRelationUUID := s.addRelation(c)
 	otherEndpointUUID := s.addRelationEndpoint(c, otherRelationUUID, appEndpointUUID)
-	s.addRelationUnit(c, unit0, otherEndpointUUID)
+	s.addRelationUnit(c, consumerUnit0UUID, otherEndpointUUID)
 
 	// Membership in another relation must not hide a departure here.
-	changes, err = s.state.GetConsumerRelationUnitsChange(c.Context(), relationUUID.String(), appUUID.String())
+	changes, err = s.state.GetConsumerRelationUnitsChange(c.Context(), relationUUID.String(), consumerAppUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(changes.DepartedUnits, tc.SameContents, []string{"consumer/0", "consumer/1"})
 
-	s.addRelationUnit(c, unit0, relationEndpointUUID)
-	changes, err = s.state.GetConsumerRelationUnitsChange(c.Context(), relationUUID.String(), appUUID.String())
+	s.addRelationUnit(c, consumerUnit0UUID, relationEndpointUUID)
+	changes, err = s.state.GetConsumerRelationUnitsChange(c.Context(), relationUUID.String(), consumerAppUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(changes.DepartedUnits, tc.SameContents, []string{"consumer/1"})
 
-	s.addRelationUnit(c, unit1, relationEndpointUUID)
-	changes, err = s.state.GetConsumerRelationUnitsChange(c.Context(), relationUUID.String(), appUUID.String())
+	s.addRelationUnit(c, consumerUnit1UUID, relationEndpointUUID)
+	changes, err = s.state.GetConsumerRelationUnitsChange(c.Context(), relationUUID.String(), consumerAppUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(changes.DepartedUnits, tc.IsNil)
+	c.Check(changes.DepartedUnits, tc.SameContents, []string{})
 }
 
 func (s *relationSuite) TestGetRelationUUIDsByUnitUUID(c *tc.C) {
