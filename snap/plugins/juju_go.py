@@ -30,6 +30,10 @@ Additionally, this plugin uses the following plugin-specific keywords:
       (list of strings)
       Tags to use during the go build. Default is not to use any build tags.
 """
+import json
+import os
+import subprocess
+import sys
 from typing import Any, Dict, List, Set
 
 from snapcraft.plugins.v2 import PluginV2
@@ -57,11 +61,6 @@ class PluginImpl(PluginV2):
                     "items": {"type": "string"},
                     "default": ["./..."],
                 },
-                "go-external-strings": {
-                    "type": "object",
-                    "additionalProperties": {"type": "string"},
-                    "default": {},
-                },
                 "go-static": {
                     "type": "boolean",
                     "default": False,
@@ -80,6 +79,36 @@ class PluginImpl(PluginV2):
     def get_build_packages(self) -> Set[str]:
         return {"gcc"}
 
+    @staticmethod
+    def _project_dir() -> str:
+        project_dir = os.environ.get("SNAPCRAFT_PROJECT_DIR")
+        if project_dir:
+            return project_dir
+        return os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+
+    def _build_metadata(self) -> Dict[str, str]:
+        project_dir = self._project_dir()
+        helper = os.path.join(project_dir, "scripts", "snap", "build_metadata.py")
+        try:
+            output = subprocess.check_output(
+                [
+                    sys.executable,
+                    helper,
+                    "--project-dir",
+                    project_dir,
+                    "--format",
+                    "json",
+                ],
+                text=True,
+            )
+        except (OSError, subprocess.CalledProcessError) as e:
+            raise RuntimeError(
+                f"failed to compute Juju snap build metadata: {e}"
+            ) from e
+        return json.loads(output)
+
     def get_build_environment(self) -> Dict[str, str]:
         env = {
             "GOBIN": "${SNAPCRAFT_PART_INSTALL}/bin",
@@ -96,9 +125,19 @@ class PluginImpl(PluginV2):
             ld_flags += '-extldflags "-static" '
         ld_flags = ld_flags.strip()
 
-        if len(self.options.go_external_strings) > 0:
-            for k, v in self.options.go_external_strings.items():
-                ld_flags += f' -X {k}={v}'
+        metadata = self._build_metadata()
+        external_strings = {
+            "github.com/juju/juju/version.GitCommit": metadata["git_commit"],
+            "github.com/juju/juju/version.GitTreeState": metadata[
+                "git_tree_state"
+            ],
+            "github.com/juju/juju/version.build": metadata["build"],
+            "github.com/juju/juju/cloudconfig/podcfg.JujudOCINamespace": metadata[
+                "oci_namespace"
+            ],
+        }
+        for key, value in external_strings.items():
+            ld_flags += f" -X {key}={value}"
         env.update({
             "SNAPCRAFT_GO_LDFLAGS": f'{ld_flags}'
         })
