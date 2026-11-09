@@ -35,6 +35,7 @@ func (s *charmSuite) TestExecuteCharmRemovalJob(c *tc.C) {
 	job := newCharmJob(c)
 	exp := s.modelState.EXPECT()
 	exp.CharmExists(gomock.Any(), job.EntityUUID).Return(true, nil)
+	exp.CharmHasApplicationReferences(gomock.Any(), job.EntityUUID).Return(false, nil)
 	exp.DeleteOrphanedResources(gomock.Any(), job.EntityUUID).Return(nil)
 	exp.CharmHasReferencedResources(gomock.Any(), job.EntityUUID).Return(false, nil)
 	exp.DeleteCharmIfUnused(gomock.Any(), job.EntityUUID).Return(nil)
@@ -55,22 +56,50 @@ func (s *charmSuite) TestExecuteCharmRemovalJobCharmNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *charmSuite) TestExecuteCharmRemovalJobInUse(c *tc.C) {
+func (s *charmSuite) TestExecuteCharmRemovalJobApplicationReferenced(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// The charm is still referenced, so DeleteCharmIfUnused leaves it in
-	// place. The job is deleted; the removal hooks schedule a new job when
-	// the last reference drops.
+	// An application still references the charm, so the charm is retained and
+	// the job completes without attempting resource or charm deletion.
 	job := newCharmJob(c)
 	exp := s.modelState.EXPECT()
 	exp.CharmExists(gomock.Any(), job.EntityUUID).Return(true, nil)
-	exp.DeleteOrphanedResources(gomock.Any(), job.EntityUUID).Return(nil)
-	exp.CharmHasReferencedResources(gomock.Any(), job.EntityUUID).Return(false, nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), job.EntityUUID).Return(nil)
+	exp.CharmHasApplicationReferences(gomock.Any(), job.EntityUUID).Return(true, nil)
 	exp.DeleteJob(gomock.Any(), job.UUID.String()).Return(nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), job)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *charmSuite) TestExecuteCharmRemovalJobUnitReferenced(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// A unit can still hold its charm foreign key after it becomes dying. Keep
+	// the job for a later pass instead of deleting it before the unit row goes.
+	job := newCharmJob(c)
+	exp := s.modelState.EXPECT()
+	exp.CharmExists(gomock.Any(), job.EntityUUID).Return(true, nil)
+	exp.CharmHasApplicationReferences(gomock.Any(), job.EntityUUID).Return(false, nil)
+	exp.DeleteOrphanedResources(gomock.Any(), job.EntityUUID).Return(nil)
+	exp.CharmHasReferencedResources(gomock.Any(), job.EntityUUID).Return(false, nil)
+	exp.DeleteCharmIfUnused(gomock.Any(), job.EntityUUID).
+		Return(errors.Errorf("unit still references charm").Add(removalerrors.RemovalJobIncomplete))
+
+	err := s.newService(c).ExecuteJob(c.Context(), job)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *charmSuite) TestExecuteCharmRemovalJobApplicationReferencesError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	job := newCharmJob(c)
+	exp := s.modelState.EXPECT()
+	exp.CharmExists(gomock.Any(), job.EntityUUID).Return(true, nil)
+	exp.CharmHasApplicationReferences(gomock.Any(), job.EntityUUID).
+		Return(false, errors.Errorf("boom"))
+
+	err := s.newService(c).ExecuteJob(c.Context(), job)
+	c.Check(err, tc.ErrorMatches, `checking application references for charm .* boom`)
 }
 
 func (s *charmSuite) TestExecuteCharmRemovalJobExistsError(c *tc.C) {
@@ -90,6 +119,7 @@ func (s *charmSuite) TestExecuteCharmRemovalJobDeleteOrphanedResourcesError(c *t
 	job := newCharmJob(c)
 	exp := s.modelState.EXPECT()
 	exp.CharmExists(gomock.Any(), job.EntityUUID).Return(true, nil)
+	exp.CharmHasApplicationReferences(gomock.Any(), job.EntityUUID).Return(false, nil)
 	exp.DeleteOrphanedResources(gomock.Any(), job.EntityUUID).Return(errors.Errorf("boom"))
 
 	err := s.newService(c).ExecuteJob(c.Context(), job)
@@ -102,6 +132,7 @@ func (s *charmSuite) TestExecuteCharmRemovalJobPinned(c *tc.C) {
 	job := newCharmJob(c)
 	exp := s.modelState.EXPECT()
 	exp.CharmExists(gomock.Any(), job.EntityUUID).Return(true, nil)
+	exp.CharmHasApplicationReferences(gomock.Any(), job.EntityUUID).Return(false, nil)
 	exp.DeleteOrphanedResources(gomock.Any(), job.EntityUUID).Return(nil)
 	exp.CharmHasReferencedResources(gomock.Any(), job.EntityUUID).Return(true, nil)
 
@@ -118,6 +149,7 @@ func (s *charmSuite) TestExecuteCharmRemovalJobDeleteError(c *tc.C) {
 	job := newCharmJob(c)
 	exp := s.modelState.EXPECT()
 	exp.CharmExists(gomock.Any(), job.EntityUUID).Return(true, nil)
+	exp.CharmHasApplicationReferences(gomock.Any(), job.EntityUUID).Return(false, nil)
 	exp.DeleteOrphanedResources(gomock.Any(), job.EntityUUID).Return(nil)
 	exp.CharmHasReferencedResources(gomock.Any(), job.EntityUUID).Return(false, nil)
 	exp.DeleteCharmIfUnused(gomock.Any(), job.EntityUUID).Return(errors.Errorf("boom"))

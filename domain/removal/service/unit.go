@@ -151,6 +151,13 @@ func (s *Service) RemoveUnit(
 		return "", errors.Capture(err)
 	}
 
+	if cascaded.CharmUUID != nil {
+		s.logger.Infof(ctx, "unit was the last alive one on charm %q, scheduling removal", *cascaded.CharmUUID)
+		if err := s.scheduleCharmRemovals(ctx, []string{*cascaded.CharmUUID}); err != nil {
+			return "", errors.Capture(err)
+		}
+	}
+
 	return unitJobUUID, nil
 }
 

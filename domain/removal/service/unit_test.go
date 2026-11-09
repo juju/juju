@@ -10,6 +10,7 @@ import (
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 
+	corecharmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/leadership"
 	unit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -122,6 +123,31 @@ func (s *unitSuite) TestRemoveUnitForceWaitSchedulesMachineJobImmediatelyAndAfte
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
 
+func (s *unitSuite) TestRemoveUnitForceWaitSchedulesCharmRemovalOnce(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uUUID := unittesting.GenUnitUUID(c)
+	charmUUID := corecharmtesting.GenCharmID(c).String()
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when).Times(3)
+
+	exp := s.modelState.EXPECT()
+	exp.UnitExists(gomock.Any(), uUUID.String()).Return(true, nil)
+	exp.EnsureUnitNotAliveCascade(gomock.Any(), uUUID.String(), false).Return(internal.CascadedUnitLives{
+		CharmUUID: &charmUUID,
+	}, nil)
+	gomock.InOrder(
+		exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), false, when.UTC()).Return(nil),
+		exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), true, when.UTC().Add(time.Minute)).Return(nil),
+		exp.CharmScheduleRemoval(gomock.Any(), tc.Bind(tc.IsNonZeroUUID), charmUUID, when.UTC()).Return(nil),
+	)
+
+	jobUUID, err := s.newService(c).RemoveUnit(c.Context(), uUUID, false, true, time.Minute)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
 func (s *unitSuite) TestRemoveUnitForceNoWaitSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -167,11 +193,13 @@ func (s *unitSuite) TestRemoveUnitRetrySchedulesRemovalJobs(c *tc.C) {
 
 	uUUID := unittesting.GenUnitUUID(c)
 	mUUID := "machine-1"
+	charmUUID := corecharmtesting.GenCharmID(c).String()
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when).AnyTimes()
 
 	cascaded := internal.CascadedUnitLives{
 		MachineUUID: &mUUID,
+		CharmUUID:   &charmUUID,
 		CascadedStorageLives: internal.CascadedStorageLives{
 			CascadedStorageAttachmentLives: internal.CascadedStorageAttachmentLives{
 				StorageAttachmentUUIDs:    []string{"storage-attachment-1"},
@@ -199,6 +227,7 @@ func (s *unitSuite) TestRemoveUnitRetrySchedulesRemovalJobs(c *tc.C) {
 	exp.FilesystemScheduleRemoval(gomock.Any(), gomock.Any(), "filesystem-1", false, when.UTC()).Return(nil).Times(2)
 	exp.VolumeScheduleRemoval(gomock.Any(), gomock.Any(), "volume-1", false, when.UTC()).Return(nil).Times(2)
 	exp.StorageInstanceScheduleRemoval(gomock.Any(), gomock.Any(), "storage-instance-1", false, when.UTC()).Return(nil).Times(2)
+	exp.CharmScheduleRemoval(gomock.Any(), tc.Bind(tc.IsNonZeroUUID), charmUUID, when.UTC()).Return(nil).Times(2)
 
 	jobUUID1, err := s.newService(c).RemoveUnit(c.Context(), uUUID, false, false, 0)
 	c.Assert(err, tc.ErrorIsNil)

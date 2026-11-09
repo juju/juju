@@ -76,6 +76,66 @@ func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccessLastUnit(c *tc.C) 
 	s.checkMachineLife(c, unitMachineUUID.String(), life.Dying)
 }
 
+func (s *unitSuite) TestEnsureUnitNotAliveCascadeCharmBlockedByAliveUnitInAnotherApplication(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID1 := s.createIAASApplication(c, svc, "app1", applicationservice.AddIAASUnitArg{})
+	appUUID2 := s.createIAASApplication(c, svc, "app2", applicationservice.AddIAASUnitArg{})
+
+	app1UnitUUIDs := s.getAllUnitUUIDs(c, appUUID1)
+	c.Assert(app1UnitUUIDs, tc.HasLen, 1)
+	app2UnitUUIDs := s.getAllUnitUUIDs(c, appUUID2)
+	c.Assert(app2UnitUUIDs, tc.HasLen, 1)
+
+	// Simulate an upgraded second application whose unit still uses the first
+	// application's charm.
+	charmUUID := s.getCharmUUIDForUnit(c, app1UnitUUIDs[0].String())
+	_, err := s.DB().ExecContext(c.Context(), `
+UPDATE unit SET charm_uuid = ? WHERE uuid = ?`,
+		charmUUID, app2UnitUUIDs[0].String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	cascade, err := st.EnsureUnitNotAliveCascade(c.Context(), app1UnitUUIDs[0].String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cascade.CharmUUID, tc.IsNil)
+
+	s.checkUnitLife(c, app1UnitUUIDs[0].String(), life.Dying)
+	s.checkUnitLife(c, app2UnitUUIDs[0].String(), life.Alive)
+}
+
+func (s *unitSuite) TestEnsureUnitNotAliveCascadeReturnsCharmForLastAliveUnitOnRetry(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app",
+		applicationservice.AddIAASUnitArg{},
+		applicationservice.AddIAASUnitArg{},
+		applicationservice.AddIAASUnitArg{},
+	)
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(unitUUIDs, tc.HasLen, 3)
+	charmUUID := s.getCharmUUIDForUnit(c, unitUUIDs[0].String())
+
+	// Dying and dead units do not prevent the last alive unit from making its
+	// charm a removal candidate.
+	s.advanceUnitLife(c, unitUUIDs[1], life.Dying)
+	s.advanceUnitLife(c, unitUUIDs[2], life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	firstCascade, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUIDs[0].String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(firstCascade.CharmUUID, tc.NotNil)
+	c.Check(*firstCascade.CharmUUID, tc.Equals, charmUUID)
+
+	secondCascade, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUIDs[0].String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(secondCascade.CharmUUID, tc.NotNil)
+	c.Check(*secondCascade.CharmUUID, tc.Equals, charmUUID)
+
+	s.checkUnitLife(c, unitUUIDs[0].String(), life.Dying)
+	s.checkUnitLife(c, unitUUIDs[1].String(), life.Dying)
+	s.checkUnitLife(c, unitUUIDs[2].String(), life.Dead)
+}
+
 func (s *unitSuite) TestEnsureUnitNotAliveCascadeStorageAttachmentsDying(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
@@ -1192,14 +1252,23 @@ func (s *unitSuite) TestDeleteCharmIfUnusedBeforeUnitDeletion(c *tc.C) {
 
 	charmUUID := s.getCharmUUIDForUnit(c, unitUUID.String())
 
-	// Act: Delete the charm, the unit and the application.
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err := st.DeleteCharmIfUnused(c.Context(), charmUUID)
-
-	// Assert: The charm deletion shouldn't fail as it's still referenced.
-	// And the charm shouldn't be deleted.
+	// Remove the application reference as would happen during a charm upgrade,
+	// leaving only the dead unit's old charm reference.
+	newCharmUUID := s.createBareCharm(c, true, s.now.Add(-time.Hour))
+	_, err := s.DB().ExecContext(c.Context(), `
+UPDATE application SET charm_uuid = ? WHERE uuid = ?`, newCharmUUID, appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	s.checkCharmsCount(c, 1)
+
+	// Act: Try to delete the old charm before deleting the unit.
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = st.DeleteCharmIfUnused(c.Context(), charmUUID)
+
+	// Assert: The unit reference makes the removal incomplete and retains the
+	// charm so the job can retry after the unit is deleted.
+	c.Assert(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+	exists, err := st.CharmExists(c.Context(), charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsTrue)
 }
 
 // TestDeleteCAASUnitNotAffectingOtherUnits is a regression test where deleting a CAAS unit

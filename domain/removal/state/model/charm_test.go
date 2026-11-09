@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/domain/life"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -31,6 +32,59 @@ func (s *charmSuite) TestCharmExists(c *tc.C) {
 	exists, err = st.CharmExists(c.Context(), "no-such-charm")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.IsFalse)
+}
+
+func (s *charmSuite) TestCharmScheduleRemoval(c *tc.C) {
+	charmUUID := s.createBareCharm(c, true, s.now.Add(-2*time.Hour))
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	when := s.now.Add(time.Hour)
+	err := st.CharmScheduleRemoval(c.Context(), "removal-uuid", charmUUID, when)
+	c.Assert(err, tc.ErrorIsNil)
+
+	row := s.DB().QueryRowContext(c.Context(), `
+SELECT t.name, r.entity_uuid, r.force, r.scheduled_for
+FROM   removal AS r
+JOIN   removal_type AS t ON r.removal_type_id = t.id
+WHERE  r.uuid = ?`, "removal-uuid")
+	var (
+		removalType  string
+		entityUUID   string
+		force        bool
+		scheduledFor time.Time
+	)
+	err = row.Scan(&removalType, &entityUUID, &force, &scheduledFor)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(removalType, tc.Equals, "charm")
+	c.Check(entityUUID, tc.Equals, charmUUID)
+	c.Check(force, tc.IsFalse)
+	c.Check(scheduledFor, tc.Equals, when)
+}
+
+func (s *charmSuite) TestCharmHasApplicationReferences(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	unreferencedCharmUUID := s.createBareCharm(c, true, s.now.Add(-2*time.Hour))
+	referenced, err := st.CharmHasApplicationReferences(c.Context(), unreferencedCharmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(referenced, tc.IsFalse)
+
+	appSvc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, appSvc, "some-app")
+	var charmUUID string
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT charm_uuid FROM application WHERE uuid = ?`, appUUID.String()).Scan(&charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	referenced, err = st.CharmHasApplicationReferences(c.Context(), charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(referenced, tc.IsTrue)
+
+	// Application references pin a charm regardless of application life.
+	s.advanceApplicationLife(c, appUUID, life.Dead)
+	referenced, err = st.CharmHasApplicationReferences(c.Context(), charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(referenced, tc.IsTrue)
 }
 
 func (s *charmSuite) TestCharmHasReferencedResourcesNoResources(c *tc.C) {

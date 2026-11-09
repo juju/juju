@@ -195,6 +195,39 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNormalSuccessWith
 	s.checkMachineDyingState(c, aliveMachineUUIDs)
 }
 
+func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeReturnsDedupedCharmUUIDs(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app",
+		applicationservice.AddIAASUnitArg{},
+		applicationservice.AddIAASUnitArg{},
+		applicationservice.AddIAASUnitArg{},
+	)
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(unitUUIDs, tc.HasLen, 3)
+	currentCharmUUID := s.getCharmUUIDForApplication(c, appUUID.String())
+	oldCharmUUID := s.createBareCharm(c, true, s.now.Add(-time.Hour))
+
+	// Model an application upgrade where some units still use the old charm.
+	_, err := s.DB().ExecContext(c.Context(), `
+UPDATE unit SET charm_uuid = ? WHERE uuid IN (?, ?)`,
+		oldCharmUUID, unitUUIDs[0].String(), unitUUIDs[1].String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	firstArtifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(firstArtifacts.CharmUUIDs, tc.HasLen, 2)
+	c.Check(firstArtifacts.CharmUUIDs, tc.SameContents, []string{currentCharmUUID, oldCharmUUID})
+
+	// Every dying unit returns its charm on a retry. The application result
+	// must still contain each charm only once.
+	secondArtifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(secondArtifacts.CharmUUIDs, tc.HasLen, 2)
+	c.Check(secondArtifacts.CharmUUIDs, tc.DeepEquals, firstArtifacts.CharmUUIDs)
+}
+
 func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNormalSuccessWithAliveAndDyingUnitsWithLastMachine(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app",

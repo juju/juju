@@ -141,6 +141,10 @@ func (s *Service) RemoveMachine(
 		return "", errors.Capture(err)
 	}
 
+	if err := s.scheduleCharmRemovals(ctx, cascaded.CharmUUIDs); err != nil {
+		return "", errors.Capture(err)
+	}
+
 	return machineJobUUID, nil
 }
 

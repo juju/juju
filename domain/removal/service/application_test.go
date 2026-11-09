@@ -11,6 +11,7 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corecharmtesting "github.com/juju/juju/core/charm/testing"
 	coremodel "github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -176,6 +177,31 @@ func (s *applicationSuite) TestRemoveApplicationForceWaitSchedulesCascadedJobsIm
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
 
+func (s *applicationSuite) TestRemoveApplicationForceWaitSchedulesCharmRemovalOnce(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	charmUUID := corecharmtesting.GenCharmID(c).String()
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when).Times(3)
+
+	exp := s.modelState.EXPECT()
+	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
+	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String(), false).Return(internal.CascadedApplicationLives{
+		CharmUUIDs: []string{charmUUID},
+	}, nil)
+	gomock.InOrder(
+		exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil),
+		exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), true, when.UTC().Add(time.Minute)).Return(nil),
+		exp.CharmScheduleRemoval(gomock.Any(), tc.Bind(tc.IsNonZeroUUID), charmUUID, when.UTC()).Return(nil),
+	)
+
+	jobUUID, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, true, time.Minute)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
 // TestRemoveApplicationCMRRelationRoutesToRemoteOffererRemoval ensures that a
 // cascaded cross-model relation from an application removal is scheduled via
 // the remote offerer removal path, not the plain relation removal path. The
@@ -248,6 +274,7 @@ func (s *applicationSuite) TestRemoveApplicationRetrySchedulesRemovalJobs(c *tc.
 	defer s.setupMocks(c).Finish()
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
+	charmUUID := corecharmtesting.GenCharmID(c).String()
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when).AnyTimes()
 
@@ -255,6 +282,7 @@ func (s *applicationSuite) TestRemoveApplicationRetrySchedulesRemovalJobs(c *tc.
 		RelationUUIDs: []string{"relation-1"},
 		UnitUUIDs:     []string{"unit-1"},
 		MachineUUIDs:  []string{"machine-1"},
+		CharmUUIDs:    []string{charmUUID},
 		CascadedStorageLives: internal.CascadedStorageLives{
 			CascadedStorageAttachmentLives: internal.CascadedStorageAttachmentLives{
 				StorageAttachmentUUIDs:    []string{"storage-attachment-1"},
@@ -287,6 +315,7 @@ func (s *applicationSuite) TestRemoveApplicationRetrySchedulesRemovalJobs(c *tc.
 	exp.FilesystemScheduleRemoval(gomock.Any(), gomock.Any(), "filesystem-1", false, when.UTC()).Return(nil).Times(2)
 	exp.VolumeScheduleRemoval(gomock.Any(), gomock.Any(), "volume-1", false, when.UTC()).Return(nil).Times(2)
 	exp.StorageInstanceScheduleRemoval(gomock.Any(), gomock.Any(), "storage-instance-1", false, when.UTC()).Return(nil).Times(2)
+	exp.CharmScheduleRemoval(gomock.Any(), tc.Bind(tc.IsNonZeroUUID), charmUUID, when.UTC()).Return(nil).Times(2)
 
 	jobUUID1, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, false, 0)
 	c.Assert(err, tc.ErrorIsNil)

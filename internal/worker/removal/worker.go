@@ -189,8 +189,10 @@ func (w *removalWorker) Wait() error {
 // jobWorker exists to expose enough of a tomb to satisfy [worker.Worker],
 // and to generate a report.
 type jobWorker struct {
-	tomb tomb.Tomb
-	job  removal.Job
+	tomb   tomb.Tomb
+	svc    RemovalService
+	job    removal.Job
+	logger logger.Logger
 }
 
 // newJobWorker returns a closure suitable for passing to
@@ -198,18 +200,21 @@ type jobWorker struct {
 // It uses the input service to run the input removal job.
 func newJobWorker(svc RemovalService, job removal.Job, logger logger.Logger) func(context.Context) (worker.Worker, error) {
 	return func(ctx context.Context) (worker.Worker, error) {
-		w := jobWorker{job: job}
-		w.tomb.Go(func() error {
-			err := svc.ExecuteJob(w.tomb.Context(context.Background()), job)
-			if err != nil {
-				logger.Warningf(ctx, "removal job %q (%s) attempt failed: %v", job.UUID, job.RemovalType, err)
-			} else {
-				logger.Debugf(ctx, "removal job %q (%s) completed", job.UUID, job.RemovalType)
-			}
-			return err
-		})
+		w := jobWorker{svc: svc, job: job, logger: logger}
+		w.tomb.Go(w.loop)
 		return &w, nil
 	}
+}
+
+func (w *jobWorker) loop() error {
+	ctx := w.tomb.Context(context.Background())
+	err := w.svc.ExecuteJob(ctx, w.job)
+	if err != nil {
+		w.logger.Warningf(ctx, "removal job %q (%s) attempt failed: %v", w.job.UUID, w.job.RemovalType, err)
+	} else {
+		w.logger.Tracef(ctx, "removal job %q (%s) completed", w.job.UUID, w.job.RemovalType)
+	}
+	return err
 }
 
 // Report returns information about the removal job that the worker is running.

@@ -5,11 +5,43 @@ package model
 
 import (
 	"context"
+	"time"
 
 	"github.com/canonical/sqlair"
 
+	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/internal/errors"
 )
+
+// CharmScheduleRemoval schedules a removal job for the charm with the input
+// UUID, to be actioned at the input time.
+func (st *State) CharmScheduleRemoval(
+	ctx context.Context, removalUUID, charmUUID string, when time.Time,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	removalRec := removalJob{
+		UUID:          removalUUID,
+		RemovalTypeID: uint64(removal.CharmJob),
+		EntityUUID:    charmUUID,
+		ScheduledFor:  when,
+	}
+
+	stmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removalJob.*)", removalRec)
+	if err != nil {
+		return errors.Errorf("preparing charm removal: %w", err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, removalRec).Run(); err != nil {
+			return errors.Errorf("scheduling charm removal: %w", err)
+		}
+		return nil
+	}))
+}
 
 // CharmExists reports whether the charm with the input UUID exists.
 func (st *State) CharmExists(ctx context.Context, charmUUID string) (bool, error) {
@@ -42,6 +74,41 @@ WHERE  uuid = $entityUUID.uuid
 		return nil
 	})
 	return exists, errors.Capture(err)
+}
+
+// CharmHasApplicationReferences reports whether any application row still
+// references the charm, regardless of the application's life.
+func (st *State) CharmHasApplicationReferences(ctx context.Context, charmUUID string) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	charmID := entityUUID{UUID: charmUUID}
+	stmt, err := st.Prepare(`
+SELECT a.uuid AS &entityUUID.uuid
+FROM   application AS a
+WHERE  a.charm_uuid = $entityUUID.uuid
+LIMIT  1
+`, charmID)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	referenced := false
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		referenced = false
+		var application entityUUID
+		err := tx.Query(ctx, stmt, charmID).Get(&application)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		referenced = true
+		return nil
+	})
+	return referenced, errors.Capture(err)
 }
 
 // CharmHasReferencedResources reports whether any resource of the charm with
