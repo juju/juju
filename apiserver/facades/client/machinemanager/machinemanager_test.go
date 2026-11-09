@@ -320,6 +320,7 @@ func (s *DestroyMachineManagerSuite) expectUnpinAppLeaders(id string) {
 func (s *DestroyMachineManagerSuite) expectDestroyMachine(ctrl *gomock.Controller, units []machinemanager.Unit, containers []string, attemptDestroy, keep, force bool) *mocks.MockMachine {
 	machine := mocks.NewMockMachine(ctrl)
 	if keep {
+		machine.EXPECT().KeepInstance().Return(false, nil)
 		machine.EXPECT().SetKeepInstance(true).Return(nil)
 	}
 
@@ -886,8 +887,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithHostedUnitsAndContain
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	// A refused host leaves its containers Alive, so the keep-instance
-	// set for this removal is undone, while a container that already
-	// kept its instance is left as it was.
+	// set for this removal is undone on the host and its containers,
+	// while a container that already kept its instance is left as it was.
 	keeper := mocks.NewMockMachine(ctrl)
 	nested := mocks.NewMockMachine(ctrl)
 	kept := mocks.NewMockMachine(ctrl)
@@ -908,7 +909,28 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithHostedUnitsAndContain
 		keeper.EXPECT().SetKeepInstance(false).Return(nil),
 		s.st.EXPECT().Machine("0/lxd/0/lxd/0").Return(nested, nil),
 		nested.EXPECT().SetKeepInstance(false).Return(nil),
+		machine0.EXPECT().SetKeepInstance(false).Return(nil),
 	)
+
+	results, err := s.api.DestroyMachineWithHostedUnitsAndContainers(params.DestroyMachinesWithHostedUnitsParams{
+		MachineTags: []string{"machine-0"},
+		Keep:        true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Check(results.Results[0].Error, gc.ErrorMatches, "machine 0 is locked for series upgrade")
+}
+
+func (s *DestroyMachineManagerSuite) TestDestroyMachineWithHostedUnitsAndContainersRefusedKeepsExistingHostKeep(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.leadership.EXPECT().GetMachineApplicationNames("0").Return([]string{"foo-app-1"}, nil)
+
+	machine0 := s.expectDestroyMachine(ctrl, nil, nil, false, false, false)
+	machine0.EXPECT().KeepInstance().Return(true, nil)
+	machine0.EXPECT().DestroyWithParams(false, true, gomock.Any()).Return(errors.New("machine 0 is locked for series upgrade"))
+	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	results, err := s.api.DestroyMachineWithHostedUnitsAndContainers(params.DestroyMachinesWithHostedUnitsParams{
 		MachineTags: []string{"machine-0"},
@@ -929,7 +951,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithHostedUnitsAndContain
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	// The host is not destroyed when a container cannot keep its
-	// instance, and the containers already marked are cleared.
+	// instance, and the host and containers already marked are cleared.
 	keeper0 := mocks.NewMockMachine(ctrl)
 	keeper1 := mocks.NewMockMachine(ctrl)
 	gomock.InOrder(
@@ -942,6 +964,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithHostedUnitsAndContain
 		keeper1.EXPECT().SetKeepInstance(true).Return(errors.New("boom")),
 		s.st.EXPECT().Machine("0/lxd/0").Return(keeper0, nil),
 		keeper0.EXPECT().SetKeepInstance(false).Return(nil),
+		machine0.EXPECT().SetKeepInstance(false).Return(nil),
 	)
 
 	results, err := s.api.DestroyMachineWithHostedUnitsAndContainers(params.DestroyMachinesWithHostedUnitsParams{

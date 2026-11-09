@@ -668,6 +668,8 @@ func (m *Machine) DestroyWithParams(force, destroyHostedUnitsAndContainers bool,
 					maxWait,
 				)), nil
 			}
+			// A non-force call on a non-Alive machine is intentionally a
+			// no-op; only a forced retry re-enters cleanup.
 			return nil, jujutxn.ErrNoOperations
 		}
 		if force {

@@ -518,7 +518,12 @@ func (mm *MachineManagerAPI) destroyMachineInternal(
 	results := make([]params.DestroyMachineResult, len(args.Entities))
 	for i, entity := range args.Entities {
 		result := params.DestroyMachineResult{}
+		var undoHostKeep func()
 		fail := func(e error) {
+			if undoHostKeep != nil {
+				undoHostKeep()
+				undoHostKeep = nil
+			}
 			result.Error = apiservererrors.ServerError(e)
 			results[i] = result
 		}
@@ -542,13 +547,40 @@ func (mm *MachineManagerAPI) destroyMachineInternal(
 			continue
 		}
 		if options.keep && !options.dryRun {
-			logger.Infof("destroy machine %v but keep instance", machineTag.Id())
-			if err := machine.SetKeepInstance(options.keep); err != nil {
-				if !options.force {
+			// Only clear keep-instance on failure if this request set it;
+			// an earlier request may have already marked the machine.
+			keepStateKnown := true
+			alreadyKept, err := machine.KeepInstance()
+			if err != nil {
+				if errors.Is(err, errors.NotFound) {
+					alreadyKept = false
+				} else if !options.force {
 					fail(err)
 					continue
+				} else {
+					keepStateKnown = false
+					logger.Warningf(
+						"could not read keep instance for machine %v: %v",
+						machineTag.Id(), err)
 				}
-				logger.Warningf("could not keep instance for machine %v: %v", machineTag.Id(), err)
+			}
+			if !alreadyKept {
+				logger.Infof("destroy machine %v but keep instance", machineTag.Id())
+				if err := machine.SetKeepInstance(true); err != nil {
+					if !options.force {
+						fail(err)
+						continue
+					}
+					logger.Warningf("could not keep instance for machine %v: %v", machineTag.Id(), err)
+				} else if keepStateKnown {
+					undoHostKeep = func() {
+						if err := machine.SetKeepInstance(false); err != nil {
+							logger.Warningf(
+								"could not undo keep instance for machine %v: %v",
+								machineTag.Id(), err)
+						}
+					}
+				}
 			}
 		}
 		info := params.DestroyMachineInfo{
@@ -629,6 +661,9 @@ func (mm *MachineManagerAPI) destroyMachineInternal(
 			fail(err)
 			continue
 		}
+
+		// The host removal was accepted, so keep-instance must remain.
+		undoHostKeep = nil
 
 		if containersAfterHost {
 			info.DestroyedContainers, err = mm.destoryContainer(

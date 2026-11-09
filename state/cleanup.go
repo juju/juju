@@ -1628,7 +1628,9 @@ func (st *State) cleanupEvacuateMachine(machineId string, cleanupArgs []bson.Raw
 }
 
 // errForceCleanupRequired indicates that evacuation should continue after the
-// grace period with forceDying enabled.
+// grace period with forceDying enabled. It is internal to the evacuation call
+// chain and must be caught by cleanupEvacuateMachine before it reaches the
+// cleanup runner.
 var errForceCleanupRequired = errors.New("force cleanup required")
 
 func (st *State) cleanupEvacuateMachineInternal(
@@ -1648,6 +1650,8 @@ func (st *State) cleanupEvacuateMachineInternal(
 	} else if err != nil {
 		return errors.Trace(err)
 	}
+	// Forced cleanup must re-enter for machines that are already Dying;
+	// non-forced cleanup stops once the machine is Dead.
 	if !force && machine.Life() == Dead {
 		return nil
 	}
