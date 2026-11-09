@@ -105,13 +105,20 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	// removed in 4.0. Represent the nomination with the
 	// storage-default-filesystem-source model config, resolving to the
 	// Kubernetes storage pool that the storage pool import derives from
-	// the same key. A model that nominates its own default filesystem
-	// source is not overridden. A pool of the derived name that
-	// provisions from another class is left alone, mirroring 3.6, where
-	// the existing pool won regardless of its attributes.
+	// the same key. 3.6 recorded the seeded "kubernetes" pool as the
+	// default source on every model and then ignored it in favour of
+	// workload-storage when provisioning, so that value counts as unset
+	// here; any other default filesystem source is the model's own and
+	// is not overridden. A pool of the derived name provisioning from
+	// another class is left alone, mirroring 3.6's rule that a
+	// same-named pool is never clobbered: the nomination is dropped and
+	// charm storage keeps falling back to the model's default.
 	if cloudType == jujucloud.CloudTypeKubernetes {
 		if class, ok := attrs[k8sconstants.WorkloadStorageKey].(string); ok && class != "" {
-			if source, ok := attrs[config.StorageDefaultFilesystemSourceKey].(string); !ok || source == "" {
+			source, hasSource := attrs[config.StorageDefaultFilesystemSourceKey].(string)
+			sourceIsSentinel := !hasSource || source == "" ||
+				source == string(k8sconstants.StorageProviderType)
+			if sourceIsSentinel {
 				poolName := storage.PoolNameForStorageClass(class)
 				usable := true
 				for _, pool := range model.StoragePools() {

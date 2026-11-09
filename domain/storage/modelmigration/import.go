@@ -227,9 +227,13 @@ func importWorkloadStoragePool(model description.Model) {
 	if !ok || class == "" {
 		return
 	}
-	if source, ok := attrs[config.StorageDefaultFilesystemSourceKey].(string); ok && source != "" {
-		// The model nominates its own default filesystem source; the
-		// 3.x nomination is not needed.
+	// The seeded "kubernetes" pool recorded as the default source by 3.6
+	// counts as unset: 3.6 ignored it in favour of the workload-storage
+	// nomination when provisioning, and the model config import
+	// translates the nomination accordingly. Any other source is the
+	// model's own and the 3.x nomination is not needed.
+	source, hasSource := attrs[config.StorageDefaultFilesystemSourceKey].(string)
+	if hasSource && source != "" && source != string(k8sconstants.StorageProviderType) {
 		return
 	}
 	poolName := internalstorage.PoolNameForStorageClass(class)
@@ -238,10 +242,11 @@ func importWorkloadStoragePool(model description.Model) {
 			continue
 		}
 		// A pool of the derived name already exists: the model keeps it
-		// and nothing is synthesized, mirroring 3.6, where the existing
-		// pool won regardless of its attributes. When it provisions from a
-		// class other than the nominated one, the model config import
-		// correspondingly leaves the default filesystem source unset.
+		// and nothing is synthesized, mirroring 3.6's rule that a
+		// same-named pool is never clobbered. The nomination is dropped
+		// and charm storage keeps falling back to the model's default;
+		// the model config import correspondingly leaves the default
+		// filesystem source unchanged.
 		return
 	}
 	model.AddStoragePool(description.StoragePoolArgs{

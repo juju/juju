@@ -481,5 +481,8 @@ juju bootstrap <k8s cloud> \
 
 Models migrated from `3.6` that carry the `workload-storage` model configuration key are translated on import: Juju
 creates a Kubernetes storage pool named after the recorded class (with the class as its `storage-class` attribute)
-and makes it the model's `storage-default-filesystem-source`, unless the model already nominates its own default
-filesystem source.
+and makes it the model's `storage-default-filesystem-source`. The `kubernetes` value that `3.6` recorded on every
+model counts as unset here, since `3.6` itself ignored it in favour of `workload-storage` when provisioning. A model
+that nominates a different default filesystem source, or that already defines a pool of the derived name, keeps what
+it has: nothing is synthesized and the default source is left alone — new charm storage then provisions from the
+model's default (the seeded `kubernetes` pool, bound to the cluster's default storage class).

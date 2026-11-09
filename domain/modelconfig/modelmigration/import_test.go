@@ -215,6 +215,34 @@ func (s *importSuite) TestKubernetesWorkloadStorageForeignPoolNotRedirected(c *t
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *importSuite) TestKubernetesWorkloadStorageOverridesSentinelSource(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// 3.6 recorded the seeded "kubernetes" pool as the default source on
+	// every model and ignored it in favour of workload-storage when
+	// provisioning: the translation overrides it too.
+	model := description.NewModel(description.ModelArgs{
+		Config: map[string]any{
+			"type":                              "kubernetes",
+			"workload-storage":                  "ceph-rbd",
+			"storage-default-filesystem-source": "kubernetes",
+		},
+	})
+
+	s.service.EXPECT().GetModelConfigSchemaForCloudType(gomock.Any(), "kubernetes").Return(configschema.Fields{
+		"type":                              configschema.Attr{},
+		"storage-default-filesystem-source": configschema.Attr{},
+	}, nil)
+	s.service.EXPECT().SetModelConfig(gomock.Any(), map[string]any{
+		"type":                              "kubernetes",
+		"storage-default-filesystem-source": "ceph-rbd",
+	}).Return(nil)
+
+	op := s.newImportOperation(c)
+	err := op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *importSuite) TestKubernetesWorkloadStorageRespectsDefaultSource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

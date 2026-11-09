@@ -1030,3 +1030,47 @@ func (s *importSuite) TestImportWorkloadStoragePoolIgnoresOperatorStorage(c *tc.
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 }
+
+// TestImportWorkloadStoragePoolSentinelSource tests that the seeded
+// "kubernetes" pool recorded as the default source by 3.6 counts as unset:
+// the pool for the workload-storage nomination is synthesized, matching the
+// model config import's translation.
+func (s *importSuite) TestImportWorkloadStoragePoolSentinelSource(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.CAAS.String(),
+		Config: map[string]any{
+			"workload-storage":                  "ceph-rbd",
+			"storage-default-filesystem-source": "kubernetes",
+		},
+	})
+	ctx := c.Context()
+
+	gomock.InOrder(
+		s.service.EXPECT().
+			GetStoragePoolsToImport(ctx, gomock.Any()).
+			DoAndReturn(func(ctx context.Context, pools []description.StoragePool) (
+				[]domainstorage.ImportStoragePoolParams,
+				[]domainstorage.RecommendedStoragePoolParams,
+				error,
+			) {
+				c.Assert(pools, tc.HasLen, 1)
+				c.Check(pools[0].Name(), tc.Equals, "ceph-rbd")
+				c.Check(pools[0].Attributes(), tc.DeepEquals, map[string]any{
+					"storage-class": "ceph-rbd",
+				})
+				return nil, nil, nil
+			}),
+		s.service.EXPECT().ImportStoragePools(ctx, nil).Return(nil),
+		s.service.EXPECT().SetRecommendedStoragePools(ctx, nil).Return(nil),
+	)
+
+	// Act
+	op := s.newStoragePoolImportOperation()
+	err := op.Execute(ctx, model)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
