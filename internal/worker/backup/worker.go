@@ -178,6 +178,11 @@ func (w *Worker) loop() error {
 }
 
 func (w *Worker) request(req request) {
+	// Sending the result only confirms receipt. Create may still need to
+	// discard the archive after caller cancellation, so keep this request
+	// tracked by the tomb until Create acknowledges completion of that cleanup.
+	// On success, Create acknowledges the handoff before returning; the caller
+	// owns archive cleanup after download.
 	defer func() { <-req.done }()
 
 	if err := req.ctx.Err(); err != nil {
