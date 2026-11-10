@@ -89,6 +89,55 @@ func (s *importSuite) TestImportRejectsMultipleModelAgents(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
+func (s *importSuite) TestImportRejectsDuplicateFilesystemAttachmentsBeforeWrites(c *tc.C) {
+	s.bootstrapModel(c)
+	payload := &latest.ModelExport{
+		ModelAgent: []v4_1_0.ModelAgent{{ModelUUID: s.ModelUUID()}},
+		Sequence:   []v4_1_0.Sequence{{Namespace: "duplicate-check", Value: 5}},
+		StorageFilesystemAttachment: []v4_1_0.StorageFilesystemAttachment{
+			{UUID: "first", StorageFilesystemUUID: "fs", NetNodeUUID: "node"},
+			{UUID: "second", StorageFilesystemUUID: "fs", NetNodeUUID: "node"},
+		},
+	}
+
+	err := modelimport.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), payload)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, `filesystem "fs" has duplicate attachments.*`)
+
+	var count int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT COUNT(*) FROM sequence WHERE namespace = ?", "duplicate-check",
+		).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
+func (s *importSuite) TestImportRejectsLegacyDuplicateFilesystemAttachments(c *tc.C) {
+	legacy := v4_0_12.ModelExport{
+		ModelAgent: []v4_0_12.ModelAgent{{ModelUUID: s.ModelUUID()}},
+		StorageFilesystemAttachment: []v4_0_12.StorageFilesystemAttachment{
+			{UUID: "first", StorageFilesystemUUID: "fs", NetNodeUUID: "node"},
+			{UUID: "second", StorageFilesystemUUID: "fs", NetNodeUUID: "node"},
+		},
+	}
+	data, err := yaml.Marshal(legacy)
+	c.Assert(err, tc.ErrorIsNil)
+	payload, err := export.DecodePayload(semversion.MustParse("4.0.12"), data)
+	c.Assert(err, tc.ErrorIsNil)
+	transformer, err := modelimport.NewTransformer()
+	c.Assert(err, tc.ErrorIsNil)
+	transformed, err := transformer.Transform(c.Context(), semversion.MustParse("4.0.12"), payload)
+	c.Assert(err, tc.ErrorIsNil)
+	latestPayload, ok := transformed.(latest.ModelExport)
+	c.Assert(ok, tc.IsTrue)
+
+	err = modelimport.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), &latestPayload)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, `filesystem "fs" has duplicate attachments "first" and "second" on network node "node";.*`)
+}
+
 // TestImportSanitizesCharmBlobResidency asserts that a charm row carrying
 // the source's blob-residency state (available/archive_path/object_store_uuid)
 // lands on the target as not-yet-available. The source's object_store_uuid

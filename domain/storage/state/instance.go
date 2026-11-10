@@ -86,8 +86,6 @@ FROM (
 	// storageInstAttachmentsQ gets all of the unit attachments of the Storage
 	// Instance. It is deliberate for processing that the returned attachments
 	// are ordered on Storage Attachment UUID.
-	// Multiple filesystem attachments may exist for a filesystem and node;
-	// select the lowest UUID to return one deterministic attachment.
 	const storageInstAttachmentsQ = `
 SELECT &storageInstanceInfoAttachment.*
 FROM (
@@ -105,12 +103,8 @@ FROM (
     JOIN      unit u ON sa.unit_uuid = u.uuid
     LEFT JOIN machine m ON u.net_node_uuid = m.net_node_uuid
     LEFT JOIN storage_instance_filesystem sif ON sif.storage_instance_uuid = sa.storage_instance_uuid
-    LEFT JOIN storage_filesystem_attachment sfa ON sfa.uuid = (
-              SELECT MIN(sfa2.uuid)
-              FROM   storage_filesystem_attachment AS sfa2
-              WHERE  sfa2.net_node_uuid = u.net_node_uuid
-              AND    sfa2.storage_filesystem_uuid = sif.storage_filesystem_uuid
-          )
+    LEFT JOIN storage_filesystem_attachment sfa ON sfa.net_node_uuid = u.net_node_uuid
+          AND sfa.storage_filesystem_uuid = sif.storage_filesystem_uuid
     LEFT JOIN storage_instance_volume siv ON siv.storage_instance_uuid = sa.storage_instance_uuid
     LEFT JOIN storage_volume_attachment sva ON m.net_node_uuid = sva.net_node_uuid
           AND sva.storage_volume_uuid = siv.storage_volume_uuid

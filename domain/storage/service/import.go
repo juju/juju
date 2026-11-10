@@ -312,6 +312,7 @@ func (s *StorageImportService) importFilesystems(ctx context.Context, params []d
 			Scope:               providerScope,
 		}
 
+		attachmentNodes := make(map[network.NetNodeUUID]domainstorage.ImportFilesystemAttachmentsParams)
 		for _, attachment := range arg.Attachments {
 			attachmentUUID, err := domainstorage.NewFilesystemAttachmentUUID()
 			if err != nil {
@@ -327,6 +328,14 @@ func (s *StorageImportService) importFilesystems(ctx context.Context, params []d
 			if err != nil {
 				return errors.Errorf("getting net node UUID for filesystem attachment of filesystem %q: %w", arg.ID, err)
 			}
+			if previous, ok := attachmentNodes[netNodeUUID]; ok {
+				return errors.Errorf(
+					"filesystem %q has duplicate attachments on network node %q (machine %q unit %q and machine %q unit %q); resolve the duplicate on the source model before retrying: %w",
+					arg.ID, netNodeUUID, previous.HostMachineName, previous.HostUnitName,
+					attachment.HostMachineName, attachment.HostUnitName, coreerrors.NotValid,
+				)
+			}
+			attachmentNodes[netNodeUUID] = attachment
 
 			attachmentArgs = append(attachmentArgs, internal.ImportFilesystemAttachmentArgs{
 				UUID:           attachmentUUID.String(),

@@ -34,6 +34,9 @@ func (i *Importer) Import(ctx context.Context, payload *latest.ModelExport) erro
 	if payload == nil {
 		return nil
 	}
+	if err := ValidatePayload(*payload); err != nil {
+		return errors.Capture(err)
+	}
 	sanitized := sanitizeCharmBlobResidency(*payload)
 	if err := i.state.Import(ctx, &sanitized); err != nil {
 		return errors.Errorf("importing model-DB payload: %w", err)

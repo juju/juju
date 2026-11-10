@@ -444,6 +444,9 @@ CREATE TABLE storage_filesystem_attachment (
 CREATE INDEX idx_storage_filesystem_attachment_net_node_uuid
 ON storage_filesystem_attachment (net_node_uuid);
 
+CREATE UNIQUE INDEX idx_storage_filesystem_attachment_filesystem_node
+ON storage_filesystem_attachment (storage_filesystem_uuid, net_node_uuid);
+
 CREATE TABLE storage_volume_device_type (
     id INT PRIMARY KEY,
     name TEXT NOT NULL,

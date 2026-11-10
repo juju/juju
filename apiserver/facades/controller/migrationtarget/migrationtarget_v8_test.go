@@ -305,6 +305,24 @@ func (s *v8Suite) TestPrechecksRejectsMissingModelAgent(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, "model export payload has 0 model_agent rows, expected 1.*")
 }
 
+func (s *v8Suite) TestDuplicateFilesystemAttachmentsRejectedBeforeImport(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	payload := s.validPayload()
+	payload.StorageFilesystemAttachment = []v4_0_12.StorageFilesystemAttachment{
+		{UUID: "first", StorageFilesystemUUID: "fs", NetNodeUUID: "node"},
+		{UUID: "second", StorageFilesystemUUID: "fs", NetNodeUUID: "node"},
+	}
+	envelope := s.makeEnvelope(c, payload)
+	api := s.mustNewAPIV8(c)
+
+	err := api.Prechecks(c.Context(), envelope)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, `filesystem "fs" has duplicate attachments "first" and "second" on network node "node";.*`)
+	err = api.Import(c.Context(), envelope)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, `filesystem "fs" has duplicate attachments "first" and "second" on network node "node";.*`)
+}
+
 // TestPrechecksPayloadVersionNewerThanTarget verifies the
 // payload-version-ahead-of-target rejection with the actionable upgrade
 // message, even for versions unknown to the decoder registry.
