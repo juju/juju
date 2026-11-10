@@ -13,9 +13,7 @@ import (
 	"net/rpc"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
-	"syscall"
 	testing "testing"
 
 	"github.com/juju/errors"
@@ -90,21 +88,14 @@ func innerListen(soc Socket) (listener net.Listener, err error) {
 		listener, err = net.Listen(soc.Network, soc.Address)
 		return listener, errors.Trace(err)
 	}
-	// Hold the OS thread while we manipulate Umask.
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-	// Mask out permissions to keep the socket private.
-	oldmask := syscall.Umask(077)
-	defer syscall.Umask(oldmask)
 
 	// If we are testing, listen with long path support.
 	if testing.Testing() {
 		return testUnixListen(soc)
 	}
 
-	// With the umask set to 077 above, we are creating
-	// this socket with 0700 permissions. Chmod below is
-	// only to be explicit.
+	// The socket is created with the permissions the process
+	// umask allows, then restricted to 0700 by the Chmod below.
 	listener, err = net.Listen(soc.Network, soc.Address)
 	if err != nil {
 		logger.Errorf(context.TODO(), "failed to listen on unix:%s: %v", soc.Address, err)
