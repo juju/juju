@@ -890,6 +890,48 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeCoHostedUnits(c *tc.C) {
 	s.checkInstanceLife(c, parentMachineUUID.String(), life.Dying)
 }
 
+func (s *machineSuite) TestEnsureMachineNotAliveCascadeReturnsDedupedCharmUUIDs(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+	for range 2 {
+		_, _, err := svc.AddIAASUnits(c.Context(), "some-app", applicationservice.AddIAASUnitArg{
+			AddUnitArg: applicationservice.AddUnitArg{
+				Placement: instance.MustParsePlacement("0"),
+			},
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(unitUUIDs, tc.HasLen, 3)
+	machineUUID := s.getUnitMachineUUID(c, unitUUIDs[0])
+
+	var currentCharmUUID string
+	err := s.DB().QueryRowContext(c.Context(), `
+SELECT charm_uuid FROM application WHERE uuid = ?`, appUUID.String()).Scan(&currentCharmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	oldCharmUUID := s.createBareCharm(c, true, s.now.Add(-time.Hour))
+
+	// Model an application upgrade where some units still use the old charm.
+	_, err = s.DB().ExecContext(c.Context(), `
+UPDATE unit SET charm_uuid = ? WHERE uuid IN (?, ?)`,
+		oldCharmUUID, unitUUIDs[0].String(), unitUUIDs[1].String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	firstCascaded, err := st.EnsureMachineNotAliveCascade(c.Context(), machineUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(firstCascaded.CharmUUIDs, tc.HasLen, 2)
+	c.Check(firstCascaded.CharmUUIDs, tc.SameContents, []string{currentCharmUUID, oldCharmUUID})
+
+	// Every dying unit returns its charm on a retry. The machine result must
+	// still contain each charm only once.
+	secondCascaded, err := st.EnsureMachineNotAliveCascade(c.Context(), machineUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(secondCascaded.CharmUUIDs, tc.HasLen, 2)
+	c.Check(secondCascaded.CharmUUIDs, tc.DeepEquals, firstCascaded.CharmUUIDs)
+}
+
 func (s *machineSuite) TestEnsureMachineNotAliveCascadeRetryReturnsDyingArtifacts(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
