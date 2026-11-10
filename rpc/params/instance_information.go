@@ -25,7 +25,7 @@ type CloudInstanceTypesConstraint struct {
 	// the instance types by. If Constraints is not specified, then
 	// no filtering by constraints will take place: all instance
 	// types supported by the region will be returned.
-	Constraints *constraints.Value `json:"constraints,omitempty"`
+	Constraints *constraints.Value `json:"constraints,omitzero"`
 }
 
 // ModelInstanceTypesConstraints contains a slice of InstanceTypesConstraint.
@@ -43,7 +43,7 @@ type ModelInstanceTypesConstraint struct {
 	// the instance types by. If Value is not specified, then
 	// no filtering by constraints will take place: all instance
 	// types supported by the region will be returned.
-	Value *constraints.Value `json:"value,omitempty"`
+	Value *constraints.Value `json:"value,omitzero"`
 }
 
 // InstanceTypesResults contains the bulk result of prompting a cloud for its instance types.
@@ -57,8 +57,8 @@ type InstanceTypesResult struct {
 	CostUnit      string         `json:"cost-unit,omitempty"`
 	CostCurrency  string         `json:"cost-currency,omitempty"`
 	// CostDivisor Will be present only when the Cost is not expressed in CostUnit.
-	CostDivisor uint64 `json:"cost-divisor,omitempty"`
-	Error       *Error `json:"error,omitempty"`
+	CostDivisor uint64 `json:"cost-divisor,omitzero"`
+	Error       *Error `json:"error,omitzero"`
 }
 
 // InstanceType represents an available instance type in a cloud.
@@ -67,7 +67,7 @@ type InstanceType struct {
 	Arches       []string `json:"arches"`
 	CPUCores     int      `json:"cpu-cores"`
 	Memory       int      `json:"memory"`
-	RootDiskSize int      `json:"root-disk,omitempty"`
+	RootDiskSize int      `json:"root-disk,omitzero"`
 	VirtType     string   `json:"virt-type,omitempty"`
-	Cost         int      `json:"cost,omitempty"`
+	Cost         int      `json:"cost,omitzero"`
 }

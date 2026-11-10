@@ -131,7 +131,7 @@ type AddApplicationOffer struct {
 // DestroyApplicationOffers holds parameters for the DestroyOffers call.
 type DestroyApplicationOffers struct {
 	OfferURLs []string `json:"offer-urls"`
-	Force     bool     `json:"force,omitempty"`
+	Force     bool     `json:"force,omitzero"`
 }
 
 // RemoteEndpoint represents a remote application endpoint.
@@ -146,10 +146,10 @@ type RemoteEndpoint struct {
 // application offer based on its URL.
 type ApplicationOfferResult struct {
 	// Result contains application offer information.
-	Result *ApplicationOfferAdminDetailsV5 `json:"result,omitempty"`
+	Result *ApplicationOfferAdminDetailsV5 `json:"result,omitzero"`
 
 	// Error contains related error.
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 }
 
 // ApplicationOffersResults is a result of listing remote application offers.
@@ -164,7 +164,7 @@ type OfferURLs struct {
 	OfferURLs []string `json:"offer-urls,omitempty"`
 
 	// BakeryVersion is the version of the bakery used to mint macaroons.
-	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
+	BakeryVersion bakery.Version `json:"bakery-version,omitzero"`
 }
 
 // ConsumeApplicationArgV5 holds the arguments for consuming a remote application.
@@ -173,11 +173,11 @@ type ConsumeApplicationArgV5 struct {
 	ApplicationOfferDetailsV5
 
 	// Macaroon is used for authentication.
-	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
+	Macaroon *macaroon.Macaroon `json:"macaroon,omitzero"`
 
 	// ControllerInfo contains connection details to the controller
 	// hosting the offer.
-	ControllerInfo *ExternalControllerInfo `json:"external-controller,omitempty"`
+	ControllerInfo *ExternalControllerInfo `json:"external-controller,omitzero"`
 
 	// ApplicationAlias is the name of the alias to use for the application name.
 	ApplicationAlias string `json:"application-alias,omitempty"`
@@ -191,7 +191,7 @@ type ConsumeApplicationArgsV5 struct {
 // TokenResult holds a token and an error.
 type TokenResult struct {
 	Token string `json:"token,omitempty"`
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 }
 
 // TokenResults has a set of token results.
@@ -216,8 +216,8 @@ type RemoteRelation struct {
 
 // RemoteRelationResult holds a remote relation and an error.
 type RemoteRelationResult struct {
-	Error  *Error          `json:"error,omitempty"`
-	Result *RemoteRelation `json:"result,omitempty"`
+	Error  *Error          `json:"error,omitzero"`
+	Result *RemoteRelation `json:"result,omitzero"`
 }
 
 // RemoteRelationResults holds the result of an API call that returns
@@ -250,10 +250,10 @@ type RemoteApplication struct {
 
 	// ConsumeVersion is incremented each time a new consumer
 	// proxy is created for an offer.
-	ConsumeVersion int `json:"consume-version,omitempty"`
+	ConsumeVersion int `json:"consume-version,omitzero"`
 
 	// Macaroon is used for authentication.
-	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
+	Macaroon *macaroon.Macaroon `json:"macaroon,omitzero"`
 }
 
 // GetTokenArgs holds the arguments to a GetTokens API call.
@@ -295,8 +295,8 @@ type EntityMacaroonArg struct {
 
 // RemoteApplicationResult holds a remote application and an error.
 type RemoteApplicationResult struct {
-	Result *RemoteApplication `json:"result,omitempty"`
-	Error  *Error             `json:"error,omitempty"`
+	Result *RemoteApplication `json:"result,omitzero"`
+	Error  *Error             `json:"error,omitzero"`
 }
 
 // RemoteApplicationResults holds a set of remote application results.
@@ -308,8 +308,8 @@ type RemoteApplicationResults struct {
 // changes and an error (if any).
 type RemoteApplicationWatchResult struct {
 	RemoteApplicationWatcherId string                   `json:"id"`
-	Change                     *RemoteApplicationChange `json:"change,omitempty"`
-	Error                      *Error                   `json:"error,omitempty"`
+	Change                     *RemoteApplicationChange `json:"change,omitzero"`
+	Error                      *Error                   `json:"error,omitzero"`
 }
 
 // RemoteApplicationWatchResults holds the results for any API call which ends
@@ -365,10 +365,10 @@ type RemoteRelationChangeEvent struct {
 
 	// ForceCleanup is true if the offering side should forcibly
 	// ensure that all relation units have left scope.
-	ForceCleanup *bool `json:"force-cleanup,omitempty"`
+	ForceCleanup *bool `json:"force-cleanup,omitzero"`
 
 	// Suspended is the current suspended status of the relation.
-	Suspended *bool `json:"suspended,omitempty"`
+	Suspended *bool `json:"suspended,omitzero"`
 
 	// SuspendedReason is an optional message to explain why suspended is true.
 	SuspendedReason string `json:"suspended-reason,omitempty"`
@@ -388,7 +388,7 @@ type RemoteRelationChangeEvent struct {
 	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
 
 	// BakeryVersion is the version of the bakery used to mint macaroons.
-	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
+	BakeryVersion bakery.Version `json:"bakery-version,omitzero"`
 
 	// DepartedUnits contains the ids of units that have departed
 	// the relation since the last change.
@@ -418,7 +418,7 @@ func (e *RemoteRelationChangeEvent) GoString() string {
 type RemoteRelationWatchResult struct {
 	RemoteRelationWatcherId string                    `json:"watcher-id"`
 	Changes                 RemoteRelationChangeEvent `json:"changes"`
-	Error                   *Error                    `json:"error,omitempty"`
+	Error                   *Error                    `json:"error,omitzero"`
 }
 
 // RemoteRelationWatchResults holds the results for any API call that ends up returning a list of RemoteRelationWatchers
@@ -447,7 +447,7 @@ type RelationLifeSuspendedStatusChange struct {
 type RelationLifeSuspendedStatusWatchResult struct {
 	RelationStatusWatcherId string                              `json:"watcher-id"`
 	Changes                 []RelationLifeSuspendedStatusChange `json:"changes"`
-	Error                   *Error                              `json:"error,omitempty"`
+	Error                   *Error                              `json:"error,omitzero"`
 }
 
 // RelationStatusWatchResults holds the results for any API call which ends up
@@ -471,7 +471,7 @@ type OfferStatusChange struct {
 type OfferStatusWatchResult struct {
 	OfferStatusWatcherId string              `json:"watcher-id"`
 	Changes              []OfferStatusChange `json:"changes"`
-	Error                *Error              `json:"error,omitempty"`
+	Error                *Error              `json:"error,omitzero"`
 }
 
 // OfferStatusWatchResults holds the results for any API call which ends up
@@ -500,7 +500,7 @@ type IngressNetworksChangeEvent struct {
 	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
 
 	// BakeryVersion is the version of the bakery used to mint macaroons.
-	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
+	BakeryVersion bakery.Version `json:"bakery-version,omitzero"`
 }
 
 func (e *IngressNetworksChangeEvent) GoString() string {
@@ -534,13 +534,13 @@ type RegisterConsumingRelationArg struct {
 
 	// ConsumeVersion is incremented each time a new consumer
 	// proxy is created for an offer.
-	ConsumeVersion int `json:"consume-version,omitempty"`
+	ConsumeVersion int `json:"consume-version,omitzero"`
 
 	// Macaroons are used for authentication.
 	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
 
 	// BakeryVersion is the version of the bakery used to mint macaroons.
-	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
+	BakeryVersion bakery.Version `json:"bakery-version,omitzero"`
 }
 
 // RegisterConsumingRelationArgs holds args used to add consuming relations.
@@ -550,8 +550,8 @@ type RegisterConsumingRelationArgs struct {
 
 // RegisterConsumingRelationResult holds a remote relation details and an error.
 type RegisterConsumingRelationResult struct {
-	Result *ConsumingRelationDetails `json:"result,omitempty"`
-	Error  *Error                    `json:"error,omitempty"`
+	Result *ConsumingRelationDetails `json:"result,omitzero"`
+	Error  *Error                    `json:"error,omitzero"`
 }
 
 // RegisterConsumingRelationResults has a set of consuming relation results.
@@ -562,8 +562,8 @@ type RegisterConsumingRelationResults struct {
 // ConsumingRelationDetails holds a remote relation token and corresponding macaroon.
 type ConsumingRelationDetails struct {
 	Token         string             `json:"relation-token"`
-	Macaroon      *macaroon.Macaroon `json:"macaroon,omitempty"`
-	BakeryVersion bakery.Version     `json:"bakery-version,omitempty"`
+	Macaroon      *macaroon.Macaroon `json:"macaroon,omitzero"`
+	BakeryVersion bakery.Version     `json:"bakery-version,omitzero"`
 }
 
 // RemoteEntityArgs holds arguments to an API call dealing with remote relations.
@@ -575,7 +575,7 @@ type RemoteEntityArgs struct {
 type RemoteEntityArg struct {
 	Token         string         `json:"relation-token"`
 	Macaroons     macaroon.Slice `json:"macaroons,omitempty"`
-	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
+	BakeryVersion bakery.Version `json:"bakery-version,omitzero"`
 }
 
 // OfferArgs holds arguments to an API call dealing with offers.
@@ -587,7 +587,7 @@ type OfferArgs struct {
 type OfferArg struct {
 	OfferUUID     string         `json:"offer-uuid"`
 	Macaroons     macaroon.Slice `json:"macaroons,omitempty"`
-	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
+	BakeryVersion bakery.Version `json:"bakery-version,omitzero"`
 }
 
 // RemoteApplicationInfo has attributes for a remote application.
@@ -608,8 +608,8 @@ type RemoteApplicationInfo struct {
 // RemoteApplicationInfoResult holds the result of loading
 // remote application info at a URL.
 type RemoteApplicationInfoResult struct {
-	Result *RemoteApplicationInfo `json:"result,omitempty"`
-	Error  *Error                 `json:"error,omitempty"`
+	Result *RemoteApplicationInfo `json:"result,omitzero"`
+	Error  *Error                 `json:"error,omitzero"`
 }
 
 // RemoteApplicationInfoResults represents the result of a RemoteApplicationInfo call.
@@ -620,9 +620,9 @@ type RemoteApplicationInfoResults struct {
 // ConsumeOfferDetails contains the details necessary to
 // consume an application offer.
 type ConsumeOfferDetails struct {
-	Offer          *ApplicationOfferDetailsV5 `json:"offer,omitempty"`
-	Macaroon       *macaroon.Macaroon         `json:"macaroon,omitempty"`
-	ControllerInfo *ExternalControllerInfo    `json:"external-controller,omitempty"`
+	Offer          *ApplicationOfferDetailsV5 `json:"offer,omitzero"`
+	Macaroon       *macaroon.Macaroon         `json:"macaroon,omitzero"`
+	ControllerInfo *ExternalControllerInfo    `json:"external-controller,omitzero"`
 }
 
 // ConsumeOfferDetailsArg holds arguments for querying the
@@ -636,7 +636,7 @@ type ConsumeOfferDetailsArg struct {
 // consume an application offer or an error.
 type ConsumeOfferDetailsResult struct {
 	ConsumeOfferDetails
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 }
 
 // ConsumeOfferDetailsResults represents the result of a
@@ -655,7 +655,7 @@ type RemoteRelationUnit struct {
 	RelationToken string         `json:"relation-token"`
 	Unit          string         `json:"unit"`
 	Macaroons     macaroon.Slice `json:"macaroons,omitempty"`
-	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
+	BakeryVersion bakery.Version `json:"bakery-version,omitzero"`
 }
 
 // RemoteRelationUnits identifies multiple remote relation units.

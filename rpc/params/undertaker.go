@@ -15,14 +15,14 @@ type UndertakerModelInfo struct {
 	Name           string         `json:"name"`
 	IsSystem       bool           `json:"is-system"`
 	Life           life.Value     `json:"life"`
-	ForceDestroyed bool           `json:"force-destroyed,omitempty"`
-	DestroyTimeout *time.Duration `json:"destroy-timeout,omitempty"`
+	ForceDestroyed bool           `json:"force-destroyed,omitzero"`
+	DestroyTimeout *time.Duration `json:"destroy-timeout,omitzero"`
 	ControllerUUID string         `json:"controller-uuid"`
 }
 
 // UndertakerModelInfoResult holds the result of an API call that returns an
 // UndertakerModelInfoResult or an error.
 type UndertakerModelInfoResult struct {
-	Error  *Error              `json:"error,omitempty"`
+	Error  *Error              `json:"error,omitzero"`
 	Result UndertakerModelInfo `json:"result"`
 }
