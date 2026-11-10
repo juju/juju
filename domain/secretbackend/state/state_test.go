@@ -1013,7 +1013,21 @@ func (s *stateSuite) TestListSecretBackendsCAAS(c *tc.C) {
 
 func (s *stateSuite) TestK8sBackendsPreserveAllCloudCACertificates(c *tc.C) {
 	modelUUID := s.createModel(c, coremodel.CAAS)
-	_, err := s.DB().ExecContext(c.Context(), `
+	credSt := credentialstate.NewState(s.TxnRunnerFactory())
+	err := credSt.UpsertCloudCredential(c.Context(), corecredential.Key{
+		Cloud: "my-cloud",
+		Owner: usertesting.GenNewName(c, "test-user"),
+		Name:  "foobar",
+	}, credential.CloudCredentialInfo{
+		Label:    "foobar",
+		AuthType: string(cloud.UserPassAuthType),
+		Attributes: map[string]string{
+			"username": "k8s-user",
+			"password": "k8s-password",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), `
 INSERT INTO cloud_ca_cert (cloud_uuid, ca_cert)
 SELECT uuid, 'my-other-ca-cert' FROM cloud WHERE name = 'my-cloud'`)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1026,6 +1040,14 @@ SELECT uuid, 'my-other-ca-cert' FROM cloud WHERE name = 'my-cloud'`)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
+	expectedConfig := map[string]any{
+		"endpoint":  "https://my-cloud.com",
+		"namespace": "my-model",
+		"ca-certs":  []string{"my-ca-cert", "my-other-ca-cert"},
+		"username":  "k8s-user",
+		"password":  "k8s-password",
+	}
+
 	backends, err := s.state.ListSecretBackends(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	var k8sBackend *secretbackend.SecretBackend
@@ -1036,8 +1058,7 @@ SELECT uuid, 'my-other-ca-cert' FROM cloud WHERE name = 'my-cloud'`)
 	}
 	c.Assert(k8sBackend, tc.NotNil)
 	c.Check(k8sBackend.NumSecrets, tc.Equals, 2)
-	c.Check(k8sBackend.Config["ca-certs"], tc.DeepEquals,
-		[]string{"my-ca-cert", "my-other-ca-cert"})
+	c.Check(k8sBackend.Config, tc.DeepEquals, expectedConfig)
 
 	backends, err = s.state.ListSecretBackendsForModel(c.Context(), modelUUID, true)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1048,13 +1069,11 @@ SELECT uuid, 'my-other-ca-cert' FROM cloud WHERE name = 'my-cloud'`)
 		}
 	}
 	c.Assert(k8sBackend, tc.NotNil)
-	c.Check(k8sBackend.Config["ca-certs"], tc.DeepEquals,
-		[]string{"my-ca-cert", "my-other-ca-cert"})
+	c.Check(k8sBackend.Config, tc.DeepEquals, expectedConfig)
 
 	_, config, err := s.state.GetActiveModelSecretBackend(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(config.Config["ca-certs"], tc.DeepEquals,
-		[]string{"my-ca-cert", "my-other-ca-cert"})
+	c.Check(map[string]any(config.Config), tc.DeepEquals, expectedConfig)
 }
 
 func (s *stateSuite) TestListSecretBackendIDs(c *tc.C) {
