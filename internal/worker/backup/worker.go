@@ -318,11 +318,11 @@ func (w *Worker) withLease(ctx context.Context, fn func(context.Context, string)
 }
 
 func (w *Worker) create(ctx context.Context, holder, notes string) (*corebackups.Metadata, string, func(), error) {
-	renewCtx, renewCancel := context.WithCancel(ctx)
+	renewCtx, renewCancel := context.WithCancelCause(ctx)
 	renewDone := make(chan struct{})
 	defer func() {
 		// An in-flight renewal must finish before we release the lease.
-		renewCancel()
+		renewCancel(nil)
 		<-renewDone
 	}()
 
@@ -332,8 +332,9 @@ func (w *Worker) create(ctx context.Context, holder, notes string) (*corebackups
 	}()
 
 	meta, archive, cleanup, err := w.cfg.CreateArchive.Create(renewCtx, notes)
-	if err == nil {
-		err = context.Cause(renewCtx)
+	// Generation may return a wrapped ctx.Err(), which loses the cause.
+	if cause := context.Cause(renewCtx); cause != nil && (err == nil || errors.Is(err, context.Canceled)) {
+		err = cause
 	}
 	if err != nil {
 		if cleanup != nil {
@@ -345,7 +346,7 @@ func (w *Worker) create(ctx context.Context, holder, notes string) (*corebackups
 	return meta, archive, cleanup, nil
 }
 
-func (w *Worker) renew(ctx context.Context, cancel context.CancelFunc, leaseName, holder string) {
+func (w *Worker) renew(ctx context.Context, cancel context.CancelCauseFunc, leaseName, holder string) {
 	timer := w.cfg.Clock.NewTimer(renewInterval)
 	defer timer.Stop()
 
@@ -359,7 +360,7 @@ func (w *Worker) renew(ctx context.Context, cancel context.CancelFunc, leaseName
 				return
 			}
 			if err := w.claimer.Claim(leaseName, holder, leaseDuration); err != nil {
-				cancel()
+				cancel(errors.Annotate(err, "renewing backup creation lease"))
 				return
 			}
 			timer.Reset(renewInterval)

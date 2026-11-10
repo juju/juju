@@ -18,6 +18,7 @@ import (
 
 	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/lease"
+	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -199,32 +200,63 @@ func (s *workerSuite) TestLeaseExpiryCancelsGenerationAndCleansArchive(c *tc.C) 
 }
 
 func (s *workerSuite) TestRenewalFailureCancelsGenerationAndCleansArchive(c *tc.C) {
-	cfg := workerConfig(c)
-	clk := &observedClock{Clock: testclock.NewClock(time.Now()), timers: make(chan struct{}, 1)}
-	cfg.Clock = clk
 	failure := errors.New("renewal failed")
-	var claims atomic.Int32
-	var cleaned atomic.Bool
-	cfg.LeaseManager = leaseManagerStub{operations: leaseOperations{
-		claim: func(string, string, time.Duration) error {
-			if claims.Add(1) == 2 {
-				return failure
-			}
-			return nil
-		},
-	}}
-	cfg.CreateArchive = backupCreatorFunc(func(ctx context.Context, _ string) (*corebackups.Metadata, string, func(), error) {
-		<-ctx.Done()
-		// Simulate successful generation racing with cancellation.
-		return &corebackups.Metadata{}, "archive", func() { cleaned.Store(true) }, nil
+	archiveFailure := errors.New("archive failed")
+	for _, test := range []struct {
+		name      string
+		createErr error
+		expected  error
+	}{
+		{"success", nil, failure},
+		{"cancelled", context.Canceled, failure},
+		{"wrapped cancellation", internalerrors.Capture(internalerrors.Errorf("writing archive: %w", context.Canceled)), failure},
+		{"archive failure", archiveFailure, archiveFailure},
+	} {
+		c.Run(test.name, func(t *testing.T) {
+			c := &tc.C{T: t}
+			cfg := workerConfig(c)
+			clk := &observedClock{Clock: testclock.NewClock(time.Now()), timers: make(chan struct{}, 1)}
+			cfg.Clock = clk
+			var claims, cleaned atomic.Int32
+			cfg.LeaseManager = leaseManagerStub{operations: leaseOperations{
+				claim: func(string, string, time.Duration) error {
+					if claims.Add(1) == 2 {
+						return failure
+					}
+					return nil
+				},
+			}}
+			cfg.CreateArchive = backupCreatorFunc(func(ctx context.Context, _ string) (*corebackups.Metadata, string, func(), error) {
+				<-ctx.Done()
+				c.Check(context.Cause(ctx), tc.ErrorIs, failure)
+				return &corebackups.Metadata{}, "archive", func() { cleaned.Add(1) }, test.createErr
+			})
+			w := startWorker(c, cfg)
+			done := make(chan result, 1)
+			go func() {
+				meta, archive, cleanup, err := w.Create(c.Context(), "notes")
+				done <- result{meta: meta, archive: archive, cleanup: cleanup, err: err}
+			}()
+			<-clk.timers
+			clk.Advance(renewInterval)
+			res := <-done
+			c.Check(res.err, tc.ErrorIs, test.expected)
+			c.Check(res.meta, tc.IsNil)
+			c.Check(res.archive, tc.Equals, "")
+			c.Check(res.cleanup, tc.IsNil)
+			c.Check(cleaned.Load(), tc.Equals, int32(1))
+		})
+	}
+}
+
+func (s *workerSuite) TestGenerationCancellationWithoutContextCause(c *tc.C) {
+	cfg := workerConfig(c)
+	cfg.CreateArchive = backupCreatorFunc(func(context.Context, string) (*corebackups.Metadata, string, func(), error) {
+		return nil, "", nil, internalerrors.Capture(context.Canceled)
 	})
 	w := startWorker(c, cfg)
-	done := make(chan error, 1)
-	go func() { _, _, _, err := w.Create(c.Context(), ""); done <- err }()
-	<-clk.timers
-	clk.Advance(renewInterval)
-	c.Check(<-done, tc.ErrorIs, context.Canceled)
-	c.Check(cleaned.Load(), tc.IsTrue)
+	_, _, _, err := w.Create(c.Context(), "notes")
+	c.Check(err, tc.ErrorIs, context.Canceled)
 }
 
 func (s *workerSuite) TestCancellationDuringReleaseCleansArchive(c *tc.C) {
