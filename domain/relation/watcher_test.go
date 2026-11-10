@@ -1386,7 +1386,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsContainerScopedSubordinateView(c *tc
 	config := s.setupTestWatchContainerScopedRelationUnit(c)
 
 	svc := s.setupService(c, factory)
-	watcher, err := svc.WatchRelatedUnits(c.Context(), config.sub1UUID, config.relationUUID)
+	watcher, err := svc.WatchRelatedUnits(c.Context(), config.subordinate1UUID, config.relationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -1438,7 +1438,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsContainerScopedSubordinateView(c *tc
 	// scope => no event.
 	harness.AddTest(c, func(c *tc.C) {
 		s.act(c, "INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)",
-			relationtesting.GenRelationUnitUUID(c), config.subordinateRelEndpointUUID, config.sub0UUID)
+			relationtesting.GenRelationUnitUUID(c), config.subordinateRelEndpointUUID, config.subordinate0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -1495,7 +1495,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsContainerScopedPrincipalView(c *tc.C
 	// event.
 	harness.AddTest(c, func(c *tc.C) {
 		s.act(c, "INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)",
-			relationtesting.GenRelationUnitUUID(c), config.subordinateRelEndpointUUID, config.sub1UUID)
+			relationtesting.GenRelationUnitUUID(c), config.subordinateRelEndpointUUID, config.subordinate1UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -1504,10 +1504,10 @@ func (s *watcherSuite) TestWatchRelatedUnitsContainerScopedPrincipalView(c *tc.C
 	// scope => event with its unit UUID.
 	harness.AddTest(c, func(c *tc.C) {
 		s.act(c, "INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)",
-			relationtesting.GenRelationUnitUUID(c), config.subordinateRelEndpointUUID, config.sub0UUID)
+			relationtesting.GenRelationUnitUUID(c), config.subordinateRelEndpointUUID, config.subordinate0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
-			watchertest.StringSliceAssert(domainrelation.EncodeUnitUUID(config.sub0UUID.String())),
+			watchertest.StringSliceAssert(domainrelation.EncodeUnitUUID(config.subordinate0UUID.String())),
 		)
 	})
 
@@ -1523,17 +1523,17 @@ func (s *watcherSuite) TestWatchRelatedUnitsContainerScopedPrincipalView(c *tc.C
 	// Act: run test harness.
 	// Assert: the initial event only holds the remote application and the
 	// co-located subordinate unit.
-	harness.Run(c, initialEvents(config.subordinateAppUUID, []coreunit.UUID{config.sub0UUID}))
+	harness.Run(c, initialEvents(config.subordinateAppUUID, []coreunit.UUID{config.subordinate0UUID}))
 }
 
 type testWatchContainerScopedRelationUnit struct {
-	relationUUID                   relation.UUID
-	principalAppUUID               coreapplication.UUID
-	subordinateAppUUID             coreapplication.UUID
-	principalRelEndpointUUID       string
-	subordinateRelEndpointUUID     string
-	principal0UUID, principal1UUID coreunit.UUID
-	sub0UUID, sub1UUID             coreunit.UUID
+	relationUUID                       relation.UUID
+	principalAppUUID                   coreapplication.UUID
+	subordinateAppUUID                 coreapplication.UUID
+	principalRelEndpointUUID           string
+	subordinateRelEndpointUUID         string
+	principal0UUID, principal1UUID     coreunit.UUID
+	subordinate0UUID, subordinate1UUID coreunit.UUID
 }
 
 // setupTestWatchContainerScopedRelationUnit arranges:
@@ -1552,8 +1552,8 @@ func (s *watcherSuite) setupTestWatchContainerScopedRelationUnit(c *tc.C) testWa
 	config.subordinateAppUUID = tc.Must(c, coreapplication.NewUUID)
 	config.principal0UUID = unittesting.GenUnitUUID(c)
 	config.principal1UUID = unittesting.GenUnitUUID(c)
-	config.sub0UUID = unittesting.GenUnitUUID(c)
-	config.sub1UUID = unittesting.GenUnitUUID(c)
+	config.subordinate0UUID = unittesting.GenUnitUUID(c)
+	config.subordinate1UUID = unittesting.GenUnitUUID(c)
 
 	charmRelationProvidesUUID := uuid.MustNewUUID()
 	charmRelationRequiresUUID := uuid.MustNewUUID()
@@ -1571,10 +1571,10 @@ func (s *watcherSuite) setupTestWatchContainerScopedRelationUnit(c *tc.C) testWa
 	s.addApplication(c, subordinateCharmUUID, config.subordinateAppUUID, "subordinate")
 	s.addUnit(c, config.principal0UUID, "principal/0", config.principalAppUUID, charmUUID)
 	s.addUnit(c, config.principal1UUID, "principal/1", config.principalAppUUID, charmUUID)
-	s.addUnit(c, config.sub0UUID, "subordinate/0", config.subordinateAppUUID, subordinateCharmUUID)
-	s.addUnit(c, config.sub1UUID, "subordinate/1", config.subordinateAppUUID, subordinateCharmUUID)
-	s.setUnitSubordinate(c, config.sub0UUID, config.principal0UUID)
-	s.setUnitSubordinate(c, config.sub1UUID, config.principal1UUID)
+	s.addUnit(c, config.subordinate0UUID, "subordinate/0", config.subordinateAppUUID, subordinateCharmUUID)
+	s.addUnit(c, config.subordinate1UUID, "subordinate/1", config.subordinateAppUUID, subordinateCharmUUID)
+	s.setUnitSubordinate(c, config.subordinate0UUID, config.principal0UUID)
+	s.setUnitSubordinate(c, config.subordinate1UUID, config.principal1UUID)
 	s.addApplicationEndpoint(c, principalEndpointUUID, config.principalAppUUID, charmRelationProvidesUUID)
 	s.addApplicationEndpoint(c, subordinateEndpointUUID, config.subordinateAppUUID, charmRelationRequiresUUID)
 

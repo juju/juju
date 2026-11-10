@@ -95,9 +95,9 @@ type relationUnit struct {
 	PrincipalUUID string `db:"principal_uuid"`
 }
 
-// coLocationKey returns the key identifying the container the unit belongs
+// colocationKey returns the key identifying the container the unit belongs
 // to: its principal unit if it is a subordinate, otherwise the unit itself.
-func (u relationUnit) coLocationKey() string {
+func (u relationUnit) colocationKey() string {
 	if u.PrincipalUUID != "" {
 		return u.PrincipalUUID
 	}

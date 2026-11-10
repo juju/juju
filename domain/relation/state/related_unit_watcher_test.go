@@ -205,7 +205,7 @@ func (s *relatedUnitWatcherSuite) TestInitialWatchRelatedUnitsContainerScopedSub
 	_, initialQuery, _, err := s.state.InitialWatchRelatedUnits(
 		c.Context(), fixture.subordinate1UUID.String(), fixture.relationUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	events, err := initialQuery(c.Context(), nil)
+	events, err := initialQuery(c.Context(), s.TxnRunner())
 
 	// Assert: only the remote application and the co-located principal unit
 	// are returned, not the principal unit on the other machine.
@@ -229,7 +229,7 @@ func (s *relatedUnitWatcherSuite) TestInitialWatchRelatedUnitsContainerScopedPri
 	_, initialQuery, _, err := s.state.InitialWatchRelatedUnits(
 		c.Context(), fixture.principal0UUID.String(), fixture.relationUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	events, err := initialQuery(c.Context(), nil)
+	events, err := initialQuery(c.Context(), s.TxnRunner())
 
 	// Assert: only the remote application and the co-located subordinate
 	// unit are returned, not the subordinate unit of the other principal.
@@ -298,7 +298,7 @@ func (s *relatedUnitWatcherSuite) TestInitialWatchRelatedUnitsGlobalScopedSubord
 	_, initialQuery, _, err := s.state.InitialWatchRelatedUnits(
 		c.Context(), fixture.subordinate1UUID.String(), globalRelationUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	events, err := initialQuery(c.Context(), nil)
+	events, err := initialQuery(c.Context(), s.TxnRunner())
 
 	// Assert: both principal units are returned.
 	c.Assert(err, tc.ErrorIsNil)
@@ -316,7 +316,7 @@ type changeEvent struct {
 	changed   string
 }
 
-func (e changeEvent) Type() changestream.ChangeType { return 0 }
+func (e changeEvent) Type() changestream.ChangeType { return changestream.Changed }
 func (e changeEvent) Namespace() string             { return e.namespace }
 func (e changeEvent) Changed() string               { return e.changed }
 
@@ -329,7 +329,6 @@ type containerScopedRelation struct {
 	principalAppEndpointUUID   string
 	subordinateAppEndpointUUID string
 	principalEndpointUUID      string
-	subordinateEndpointUUID    string
 	principal0UUID             coreunit.UUID
 	principal1UUID             coreunit.UUID
 	subordinate0UUID           coreunit.UUID
@@ -362,7 +361,7 @@ func (s *relatedUnitWatcherSuite) setupContainerScopedRelation(c *tc.C) containe
 
 	relationUUID := s.addRelationWithScope(c, charm.ScopeContainer)
 	principalEndpointUUID := s.addRelationEndpoint(c, relationUUID, principalAppEndpointUUID)
-	subordinateEndpointUUID := s.addRelationEndpoint(c, relationUUID, subordinateAppEndpointUUID)
+	s.addRelationEndpoint(c, relationUUID, subordinateAppEndpointUUID)
 
 	principal0UUID := s.addUnit(c, "principal/0", principalAppUUID, charmUUID)
 	principal1UUID := s.addUnit(c, "principal/1", principalAppUUID, charmUUID)
@@ -378,7 +377,6 @@ func (s *relatedUnitWatcherSuite) setupContainerScopedRelation(c *tc.C) containe
 		principalAppEndpointUUID:   principalAppEndpointUUID,
 		subordinateAppEndpointUUID: subordinateAppEndpointUUID,
 		principalEndpointUUID:      principalEndpointUUID,
-		subordinateEndpointUUID:    subordinateEndpointUUID,
 		principal0UUID:             principal0UUID,
 		principal1UUID:             principal1UUID,
 		subordinate0UUID:           subordinate0UUID,

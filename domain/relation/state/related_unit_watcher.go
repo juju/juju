@@ -95,11 +95,22 @@ func (st *State) InitialWatchRelatedUnits(
 			unitUUID, relationUUID, err)
 	}
 
-	// isVisibleToCoLocated reports whether a unit of the relation is visible
-	// to the watching unit: in container-scoped relations, only co-located
-	// units, i.e. those sharing the same principal unit, are visible.
-	isVisibleToCoLocated := func(u relationUnit) bool {
-		return colocationKey == "" || u.coLocationKey() == colocationKey
+	// isRelatedUnit reports whether a unit of the relation is related to the
+	// watching unit: a unit is related iff it is not the watching unit
+	// itself, it is on the watched side of the relation (the remote side
+	// for non-peer relations) and, in container-scoped relations, it shares
+	// the watching unit's co-location key, i.e. it belongs to the same
+	// principal unit.
+	isRelatedUnit := func(u relationUnit) bool {
+		if u.UnitUUID == unitUUID {
+			return false
+		}
+		// If we are not in a peer relation, we want to watch the remote
+		// side, so we exclude the local side too.
+		if !isPeerRelation && appUUID == appByEndpoint[u.RelationEndpointUUID] {
+			return false
+		}
+		return colocationKey == "" || u.colocationKey() == colocationKey
 	}
 
 	return []string{relationApplicationSettingNamespace, relationUnitSettingNamespace, relationUnitNamespace},
@@ -115,19 +126,9 @@ func (st *State) InitialWatchRelatedUnits(
 			// For non-peer relations, this is the remote application's UUID.
 			entityUUIDs := []string{domainrelation.EncodeApplicationUUID(appUUIDForAppSettingsChange)}
 
-			// Exclude the input unit from the list of related units.
+			// Only units related to the input unit are reported.
 			for _, u := range units {
-				if u.UnitUUID == unitUUID {
-					continue
-				}
-				// If we are not in a peer relation, we want to watch the remote
-				// side, so we exclude the local side too.
-				if !isPeerRelation && appUUID == appByEndpoint[u.RelationEndpointUUID] {
-					continue
-				}
-				// In container-scoped relations, only co-located units are
-				// visible.
-				if !isVisibleToCoLocated(u) {
+				if !isRelatedUnit(u) {
 					continue
 				}
 				entityUUIDs = append(entityUUIDs, domainrelation.EncodeUnitUUID(u.UnitUUID))
@@ -143,20 +144,11 @@ func (st *State) InitialWatchRelatedUnits(
 			}
 
 			// Populate data structures for convenient lookups.
-			// Exclude the input unit from the list of related units.
+			// Only units related to the input unit are reported.
 			unitByRelationUnit := make(map[string]string)
 			relatedUnits := set.NewStrings()
 			for _, u := range unitsInRelation {
-				if u.UnitUUID == unitUUID {
-					continue
-				}
-				// If we are not in a peer relation, we want to watch the remote side, so we exclude the local side too.
-				if !isPeerRelation && appUUID == appByEndpoint[u.RelationEndpointUUID] {
-					continue
-				}
-				// In container-scoped relations, only co-located units are
-				// visible.
-				if !isVisibleToCoLocated(u) {
+				if !isRelatedUnit(u) {
 					continue
 				}
 
@@ -226,7 +218,7 @@ func newApplicationUUIDEvent(event changestream.ChangeEvent, change string) mask
 	}
 }
 
-// newApplicationUUIDEvent creates a maskedEvent for unit UUIDs,
+// newUnitUUIDEvent creates a maskedEvent for unit UUIDs,
 // encoding the UUID with a custom function.
 func newUnitUUIDEvent(event changestream.ChangeEvent, change string) maskedEvent {
 	return maskedEvent{
@@ -259,7 +251,7 @@ SELECT u.uuid as &relationUnit.unit_uuid,
 FROM   relation_endpoint re
        JOIN application_endpoint ae ON re.endpoint_uuid = ae.uuid
        JOIN unit u ON ae.application_uuid = u.application_uuid
-       LEFT JOIN unit_principal up ON u.uuid = up.unit_uuid
+       LEFT JOIN unit_principal AS up ON u.uuid = up.unit_uuid
        LEFT JOIN relation_unit ru ON u.uuid = ru.unit_uuid
                                   AND re.uuid = ru.relation_endpoint_uuid
 WHERE  re.relation_uuid = $relationUnit.relation_uuid
@@ -340,6 +332,7 @@ func (st *State) getColocationKey(ctx context.Context, unitUUID string, relUUID 
 
 	var colocationKey string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		colocationKey = ""
 		scope, err := st.getRelationScope(ctx, tx, relUUID)
 		if err != nil {
 			return errors.Errorf("getting relation scope: %w", err)
