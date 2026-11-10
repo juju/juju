@@ -1117,6 +1117,21 @@ func addressesMatch(existing []addressValue, supplied []modelmigrationinternal.E
 	return true
 }
 
+// addressesInclude reports whether the supplied addresses include every
+// persisted address.
+func addressesInclude(existing []addressValue, supplied []modelmigrationinternal.ExternalControllerAddress) bool {
+	have := make(map[string]struct{}, len(supplied))
+	for _, a := range supplied {
+		have[a.Address] = struct{}{}
+	}
+	for _, a := range existing {
+		if _, ok := have[a.Address]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
 // terminalPhaseIDs returns the persisted ids of the terminal export phases for
 // use as query arguments.
 func terminalPhaseIDs() terminalPhaseIDArgs {

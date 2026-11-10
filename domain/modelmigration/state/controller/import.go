@@ -353,7 +353,12 @@ WHERE model_uuid = $modelUUIDArg.model_uuid
 // controllers. It is a primitive-typed wrapper for callers outside the
 // domain/modelmigration tree (e.g. internal/migration) that cannot build the
 // internal representation. Both the controller registration and the model
-// mapping use compare-or-insert semantics and never overwrite live CMR data:
+// mapping use compare-or-insert semantics and never overwrite live CMR data.
+//
+// The supplied addresses only have to include those of an existing row: a 3.6
+// source exports its API addresses without the loopback ones in the model
+// description, which the legacy importer records, but supplies the unfiltered
+// list at activation. The existing row is kept as it is.
 // [modelmigrationerrors.ErrExternalControllerMismatch] is returned when the
 // controller, or any consumed model, is already registered with different
 // details. addrUUIDs supplies the caller-generated UUID for each address in
@@ -386,7 +391,7 @@ func (s *State) EnsureSourceControllerExists(
 		return errors.Capture(err)
 	}
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := s.ensureExternalControllerExists(ctx, tx, ref); err != nil {
+		if err := s.ensureExternalControllerExists(ctx, tx, ref, addressesInclude); err != nil {
 			return errors.Capture(err)
 		}
 		for _, consumedModelUUID := range ref.ConsumedModels {
@@ -415,15 +420,17 @@ func (s *State) EnsureExternalControllerExists(
 		return errors.Capture(err)
 	}
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return s.ensureExternalControllerExists(ctx, tx, ref)
+		return s.ensureExternalControllerExists(ctx, tx, ref, addressesMatch)
 	})
 }
 
 // ensureExternalControllerExists is called both directly, via the eponymous
 // EnsureExternalControllerExists, and from within the ImportExternalControllers
-// write-group transaction.
+// write-group transaction. addrsOK decides whether the supplied addresses are
+// consistent with those of an existing row.
 func (s *State) ensureExternalControllerExists(
 	ctx context.Context, tx *sqlair.TX, ref modelmigrationinternal.ExternalController,
+	addrsOK func([]addressValue, []modelmigrationinternal.ExternalControllerAddress) bool,
 ) error {
 	ctrlUUID := entityUUID{UUID: ref.UUID}
 
@@ -462,7 +469,7 @@ WHERE  controller_uuid = $entityUUID.uuid
 	}
 	if existing.Alias == info.Alias &&
 		existing.CACert == info.CACert &&
-		addressesMatch(existingAddrs, ref.Addresses) {
+		addrsOK(existingAddrs, ref.Addresses) {
 		return nil
 	}
 	return errors.Errorf(
@@ -554,7 +561,7 @@ VALUES ($importExternalControllerModelArg.migration_uuid,
 		}
 		var mappings []importExternalControllerModelArg
 		for _, ref := range refs {
-			if err := s.ensureExternalControllerExists(ctx, tx, ref); err != nil {
+			if err := s.ensureExternalControllerExists(ctx, tx, ref, addressesMatch); err != nil {
 				return errors.Capture(err)
 			}
 			for _, consumedModelUUID := range ref.ConsumedModels {

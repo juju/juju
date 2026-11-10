@@ -375,6 +375,37 @@ func (s *stateSuite) TestEnsureSourceControllerExists(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, ".*length mismatch.*")
 }
 
+// TestEnsureSourceControllerExistsExtraAddresses covers a 3.6 source: the
+// import has recorded the source controller without its loopback addresses,
+// and activation supplies them as well. The existing row is accepted and kept
+// as it is, while a supplied list missing a recorded address is rejected.
+func (s *stateSuite) TestEnsureSourceControllerExistsExtraAddresses(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	ctrlUUID := uuid.MustNewUUID().String()
+	err := st.EnsureExternalControllerExists(c.Context(), externalController(
+		ctrlUUID, "source", "ca-cert", []string{"10.0.0.1:17070", "10.0.0.2:17070"}, nil))
+	c.Assert(err, tc.ErrorIsNil)
+
+	addrUUIDs := []string{
+		uuid.MustNewUUID().String(), uuid.MustNewUUID().String(), uuid.MustNewUUID().String(),
+	}
+	err = st.EnsureSourceControllerExists(c.Context(), ctrlUUID, "source", "ca-cert",
+		[]string{"10.0.0.1:17070", "10.0.0.2:17070", "127.0.0.1:17070"}, addrUUIDs, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var count int
+	err = s.DB().QueryRowContext(c.Context(),
+		"SELECT COUNT(*) FROM external_controller_address WHERE controller_uuid = ?", ctrlUUID).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 2)
+
+	// 10.0.0.2 is recorded but not supplied.
+	err = st.EnsureSourceControllerExists(c.Context(), ctrlUUID, "source", "ca-cert",
+		[]string{"10.0.0.1:17070", "127.0.0.1:17070"}, addrUUIDs[:2], nil)
+	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrExternalControllerMismatch)
+}
+
 // TestExternalControllerModelsForImport verifies the third-party offerer-model
 // mappings recorded at import are read back, and that a model without a claim
 // returns an empty slice.
