@@ -68,7 +68,7 @@ func (c *LocalCharmClient) AddLocalCharm(curl *charm.URL, ch charm.Charm, force 
 		return nil, errors.Errorf("unsupported charm type %T", ch)
 	}
 
-	hasExecutableContent, err := hasHooksOrDispatch(archive.Name())
+	hasExecutableContent, err := hasHooksDispatchOrScriptlets(archive.Name())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -95,9 +95,10 @@ func (c *LocalCharmClient) AddLocalCharm(curl *charm.URL, ch charm.Charm, force 
 	return newCurl, nil
 }
 
-var hasHooksOrDispatch = hasHooksDispatchOrScriptlets
-
-func hasHooksDispatchOrScriptlets(name string) (bool, error) {
+// hasHooksDispatchOrScriptlets is a variable to allow patching in tests. It
+// reports whether the charm archive at the given path contains a hooks
+// directory, a dispatch file, or any scriptlets.
+var hasHooksDispatchOrScriptlets = func(name string) (bool, error) {
 	zipr, err := zip.OpenReader(name)
 	if err != nil {
 		return false, err

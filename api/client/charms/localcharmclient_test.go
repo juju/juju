@@ -110,7 +110,7 @@ func (s *addCharmSuite) TestCharmWithOnlyScriptletsIsUploadable(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	found, err := (*charms.HasHooksOrDispatch)(path)
+	found, err := (*charms.HasHooksDispatchOrScriptlets)(path)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(found, tc.IsTrue)
 }
@@ -139,7 +139,7 @@ func (s *addCharmSuite) TestScriptletsRequireRegularFile(c *tc.C) {
 		c.Assert(writer.Close(), tc.ErrorIsNil)
 		c.Assert(file.Close(), tc.ErrorIsNil)
 
-		found, err := (*charms.HasHooksOrDispatch)(path)
+		found, err := (*charms.HasHooksDispatchOrScriptlets)(path)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(found, tc.Equals, test.valid, tc.Commentf("case %s", test.name))
 	}
@@ -150,7 +150,7 @@ func (s *addCharmSuite) assertAddLocalCharmFailed(c *tc.C, f func(string) (bool,
 	defer ctrl.Finish()
 
 	curl, ch := s.testCharm(c)
-	s.PatchValue(charms.HasHooksOrDispatch, f)
+	s.PatchValue(charms.HasHooksDispatchOrScriptlets, f)
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockHttpDoer := mocks.NewMockHTTPClient(ctrl)
@@ -170,7 +170,7 @@ func (s *addCharmSuite) TestAddLocalCharmDefinitelyWithHooks(c *tc.C) {
 	defer ctrl.Finish()
 
 	curl, ch := s.testCharm(c)
-	s.PatchValue(charms.HasHooksOrDispatch, func(string) (bool, error) {
+	s.PatchValue(charms.HasHooksDispatchOrScriptlets, func(string) (bool, error) {
 		return true, nil
 	})
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
@@ -216,7 +216,7 @@ func (s *addCharmSuite) TestAddLocalCharmError(c *tc.C) {
 	defer ctrl.Finish()
 
 	curl, charmArchive := s.testCharm(c)
-	s.PatchValue(charms.HasHooksOrDispatch, func(string) (bool, error) {
+	s.PatchValue(charms.HasHooksDispatchOrScriptlets, func(string) (bool, error) {
 		return true, nil
 	})
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
