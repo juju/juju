@@ -87,3 +87,71 @@ INSERT INTO lease (uuid, lease_type_id, start, expiry) VALUES
 		}
 	}
 }
+
+func (s *exportControllerStateSuiteV4_1_0) TestExportOtherNullableColumns(c *tc.C) {
+	for _, query := range []string{
+		`INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify)
+VALUES ('cloud', 'cloud', 1, '', FALSE)`,
+		`INSERT INTO user (uuid, name, external, created_by_uuid, created_at)
+VALUES ('user', 'user', FALSE, 'user', '2026-01-01 00:00:00')`,
+		`INSERT INTO cloud_credential (uuid, cloud_uuid, auth_type_id, owner_uuid, name, revoked, invalid)
+VALUES ('null', 'cloud', 1, 'user', 'null', NULL, TRUE),
+       ('false', 'cloud', 1, 'user', 'false', FALSE, NULL),
+       ('true', 'cloud', 1, 'user', 'true', TRUE, FALSE)`,
+		`INSERT INTO controller_api_address (controller_id, address, scope, is_agent)
+VALUES ('0', 'null', 'public', NULL), ('0', 'false', 'public', FALSE),
+       ('0', 'true', 'public', TRUE)`,
+		`INSERT INTO model_migration_redirect (model_uuid, source_migration_uuid, target_controller_uuid,
+    target_addresses, target_ca_cert, created_at, completed_at)
+VALUES ('null', 'migration', 'target', '', '', '2026-01-01 00:00:00', NULL),
+       ('set', 'migration', 'target', '', '', '2026-01-01 00:00:00', '2026-01-02 03:04:05')`,
+		`INSERT INTO upgrade_info (uuid, previous_version, target_version, state_type_id)
+VALUES ('null', '4.0.0', '4.1.0', 3), ('set', '4.0.0', '4.1.0', 3)`,
+		`INSERT INTO upgrade_info_controller_node (uuid, controller_node_id, upgrade_info_uuid, node_upgrade_completed_at)
+VALUES ('null', '0', 'null', NULL), ('set', '0', 'set', '2026-01-02 03:04:05')`,
+	} {
+		_, err := s.DB().ExecContext(c.Context(), query)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	payload, err := NewState(s.TxnRunnerFactory()).Export(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	type credentialFlags struct {
+		revoked *bool
+		invalid *bool
+	}
+	credentials := make(map[string]credentialFlags)
+	for _, credential := range payload.CloudCredential {
+		credentials[credential.UUID] = credentialFlags{credential.Revoked, credential.Invalid}
+	}
+	c.Check(credentials, tc.DeepEquals, map[string]credentialFlags{
+		"null":  {nil, new(true)},
+		"false": {new(false), nil},
+		"true":  {new(true), new(false)},
+	})
+
+	addresses := make(map[string]*bool)
+	for _, address := range payload.ControllerApiAddress {
+		addresses[address.Address] = address.IsAgent
+	}
+	c.Check(addresses, tc.DeepEquals, map[string]*bool{
+		"null": nil, "false": new(false), "true": new(true),
+	})
+
+	completedAt := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	redirects := make(map[string]*time.Time)
+	for _, redirect := range payload.ModelMigrationRedirect {
+		redirects[redirect.ModelUUID] = redirect.CompletedAt
+	}
+	c.Check(redirects, tc.DeepEquals, map[string]*time.Time{
+		"null": nil, "set": &completedAt,
+	})
+	upgrades := make(map[string]*time.Time)
+	for _, upgrade := range payload.UpgradeInfoControllerNode {
+		upgrades[upgrade.UUID] = upgrade.NodeUpgradeCompletedAt
+	}
+	c.Check(upgrades, tc.DeepEquals, map[string]*time.Time{
+		"null": nil, "set": &completedAt,
+	})
+}
