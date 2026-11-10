@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"path"
@@ -312,7 +313,12 @@ func readScriptletSources(zipr *zipReadCloser) ([]ScriptletSource, error) {
 
 	var files []*zip.File
 	for _, file := range zipr.File {
-		if strings.HasPrefix(file.Name, scriptletsPrefix) && path.Ext(file.Name) == ".star" && !file.FileInfo().IsDir() {
+		mode := file.FileInfo().Mode()
+		// Symlinks are excluded so that the archive reading path is at
+		// least as strict as the presence check performed for scriptlets
+		// when uploading local charms.
+		if strings.HasPrefix(file.Name, scriptletsPrefix) && path.Ext(file.Name) == ".star" &&
+			!mode.IsDir() && mode&fs.ModeSymlink == 0 {
 			files = append(files, file)
 		}
 	}
