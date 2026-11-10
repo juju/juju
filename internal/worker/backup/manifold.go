@@ -295,8 +295,8 @@ func k8sProvisioningReader(
 	providerFactory providertracker.ProviderFactory,
 	controllerUUID uuid.UUID,
 	config ManifoldConfig,
-) func(context.Context) (*corebackups.K8sControllerMetadata, error) {
-	return func(ctx context.Context) (*corebackups.K8sControllerMetadata, error) {
+) func(context.Context) (*corebackups.InstanceMetadata, error) {
+	return func(ctx context.Context) (*corebackups.InstanceMetadata, error) {
 		controllerServices, err := domainServices.ServicesForModel(ctx, coremodel.UUID(config.ControllerModelUUID))
 		if err != nil {
 			return nil, err
@@ -316,7 +316,7 @@ func readControllerProvisioning(
 	providerFactory providertracker.ProviderFactory,
 	controllerUUID uuid.UUID,
 	controllerNodeID string,
-) (*corebackups.K8sControllerMetadata, error) {
+) (*corebackups.InstanceMetadata, error) {
 	spec, err := modelProvider.GetCloudSpec(ctx)
 	if err != nil {
 		return nil, err

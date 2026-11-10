@@ -26,7 +26,7 @@ const bytesPerMiB = 1 << 20
 // type, returns an error.
 func (k *kubernetesClient) ReadControllerProvisioning(
 	ctx context.Context, controllerID string,
-) (*backups.K8sControllerMetadata, error) {
+) (*backups.InstanceMetadata, error) {
 	if controllerID == "" {
 		return nil, errors.New("source controller ID is required")
 	}
@@ -40,7 +40,7 @@ func (k *kubernetesClient) ReadControllerProvisioning(
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	result := &backups.K8sControllerMetadata{Architecture: node.Status.NodeInfo.Architecture}
+	result := &backups.InstanceMetadata{Architecture: node.Status.NodeInfo.Architecture}
 	if result.Architecture == "" {
 		return nil, errors.New("source controller node has no architecture")
 	}
@@ -98,7 +98,7 @@ func (k *kubernetesClient) ReadControllerProvisioning(
 // images from its source containers. An image that is not a valid
 // registry reference, or a missing agent or charm image, is an error.
 func (k *kubernetesClient) readSourceImages(
-	containers []core.Container, result *backups.K8sControllerMetadata,
+	containers []core.Container, result *backups.InstanceMetadata,
 ) error {
 	for _, container := range containers {
 		var target *string

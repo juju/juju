@@ -90,5 +90,5 @@ type ControllerProvisioningReader interface {
 	// provisioning facts for the archive metadata. It returns an error
 	// when a required image, architecture or storage identity cannot be
 	// established.
-	ReadControllerProvisioning(ctx context.Context, controllerID string) (*corebackups.K8sControllerMetadata, error)
+	ReadControllerProvisioning(ctx context.Context, controllerID string) (*corebackups.InstanceMetadata, error)
 }

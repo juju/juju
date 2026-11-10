@@ -220,7 +220,7 @@ func (s *backupsSuite) TestK8sCreatorConfigValidate(c *tc.C) {
 
 	config := K8sCreatorConfig{
 		CreatorConfig: s.newCreatorConfig(c, s.modelServicesFor()),
-		ControllerProvisioning: func(context.Context) (*corebackups.K8sControllerMetadata, error) {
+		ControllerProvisioning: func(context.Context) (*corebackups.InstanceMetadata, error) {
 			return nil, nil
 		},
 	}
@@ -378,9 +378,9 @@ func (s *backupsSuite) TestCreate(c *tc.C) {
 	// The base records its default stable channel.
 	c.Check(s.createdMeta.Origin.Base, tc.Equals, "ubuntu@24.04/stable")
 	c.Check(s.createdMeta.DatabaseSizeBytes, tc.Equals, int64(50))
-	c.Check(s.createdMeta.K8sController, tc.IsNil)
+	c.Check(s.createdMeta.Instance.AgentImage, tc.Equals, "")
+	c.Check(s.createdMeta.Instance.MachineID, tc.Equals, "0")
 	c.Check(s.createdMeta.Controller.UUID, tc.Equals, s.controllerUUID)
-	c.Check(s.createdMeta.Controller.MachineID, tc.Equals, "0")
 	c.Check(s.createdMeta.Controller.HANodes, tc.Equals, int64(2))
 
 	// The archive is created with the collected files and one dump per
@@ -931,7 +931,7 @@ func (s *backupsSuite) TestCreateK8sControllerMetadata(c *tc.C) {
 	s.expectCreateDependencies(c, backupDir)
 	s.expectArchiveCreation(c, backupDir)
 
-	provisioning := &corebackups.K8sControllerMetadata{
+	provisioning := &corebackups.InstanceMetadata{
 		AgentImage:         "example.com/juju/agent:latest",
 		CharmImage:         "example.com/juju/charm:latest",
 		Architecture:       "arm64",
@@ -942,7 +942,7 @@ func (s *backupsSuite) TestCreateK8sControllerMetadata(c *tc.C) {
 	calls := 0
 	creator := s.newK8sCreator(c, K8sCreatorConfig{
 		CreatorConfig: s.newCreatorConfig(c, s.modelServicesFor()),
-		ControllerProvisioning: func(context.Context) (*corebackups.K8sControllerMetadata, error) {
+		ControllerProvisioning: func(context.Context) (*corebackups.InstanceMetadata, error) {
 			calls++
 			return provisioning, nil
 		},
@@ -953,7 +953,14 @@ func (s *backupsSuite) TestCreateK8sControllerMetadata(c *tc.C) {
 	c.Cleanup(cleanup)
 
 	c.Check(calls, tc.Equals, 1)
-	c.Check(meta.K8sController, tc.DeepEquals, provisioning)
+	c.Check(meta.Instance.AgentImage, tc.Equals, "example.com/juju/agent:latest")
+	c.Check(meta.Instance.CharmImage, tc.Equals, "example.com/juju/charm:latest")
+	c.Check(meta.Instance.Architecture, tc.Equals, "arm64")
+	c.Check(meta.Instance.StorageClass, tc.Equals, "fast")
+	c.Check(meta.Instance.StorageCapacityMiB, tc.Equals, uint64(1024))
+	c.Check(meta.Instance.ServiceType, tc.Equals, "loadbalancer")
+	c.Check(meta.Instance.MachineID, tc.Equals, "0")
+	c.Check(meta.Instance.MachineInstanceID, tc.Equals, corebackups.UnknownString)
 	// Kubernetes controllers have no machine base to record.
 	c.Check(meta.Origin.Base, tc.Equals, "")
 	_, err = os.Stat(archivePath)
@@ -970,7 +977,7 @@ func (s *backupsSuite) TestCreateK8sControllerMetadataFailure(c *tc.C) {
 
 	creator := s.newK8sCreator(c, K8sCreatorConfig{
 		CreatorConfig: s.newCreatorConfig(c, s.modelServicesFor()),
-		ControllerProvisioning: func(context.Context) (*corebackups.K8sControllerMetadata, error) {
+		ControllerProvisioning: func(context.Context) (*corebackups.InstanceMetadata, error) {
 			return nil, errors.New("provisioning unavailable")
 		},
 	})
@@ -992,7 +999,7 @@ func (s *backupsSuite) TestCreateK8sControllerMetadataEmpty(c *tc.C) {
 
 	creator := s.newK8sCreator(c, K8sCreatorConfig{
 		CreatorConfig: s.newCreatorConfig(c, s.modelServicesFor()),
-		ControllerProvisioning: func(context.Context) (*corebackups.K8sControllerMetadata, error) {
+		ControllerProvisioning: func(context.Context) (*corebackups.InstanceMetadata, error) {
 			return nil, nil
 		},
 	})

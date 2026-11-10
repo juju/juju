@@ -3,31 +3,42 @@
 
 package backups
 
-// K8sControllerMetadata records the running controller's Kubernetes
-// substrate facts. Images are source pod references and may be tagged
-// or digest-addressed.
-type K8sControllerMetadata struct {
+// InstanceMetadata records facts about the controller instance on which
+// a backup is taken: its machine identifiers plus the substrate running
+// it. The image fields are source pod references and may be tagged or
+// digest-addressed.
+//
+// Every field is optional in the serialised form: machine controllers
+// record only the machine identifiers, Kubernetes controllers also record
+// the substrate facts.
+type InstanceMetadata struct {
+	// MachineID contains controller machine id from which this backup is taken.
+	MachineID string `json:",omitempty"`
+	// MachineInstanceID contains controller machine's instance id from
+	// which this backup is taken.
+	MachineInstanceID string `json:",omitempty"`
+
 	// AgentImage is the container image running the controller API server.
-	AgentImage string
+	AgentImage string `json:",omitempty"`
 	// CharmImage is the container image running the controller charm.
-	CharmImage string
+	CharmImage string `json:",omitempty"`
 	// Architecture is the CPU architecture of the node hosting the
 	// controller.
-	Architecture string
+	Architecture string `json:",omitempty"`
 	// StorageClass is the storage class of the controller's data volume.
-	StorageClass string
+	StorageClass string `json:",omitempty"`
 	// StorageCapacityMiB is the controller data volume capacity in
 	// mebibytes, rounded up to the next whole mebibyte.
-	StorageCapacityMiB uint64
+	StorageCapacityMiB uint64 `json:",omitempty"`
 	// ServiceType is the controller service exposure mode, using the
 	// caas.ServiceType values "cluster", "loadbalancer" or "external".
-	ServiceType string
+	ServiceType string `json:",omitempty"`
 	// ExternalName is the DNS name of an external name service.
-	ExternalName string
+	ExternalName string `json:",omitempty"`
 	// ExternalIPs are additional external IP addresses of the service.
-	ExternalIPs []string
+	ExternalIPs []string `json:",omitempty"`
 	// LoadBalancerIP is the requested IP of a load balancer service.
-	LoadBalancerIP string
+	LoadBalancerIP string `json:",omitempty"`
 	// ServiceAnnotations are the annotations of the controller service.
-	ServiceAnnotations map[string]string
+	ServiceAnnotations map[string]string `json:",omitempty"`
 }

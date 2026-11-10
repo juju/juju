@@ -141,8 +141,7 @@ const (
 		`"Version":"1.21-alpha3",` +
 		`"ControllerUUID":"controller-uuid",` +
 		`"HANodes":3,` +
-		`"ControllerMachineID":"10",` +
-		`"ControllerMachineInstanceID":"inst-10101010"` +
+		`"Instance":{"MachineID":"10","MachineInstanceID":"inst-10101010"}` +
 		`}` + "\n"
 )
 

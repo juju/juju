@@ -248,7 +248,7 @@ func (s *manifoldSuite) TestReadControllerProvisioning(c *tc.C) {
 
 	spec := cloudspec.CloudSpec{Type: "kubernetes", Name: "test"}
 	cfg := &environsconfig.Config{}
-	provisioning := &corebackups.K8sControllerMetadata{
+	provisioning := &corebackups.InstanceMetadata{
 		AgentImage:   "example.com/agent:latest",
 		CharmImage:   "example.com/charm:latest",
 		Architecture: "arm64",
@@ -263,7 +263,7 @@ func (s *manifoldSuite) TestReadControllerProvisioning(c *tc.C) {
 		wantErr          string
 		wantNotSupported bool
 		wantFactory      bool
-		wantResult       *corebackups.K8sControllerMetadata
+		wantResult       *corebackups.InstanceMetadata
 	}{
 		{
 			name:      "cloud spec failure",
@@ -429,7 +429,7 @@ func (f *provisioningProviderFactoryStub) EphemeralProviderFromConfig(
 
 type provisioningProviderStub struct {
 	providertracker.Provider
-	provisioning *corebackups.K8sControllerMetadata
+	provisioning *corebackups.InstanceMetadata
 	err          error
 	controllerID string
 	called       bool
@@ -437,7 +437,7 @@ type provisioningProviderStub struct {
 
 func (p *provisioningProviderStub) ReadControllerProvisioning(
 	_ context.Context, controllerID string,
-) (*corebackups.K8sControllerMetadata, error) {
+) (*corebackups.InstanceMetadata, error) {
 	p.called = true
 	p.controllerID = controllerID
 	return p.provisioning, p.err

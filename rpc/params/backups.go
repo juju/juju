@@ -104,8 +104,8 @@ func CreateResult(meta *corebackups.Metadata, filename string) BackupsMetadataRe
 	result.ControllerUUID = meta.Controller.UUID
 	result.FormatVersion = meta.FormatVersion
 	result.HANodes = meta.Controller.HANodes
-	result.ControllerMachineID = meta.Controller.MachineID
-	result.ControllerMachineInstanceID = meta.Controller.MachineInstanceID
+	result.ControllerMachineID = meta.Instance.MachineID
+	result.ControllerMachineInstanceID = meta.Instance.MachineInstanceID
 	result.Filename = filename
 
 	return result

@@ -89,13 +89,21 @@ func UnknownOrigin() Origin {
 	}
 }
 
-// UnknownController returns a new backups origin with unknown values.
+// UnknownController returns a new backups controller metadata with
+// unknown values.
 func UnknownController() ControllerMetadata {
 	return ControllerMetadata{
-		UUID:              UnknownString,
+		UUID:    UnknownString,
+		HANodes: UnknownInt64,
+	}
+}
+
+// UnknownInstance returns a new backups instance metadata with unknown
+// values.
+func UnknownInstance() InstanceMetadata {
+	return InstanceMetadata{
 		MachineID:         UnknownString,
 		MachineInstanceID: UnknownString,
-		HANodes:           UnknownInt64,
 	}
 }
 
@@ -121,9 +129,9 @@ type Metadata struct {
 	// Controller contains metadata about the controller where the backup was taken.
 	Controller ControllerMetadata
 
-	// K8sController contains the Kubernetes controller metadata, recorded
-	// when the backup is taken on a Kubernetes controller.
-	K8sController *K8sControllerMetadata
+	// Instance contains metadata about the controller instance on which
+	// the backup was taken.
+	Instance InstanceMetadata
 
 	// DatabaseSizeBytes is the observed source database size in bytes.
 	DatabaseSizeBytes int64
@@ -133,12 +141,6 @@ type Metadata struct {
 type ControllerMetadata struct {
 	// UUID contains the controller UUID.
 	UUID string
-
-	// MachineID contains controller machine id from which this backup is taken.
-	MachineID string
-
-	// MachineInstanceID contains controller machine's instance id from which this backup is taken.
-	MachineInstanceID string
 
 	// HANodes contains the number of nodes in this controller's HA configuration.
 	HANodes int64
@@ -194,39 +196,35 @@ type flatMetadata struct {
 
 	// backup
 
-	Started                     time.Time
-	Finished                    time.Time
-	Notes                       string
-	ModelUUID                   string
-	Machine                     string
-	Hostname                    string
-	Version                     semversion.Number
-	Base                        string
-	ControllerUUID              string
-	HANodes                     int64
-	ControllerMachineID         string
-	ControllerMachineInstanceID string
-	K8sController               *K8sControllerMetadata `json:",omitempty"`
-	DatabaseSizeBytes           int64                  `json:",omitempty"`
+	Started           time.Time
+	Finished          time.Time
+	Notes             string
+	ModelUUID         string
+	Machine           string
+	Hostname          string
+	Version           semversion.Number
+	Base              string
+	ControllerUUID    string
+	HANodes           int64
+	Instance          InstanceMetadata
+	DatabaseSizeBytes int64 `json:",omitempty"`
 }
 
 func (m *Metadata) flat() flatMetadata {
 	flat := flatMetadata{
-		ID:                          m.ID(),
-		Started:                     m.Started,
-		Notes:                       m.Notes,
-		ModelUUID:                   m.Origin.Model,
-		Machine:                     m.Origin.Machine,
-		Hostname:                    m.Origin.Hostname,
-		Version:                     m.Origin.Version,
-		Base:                        m.Origin.Base,
-		FormatVersion:               m.FormatVersion,
-		ControllerUUID:              m.Controller.UUID,
-		ControllerMachineID:         m.Controller.MachineID,
-		ControllerMachineInstanceID: m.Controller.MachineInstanceID,
-		HANodes:                     m.Controller.HANodes,
-		K8sController:               m.K8sController,
-		DatabaseSizeBytes:           m.DatabaseSizeBytes,
+		ID:                m.ID(),
+		Started:           m.Started,
+		Notes:             m.Notes,
+		ModelUUID:         m.Origin.Model,
+		Machine:           m.Origin.Machine,
+		Hostname:          m.Origin.Hostname,
+		Version:           m.Origin.Version,
+		Base:              m.Origin.Base,
+		FormatVersion:     m.FormatVersion,
+		ControllerUUID:    m.Controller.UUID,
+		HANodes:           m.Controller.HANodes,
+		Instance:          m.Instance,
+		DatabaseSizeBytes: m.DatabaseSizeBytes,
 	}
 	stored := m.Stored()
 	if stored != nil {
@@ -252,7 +250,7 @@ func (flat *flatMetadata) inflate() (*Metadata, error) {
 		meta.Finished = &flat.Finished
 	}
 	meta.Notes = flat.Notes
-	meta.K8sController = flat.K8sController
+	meta.Instance = flat.Instance
 	meta.DatabaseSizeBytes = flat.DatabaseSizeBytes
 	meta.Origin = Origin{
 		Model:    flat.ModelUUID,
@@ -263,10 +261,8 @@ func (flat *flatMetadata) inflate() (*Metadata, error) {
 	}
 
 	meta.Controller = ControllerMetadata{
-		UUID:              flat.ControllerUUID,
-		MachineID:         flat.ControllerMachineID,
-		MachineInstanceID: flat.ControllerMachineInstanceID,
-		HANodes:           flat.HANodes,
+		UUID:    flat.ControllerUUID,
+		HANodes: flat.HANodes,
 	}
 	return meta, nil
 }
@@ -343,6 +339,7 @@ func BuildMetadata(file *os.File) (*Metadata, error) {
 	meta.Origin = UnknownOrigin()
 	meta.FormatVersion = UnknownInt64
 	meta.Controller = UnknownController()
+	meta.Instance = UnknownInstance()
 	if err := meta.MarkComplete(size, checksum, timestamp); err != nil {
 		return nil, errors.Capture(err)
 	}

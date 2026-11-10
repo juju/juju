@@ -50,9 +50,9 @@ type Creator struct {
 	// archive metadata.
 	recordSource func(context.Context, *corebackups.Metadata) error
 
-	// readControllerProvisioning reads the running controller's
+	// readControllerProvisioning reads the running controller's substrate
 	// provisioning facts from the provider. Only NewK8sCreator binds it.
-	readControllerProvisioning func(context.Context) (*corebackups.K8sControllerMetadata, error)
+	readControllerProvisioning func(context.Context) (*corebackups.InstanceMetadata, error)
 
 	clock  clock.Clock
 	logger corelogger.Logger
@@ -82,11 +82,11 @@ type CreatorConfig struct {
 type K8sCreatorConfig struct {
 	CreatorConfig
 
-	// ControllerProvisioning reads the running controller's provisioning
-	// facts from the provider, without modifying provider resources. A
-	// backup fails when a required image, architecture or storage
-	// identity cannot be established.
-	ControllerProvisioning func(context.Context) (*corebackups.K8sControllerMetadata, error)
+	// ControllerProvisioning reads the running controller's substrate
+	// provisioning facts from the provider, without modifying provider
+	// resources. A backup fails when a required image, architecture or
+	// storage identity cannot be established.
+	ControllerProvisioning func(context.Context) (*corebackups.InstanceMetadata, error)
 }
 
 // CreatorConstructor returns the archive creator for a creation request.
@@ -399,10 +399,12 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 		Version:  coreversion.Current,
 	}
 	meta.Controller = corebackups.ControllerMetadata{
-		UUID:              c.controllerUUID,
+		UUID:    c.controllerUUID,
+		HANodes: int64(len(controllerIDs)),
+	}
+	meta.Instance = corebackups.InstanceMetadata{
 		MachineID:         c.controllerID,
 		MachineInstanceID: corebackups.UnknownString,
-		HANodes:           int64(len(controllerIDs)),
 	}
 	if err := c.recordSource(ctx, meta); err != nil {
 		return nil, "", nil, errors.Capture(err)
@@ -463,17 +465,27 @@ func (c *Creator) recordMachineBase(ctx context.Context, meta *corebackups.Metad
 	return nil
 }
 
-// recordK8sController records the running controller's Kubernetes
-// provisioning facts in the archive metadata. Kubernetes recovery
-// requires them, so a reader that reports no facts fails the backup.
+// recordK8sController overlays the running Kubernetes controller's
+// provisioning facts onto the archive instance metadata. Kubernetes
+// recovery requires them, so a reader that reports no facts fails the
+// backup; the machine identifiers already recorded are preserved.
 func (c *Creator) recordK8sController(ctx context.Context, meta *corebackups.Metadata) error {
-	k8sController, err := c.readControllerProvisioning(ctx)
-	if err == nil && k8sController == nil {
+	instance, err := c.readControllerProvisioning(ctx)
+	if err == nil && instance == nil {
 		err = errors.New("no provisioning facts recorded")
 	}
 	if err != nil {
 		return errors.Errorf("recording Kubernetes provisioning: %w", err)
 	}
-	meta.K8sController = k8sController
+	meta.Instance.AgentImage = instance.AgentImage
+	meta.Instance.CharmImage = instance.CharmImage
+	meta.Instance.Architecture = instance.Architecture
+	meta.Instance.StorageClass = instance.StorageClass
+	meta.Instance.StorageCapacityMiB = instance.StorageCapacityMiB
+	meta.Instance.ServiceType = instance.ServiceType
+	meta.Instance.ExternalName = instance.ExternalName
+	meta.Instance.ExternalIPs = instance.ExternalIPs
+	meta.Instance.LoadBalancerIP = instance.LoadBalancerIP
+	meta.Instance.ServiceAnnotations = instance.ServiceAnnotations
 	return nil
 }
