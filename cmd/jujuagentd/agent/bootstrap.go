@@ -59,9 +59,10 @@ type BootstrapAgentFunc func(agentbootstrap.AgentBootstrapArgs) (*agentbootstrap
 type BootstrapCommand struct {
 	cmd.CommandBase
 	agentconf.AgentConf
-	Timeout           time.Duration
-	BootstrapAgent    BootstrapAgentFunc
-	DqliteInitialiser agentbootstrap.DqliteInitialiserFunc
+	Timeout                   time.Duration
+	BootstrapAgent            BootstrapAgentFunc
+	DqliteInitialiser         agentbootstrap.DqliteInitialiserFunc
+	DqliteBindAddressResolver agentbootstrap.DqliteBindAddressResolverFunc
 }
 
 // NewBootstrapCommand returns a new BootstrapCommand that has been initialised.
@@ -71,6 +72,9 @@ func NewBootstrapCommand() *BootstrapCommand {
 
 		BootstrapAgent:    agentbootstrap.NewAgentBootstrap,
 		DqliteInitialiser: database.BootstrapDqlite,
+		DqliteBindAddressResolver: agentbootstrap.NewDqliteBindAddressResolver(
+			internallogger.GetLogger("juju.agent.bootstrap"),
+		),
 	}
 }
 
@@ -331,6 +335,7 @@ func (c *BootstrapCommand) initialiseFreshController(ctx *cmd.Context, args inst
 			StateInitialisationParams: args,
 			BootstrapMachineAddresses: addrs,
 			BootstrapDqlite:           c.DqliteInitialiser,
+			DqliteBindAddressResolver: c.DqliteBindAddressResolver,
 			Logger:                    internallogger.GetLogger("juju.agent.bootstrap"),
 		})
 		if err != nil {

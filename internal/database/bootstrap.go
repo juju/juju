@@ -13,7 +13,6 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/errors"
@@ -52,19 +51,20 @@ type BootstrapOpt func(
 ) error
 
 // BootstrapDqlite opens a new database for the controller, and runs the
-// DDL to create its schema.
+// DDL to create its schema. The bind address is both the local Dqlite listen
+// identity and the address persisted for peers.
 //
 // It accepts an optional list of functions to perform operations on the
 // controller database.
 func BootstrapDqlite(
 	ctx context.Context,
 	mgr BootstrapNodeManager,
-	bootstrapAddresses network.ProviderAddresses,
+	bindAddress string,
 	uuid model.UUID,
 	logger logger.Logger,
 	opts ...BootstrapOpt,
 ) error {
-	return errors.Capture(WithDqlite(ctx, mgr, bootstrapAddresses, logger, func(ctx context.Context, session *DqliteSession) error {
+	return errors.Capture(WithDqlite(ctx, mgr, bindAddress, logger, func(ctx context.Context, session *DqliteSession) error {
 		controller, err := session.OpenDatabase(ctx, coredatabase.ControllerNS, schema.ControllerDDL())
 		if err != nil {
 			return errors.Errorf("running controller migration: %w", err)

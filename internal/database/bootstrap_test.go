@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/client"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -35,9 +34,6 @@ func TestBootstrapSuite(t *testing.T) {
 
 func (s *bootstrapSuite) TestBootstrapSuccess(c *tc.C) {
 	const bootstrapAddress = "10.0.0.1"
-	addresses := network.NewMachineAddresses(
-		[]string{bootstrapAddress}, network.WithScope(network.ScopeCloudLocal),
-	).AsProviderAddresses()
 	mgr := &testNodeManager{c: c}
 
 	// check tests the variadic operation functionality
@@ -90,7 +86,7 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *tc.C) {
 	}
 
 	err := BootstrapDqlite(
-		c.Context(), mgr, addresses, tc.Must0(c, coremodel.NewUUID),
+		c.Context(), mgr, bootstrapAddress, tc.Must0(c, coremodel.NewUUID),
 		loggertesting.WrapCheckLog(c), check,
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -102,16 +98,13 @@ func (s *bootstrapSuite) TestBootstrapNoAddress(c *tc.C) {
 	mgr := &testNodeManager{c: c}
 
 	err := BootstrapDqlite(
-		c.Context(), mgr, nil, tc.Must0(c, coremodel.NewUUID),
+		c.Context(), mgr, "", tc.Must0(c, coremodel.NewUUID),
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Check(err, tc.ErrorMatches, "Dqlite bootstrap address not found")
 }
 
 func (s *bootstrapSuite) TestBootstrapOperationsStopOnFailure(c *tc.C) {
-	addresses := network.NewMachineAddresses(
-		[]string{"10.0.0.1"}, network.WithScope(network.ScopeCloudLocal),
-	).AsProviderAddresses()
 	mgr := &testNodeManager{c: c}
 	expected := errors.New("seed failed")
 	var modelRunner database.TxnRunner
@@ -137,7 +130,7 @@ func (s *bootstrapSuite) TestBootstrapOperationsStopOnFailure(c *tc.C) {
 	}
 
 	err := BootstrapDqlite(
-		c.Context(), mgr, addresses, tc.Must0(c, coremodel.NewUUID),
+		c.Context(), mgr, "10.0.0.1", tc.Must0(c, coremodel.NewUUID),
 		loggertesting.WrapCheckLog(c), seed, fail, notRun,
 	)
 	c.Check(err, tc.ErrorIs, expected)
