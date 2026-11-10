@@ -185,7 +185,7 @@ func (w *Worker) request(req request) {
 		return
 	}
 
-	res := w.withLease(req, func(ctx context.Context, holder string) result {
+	res := w.withLease(req.ctx, func(ctx context.Context, holder string) result {
 		metadata, archive, cleanup, err := w.create(ctx, holder, req.notes)
 		if err != nil {
 			return result{err: err}
@@ -200,8 +200,8 @@ func (w *Worker) request(req request) {
 	req.result <- res
 }
 
-func (w *Worker) withLease(req request, fn func(context.Context, string) result) result {
-	ctx, cancel := context.WithCancelCause(req.ctx)
+func (w *Worker) withLease(ctx context.Context, fn func(context.Context, string) result) result {
+	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 
 	// Claim extends a lease already held by the same holder. Each creation
