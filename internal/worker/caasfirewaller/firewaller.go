@@ -36,7 +36,7 @@ type FirewallerConfig struct {
 
 	// ModelInfoService, ControllerSSHService and ControllerServiceUpdater
 	// keep the controller Service's SSH port in step with the SSH server port
-	// in the controller model. If any are nil this is skipped.
+	// in the controller model.
 	ModelInfoService         ModelInfoService
 	ControllerSSHService     ControllerSSHService
 	ControllerServiceUpdater caas.ControllerServiceUpdater
@@ -284,15 +284,27 @@ func (config FirewallerConfig) Validate() error {
 			coreerrors.NotValid,
 		)
 	}
+	if config.ModelInfoService == nil {
+		return errors.New("not valid nil ModelInfoService").Add(
+			coreerrors.NotValid,
+		)
+	}
+	if config.ControllerSSHService == nil {
+		return errors.New("not valid nil ControllerSSHService").Add(
+			coreerrors.NotValid,
+		)
+	}
+	if config.ControllerServiceUpdater == nil {
+		return errors.New("not valid nil ControllerServiceUpdater").Add(
+			coreerrors.NotValid,
+		)
+	}
 	return nil
 }
 
 // watchControllerSSHServerPort watches the controller SSH server port in the
-// controller model, returning a nil channel if there's nothing to watch.
+// controller model, returning a nil channel in any other model.
 func (p *firewaller) watchControllerSSHServerPort(ctx context.Context) (watcher.NotifyChannel, error) {
-	if p.modelInfoService == nil || p.controllerSSHService == nil || p.controllerServiceUpdater == nil {
-		return nil, nil
-	}
 	isControllerModel, err := p.modelInfoService.IsControllerModel(ctx)
 	if err != nil {
 		return nil, errors.Errorf("checking if the model is the controller model: %w", err)

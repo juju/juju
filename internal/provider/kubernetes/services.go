@@ -12,6 +12,7 @@ import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/internal/provider/kubernetes/application"
@@ -36,11 +37,20 @@ func (k *kubernetesClient) UpdateControllerServiceSSHPort(ctx context.Context, p
 }
 
 func updateControllerServiceSSHPort(ctx context.Context, api corev1.ServiceInterface, port int) error {
+	// Something else, like the charm, may update the Service at the same
+	// time, so retry on a conflict with a fresh copy.
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		return setControllerServiceSSHPort(ctx, api, port)
+	})
+	return errors.Trace(err)
+}
+
+func setControllerServiceSSHPort(ctx context.Context, api corev1.ServiceInterface, port int) error {
 	svc, err := api.Get(ctx, constants.ControllerServiceName, meta.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NotFoundf("controller service %q", constants.ControllerServiceName)
 	} else if err != nil {
-		return errors.Trace(err)
+		return err
 	}
 
 	want := core.ServicePort{
@@ -59,13 +69,16 @@ func updateControllerServiceSSHPort(ctx context.Context, api corev1.ServiceInter
 		}
 		svc.Spec.Ports[i].Port = want.Port
 		svc.Spec.Ports[i].TargetPort = want.TargetPort
+		// Port names are unique on a Service.
+		break
 	}
 	if !found {
 		svc.Spec.Ports = append(svc.Spec.Ports, want)
 	}
 
+	// The error isn't wrapped, so RetryOnConflict can spot a conflict.
 	_, err = api.Update(ctx, svc, meta.UpdateOptions{})
-	return errors.Trace(err)
+	return err
 }
 
 // ensureK8sService ensures a k8s service resource.

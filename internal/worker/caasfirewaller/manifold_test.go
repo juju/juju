@@ -17,14 +17,26 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/caasfirewaller/mocks"
 )
 
+// The domain services value from the dependency engine must satisfy
+// [DomainServices], or the manifold can't get it.
+var _ DomainServices = (services.DomainServices)(nil)
+
+// controllerBroker is a broker that can also update the controller Service,
+// like the Kubernetes broker.
+type controllerBroker struct {
+	*mocks.MockExtCAASBroker
+	*mocks.MockControllerServiceUpdater
+}
+
 // manifoldSuite defines a set of tests for asserting the contracts of the
 // caasfirewaller manifold.
 type manifoldSuite struct {
-	broker         *mocks.MockExtCAASBroker
+	broker         *controllerBroker
 	domainServices *mocks.MockDomainServices
 	worker         *mocks.MockWorker
 }
@@ -39,7 +51,10 @@ func TestManifoldSuite(t *testing.T) {
 func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.broker = mocks.NewMockExtCAASBroker(ctrl)
+	s.broker = &controllerBroker{
+		MockExtCAASBroker:            mocks.NewMockExtCAASBroker(ctrl),
+		MockControllerServiceUpdater: mocks.NewMockControllerServiceUpdater(ctrl),
+	}
 	s.domainServices = mocks.NewMockDomainServices(ctrl)
 	s.worker = mocks.NewMockWorker(ctrl)
 
@@ -165,6 +180,20 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	_, err := manifold.Start(c.Context(), s.newGetter(nil))
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(workerStarted, tc.IsTrue)
+}
+
+// TestStartBrokerCannotUpdateControllerService ensures that the manifold
+// fails to start with a broker that can't update the controller Service,
+// rather than starting a worker that would leave its SSH port stale.
+func (s *manifoldSuite) TestStartBrokerCannotUpdateControllerService(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	getter := s.newGetter(map[string]any{
+		"broker": s.broker.MockExtCAASBroker,
+	})
+	manifold := Manifold(s.validConfig(c.T))
+	_, err := manifold.Start(c.Context(), getter)
+	c.Check(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
 // newAppFirewallWorker provides a testing func for creating a new application
