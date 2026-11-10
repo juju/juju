@@ -31,10 +31,11 @@ func manifoldConfig(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
 		LeaseManagerName: "leases", DomainServicesName: "services", ObjectStoreName: "objects",
 		ControllerUUID: worker.ControllerUUID, ControllerModelUUID: worker.ControllerModelUUID,
-		ControllerNodeID:  worker.ControllerNodeID,
-		ControllerTag:     names.NewControllerAgentTag("0"),
-		LocalConfigReader: localConfigStub{values: LocalValues{DataDir: "/data", LogDir: "/logs"}},
-		Clock:             worker.Clock, Logger: worker.Logger,
+		ControllerNodeID:        worker.ControllerNodeID,
+		ControllerTag:           names.NewControllerAgentTag("0"),
+		MachineInstanceIDGetter: NoMachineInstanceID,
+		LocalConfigReader:       localConfigStub{values: LocalValues{DataDir: "/data", LogDir: "/logs"}},
+		Clock:                   worker.Clock, Logger: worker.Logger,
 		NewWorker: NewWorker,
 	}
 }
@@ -104,18 +105,6 @@ func (s *manifoldSuite) TestObjectStoreFailure(c *tc.C) {
 	c.Check(err, tc.ErrorIs, failure)
 }
 
-// TestModelExportDomainServicesMachine verifies the archive generator's
-// services adapter forwards the domain machine service. The rest of the
-// machine wiring (tag routing and the lookup paths) is covered by the
-// creator tests; this adapter is the hop they cannot reach, and its
-// DomainServices getters return concrete service types that cannot be
-// faked without a database.
-func (s *manifoldSuite) TestModelExportDomainServicesMachine(c *tc.C) {
-	sentinel := &machineservice.WatchableService{}
-	adapter := modelExportDomainServices{domainServices: domainServicesStub{machine: sentinel}}
-	c.Check(adapter.Machine(), tc.Equals, sentinel)
-}
-
 func (s *manifoldSuite) TestMissingDependencies(c *tc.C) {
 	for _, name := range []string{"leases", "services", "objects"} {
 		resources := manifoldResources()
@@ -134,6 +123,7 @@ func (s *manifoldSuite) TestInvalidConfiguration(c *tc.C) {
 		{func(c *ManifoldConfig) { c.DomainServicesName = "" }, "empty DomainServicesName not valid"},
 		{func(c *ManifoldConfig) { c.ObjectStoreName = "" }, "empty ObjectStoreName not valid"},
 		{func(c *ManifoldConfig) { c.ControllerTag = nil }, "nil ControllerTag not valid"},
+		{func(c *ManifoldConfig) { c.MachineInstanceIDGetter = nil }, "nil MachineInstanceIDGetter not valid"},
 		{func(c *ManifoldConfig) { c.ControllerNodeID = "" }, "empty ControllerNodeID not valid"},
 		{func(c *ManifoldConfig) { c.LocalConfigReader = nil }, "nil LocalConfigReader not valid"},
 		{func(c *ManifoldConfig) { c.Clock = nil }, "nil Clock not valid"},
@@ -166,8 +156,8 @@ type localConfigStub struct {
 func (s localConfigStub) BackupLocalValues() (LocalValues, error) { return s.values, s.err }
 
 // domainServicesStub shadows Machine on the embedded DomainServices
-// interface, so tests can pin the machine service without a database; the
-// other getters stay nil and panic if reached.
+// interface, so the archive generator can resolve the machine service
+// without a database; the other getters stay nil and panic if reached.
 type domainServicesStub struct {
 	services.DomainServices
 	machine *machineservice.WatchableService

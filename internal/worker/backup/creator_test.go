@@ -103,9 +103,8 @@ func (s *backupsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.machineService = NewMockMachineService(ctrl)
 
 	// Machine-controller metadata resolves the controller machine's cloud
-	// instance ID through the model services. Failure-path tests may not
+	// instance ID through the machine service. Failure-path tests may not
 	// reach metadata assembly, so allow zero calls here.
-	s.modelServices.EXPECT().Machine().Return(s.machineService).AnyTimes()
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return(machine.UUID("controller-machine-uuid"), nil).AnyTimes()
 	s.machineService.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("controller-machine-uuid")).Return(instance.Id("inst-controller-0"), nil).AnyTimes()
 
@@ -126,17 +125,19 @@ func (s *backupsSuite) setupMocks(c *tc.C) *gomock.Controller {
 // dependencies and the given model services resolver.
 func (s *backupsSuite) newCreatorConfig(c *tc.C, modelServicesFor ModelServicesForFunc) CreatorConfig {
 	return CreatorConfig{
-		MachineTag:            names.NewMachineTag("0"),
-		ControllerUUID:        s.controllerUUID,
-		ControllerModelUUID:   s.controllerModelUUID,
-		DataDir:               s.dataDirPath,
-		LogDir:                s.logDirPath,
-		ControllerExport:      s.controllerExport,
-		ModelServicesFor:      modelServicesFor,
-		ModelConfig:           s.modelConfig,
-		Controller:            s.controller,
-		ControllerNodes:       s.controllerNodes,
-		ControllerObjectStore: s.controllerStore,
+		MachineTag:              names.NewMachineTag("0"),
+		ControllerUUID:          s.controllerUUID,
+		ControllerModelUUID:     s.controllerModelUUID,
+		DataDir:                 s.dataDirPath,
+		LogDir:                  s.logDirPath,
+		MachineInstanceIDGetter: MachineInstanceID,
+		ControllerExport:        s.controllerExport,
+		ModelServicesFor:        modelServicesFor,
+		MachineService:          s.machineService,
+		ModelConfig:             s.modelConfig,
+		ControllerModelLister:   s.controller,
+		ControllerNodes:         s.controllerNodes,
+		ControllerObjectStore:   s.controllerStore,
 		ObjectStoreForModel: ObjectStoreForModelFunc(func(context.Context, string) (ReadObjectStore, error) {
 			return s.modelStore, nil
 		}),
@@ -162,17 +163,19 @@ func (s *backupsSuite) TestCreatorConfigValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config := CreatorConfig{
-		MachineTag:            names.NewMachineTag("0"),
-		ControllerUUID:        s.controllerUUID,
-		ControllerModelUUID:   s.controllerModelUUID,
-		DataDir:               s.dataDirPath,
-		LogDir:                s.logDirPath,
-		ControllerExport:      s.controllerExport,
-		ModelServicesFor:      s.modelServicesFor(),
-		ModelConfig:           s.modelConfig,
-		Controller:            s.controller,
-		ControllerNodes:       s.controllerNodes,
-		ControllerObjectStore: s.controllerStore,
+		MachineTag:              names.NewMachineTag("0"),
+		ControllerUUID:          s.controllerUUID,
+		ControllerModelUUID:     s.controllerModelUUID,
+		DataDir:                 s.dataDirPath,
+		LogDir:                  s.logDirPath,
+		MachineInstanceIDGetter: MachineInstanceID,
+		ControllerExport:        s.controllerExport,
+		ModelServicesFor:        s.modelServicesFor(),
+		MachineService:          s.machineService,
+		ModelConfig:             s.modelConfig,
+		ControllerModelLister:   s.controller,
+		ControllerNodes:         s.controllerNodes,
+		ControllerObjectStore:   s.controllerStore,
 		ObjectStoreForModel: ObjectStoreForModelFunc(func(context.Context, string) (ReadObjectStore, error) {
 			return s.modelStore, nil
 		}),
@@ -188,10 +191,12 @@ func (s *backupsSuite) TestCreatorConfigValidate(c *tc.C) {
 		{func(c *CreatorConfig) { c.ControllerModelUUID = "bad" }, "controller model UUID: .*"},
 		{func(c *CreatorConfig) { c.DataDir = "" }, "empty DataDir not valid"},
 		{func(c *CreatorConfig) { c.LogDir = "" }, "empty LogDir not valid"},
+		{func(c *CreatorConfig) { c.MachineInstanceIDGetter = nil }, "nil MachineInstanceIDGetter not valid"},
 		{func(c *CreatorConfig) { c.ControllerExport = nil }, "nil ControllerExport not valid"},
 		{func(c *CreatorConfig) { c.ModelServicesFor = nil }, "nil ModelServicesFor not valid"},
+		{func(c *CreatorConfig) { c.MachineService = nil }, "nil MachineService not valid"},
 		{func(c *CreatorConfig) { c.ModelConfig = nil }, "nil ModelConfig not valid"},
-		{func(c *CreatorConfig) { c.Controller = nil }, "nil Controller not valid"},
+		{func(c *CreatorConfig) { c.ControllerModelLister = nil }, "nil ControllerModelLister not valid"},
 		{func(c *CreatorConfig) { c.ControllerNodes = nil }, "nil ControllerNodes not valid"},
 		{func(c *CreatorConfig) { c.ControllerObjectStore = nil }, "nil ControllerObjectStore not valid"},
 		{func(c *CreatorConfig) { c.ObjectStoreForModel = nil }, "nil ObjectStoreForModel not valid"},
@@ -778,16 +783,10 @@ func (s *backupsSuite) TestCreateMachineUUIDFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	failing := NewMockMachineService(ctrl)
 	failing.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return(machine.UUID(""), errors.New("uuid unavailable"))
-	failingServices := NewMockModelExportDomainServices(ctrl)
-	failingServices.EXPECT().Machine().Return(failing)
-	modelServicesFor := ModelServicesForFunc(func(_ context.Context, modelUUID coremodel.UUID) (ModelExportDomainServices, error) {
-		if modelUUID == s.controllerModelUUID {
-			return failingServices, nil
-		}
-		return s.modelServices, nil
-	})
 
-	_, _, cleanup, err := s.newCreator(c, modelServicesFor).Create(c.Context(), "")
+	cfg := s.newCreatorConfig(c, s.modelServicesFor())
+	cfg.MachineService = failing
+	_, _, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "")
 	c.Check(err, tc.ErrorMatches, "recording controller machine instance ID: retrieving controller machine UUID: uuid unavailable")
 	c.Check(cleanup, tc.IsNil)
 	s.assertNoArchive(c, backupDir)
@@ -809,16 +808,10 @@ func (s *backupsSuite) TestCreateMachineInstanceIDFailure(c *tc.C) {
 	failing := NewMockMachineService(ctrl)
 	failing.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return(machine.UUID("controller-machine-uuid"), nil)
 	failing.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("controller-machine-uuid")).Return(instance.Id(""), errors.New("instance unavailable"))
-	failingServices := NewMockModelExportDomainServices(ctrl)
-	failingServices.EXPECT().Machine().Return(failing)
-	modelServicesFor := ModelServicesForFunc(func(_ context.Context, modelUUID coremodel.UUID) (ModelExportDomainServices, error) {
-		if modelUUID == s.controllerModelUUID {
-			return failingServices, nil
-		}
-		return s.modelServices, nil
-	})
 
-	_, _, cleanup, err := s.newCreator(c, modelServicesFor).Create(c.Context(), "")
+	cfg := s.newCreatorConfig(c, s.modelServicesFor())
+	cfg.MachineService = failing
+	_, _, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "")
 	c.Check(err, tc.ErrorMatches, "recording controller machine instance ID: retrieving controller machine cloud instance ID: instance unavailable")
 	c.Check(cleanup, tc.IsNil)
 	s.assertNoArchive(c, backupDir)
@@ -839,52 +832,19 @@ func (s *backupsSuite) TestCreateEmptyMachineInstanceID(c *tc.C) {
 	empty := NewMockMachineService(ctrl)
 	empty.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return(machine.UUID("controller-machine-uuid"), nil)
 	empty.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("controller-machine-uuid")).Return(instance.Id(""), nil)
-	emptyServices := NewMockModelExportDomainServices(ctrl)
-	emptyServices.EXPECT().Machine().Return(empty)
-	modelServicesFor := ModelServicesForFunc(func(_ context.Context, modelUUID coremodel.UUID) (ModelExportDomainServices, error) {
-		if modelUUID == s.controllerModelUUID {
-			return emptyServices, nil
-		}
-		return s.modelServices, nil
-	})
 
-	_, _, cleanup, err := s.newCreator(c, modelServicesFor).Create(c.Context(), "")
+	cfg := s.newCreatorConfig(c, s.modelServicesFor())
+	cfg.MachineService = empty
+	_, _, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "")
 	c.Check(err, tc.ErrorMatches, "recording controller machine instance ID: controller machine cloud instance ID is empty")
 	c.Check(cleanup, tc.IsNil)
 	s.assertNoArchive(c, backupDir)
 }
 
-// TestCreateControllerModelServicesFailure verifies that a failure resolving
-// the controller model's services while recording the machine instance ID
-// aborts Create before an archive is published.
-func (s *backupsSuite) TestCreateControllerModelServicesFailure(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	backupDir := c.MkDir()
-	boom := errors.New("controller model services unavailable")
-	modelServicesFor := ModelServicesForFunc(func(_ context.Context, modelUUID coremodel.UUID) (ModelExportDomainServices, error) {
-		if modelUUID == s.controllerModelUUID {
-			return nil, boom
-		}
-		return s.modelServices, nil
-	})
-
-	s.expectFilesToBackUp(c, backupDir)
-	s.expectModelConfig(c, backupDir)
-	s.expectControllerExport()
-	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{}, nil)
-
-	_, _, cleanup, err := s.newCreator(c, modelServicesFor).Create(c.Context(), "")
-	c.Check(err, tc.ErrorMatches, "recording controller machine instance ID: controller model services unavailable")
-	c.Check(cleanup, tc.IsNil)
-
-	s.assertNoArchive(c, backupDir)
-}
-
-// TestCreateControllerAgentLeavesMachineInstanceIDEmpty verifies that a
-// Kubernetes controller does not query machine metadata and leaves the
-// instance ID empty.
-func (s *backupsSuite) TestCreateControllerAgentLeavesMachineInstanceIDEmpty(c *tc.C) {
+// TestCreateNoMachineInstanceIDRecordsEmpty verifies that the machineless
+// implementation injected by the Kubernetes manifold wiring records no
+// instance ID and never queries machine metadata.
+func (s *backupsSuite) TestCreateNoMachineInstanceIDRecordsEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	backupDir := c.MkDir()
@@ -894,19 +854,19 @@ func (s *backupsSuite) TestCreateControllerAgentLeavesMachineInstanceIDEmpty(c *
 	s.expectControllerExport()
 	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{}, nil)
 
-	// No Machine expectation: querying machine metadata would fail the test.
+	// The machineless implementation must not query the machine service:
+	// a machine metadata query would fail the request. A fresh mock with
+	// no expectations fails the test on any call.
 	ctrl := gomock.NewController(c)
-	services := NewMockModelExportDomainServices(ctrl)
-	modelServicesFor := ModelServicesForFunc(func(context.Context, coremodel.UUID) (ModelExportDomainServices, error) {
-		return services, nil
-	})
-
-	cfg := s.newCreatorConfig(c, modelServicesFor)
+	cfg := s.newCreatorConfig(c, s.modelServicesFor())
 	cfg.MachineTag = names.NewControllerAgentTag("0")
+	cfg.MachineInstanceIDGetter = NoMachineInstanceID
+	cfg.MachineService = NewMockMachineService(ctrl)
 	meta, _, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Cleanup(cleanup)
 
+	c.Check(meta.Controller.MachineID, tc.Equals, "0")
 	c.Check(meta.Controller.MachineInstanceID, tc.Equals, "")
 }
 

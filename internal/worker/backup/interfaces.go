@@ -39,17 +39,26 @@ type MachineService interface {
 	GetInstanceID(ctx context.Context, machineUUID machine.UUID) (instance.Id, error)
 }
 
-// ModelExportDomainServices provides access to the model export and machine
-// services.
+// ModelExportDomainServices provides access to the model export service.
 type ModelExportDomainServices interface {
 	// Export returns the model export service.
 	Export() ModelExportService
-	// Machine returns the machine service.
-	Machine() MachineService
 }
 
 // ModelServicesForFunc returns the export services for a given model UUID.
 type ModelServicesForFunc func(ctx context.Context, modelUUID coremodel.UUID) (ModelExportDomainServices, error)
+
+// GetMachineInstanceIDFunc resolves the cloud instance ID of the machine
+// hosting the controller, for recording in archive metadata. The machine
+// service is scoped to the controller model. The implementation is chosen by
+// manifold wiring: machine-hosted controllers resolve it from the machine
+// service, while controllers without a machine, such as Kubernetes, report
+// none.
+type GetMachineInstanceIDFunc func(
+	ctx context.Context,
+	machineID string,
+	machineService MachineService,
+) (string, error)
 
 // ModelConfigService provides the model configuration, used to resolve the
 // backup directory.

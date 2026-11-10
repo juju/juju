@@ -114,9 +114,8 @@ type MockModelExportDomainServices struct {
 
 // MockModelExportDomainServicesMockRecorder is the mock recorder for MockModelExportDomainServices.
 type MockModelExportDomainServicesMockRecorder struct {
-	mock           *MockModelExportDomainServices
-	exportExpects  []*gomock.Call0_1[ModelExportService]
-	machineExpects []*gomock.Call0_1[MachineService]
+	mock          *MockModelExportDomainServices
+	exportExpects []*gomock.Call0_1[ModelExportService]
 }
 
 // NewMockModelExportDomainServices creates a new mock instance.
@@ -148,24 +147,6 @@ func (mr *MockModelExportDomainServicesMockRecorder) Export() *MockModelExportDo
 
 // MockModelExportDomainServicesExportCall is the typed call wrapper for Export.
 type MockModelExportDomainServicesExportCall = gomock.Call0_1[ModelExportService]
-
-// Machine mocks base method.
-func (m *MockModelExportDomainServices) Machine() MachineService {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch0_1(&m.recorder.machineExpects, m.ctrl, m, "Machine")
-}
-
-// Machine indicates an expected call of Machine.
-func (mr *MockModelExportDomainServicesMockRecorder) Machine() *MockModelExportDomainServicesMachineCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[MachineService](mr.mock.ctrl.T, mr.mock, "Machine")
-	mr.machineExpects = append(mr.machineExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockModelExportDomainServicesMachineCall is the typed call wrapper for Machine.
-type MockModelExportDomainServicesMachineCall = gomock.Call0_1[MachineService]
 
 // MockMachineService is a mock of MachineService interface.
 type MockMachineService struct {

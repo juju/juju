@@ -29,17 +29,18 @@ type LocalConfigReader interface{ BackupLocalValues() (LocalValues, error) }
 
 // ManifoldConfig configures the archive creator and its lease service.
 type ManifoldConfig struct {
-	LeaseManagerName    string
-	DomainServicesName  string
-	ObjectStoreName     string
-	ControllerUUID      string
-	ControllerModelUUID string
-	ControllerNodeID    string
-	ControllerTag       names.Tag
-	LocalConfigReader   LocalConfigReader
-	Clock               clock.Clock
-	Logger              logger.Logger
-	NewWorker           func(Config) (worker.Worker, error)
+	LeaseManagerName        string
+	DomainServicesName      string
+	ObjectStoreName         string
+	ControllerUUID          string
+	ControllerModelUUID     string
+	ControllerNodeID        string
+	ControllerTag           names.Tag
+	MachineInstanceIDGetter GetMachineInstanceIDFunc
+	LocalConfigReader       LocalConfigReader
+	Clock                   clock.Clock
+	Logger                  logger.Logger
+	NewWorker               func(Config) (worker.Worker, error)
 }
 
 // Validate checks dependencies before the manifold starts.
@@ -55,6 +56,9 @@ func (c ManifoldConfig) Validate() error {
 	}
 	if c.ControllerTag == nil {
 		return errors.NotValidf("nil ControllerTag")
+	}
+	if c.MachineInstanceIDGetter == nil {
+		return errors.NotValidf("nil MachineInstanceIDGetter")
 	}
 	if c.ControllerNodeID == "" {
 		return errors.NotValidf("empty ControllerNodeID")
@@ -173,20 +177,22 @@ func (g archiveGenerator) Create(ctx context.Context, notes string) (*corebackup
 	})
 
 	creator, err := NewCreator(CreatorConfig{
-		MachineTag:            g.config.ControllerTag,
-		ControllerUUID:        g.config.ControllerUUID,
-		ControllerModelUUID:   coremodel.UUID(g.config.ControllerModelUUID),
-		DataDir:               g.paths.DataDir,
-		LogDir:                g.paths.LogDir,
-		ControllerExport:      controllerServices.ControllerExport(),
-		ModelServicesFor:      modelServicesFor,
-		ModelConfig:           controllerServices.Config(),
-		Controller:            controllerServices.Controller(),
-		ControllerNodes:       controllerServices.ControllerNode(),
-		ControllerObjectStore: controllerStore,
-		ObjectStoreForModel:   modelObjectStoreFor,
-		Clock:                 g.config.Clock,
-		Logger:                g.config.Logger,
+		MachineTag:              g.config.ControllerTag,
+		ControllerUUID:          g.config.ControllerUUID,
+		ControllerModelUUID:     coremodel.UUID(g.config.ControllerModelUUID),
+		DataDir:                 g.paths.DataDir,
+		LogDir:                  g.paths.LogDir,
+		MachineInstanceIDGetter: g.config.MachineInstanceIDGetter,
+		ControllerExport:        controllerServices.ControllerExport(),
+		ModelServicesFor:        modelServicesFor,
+		MachineService:          controllerServices.Machine(),
+		ModelConfig:             controllerServices.Config(),
+		ControllerModelLister:   controllerServices.Controller(),
+		ControllerNodes:         controllerServices.ControllerNode(),
+		ControllerObjectStore:   controllerStore,
+		ObjectStoreForModel:     modelObjectStoreFor,
+		Clock:                   g.config.Clock,
+		Logger:                  g.config.Logger,
 	})
 	if err != nil {
 		return nil, "", nil, err
@@ -198,5 +204,3 @@ func (g archiveGenerator) Create(ctx context.Context, notes string) (*corebackup
 type modelExportDomainServices struct{ domainServices services.DomainServices }
 
 func (s modelExportDomainServices) Export() ModelExportService { return s.domainServices.Export() }
-
-func (s modelExportDomainServices) Machine() MachineService { return s.domainServices.Machine() }

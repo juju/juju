@@ -770,20 +770,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NonControllerLogSinkName: nonControllerLogSinkName,
 		}),
 
-		backupCreatorName: ifController(backup.Manifold(backup.ManifoldConfig{
-			LeaseManagerName:    leaseManagerName,
-			DomainServicesName:  domainServicesName,
-			ObjectStoreName:     objectStoreFacadeName,
-			ControllerUUID:      config.ControllerUUID,
-			ControllerModelUUID: config.ControllerModelUUID,
-			ControllerNodeID:    config.ControllerID,
-			ControllerTag:       config.ControllerAgentTag,
-			LocalConfigReader:   config.StartupValueProvider,
-			Clock:               config.Clock,
-			Logger:              internallogger.GetLogger("juju.worker.backup"),
-			NewWorker:           backup.NewWorker,
-		})),
-
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
 			AuthenticatorName:      httpServerArgsName,
 			Clock:                  clock.WallClock,
@@ -803,7 +789,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			WatcherRegistryName:    watcherRegistryName,
 			FlightRecorderName:     flightRecorderName,
 			ProviderTrackerName:    providerTrackerName,
-			BackupCreator:          backupCreatorName,
+			BackupCreator:          backupName,
 
 			// Note that although there is a transient dependency on dbaccessor
 			// via changestream, the direct dependency supplies the capability
@@ -1454,6 +1440,23 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			MachineStartup: config.MachineStartup,
 			Logger:         internallogger.GetLogger("juju.worker.machinesetup"),
 		})),
+
+		// The backup creator resolves the controller machine's cloud instance ID
+		// from the controller model: this agent runs on a provider machine.
+		backupName: ifController(backup.Manifold(backup.ManifoldConfig{
+			LeaseManagerName:        leaseManagerName,
+			DomainServicesName:      domainServicesName,
+			ObjectStoreName:         objectStoreFacadeName,
+			ControllerUUID:          config.ControllerUUID,
+			ControllerModelUUID:     config.ControllerModelUUID,
+			ControllerNodeID:        config.ControllerID,
+			ControllerTag:           config.ControllerAgentTag,
+			LocalConfigReader:       config.StartupValueProvider,
+			MachineInstanceIDGetter: backup.MachineInstanceID,
+			Clock:                   config.Clock,
+			Logger:                  internallogger.GetLogger("juju.worker.backup"),
+			NewWorker:               backup.NewWorker,
+		})),
 	}
 
 	return mergeManifolds(config, manifolds)
@@ -1562,6 +1565,23 @@ func K8sManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewAgentWorker:       upgradestepsagent.NewAgentWorker,
 			Logger:               internallogger.GetLogger("juju.worker.upgradestepsagent"),
 			Clock:                config.Clock,
+		})),
+
+		// The backup creator records no machine instance ID: this agent runs on
+		// Kubernetes, where the controller has no provider machine.
+		backupName: ifController(backup.Manifold(backup.ManifoldConfig{
+			LeaseManagerName:        leaseManagerName,
+			DomainServicesName:      domainServicesName,
+			ObjectStoreName:         objectStoreFacadeName,
+			ControllerUUID:          config.ControllerUUID,
+			ControllerModelUUID:     config.ControllerModelUUID,
+			ControllerNodeID:        config.ControllerID,
+			ControllerTag:           config.ControllerAgentTag,
+			LocalConfigReader:       config.StartupValueProvider,
+			MachineInstanceIDGetter: backup.NoMachineInstanceID,
+			Clock:                   config.Clock,
+			Logger:                  internallogger.GetLogger("juju.worker.backup"),
+			NewWorker:               backup.NewWorker,
 		})),
 	})
 }
@@ -1726,7 +1746,7 @@ const (
 	apiRemoteRelationCallerName        = "api-remote-relation-caller"
 	apiServerName                      = "api-server"
 	auditConfigUpdaterName             = "audit-config-updater"
-	backupCreatorName                  = "backup-creator"
+	backupName                         = "backup"
 	brokerTrackerName                  = "broker-tracker"
 	certificateUpdaterName             = "certificate-updater"
 	certificateWatcherName             = "certificate-watcher"
