@@ -15,7 +15,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/services"
 	internalworker "github.com/juju/juju/internal/worker"
 )
 
@@ -29,10 +28,6 @@ type ManifoldConfig struct {
 	NewFirewallWorker    func(FirewallerConfig) (worker.Worker, error)
 	Logger               logger.Logger
 }
-
-// The domain services value from the dependency engine must satisfy
-// [DomainServices], or the manifold can't get it.
-var _ DomainServices = (services.DomainServices)(nil)
 
 // Manifold returns a Manifold that encapsulates the firewaller worker.
 func Manifold(cfg ManifoldConfig) dependency.Manifold {
@@ -117,8 +112,13 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		)
 	}
 
-	// Only the Kubernetes broker can update the controller Service.
-	controllerServiceUpdater, _ := broker.(caas.ControllerServiceUpdater)
+	controllerServiceUpdater, ok := broker.(caas.ControllerServiceUpdater)
+	if !ok {
+		return nil, errors.Errorf(
+			"caas broker %T does not support updating the controller service",
+			broker,
+		).Add(coreerrors.NotSupported)
+	}
 
 	w, err := config.NewFirewallWorker(FirewallerConfig{
 		ApplicationService:       domainServices.Application(),
