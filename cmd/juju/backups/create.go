@@ -6,8 +6,8 @@ package backups
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -38,6 +38,19 @@ the download fails and no archive is kept. An interrupted transfer
 leaves no archive on either side: re-run the command to create the
 backup again.
 
+Once the archive is verified and saved, the backup summary is written
+beside it as an unsigned YAML assertion file. The archive's ".tar.gz"
+or ".tgz" suffix is replaced with ".assert"; for other filenames,
+".assert" is appended. The assertion records the archive's SHA-256
+checksum together with the backup metadata. On success the command
+reports both filenames on stderr, unless --quiet is specified.
+The assertion is published by replacing its destination only after writing
+and closing a temporary file successfully. If publication fails, the verified
+archive and any existing assertion are kept.
+
+Recovering a controller from a backup needs both files, the archive
+and its assertion: see "juju recover <backup-file> <assertion-file>".
+
 The model config attribute ` + "`backup-dir`" + ` only serves as scratch space
 during backup creation; no archive is kept there once the command
 finishes.
@@ -52,8 +65,6 @@ archive is not a single point-in-time snapshot of the whole controller.
 Create the backup during a quiet window, when models are not being
 deployed, destroyed or upgraded, so that concurrent changes cannot
 produce an inconsistent archive.
-
-Use ` + "`--verbose`" + ` to see extra information about backup.
 `
 
 const createExamples = `
@@ -87,16 +98,12 @@ func (c *createCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *createCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CommandBase.SetFlags(f)
+	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.Filename, "filename", notset, "Download to this file")
-	c.fs = f
 }
 
 // Init implements Command.Init.
 func (c *createCommand) Init(args []string) error {
-	if err := c.CommandBase.Init(args); err != nil {
-		return err
-	}
 	notes, err := cmd.ZeroOrOneArgs(args)
 	if err != nil {
 		return err
@@ -135,13 +142,22 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 	if err := c.writeArchive(ctx, archive, result.Checksum, result.ChecksumFormat, filename); err != nil {
 		return errors.Trace(err)
 	}
-	// Print the metadata only after the archive is verified and
-	// written, so a scripted consumer never sees a plausible
-	// report for a backup that was not delivered.
-	if !c.quiet {
-		fmt.Fprintln(ctx.Stdout, c.metadata(&result))
+	// The assertion is written only after the archive is verified and
+	// saved, so an assertion never describes an archive that was not
+	// delivered.
+	data, err := c.metadata(&result)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	ctx.Infof("Downloaded to %v", filename)
+	assertionFilename, hasArchiveSuffix := strings.CutSuffix(filename, ".tar.gz")
+	if !hasArchiveSuffix {
+		assertionFilename = strings.TrimSuffix(filename, ".tgz")
+	}
+	assertionFilename += ".assert"
+	if err := c.writeAssertion(data, assertionFilename); err != nil {
+		return errors.Trace(err)
+	}
+	ctx.Infof("Downloaded to %v (assertion: %v)", filename, assertionFilename)
 	return nil
 }
 
@@ -206,5 +222,42 @@ func (c *createCommand) writeArchive(ctx *cmd.Context, stream io.Reader, checksu
 			"checksum mismatch for downloaded backup %q (renamed to %q for inspection)",
 			archiveFilename, corruptName)
 	}
+	return nil
+}
+
+// writeAssertion publishes the assertion by renaming a completed temporary
+// file, so a linked destination cannot overwrite the verified archive.
+// Failures leave the destination untouched and remove the temporary file.
+func (c *createCommand) writeAssertion(data []byte, filename string) error {
+	fs := c.Filesystem()
+	file, err := fs.CreateTemp(filepath.Dir(filename), ".juju-backup-assert-*")
+	if err != nil {
+		return errors.Annotatef(err, "while creating local assertion file %v", filename)
+	}
+	tempName := file.Name()
+	published := false
+	defer func() {
+		if !published {
+			_ = fs.RemoveAll(tempName)
+		}
+	}()
+	n, writeErr := file.Write(data)
+	if writeErr == nil && n < len(data) {
+		// A truncated assertion could not be parsed, so treat a
+		// short write as a failure.
+		writeErr = io.ErrShortWrite
+	}
+	closeErr := file.Close()
+	if writeErr != nil || closeErr != nil {
+		// Never publish an incomplete assertion.
+		if writeErr != nil {
+			return errors.Annotatef(writeErr, "while writing local assertion file %v", filename)
+		}
+		return errors.Annotatef(closeErr, "while closing local assertion file %v", filename)
+	}
+	if err := fs.Rename(tempName, filename); err != nil {
+		return errors.Annotatef(err, "while publishing local assertion file %v", filename)
+	}
+	published = true
 	return nil
 }

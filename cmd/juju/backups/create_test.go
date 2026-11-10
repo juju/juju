@@ -9,8 +9,10 @@ import (
 	"encoding/hex"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -18,17 +20,19 @@ import (
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/backups"
+	"github.com/juju/juju/cmd/modelcmd"
+	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 )
 
 type createSuite struct {
 	BaseBackupsSuite
-	wrappedCommand  cmd.Command
-	command         *backups.CreateCommand
-	defaultFilename string
+	wrappedCommand cmd.Command
+	command        *backups.CreateCommand
 
-	expectedOut string
-	expectedErr string
+	defaultFilename          string
+	defaultAssertionFilename string
 }
 
 func TestCreateSuite(t *testing.T) {
@@ -38,12 +42,8 @@ func TestCreateSuite(t *testing.T) {
 func (s *createSuite) SetUpTest(c *tc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
 	s.wrappedCommand, s.command = backups.NewCreateCommandForTest(s.store)
-	s.defaultFilename = "juju-backup-<date>-<time>.tar.gz"
-
-	s.expectedOut = MetaResultString
-	s.expectedErr = `
-Downloaded to juju-backup-00010101-000000.tar.gz
-`[1:]
+	s.defaultFilename = "juju-backup-00010101-000000.tar.gz"
+	s.defaultAssertionFilename = "juju-backup-00010101-000000.assert"
 }
 
 func (s *createSuite) TearDownTest(c *tc.C) {
@@ -74,27 +74,37 @@ func (s *createSuite) setDownload() *fakeAPIClient {
 	return client
 }
 
-func (s *createSuite) checkDownloadStd(c *tc.C, ctx *cmd.Context) {
-	c.Check(cmdtesting.Stderr(ctx), tc.Equals, s.expectedErr)
-	c.Check(cmdtesting.Stdout(ctx), tc.Equals, s.expectedOut)
+// checkDownload verifies that a successful run reports both saved files.
+// It returns the decoded assertion, with the checksum already
+// cross-checked against the archive's actual digest.
+func (s *createSuite) checkDownload(c *tc.C, ctx *cmd.Context, filename, assertionFilename string) backups.Assertion {
+	c.Check(cmdtesting.Stderr(ctx), tc.Contains, filename+" ")
+	c.Check(cmdtesting.Stderr(ctx), tc.Contains, assertionFilename)
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, "")
 
-	out := cmdtesting.Stderr(ctx)
-	parts := strings.Split(out, "\n")
-	c.Assert(parts, tc.HasLen, 2)
-
-	// Check the download message.
-	parts = strings.Split(parts[0], "Downloaded to ")
-	c.Assert(parts, tc.HasLen, 2)
-	c.Assert(parts[0], tc.Equals, "")
-	s.filename = parts[1][:len(parts[1])]
-	c.Cleanup(func() {
-		s.filename = ""
-	})
+	s.filename = filename
+	s.checkArchive(c)
+	return s.checkAssertion(c, filename, assertionFilename)
 }
 
-func (s *createSuite) checkDownload(c *tc.C, ctx *cmd.Context) {
-	s.checkDownloadStd(c, ctx)
-	s.checkArchive(c)
+// checkAssertion decodes the assertion saved beside the archive and
+// cross-checks its checksum against the archive's actual digest.
+func (s *createSuite) checkAssertion(c *tc.C, filename, assertionFilename string) backups.Assertion {
+	archive, err := os.ReadFile(filename)
+	c.Assert(err, tc.ErrorIsNil)
+	sum := sha256.Sum256(archive)
+
+	assertion := s.readAssertion(c, assertionFilename)
+	// The checksum keeps the controller's hex spelling, so compare
+	// without case.
+	c.Check(strings.EqualFold(assertion.Checksum, corebackups.ChecksumSHA256(hex.EncodeToString(sum[:]))), tc.IsTrue)
+	c.Check(assertion.ChecksumFormat, tc.Equals, corebackups.ChecksumFormatSHA256)
+	return assertion
+}
+
+func (s *createSuite) checkNoAssertion(c *tc.C, filename string) {
+	_, err := os.Stat(filename)
+	c.Check(err, tc.Satisfies, os.IsNotExist)
 }
 
 type createBackupArgParsing struct {
@@ -147,6 +157,7 @@ func (s *createSuite) TestArgParsing(c *tc.C) {
 		}
 	}
 }
+
 func (s *createSuite) TestDefault(c *tc.C) {
 	client := s.setDownload()
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand)
@@ -154,10 +165,13 @@ func (s *createSuite) TestDefault(c *tc.C) {
 
 	client.Check(c, "", "Create")
 	client.CheckArgs(c, "")
-	s.checkDownload(c, ctx)
+	assertion := s.checkDownload(c, ctx, s.defaultFilename, s.defaultAssertionFilename)
+	c.Check(assertion.Notes, tc.Equals, "")
 	c.Check(s.command.Filename, tc.Equals, backups.NotSet)
 }
 
+// TestDefaultQuiet verifies that quiet mode is unchanged in effect: no
+// output at all, and the assertion is still created.
 func (s *createSuite) TestDefaultQuiet(c *tc.C) {
 	client := s.setDownload()
 	ctx, err := cmdtesting.RunCommand(c, s.createCommandForGlobalOptionTesting(s.wrappedCommand), "create-backup", "--quiet")
@@ -168,36 +182,115 @@ func (s *createSuite) TestDefaultQuiet(c *tc.C) {
 
 	c.Check(ctx.Stderr.(*bytes.Buffer).String(), tc.Equals, "")
 	c.Check(ctx.Stdout.(*bytes.Buffer).String(), tc.Equals, "")
+
+	s.filename = s.defaultFilename
+	s.checkArchive(c)
+	s.checkAssertion(c, s.defaultFilename, s.defaultAssertionFilename)
 }
 
+// TestNotes verifies that arbitrary notes — colons, quotes, Unicode and
+// embedded newlines that resemble assertion keys — survive the YAML
+// assertion intact.
 func (s *createSuite) TestNotes(c *tc.C) {
+	notes := "checked: yes\nsay \"hi\" — café\nchecksum: sha256-not-a-real-digest"
 	client := s.setDownload()
-	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "test notes")
+	client.metaresult.Notes = notes
+	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, notes)
 	c.Assert(err, tc.ErrorIsNil)
 
-	client.Check(c, "test notes", "Create")
-	client.CheckArgs(c, "test notes")
-	s.checkDownload(c, ctx)
+	client.Check(c, notes, "Create")
+	client.CheckArgs(c, notes)
+	assertion := s.checkDownload(c, ctx, s.defaultFilename, s.defaultAssertionFilename)
+	c.Check(assertion.Notes, tc.Equals, notes)
 }
 
 func (s *createSuite) TestFilename(c *tc.C) {
-	client := s.setDownload()
-	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
-	c.Assert(err, tc.ErrorIsNil)
+	for _, test := range []struct {
+		archive   string
+		assertion string
+	}{
+		{"backup.tar.gz", "backup.assert"},
+		{"backup.tgz", "backup.assert"},
+		{"backup", "backup.assert"},
+		{"backup.custom", "backup.custom.assert"},
+		{"backup.assert", "backup.assert.assert"},
+		{"backup.daily.tar.gz", "backup.daily.assert"},
+		{"backup.tgz.tar.gz", "backup.tgz.assert"},
+	} {
+		c.Logf("archive filename: %s", test.archive)
+		dir := c.MkDir()
+		filename := filepath.Join(dir, test.archive)
+		assertionFilename := filepath.Join(dir, test.assertion)
+		s.setDownload()
+		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", filename)
+		c.Assert(err, tc.ErrorIsNil)
+		s.checkDownload(c, ctx, filename, assertionFilename)
+		entries, err := os.ReadDir(dir)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(entries, tc.HasLen, 2)
+	}
+}
 
-	client.Check(c, "", "Create")
-	client.CheckArgs(c, "")
-	s.expectedErr = `
-Downloaded to backup.tgz
-`[1:]
-	s.checkDownload(c, ctx)
-	c.Check(s.command.Filename, tc.Equals, "backup.tgz")
+// TestNestedFilename verifies that an archive requested inside a
+// subdirectory keeps its assertion beside it there.
+func (s *createSuite) TestNestedFilename(c *tc.C) {
+	s.setDownload()
+	c.Assert(os.MkdirAll("nested.tar.gz/backups", 0o755), tc.ErrorIsNil)
+	filename := "nested.tar.gz/backups/custom.tar.gz"
+
+	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", filename)
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkDownload(c, ctx, filename, "nested.tar.gz/backups/custom.assert")
+}
+
+// TestFullMetadataPreserved verifies that every summary value the
+// controller reports survives the YAML encoding: versions with build
+// metadata, timestamps, identities and counts.
+func (s *createSuite) TestFullMetadataPreserved(c *tc.C) {
+	started := time.Date(2026, 10, 30, 12, 34, 56, 0, time.UTC)
+	finished := started.Add(2 * time.Minute)
+	stored := finished.Add(time.Second)
+	// The archive is named after the recorded start time.
+	filename := started.Format(corebackups.FilenameTemplate)
+
+	client := s.setDownload()
+	client.metaresult.FormatVersion = 2
+	client.metaresult.Size = 12345
+	client.metaresult.Stored = stored
+	client.metaresult.Started = started
+	client.metaresult.Finished = finished
+	client.metaresult.ControllerUUID = "9d0e1a2b-3c4d-5e6f-7a8b-9c0d1e2f3a4b"
+	client.metaresult.HANodes = 3
+	client.metaresult.Model = "1f2e3d4c-5b6a-7988-9900-aabbccddeeff"
+	client.metaresult.Machine = "0"
+	client.metaresult.Hostname = "juju-9d0e1a-machine-0"
+	client.metaresult.Version = semversion.MustParse("4.1.2.1")
+	client.metaresult.Base = "ubuntu@24.04"
+
+	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand)
+	c.Assert(err, tc.ErrorIsNil)
+	client.CheckCalls(c, "Create")
+	assertion := s.checkDownload(c, ctx, filename, "juju-backup-20261030-123456.assert")
+
+	c.Check(assertion.FormatVersion, tc.Equals, int64(2))
+	c.Check(assertion.Size, tc.Equals, int64(12345))
+	c.Check(assertion.Stored.Equal(stored), tc.IsTrue)
+	c.Check(assertion.Started.Equal(started), tc.IsTrue)
+	c.Check(assertion.Finished.Equal(finished), tc.IsTrue)
+	c.Check(assertion.ControllerUUID, tc.Equals, "9d0e1a2b-3c4d-5e6f-7a8b-9c0d1e2f3a4b")
+	c.Check(assertion.HANodes, tc.Equals, int64(3))
+	c.Check(assertion.ModelUUID, tc.Equals, "1f2e3d4c-5b6a-7988-9900-aabbccddeeff")
+	c.Check(assertion.MachineID, tc.Equals, "0")
+	c.Check(assertion.Hostname, tc.Equals, "juju-9d0e1a-machine-0")
+	c.Check(assertion.JujuVersion, tc.Equals, semversion.MustParse("4.1.2.1"))
+	c.Check(assertion.Base, tc.Equals, "ubuntu@24.04")
 }
 
 // TestUnverifiableChecksumFormat verifies that a controller reporting a
 // checksum format this client cannot verify — an older controller still
 // recording SHA-1, or one predating the format field — fails the
-// download and keeps no archive whose integrity is unconfirmed.
+// download and keeps no archive whose integrity is unconfirmed, and
+// that no assertion is created.
 func (s *createSuite) TestUnverifiableChecksumFormat(c *tc.C) {
 	for _, format := range []string{"SHA-1, base64 encoded", ""} {
 		c.Logf("checksum format %q", format)
@@ -215,22 +308,24 @@ func (s *createSuite) TestUnverifiableChecksumFormat(c *tc.C) {
 		c.Check(err, tc.Satisfies, os.IsNotExist)
 		_, err = os.Stat("juju-backup-00010101-000000.tar.gz.corrupt")
 		c.Check(err, tc.Satisfies, os.IsNotExist)
+		s.checkNoAssertion(c, s.defaultAssertionFilename)
 	}
 }
 
 // TestChecksumUppercase verifies that the checksum comparison tolerates
-// hex case: an uppercase SHA-256 checksum still verifies the download.
+// hex case: an uppercase SHA-256 checksum still verifies the download,
+// and the recorded assertion checksum keeps the controller's spelling.
 func (s *createSuite) TestChecksumUppercase(c *tc.C) {
 	client := s.setDownload()
 	sum := sha256.Sum256([]byte(s.data))
 	lower := hex.EncodeToString(sum[:])
 	client.metaresult.Checksum = "sha256-" + strings.ToUpper(lower)
-	s.expectedOut = strings.Replace(MetaResultString, lower, strings.ToUpper(lower), 1)
 
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand)
 	c.Assert(err, tc.ErrorIsNil)
 	client.CheckCalls(c, "Create")
-	s.checkDownload(c, ctx)
+	assertion := s.checkDownload(c, ctx, s.defaultFilename, s.defaultAssertionFilename)
+	c.Check(assertion.Checksum, tc.Equals, "sha256-"+strings.ToUpper(lower))
 }
 
 // TestCreateOnContainerController pins the enablement of create-backup
@@ -247,7 +342,7 @@ func (s *createSuite) TestCreateOnContainerController(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand)
 	c.Assert(err, tc.ErrorIsNil)
 	client.CheckCalls(c, "Create")
-	s.checkDownload(c, ctx)
+	s.checkDownload(c, ctx, s.defaultFilename, s.defaultAssertionFilename)
 }
 
 func (s *createSuite) TestChecksumMismatch(c *tc.C) {
@@ -258,10 +353,10 @@ func (s *createSuite) TestChecksumMismatch(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `checksum mismatch for downloaded backup .*`)
 	client.CheckCalls(c, "Create")
 
-	// The metadata must not reach stdout: the archive was never
-	// verified, so scripting the output cannot act on a backup
-	// that was not delivered.
+	// The assertion must not be created: the archive was never
+	// verified, so no assertion can describe it.
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, "")
+	s.checkNoAssertion(c, s.defaultAssertionFilename)
 
 	// The corrupt archive is kept under a suffix for inspection.
 	_, err = os.Stat("juju-backup-00010101-000000.tar.gz")
@@ -269,6 +364,37 @@ func (s *createSuite) TestChecksumMismatch(c *tc.C) {
 	data, err := os.ReadFile("juju-backup-00010101-000000.tar.gz.corrupt")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(data), tc.Equals, s.data)
+}
+
+// TestStaleAssertionSurvivesFailedRerun verifies that a later failed
+// backup to the same filename leaves the assertion from an earlier
+// successful run in place: the command replaces the assertion only
+// with a newly written one, never with nothing.
+func (s *createSuite) TestStaleAssertionSurvivesFailedRerun(c *tc.C) {
+	client := s.setDownload()
+	client.metaresult.Notes = "first backup"
+	_, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
+	c.Assert(err, tc.ErrorIsNil)
+	first := s.checkAssertion(c, "backup.tgz", "backup.assert")
+	c.Check(first.Notes, tc.Equals, "first backup")
+
+	// A second run reporting a checksum that does not match the
+	// archive fails after the download: the archive is kept under
+	// .corrupt for inspection, and the earlier assertion is untouched.
+	client.metaresult.Checksum = "sha256-" + strings.Repeat("f", 64)
+	_, err = cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
+	c.Assert(err, tc.ErrorMatches, `checksum mismatch for downloaded backup .*`)
+	client.CheckCalls(c, "Create", "Create")
+
+	_, err = os.Stat("backup.tgz")
+	c.Check(err, tc.Satisfies, os.IsNotExist)
+	data, err := os.ReadFile("backup.tgz.corrupt")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(data), tc.Equals, s.data)
+
+	stale := s.readAssertion(c, "backup.assert")
+	c.Check(stale.Checksum, tc.Equals, first.Checksum)
+	c.Check(stale.Notes, tc.Equals, first.Notes)
 }
 
 // flakyReader returns its data once and then fails, simulating a
@@ -288,7 +414,7 @@ func (r *flakyReader) Read(p []byte) (int, error) {
 
 // TestPartialArchiveRemoved verifies that a transfer that breaks part
 // way through leaves no partial archive behind that could be mistaken
-// for a complete backup.
+// for a complete backup, and no assertion either.
 func (s *createSuite) TestPartialArchiveRemoved(c *tc.C) {
 	client := s.setDownload()
 	client.createHook = func() (io.ReadCloser, error) {
@@ -300,13 +426,14 @@ func (s *createSuite) TestPartialArchiveRemoved(c *tc.C) {
 		`while copying to local archive file backup.tgz: connection reset by peer`)
 	client.CheckCalls(c, "Create")
 
-	// No metadata on stdout: the transfer failed.
+	// No assertion either: the transfer failed.
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, "")
 
 	_, err = os.Stat("backup.tgz")
 	c.Check(err, tc.Satisfies, os.IsNotExist)
 	_, err = os.Stat("backup.tgz.corrupt")
 	c.Check(err, tc.Satisfies, os.IsNotExist)
+	s.checkNoAssertion(c, "backup.assert")
 }
 
 // TestNoChecksum verifies that a response without a checksum, which
@@ -319,8 +446,195 @@ func (s *createSuite) TestNoChecksum(c *tc.C) {
 		`controller returned no checksum for the backup, refusing to download it unverified`)
 	client.CheckCalls(c, "Create")
 
-	// No metadata on stdout: the download was refused.
+	// No assertion: nothing was downloaded.
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, "")
+	s.checkNoAssertion(c, s.defaultAssertionFilename)
+}
+
+// TestAssertionPublicationFailureKeepsArchive verifies that a destination
+// directory blocks publication without removing it or the verified archive.
+func (s *createSuite) TestAssertionPublicationFailureKeepsArchive(c *tc.C) {
+	client := s.setDownload()
+	err := os.Mkdir("backup.assert", 0o755)
+	c.Assert(err, tc.ErrorIsNil)
+
+	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
+	c.Assert(err, tc.ErrorMatches, `while publishing local assertion file backup.assert: .*`)
+	client.CheckCalls(c, "Create")
+
+	// The verified archive is kept and the obstructing directory is
+	// left alone.
+	data, err := os.ReadFile("backup.tgz")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(data), tc.Equals, s.data)
+	info, err := os.Stat("backup.assert")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.IsDir(), tc.IsTrue)
+	entries, err := os.ReadDir(".")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entries, tc.HasLen, 2)
+
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, "")
+	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
+}
+
+// hookedCreateTempFS scripts failures while retaining real temporary files.
+type hookedCreateTempFS struct {
+	modelcmd.Filesystem
+	createTemp func(dir, pattern string) (modelcmd.NamedWriteCloser, error)
+}
+
+func (f *hookedCreateTempFS) CreateTemp(dir, pattern string) (modelcmd.NamedWriteCloser, error) {
+	return f.createTemp(dir, pattern)
+}
+
+type failingWriteWriter struct {
+	modelcmd.NamedWriteCloser
+	err error
+}
+
+func (w *failingWriteWriter) Write([]byte) (int, error) {
+	return 0, w.err
+}
+
+type shortWriter struct {
+	modelcmd.NamedWriteCloser
+}
+
+func (w *shortWriter) Write(p []byte) (int, error) {
+	return w.NamedWriteCloser.Write(p[:len(p)/2])
+}
+
+type failingCloseWriter struct {
+	modelcmd.NamedWriteCloser
+	err error
+}
+
+func (w *failingCloseWriter) Close() error {
+	_ = w.NamedWriteCloser.Close()
+	return w.err
+}
+
+// TestAssertionFailureKeepsExistingFiles verifies that creation, write and
+// close failures preserve the archive and old assertion without leaking
+// temporary files.
+func (s *createSuite) TestAssertionFailureKeepsExistingFiles(c *tc.C) {
+	failure := errors.New("assertion I/O failure")
+	for _, test := range []struct {
+		name      string
+		createErr bool
+		wrap      func(modelcmd.NamedWriteCloser) modelcmd.NamedWriteCloser
+		err       error
+	}{
+		{name: "create", createErr: true, err: failure},
+		{
+			name: "write",
+			wrap: func(file modelcmd.NamedWriteCloser) modelcmd.NamedWriteCloser {
+				return &failingWriteWriter{NamedWriteCloser: file, err: failure}
+			},
+			err: failure,
+		},
+		{
+			name: "short write",
+			wrap: func(file modelcmd.NamedWriteCloser) modelcmd.NamedWriteCloser {
+				return &shortWriter{NamedWriteCloser: file}
+			},
+			err: io.ErrShortWrite,
+		},
+		{
+			name: "close",
+			wrap: func(file modelcmd.NamedWriteCloser) modelcmd.NamedWriteCloser {
+				return &failingCloseWriter{NamedWriteCloser: file, err: failure}
+			},
+			err: failure,
+		},
+	} {
+		c.Logf("failure during %s", test.name)
+		dir := c.MkDir()
+		filename := filepath.Join(dir, "backup.tgz")
+		assertionPath := filepath.Join(dir, "backup.assert")
+		const previousAssertion = "previous assertion"
+		c.Assert(os.WriteFile(assertionPath, []byte(previousAssertion), 0o600), tc.ErrorIsNil)
+		s.setDownload()
+		base := (&modelcmd.FilesystemCommand{}).Filesystem()
+		s.command.SetFilesystem(&hookedCreateTempFS{
+			Filesystem: base,
+			createTemp: func(dir, pattern string) (modelcmd.NamedWriteCloser, error) {
+				if test.createErr {
+					return nil, failure
+				}
+				file, err := base.CreateTemp(dir, pattern)
+				if err != nil {
+					return nil, err
+				}
+				return test.wrap(file), nil
+			},
+		})
+
+		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", filename)
+		c.Assert(err, tc.ErrorIs, test.err)
+		data, err := os.ReadFile(filename)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(string(data), tc.Equals, s.data)
+		data, err = os.ReadFile(assertionPath)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(string(data), tc.Equals, previousAssertion)
+		entries, err := os.ReadDir(dir)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(entries, tc.HasLen, 2)
+		c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
+	}
+}
+
+// TestAssertionLinksKeepArchive verifies that publishing an assertion
+// replaces a linked destination without overwriting the verified archive.
+func (s *createSuite) TestAssertionLinksKeepArchive(c *tc.C) {
+	for _, test := range []struct {
+		name string
+		link func(string, string) error
+	}{
+		{name: "symlink", link: os.Symlink},
+		{name: "hardlink", link: os.Link},
+	} {
+		c.Logf("assertion destination: %s", test.name)
+		dir := c.MkDir()
+		filename := filepath.Join(dir, "backup.tgz")
+		c.Assert(os.WriteFile(filename, []byte("old backup"), 0o600), tc.ErrorIsNil)
+		assertionPath := filepath.Join(dir, "backup.assert")
+		c.Assert(test.link(filename, assertionPath), tc.ErrorIsNil)
+		s.setDownload()
+
+		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", filename)
+		c.Assert(err, tc.ErrorIsNil)
+		s.checkDownload(c, ctx, filename, assertionPath)
+		info, err := os.Lstat(assertionPath)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(info.Mode().IsRegular(), tc.IsTrue)
+		entries, err := os.ReadDir(dir)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(entries, tc.HasLen, 2)
+	}
+}
+
+// TestAssertionReplaced verifies that a second successful backup to the
+// same filename replaces the assertion rather than appending to it.
+func (s *createSuite) TestAssertionReplaced(c *tc.C) {
+	client := s.setDownload()
+	client.metaresult.Notes = "first backup"
+	_, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
+	c.Assert(err, tc.ErrorIsNil)
+	assertion := s.checkAssertion(c, "backup.tgz", "backup.assert")
+	c.Check(assertion.Notes, tc.Equals, "first backup")
+
+	client.metaresult.Notes = "second backup"
+	_, err = cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
+	c.Assert(err, tc.ErrorIsNil)
+	assertion = s.checkAssertion(c, "backup.tgz", "backup.assert")
+	c.Check(assertion.Notes, tc.Equals, "second backup")
+
+	data, err := os.ReadFile("backup.assert")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(strings.Count(string(data), "notes:"), tc.Equals, 1)
 }
 
 func (s *createSuite) TestError(c *tc.C) {
