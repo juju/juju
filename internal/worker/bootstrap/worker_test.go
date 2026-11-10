@@ -336,6 +336,42 @@ func (s *workerSuite) TestSeedStoragePools(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *workerSuite) TestSeedStoragePoolsInvalidName(c *tc.C) {
+	// A bootstrap pool whose name is invalid (here, a Kubernetes storage
+	// class name picked as the pool name) fails with an error naming the
+	// pool. The failure surfaces only when the controller seeds its pools:
+	// neither the bootstrap client nor the provider validates pool names.
+	defer s.setupMocks(c).Finish()
+
+	s.expectSeedDefaultStoragePools()
+	s.storageService.EXPECT().CreateStoragePool(
+		gomock.Any(),
+		"ebs.csi.aws.com",
+		domainstorage.ProviderType("kubernetes"),
+		map[string]any{"storage-class": "ebs.csi.aws.com"},
+	).Return(domainstorage.StoragePoolUUID("pool-uuid"),
+		errors.Errorf(`pool name "ebs.csi.aws.com" not valid`))
+
+	w := &bootstrapWorker{
+		internalStates: s.states,
+		cfg: WorkerConfig{
+			ObjectStoreGetter: s.objectStoreGetter,
+			ModelInfoService:  s.modelInfoService,
+			StorageService:    s.storageService,
+			Logger:            s.logger,
+		},
+	}
+	err := w.seedStoragePools(c.Context(), map[string]storage.Attrs{
+		"ebs.csi.aws.com": {
+			"name":          "ebs.csi.aws.com",
+			"type":          "kubernetes",
+			"storage-class": "ebs.csi.aws.com",
+		},
+	})
+	c.Assert(err, tc.ErrorMatches,
+		`creating bootstrap storage pool "ebs.csi.aws.com": pool name "ebs.csi.aws.com" not valid`)
+}
+
 func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	return s.newWorkerWithFunc(c,
 		func(context.Context, ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {

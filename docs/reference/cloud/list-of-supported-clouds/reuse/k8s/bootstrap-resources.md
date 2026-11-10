@@ -17,5 +17,5 @@ Resources created at bootstrap:
 - **`StatefulSet`**: A `StatefulSet` with the controller pod containing two containers: `mongodb` (Juju's state database) and `api-server` (Juju API server).
 - **`Secret`s**: Multiple secrets for TLS certificates (`server.pem`), shared secrets, and optionally docker registry credentials for private image registries.
 - **`ConfigMap`s**: Configuration maps for bootstrap parameters and agent configuration.
-- **`PersistentVolume`** and **`PersistentVolumeClaim`**: Storage for the controller's operator-storage (MongoDB data and API server state).
+- **`PersistentVolume`** and **`PersistentVolumeClaim`**: Storage for the controller's persistent volume claim (MongoDB data and API server state).
 - **Proxy resources** (if using `ClusterIP` `Service`): Additional `ConfigMap`, `Role`, `RoleBinding`, and `ServiceAccount` for cluster IP proxy access.

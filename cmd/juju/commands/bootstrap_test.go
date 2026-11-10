@@ -728,6 +728,203 @@ func (s *BootstrapSuite) TestBootstrapAttributesInheritedOverDefaults(c *tc.C) {
 	})
 }
 
+func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageCloudConfigIgnored(c *tc.C) {
+	// The 3.x workload-storage cloud attribute is ignored with a warning
+	// pointing at the supported mechanism, and no longer synthesises a
+	// storage pool or a default filesystem source.
+	s.patchVersion(c)
+	s.tw.Clear()
+
+	ctx := cmdtesting.Context(c)
+	env := &openstack.Environ{}
+	provider := env.Provider()
+
+	testCloud := cloud.Cloud{
+		Name: "myk8s",
+		Type: cloud.CloudTypeKubernetes,
+		Config: map[string]any{
+			"workload-storage": "ceph-rbd",
+		},
+	}
+	configs, err := s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(configs.storagePools, tc.HasLen, 0)
+	_, hasDefault := configs.bootstrapModel["storage-default-filesystem-source"]
+	c.Check(hasDefault, tc.IsFalse)
+	_, workloadInModel := configs.bootstrapModel["workload-storage"]
+	c.Check(workloadInModel, tc.IsFalse)
+
+	s.checkWorkloadStorageWarning(c, 1, `ignoring workload-storage="ceph-rbd" set by cloud "myk8s"`)
+}
+
+func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageUserConfigIgnored(c *tc.C) {
+	// A --config workload-storage attribute is ignored with a warning too,
+	// and does not leak into the controller model's config.
+	s.patchVersion(c)
+	s.tw.Clear()
+
+	ctx := cmdtesting.Context(c)
+	env := &openstack.Environ{}
+	provider := env.Provider()
+
+	err := s.bootstrapCmd.config.Set("workload-storage=override-sc")
+	c.Assert(err, tc.ErrorIsNil)
+
+	testCloud := cloud.Cloud{
+		Name: "myk8s",
+		Type: cloud.CloudTypeKubernetes,
+	}
+	configs, err := s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(configs.storagePools, tc.HasLen, 0)
+	_, hasDefault := configs.bootstrapModel["storage-default-filesystem-source"]
+	c.Check(hasDefault, tc.IsFalse)
+	_, workloadInModel := configs.bootstrapModel["workload-storage"]
+	c.Check(workloadInModel, tc.IsFalse)
+
+	s.checkWorkloadStorageWarning(c, 1, `ignoring workload-storage="override-sc" set by the --config workload-storage attribute`)
+}
+
+func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageRegionConfigIgnored(c *tc.C) {
+	// A workload-storage attribute recorded for the bootstrapped region is
+	// ignored with a warning.
+	s.patchVersion(c)
+	s.tw.Clear()
+
+	ctx := cmdtesting.Context(c)
+	env := &openstack.Environ{}
+	provider := env.Provider()
+
+	s.bootstrapCmd.Region = "my-region"
+
+	testCloud := cloud.Cloud{
+		Name: "myk8s",
+		Type: cloud.CloudTypeKubernetes,
+		RegionConfig: cloud.RegionConfig{
+			"my-region": {"workload-storage": "ceph-rbd"},
+		},
+	}
+	configs, err := s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(configs.storagePools, tc.HasLen, 0)
+
+	s.checkWorkloadStorageWarning(c, 1,
+		`ignoring workload-storage="ceph-rbd" set by region "my-region" of cloud "myk8s"`)
+}
+
+func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageWarnsOnce(c *tc.C) {
+	// When the key is set in several places, the most specific origin is
+	// warned about once.
+	s.patchVersion(c)
+	s.tw.Clear()
+
+	ctx := cmdtesting.Context(c)
+	env := &openstack.Environ{}
+	provider := env.Provider()
+
+	err := s.bootstrapCmd.config.Set("workload-storage=override-sc")
+	c.Assert(err, tc.ErrorIsNil)
+
+	testCloud := cloud.Cloud{
+		Name: "myk8s",
+		Type: cloud.CloudTypeKubernetes,
+		Config: map[string]any{
+			"workload-storage": "ceph-rbd",
+		},
+	}
+	_, err = s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.checkWorkloadStorageWarning(c, 1,
+		`ignoring workload-storage="override-sc" set by the --config workload-storage attribute`)
+}
+
+func (s *BootstrapSuite) TestBootstrapNonK8sWorkloadStorageConfig(c *tc.C) {
+	// The workload-storage attribute on a non-Kubernetes cloud does
+	// nothing: no warning is emitted and the key is not routed to the
+	// controller model's config.
+	s.patchVersion(c)
+	s.tw.Clear()
+
+	ctx := cmdtesting.Context(c)
+	env := &openstack.Environ{}
+	provider := env.Provider()
+
+	testCloud := cloud.Cloud{
+		Name: "dummy-cloud",
+		Type: "openstack",
+		Config: map[string]any{
+			"workload-storage": "ceph-rbd",
+		},
+	}
+	configs, err := s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(configs.storagePools, tc.HasLen, 0)
+	_, workloadInModel := configs.bootstrapModel["workload-storage"]
+	c.Check(workloadInModel, tc.IsFalse)
+
+	for _, e := range s.tw.Log() {
+		c.Check(strings.Contains(e.Message, "workload-storage"), tc.IsFalse,
+			tc.Commentf("unexpected log: %v", e))
+	}
+}
+
+func (s *BootstrapSuite) TestBootstrapK8sOperatorStorageCloudConfigIgnored(c *tc.C) {
+	// The 3.x operator-storage cloud attribute is ignored with a warning
+	// explaining that operator storage was removed with podspec charms,
+	// and it does not leak into the controller model's config.
+	s.patchVersion(c)
+	s.tw.Clear()
+
+	ctx := cmdtesting.Context(c)
+	env := &openstack.Environ{}
+	provider := env.Provider()
+
+	testCloud := cloud.Cloud{
+		Name: "myk8s",
+		Type: cloud.CloudTypeKubernetes,
+		Config: map[string]any{
+			"operator-storage": "ceph-rbd",
+		},
+	}
+	configs, err := s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(configs.storagePools, tc.HasLen, 0)
+	_, operatorInModel := configs.bootstrapModel["operator-storage"]
+	c.Check(operatorInModel, tc.IsFalse)
+
+	var found []loggo.Entry
+	for _, e := range s.tw.Log() {
+		if e.Level == loggo.WARNING && strings.HasPrefix(e.Message, "ignoring operator-storage=") {
+			found = append(found, e)
+		}
+	}
+	c.Assert(found, tc.HasLen, 1)
+	c.Check(found[0].Message, tc.Matches,
+		`ignoring operator-storage="ceph-rbd" set by cloud "myk8s": the key was removed in Juju 4.0 with podspec charms`+".*")
+}
+
+// checkWorkloadStorageWarning asserts that exactly count warnings about an
+// ignored workload-storage key were logged, the first of which contains
+// the supplied prefix.
+func (s *BootstrapSuite) checkWorkloadStorageWarning(c *tc.C, count int, prefix string) {
+	var found []loggo.Entry
+	for _, e := range s.tw.Log() {
+		if e.Level == loggo.WARNING && strings.HasPrefix(e.Message, "ignoring workload-storage=") {
+			found = append(found, e)
+		}
+	}
+	c.Assert(found, tc.HasLen, count)
+	if count > 0 {
+		c.Check(found[0].Message, tc.Matches, prefix+".*")
+	}
+}
+
 func (s *BootstrapSuite) TestBootstrapRegionConfigNoRegionSpecified(c *tc.C) {
 	resetJujuXDGDataHome(c)
 
