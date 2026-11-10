@@ -251,9 +251,35 @@ func (s *workerSuite) TestCancellationDuringReleaseCleansArchive(c *tc.C) {
 	<-cleaned
 }
 
+func (s *workerSuite) TestShutdownDuringReleasePreservesArchive(c *tc.C) {
+	cfg := workerConfig(c)
+	expected := &corebackups.Metadata{}
+	var cleaned atomic.Bool
+	cfg.CreateArchive = backupCreatorFunc(func(context.Context, string) (*corebackups.Metadata, string, func(), error) {
+		return expected, "archive", func() { cleaned.Store(true) }, nil
+	})
+	var w *Worker
+	cfg.LeaseManager = leaseManagerStub{operations: leaseOperations{
+		revoke: func(string, string) error { w.Kill(); return nil },
+	}}
+	w = startWorker(c, cfg)
+	meta, archive, cleanup, err := w.Create(c.Context(), "notes")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(meta, tc.Equals, expected)
+	c.Check(archive, tc.Equals, "archive")
+	c.Assert(cleanup, tc.NotNil)
+	c.Assert(w.Wait(), tc.ErrorIsNil)
+	c.Check(cleaned.Load(), tc.IsFalse)
+	cleanup()
+	c.Check(cleaned.Load(), tc.IsTrue)
+}
+
 func (s *workerSuite) TestShutdownWaitsForHandoffCleanup(c *tc.C) {
 	synctest.Test(c.T, func(t *testing.T) {
 		c := &tc.C{T: t}
+		ctx, cancel := context.WithCancelCause(c.Context())
+		defer cancel(nil)
+		failure := errors.New("caller cancelled backup")
 		cleaning := make(chan struct{})
 		finish := make(chan struct{})
 		defer close(finish)
@@ -266,13 +292,17 @@ func (s *workerSuite) TestShutdownWaitsForHandoffCleanup(c *tc.C) {
 		})
 		var w *Worker
 		cfg.LeaseManager = leaseManagerStub{operations: leaseOperations{
-			revoke: func(string, string) error { w.Kill(); return nil },
+			revoke: func(string, string) error {
+				cancel(failure)
+				w.Kill()
+				return nil
+			},
 		}}
 		w = startWorker(c, cfg)
 		defer w.Kill()
 		created := make(chan result, 1)
 		go func() {
-			meta, archive, cleanup, err := w.Create(c.Context(), "notes")
+			meta, archive, cleanup, err := w.Create(ctx, "notes")
 			created <- result{meta: meta, archive: archive, cleanup: cleanup, err: err}
 		}()
 		<-cleaning
@@ -283,7 +313,7 @@ func (s *workerSuite) TestShutdownWaitsForHandoffCleanup(c *tc.C) {
 		c.Check(len(created), tc.Equals, 0)
 		finish <- struct{}{}
 		res := <-created
-		c.Check(res.err, tc.ErrorIs, corebackups.ErrBackupCreationWorkerDying)
+		c.Check(res.err, tc.ErrorIs, failure)
 		c.Check(res.meta, tc.IsNil)
 		c.Check(res.archive, tc.Equals, "")
 		c.Check(res.cleanup, tc.IsNil)
@@ -415,11 +445,12 @@ func (s *workerSuite) TestReleaseWaitsForExpiryMonitor(c *tc.C) {
 	}
 }
 
-func (s *workerSuite) TestCreateReturnsWorkerDyingAfterShutdown(c *tc.C) {
+func (s *workerSuite) TestCreateReturnsCancellationAfterShutdown(c *tc.C) {
 	w := startWorker(c, workerConfig(c))
 	w.Kill()
+	c.Assert(w.Wait(), tc.ErrorIsNil)
 	_, _, _, err := w.Create(c.Context(), "")
-	c.Check(err, tc.ErrorIs, corebackups.ErrBackupCreationWorkerDying)
+	c.Check(err, tc.ErrorIs, context.Canceled)
 }
 
 func (s *workerSuite) TestShutdownWaitsForAcceptedRequests(c *tc.C) {
@@ -477,7 +508,7 @@ func (s *workerSuite) TestShutdownWaitsForAcceptedRequests(c *tc.C) {
 			c.Check(len(created), tc.Equals, 1)
 			finish[1] <- struct{}{}
 			for range 2 {
-				c.Check(<-created, tc.ErrorIs, corebackups.ErrBackupCreationWorkerDying)
+				c.Check(<-created, tc.ErrorIs, context.Canceled)
 			}
 			c.Assert(<-stopped, tc.ErrorIsNil)
 			c.Check(generated.Load(), tc.IsFalse)
@@ -527,7 +558,7 @@ func (s *workerSuite) TestCancellationWaitsForRequestCompletion(c *tc.C) {
 			<-started
 			expected := errors.New("caller cancelled backup")
 			if shutdown {
-				expected = corebackups.ErrBackupCreationWorkerDying
+				expected = context.Canceled
 				w.Kill()
 			} else {
 				cancel(expected)
@@ -574,7 +605,7 @@ func (s *workerSuite) TestShutdownPreservesHandedOffArchive(c *tc.C) {
 	c.Check(cleaned.Load(), tc.IsTrue)
 }
 
-func (s *workerSuite) TestAcceptedRequestReturnsWorkerDyingDuringShutdown(c *tc.C) {
+func (s *workerSuite) TestAcceptedRequestReturnsCancellationDuringShutdown(c *tc.C) {
 	cfg := workerConfig(c)
 	started := make(chan struct{})
 	cfg.CreateArchive = backupCreatorFunc(func(ctx context.Context, _ string) (*corebackups.Metadata, string, func(), error) {
@@ -590,7 +621,7 @@ func (s *workerSuite) TestAcceptedRequestReturnsWorkerDyingDuringShutdown(c *tc.
 	}()
 	<-started
 	w.Kill()
-	c.Check(<-done, tc.ErrorIs, corebackups.ErrBackupCreationWorkerDying)
+	c.Check(<-done, tc.ErrorIs, context.Canceled)
 }
 
 type backupCreatorFunc func(context.Context, string) (*corebackups.Metadata, string, func(), error)

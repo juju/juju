@@ -131,7 +131,7 @@ func (w *Worker) Create(ctx context.Context, notes string) (*corebackups.Metadat
 	case <-ctx.Done():
 		return nil, "", nil, context.Cause(ctx)
 	case <-w.tomb.Dying():
-		return nil, "", nil, corebackups.ErrBackupCreationWorkerDying
+		return nil, "", nil, context.Canceled
 	case w.requests <- req:
 	}
 
@@ -139,14 +139,7 @@ func (w *Worker) Create(ctx context.Context, notes string) (*corebackups.Metadat
 	// Acknowledge it after handling cleanup, so Wait covers the handoff too.
 	defer close(req.done)
 	res := <-req.result
-	var err error
-	select {
-	case <-w.tomb.Dying():
-		err = corebackups.ErrBackupCreationWorkerDying
-	default:
-		err = context.Cause(ctx)
-	}
-	if err != nil {
+	if err := context.Cause(ctx); err != nil {
 		if res.cleanup != nil {
 			res.cleanup()
 		}
