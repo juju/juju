@@ -411,6 +411,12 @@ func decodeModelDump(dump *dump) (*recovery.ModelDump, error) {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
 			out.CharmRunAsKind = decoded
+		case "charm_scriptlet":
+			decoded, err := decodeRows[exporttypes.CharmScriptlet](rows, "content")
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.CharmScriptlet = decoded
 		case "charm_source":
 			decoded, err := decodeRows[exporttypes.CharmSource](rows)
 			if err != nil {

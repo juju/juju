@@ -459,6 +459,12 @@ type CharmRunAsKind struct {
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
+type CharmScriptlet struct {
+	CharmUUID string `db:"charm_uuid" json:"charm_uuid" yaml:"charm_uuid"`
+	Path      string `db:"path" json:"path" yaml:"path"`
+	Content   []byte `db:"content" json:"content" yaml:"content"`
+}
+
 type CharmSource struct {
 	ID   *int64 `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
@@ -1706,6 +1712,7 @@ type ModelExport struct {
 	CharmResource                            []CharmResource                            `json:"charm_resource" yaml:"charm_resource"`
 	CharmResourceKind                        []CharmResourceKind                        `json:"charm_resource_kind" yaml:"charm_resource_kind"`
 	CharmRunAsKind                           []CharmRunAsKind                           `json:"charm_run_as_kind" yaml:"charm_run_as_kind"`
+	CharmScriptlet                           []CharmScriptlet                           `json:"charm_scriptlet" yaml:"charm_scriptlet"`
 	CharmSource                              []CharmSource                              `json:"charm_source" yaml:"charm_source"`
 	CharmStorage                             []CharmStorage                             `json:"charm_storage" yaml:"charm_storage"`
 	CharmStorageKind                         []CharmStorageKind                         `json:"charm_storage_kind" yaml:"charm_storage_kind"`

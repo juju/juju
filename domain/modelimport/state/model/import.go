@@ -266,6 +266,10 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 	if err != nil {
 		return errors.Errorf("preparing CharmRunAsKind insert statement: %w", err)
 	}
+	stmtCharmScriptlet, err := sqlair.Prepare(`INSERT INTO "charm_scriptlet" (*) VALUES ($CharmScriptlet.*)`, v4_1_0.CharmScriptlet{})
+	if err != nil {
+		return errors.Errorf("preparing CharmScriptlet insert statement: %w", err)
+	}
 	stmtCharmSource, err := sqlair.Prepare(`INSERT INTO "charm_source" (*) VALUES ($CharmSource.*) ON CONFLICT DO NOTHING`, v4_1_0.CharmSource{})
 	if err != nil {
 		return errors.Errorf("preparing CharmSource insert statement: %w", err)
@@ -1269,6 +1273,11 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 		if len(p.CharmRunAsKind) > 0 {
 			if err := tx.Query(ctx, stmtCharmRunAsKind, p.CharmRunAsKind).Run(); err != nil {
 				return errors.Errorf("inserting CharmRunAsKind (table charm_run_as_kind): %w", err)
+			}
+		}
+		if len(p.CharmScriptlet) > 0 {
+			if err := tx.Query(ctx, stmtCharmScriptlet, p.CharmScriptlet).Run(); err != nil {
+				return errors.Errorf("inserting CharmScriptlet (table charm_scriptlet): %w", err)
 			}
 		}
 		if len(p.CharmSource) > 0 {

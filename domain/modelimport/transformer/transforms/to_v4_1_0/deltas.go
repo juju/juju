@@ -519,3 +519,9 @@ func (d deltas) Unit(_ context.Context, src []v4_0_12.Unit, _ *v4_0_12.ModelExpo
 	}
 	return result, nil
 }
+
+// CharmScriptlet returns no rows for 4.0.12 payloads. This is a new feature
+// in this release, so there are no rows to transform from 4.0.12.
+func (d deltas) CharmScriptlet(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.CharmScriptlet, error) {
+	return nil, nil
+}

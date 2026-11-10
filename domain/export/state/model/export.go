@@ -413,6 +413,10 @@ FROM   "charm_relation" AS t`, v4_1_0.CharmRelation{}, nullableCharmRelation{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmRunAsKind statement: %w", err)
 	}
+	stmtCharmScriptlet, err := sqlair.Prepare(`SELECT &CharmScriptlet.* FROM "charm_scriptlet"`, v4_1_0.CharmScriptlet{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing CharmScriptlet statement: %w", err)
+	}
 	stmtCharmSource, err := sqlair.Prepare(`SELECT &CharmSource.* FROM "charm_source"`, v4_1_0.CharmSource{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmSource statement: %w", err)
@@ -1466,6 +1470,9 @@ FROM   "unit_workload_status" AS t`, v4_1_0.UnitWorkloadStatus{}, nullableUnitWo
 		}
 		if err := tx.Query(ctx, stmtCharmRunAsKind).GetAll(&modelExport.CharmRunAsKind); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying CharmRunAsKind (table charm_run_as_kind): %w", err)
+		}
+		if err := tx.Query(ctx, stmtCharmScriptlet).GetAll(&modelExport.CharmScriptlet); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying CharmScriptlet (table charm_scriptlet): %w", err)
 		}
 		if err := tx.Query(ctx, stmtCharmSource).GetAll(&modelExport.CharmSource); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying CharmSource (table charm_source): %w", err)

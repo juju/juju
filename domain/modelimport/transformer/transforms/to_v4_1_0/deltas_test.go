@@ -416,3 +416,9 @@ func (s *deltasSuite) TestRemovalEmpty(c *tc.C) {
 	c.Check(got, tc.NotNil)
 	c.Check(got, tc.HasLen, 0)
 }
+
+func (s *deltasSuite) TestCharmScriptletEmpty(c *tc.C) {
+	got, err := deltas{}.CharmScriptlet(c.Context(), &v4_0_12.ModelExport{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.HasLen, 0)
+}
