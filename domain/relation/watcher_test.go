@@ -1277,11 +1277,17 @@ VALUES (?, ?, 0)
 // addCharmRelation inserts a new charm relation into the database with the
 // given UUID and predefined attributes.
 func (s *watcherSuite) addCharmRelation(c *tc.C, charmUUID corecharm.ID, charmRelationUUID uuid.UUID, roleID int) {
+	s.addCharmRelationWithScope(c, charmUUID, charmRelationUUID, roleID, 0)
+}
+
+// addCharmRelationWithScope inserts a new charm relation into the database
+// with the given UUID, role and scope (0: global, 1: container).
+func (s *watcherSuite) addCharmRelationWithScope(c *tc.C, charmUUID corecharm.ID, charmRelationUUID uuid.UUID, roleID int, scopeID int) {
 	name := fmt.Sprintf("fake-%d", roleID)
 	s.arrange(c, `
 INSERT INTO charm_relation (uuid, charm_uuid, scope_id, role_id, name)
-VALUES (?, ?, 0,?, ?)
-`, charmRelationUUID.String(), charmUUID, roleID, name)
+VALUES (?, ?, ?,?, ?)
+`, charmRelationUUID.String(), charmUUID, scopeID, roleID, name)
 }
 
 // addRelation inserts a new relation into the database with the given UUID and
@@ -1467,6 +1473,26 @@ func (s *watcherSuite) TestWatchRelatedUnitsContainerScopedSubordinateView(c *tc
 		)
 	})
 
+	// Act: a principal unit that is not co-located leaves scope => no
+	// event: a unit the watching unit never saw cannot visibly depart.
+	harness.AddTest(c, func(c *tc.C) {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx,
+				"DELETE FROM relation_unit_settings_hash WHERE relation_unit_uuid = ?",
+				principal0RelUnitUUID); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM relation_unit WHERE uuid = ?",
+				principal0RelUnitUUID); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
 	// Act: run test harness.
 	// Assert: the initial event only holds the remote application and the
 	// co-located principal unit.
@@ -1566,7 +1592,9 @@ func (s *watcherSuite) setupTestWatchContainerScopedRelationUnit(c *tc.C) testWa
 	s.addCharmRelation(c, charmUUID, charmRelationProvidesUUID, 0)
 	s.addCharm(c, subordinateCharmUUID, "subordinate")
 	s.setCharmSubordinate(c, subordinateCharmUUID, true)
-	s.addCharmRelation(c, subordinateCharmUUID, charmRelationRequiresUUID, 1)
+	// The subordinate's endpoint is container-scoped, which is what makes
+	// the relation between the two applications container-scoped.
+	s.addCharmRelationWithScope(c, subordinateCharmUUID, charmRelationRequiresUUID, 1, 1)
 	s.addApplication(c, charmUUID, config.principalAppUUID, "principal")
 	s.addApplication(c, subordinateCharmUUID, config.subordinateAppUUID, "subordinate")
 	s.addUnit(c, config.principal0UUID, "principal/0", config.principalAppUUID, charmUUID)

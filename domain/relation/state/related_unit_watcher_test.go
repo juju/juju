@@ -12,6 +12,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
+	corecharm "github.com/juju/juju/core/charm"
 	corerelation "github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/deployment/charm"
@@ -178,8 +179,10 @@ func (s *relatedUnitWatcherSuite) TestGetUnitsInRelationContainerScope(c *tc.C) 
 	related, err := s.state.getUnitsInRelation(c.Context(), fixture.relationUUID.String())
 
 	// Assert: all units are returned, with the principal UUID populated for
-	// subordinate units only.
+	// subordinate units only. The length check also pins row multiplicity:
+	// the unit_principal join must not fan out.
 	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(related), tc.Equals, 4)
 	principalByUnit := make(map[string]string, len(related))
 	for _, u := range related {
 		principalByUnit[u.UnitUUID] = u.PrincipalUUID
@@ -309,6 +312,136 @@ func (s *relatedUnitWatcherSuite) TestInitialWatchRelatedUnitsGlobalScopedSubord
 	})
 }
 
+// TestInitialWatchRelatedUnitsContainerScopedSubordinateToSubordinate
+// checks that on a container-scoped relation between two subordinate
+// applications, a subordinate unit only sees the counterpart units
+// co-located on the same principal unit. This is the only relation shape
+// where both sides of the co-location comparison are principal UUIDs.
+func (s *relatedUnitWatcherSuite) TestInitialWatchRelatedUnitsContainerScopedSubordinateToSubordinate(c *tc.C) {
+	// Arrange: two subordinate applications related through a
+	// container-scoped relation, each with one unit per principal unit.
+	// The watcher is created for subordinate/1.
+	fixture := s.setupContainerScopedRelation(c)
+
+	// Act
+	_, initialQuery, _, err := s.state.InitialWatchRelatedUnits(
+		c.Context(), fixture.subordinate1UUID.String(), fixture.relationABUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	events, err := initialQuery(c.Context(), s.TxnRunner())
+
+	// Assert: only the remote application and the co-located subordinate-b
+	// unit are returned, not the one on the other principal unit.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(events, tc.SameContents, []string{
+		domainrelation.EncodeApplicationUUID(fixture.subordinateBAppUUID.String()),
+		domainrelation.EncodeUnitUUID(fixture.subordinateB1UUID.String()),
+	})
+}
+
+// TestInitialWatchRelatedUnitsContainerScopedSubordinateToSubordinateMirror
+// mirrors the previous test from the other side of the subordinate to
+// subordinate relation.
+func (s *relatedUnitWatcherSuite) TestInitialWatchRelatedUnitsContainerScopedSubordinateToSubordinateMirror(c *tc.C) {
+	// Arrange: two subordinate applications related through a
+	// container-scoped relation, each with one unit per principal unit.
+	// The watcher is created for subordinate-b/0.
+	fixture := s.setupContainerScopedRelation(c)
+
+	// Act
+	_, initialQuery, _, err := s.state.InitialWatchRelatedUnits(
+		c.Context(), fixture.subordinateB0UUID.String(), fixture.relationABUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	events, err := initialQuery(c.Context(), s.TxnRunner())
+
+	// Assert: only the remote application and the co-located subordinate
+	// unit are returned, not the one on the other principal unit.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(events, tc.SameContents, []string{
+		domainrelation.EncodeApplicationUUID(fixture.subordinateAppUUID.String()),
+		domainrelation.EncodeUnitUUID(fixture.subordinate0UUID.String()),
+	})
+}
+
+// TestInitialWatchRelatedUnitsContainerScopedPeerRelation checks that on a
+// container-scoped peer relation, a unit sees the other units co-located on
+// the same principal unit (peer relations do not exclude the watching
+// unit's own side) and nothing else. Such relations cannot be created
+// natively, but can exist in models migrated from Juju 3.6, where peer
+// relations keep their charm-declared scope.
+func (s *relatedUnitWatcherSuite) TestInitialWatchRelatedUnitsContainerScopedPeerRelation(c *tc.C) {
+	// Arrange: a subordinate application with a peer endpoint, three units,
+	// two of which share the same principal unit.
+	principalCharmUUID := s.addCharm(c)
+	principalAppUUID := s.addApplication(c, principalCharmUUID, "principal")
+	principal0UUID := s.addUnit(c, "principal/0", principalAppUUID, principalCharmUUID)
+	principal1UUID := s.addUnit(c, "principal/1", principalAppUUID, principalCharmUUID)
+
+	charmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, charmUUID, true)
+	charmRelationPeerUUID := s.addCharmRelation(c, charmUUID, charm.Relation{
+		Name:  "peer",
+		Role:  charm.RolePeer,
+		Scope: charm.ScopeContainer,
+	})
+	appUUID := s.addApplication(c, charmUUID, "subordinate")
+	appEndpointUUID := s.addApplicationEndpoint(c, appUUID, charmRelationPeerUUID)
+
+	relationUUID := s.addRelationWithScope(c, charm.ScopeContainer)
+	s.addRelationEndpoint(c, relationUUID, appEndpointUUID)
+
+	sub0aUUID := s.addUnit(c, "subordinate/0", appUUID, charmUUID)
+	sub0bUUID := s.addUnit(c, "subordinate/1", appUUID, charmUUID)
+	sub1UUID := s.addUnit(c, "subordinate/2", appUUID, charmUUID)
+	s.setUnitSubordinate(c, sub0aUUID, principal0UUID)
+	s.setUnitSubordinate(c, sub0bUUID, principal0UUID)
+	s.setUnitSubordinate(c, sub1UUID, principal1UUID)
+
+	// Act
+	_, initialQuery, _, err := s.state.InitialWatchRelatedUnits(
+		c.Context(), sub0aUUID.String(), relationUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	events, err := initialQuery(c.Context(), s.TxnRunner())
+
+	// Assert: the own application is returned (peer relations watch their
+	// own side), along with the co-located peer unit only.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(events, tc.SameContents, []string{
+		domainrelation.EncodeApplicationUUID(appUUID.String()),
+		domainrelation.EncodeUnitUUID(sub0bUUID.String()),
+	})
+}
+
+// TestInitialWatchRelatedUnitsContainerScopedNoColocatedMatch checks that a
+// container-scoped watcher whose co-location key matches no unit of the
+// remote application yields an application-settings-only view, and does not
+// fall back to showing every unit of the relation (fail closed).
+func (s *relatedUnitWatcherSuite) TestInitialWatchRelatedUnitsContainerScopedNoColocatedMatch(c *tc.C) {
+	// Arrange: a subordinate unit whose principal belongs to a third
+	// application that is not part of the relation, watching the
+	// container-scoped relation between its application and the principal
+	// application. This happens when a subordinate application is related
+	// to a principal application that is not the one its unit belongs to.
+	fixture := s.setupContainerScopedRelation(c)
+	otherCharmUUID := s.addCharm(c)
+	otherAppUUID := s.addApplication(c, otherCharmUUID, "other-principal")
+	other0UUID := s.addUnit(c, "other-principal/0", otherAppUUID, otherCharmUUID)
+	subordinate2UUID := s.addUnit(c, "subordinate/2", fixture.subordinateAppUUID, fixture.subordinateCharmUUID)
+	s.setUnitSubordinate(c, subordinate2UUID, other0UUID)
+
+	// Act
+	_, initialQuery, _, err := s.state.InitialWatchRelatedUnits(
+		c.Context(), subordinate2UUID.String(), fixture.relationUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	events, err := initialQuery(c.Context(), s.TxnRunner())
+
+	// Assert: only the remote application is returned, with no unit at
+	// all.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(events, tc.SameContents, []string{
+		domainrelation.EncodeApplicationUUID(fixture.principalAppUUID.String()),
+	})
+}
+
 // changeEvent is a minimal changestream.ChangeEvent implementation for
 // exercising watcher mappers.
 type changeEvent struct {
@@ -321,11 +454,16 @@ func (e changeEvent) Namespace() string             { return e.namespace }
 func (e changeEvent) Changed() string               { return e.changed }
 
 // containerScopedRelation holds the identifiers of a container-scoped
-// relation fixture between a principal and a subordinate application.
+// relation fixture between a principal and a subordinate application, plus
+// a second subordinate application related to the first one through
+// another container-scoped relation (subordinate to subordinate).
 type containerScopedRelation struct {
 	relationUUID               corerelation.UUID
+	relationABUUID             corerelation.UUID
 	principalAppUUID           coreapplication.UUID
 	subordinateAppUUID         coreapplication.UUID
+	subordinateBAppUUID        coreapplication.UUID
+	subordinateCharmUUID       corecharm.ID
 	principalAppEndpointUUID   string
 	subordinateAppEndpointUUID string
 	principalEndpointUUID      string
@@ -333,11 +471,16 @@ type containerScopedRelation struct {
 	principal1UUID             coreunit.UUID
 	subordinate0UUID           coreunit.UUID
 	subordinate1UUID           coreunit.UUID
+	subordinateB0UUID          coreunit.UUID
+	subordinateB1UUID          coreunit.UUID
 }
 
 // setupContainerScopedRelation arranges a container-scoped relation between
 // a principal application with two units and a subordinate application with
-// one subordinate unit per principal unit.
+// one subordinate unit per principal unit. A second subordinate application
+// (subordinate-b), also with one unit per principal unit, is related to the
+// first subordinate application through a second container-scoped relation,
+// modelling a subordinate to subordinate topology.
 func (s *relatedUnitWatcherSuite) setupContainerScopedRelation(c *tc.C) containerScopedRelation {
 	charmUUID := s.addCharm(c)
 	charmRelationProvidesUUID := s.addCharmRelation(c, charmUUID, charm.Relation{
@@ -352,16 +495,29 @@ func (s *relatedUnitWatcherSuite) setupContainerScopedRelation(c *tc.C) containe
 		Role:  charm.RoleRequirer,
 		Scope: charm.ScopeContainer,
 	})
+	subordinateBCharmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, subordinateBCharmUUID, true)
+	charmRelationBProvidesUUID := s.addCharmRelation(c, subordinateBCharmUUID, charm.Relation{
+		Name:  "provides",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeContainer,
+	})
 
 	principalAppUUID := s.addApplication(c, charmUUID, "principal")
 	subordinateAppUUID := s.addApplication(c, subordinateCharmUUID, "subordinate")
+	subordinateBAppUUID := s.addApplication(c, subordinateBCharmUUID, "subordinate-b")
 
 	principalAppEndpointUUID := s.addApplicationEndpoint(c, principalAppUUID, charmRelationProvidesUUID)
 	subordinateAppEndpointUUID := s.addApplicationEndpoint(c, subordinateAppUUID, charmRelationRequiresUUID)
+	subordinateBAppEndpointUUID := s.addApplicationEndpoint(c, subordinateBAppUUID, charmRelationBProvidesUUID)
 
 	relationUUID := s.addRelationWithScope(c, charm.ScopeContainer)
 	principalEndpointUUID := s.addRelationEndpoint(c, relationUUID, principalAppEndpointUUID)
 	s.addRelationEndpoint(c, relationUUID, subordinateAppEndpointUUID)
+
+	relationABUUID := s.addRelationWithScope(c, charm.ScopeContainer)
+	s.addRelationEndpoint(c, relationABUUID, subordinateAppEndpointUUID)
+	s.addRelationEndpoint(c, relationABUUID, subordinateBAppEndpointUUID)
 
 	principal0UUID := s.addUnit(c, "principal/0", principalAppUUID, charmUUID)
 	principal1UUID := s.addUnit(c, "principal/1", principalAppUUID, charmUUID)
@@ -369,11 +525,18 @@ func (s *relatedUnitWatcherSuite) setupContainerScopedRelation(c *tc.C) containe
 	subordinate1UUID := s.addUnit(c, "subordinate/1", subordinateAppUUID, subordinateCharmUUID)
 	s.setUnitSubordinate(c, subordinate0UUID, principal0UUID)
 	s.setUnitSubordinate(c, subordinate1UUID, principal1UUID)
+	subordinateB0UUID := s.addUnit(c, "subordinate-b/0", subordinateBAppUUID, subordinateBCharmUUID)
+	subordinateB1UUID := s.addUnit(c, "subordinate-b/1", subordinateBAppUUID, subordinateBCharmUUID)
+	s.setUnitSubordinate(c, subordinateB0UUID, principal0UUID)
+	s.setUnitSubordinate(c, subordinateB1UUID, principal1UUID)
 
 	return containerScopedRelation{
 		relationUUID:               relationUUID,
+		relationABUUID:             relationABUUID,
 		principalAppUUID:           principalAppUUID,
 		subordinateAppUUID:         subordinateAppUUID,
+		subordinateBAppUUID:        subordinateBAppUUID,
+		subordinateCharmUUID:       subordinateCharmUUID,
 		principalAppEndpointUUID:   principalAppEndpointUUID,
 		subordinateAppEndpointUUID: subordinateAppEndpointUUID,
 		principalEndpointUUID:      principalEndpointUUID,
@@ -381,5 +544,7 @@ func (s *relatedUnitWatcherSuite) setupContainerScopedRelation(c *tc.C) containe
 		principal1UUID:             principal1UUID,
 		subordinate0UUID:           subordinate0UUID,
 		subordinate1UUID:           subordinate1UUID,
+		subordinateB0UUID:          subordinateB0UUID,
+		subordinateB1UUID:          subordinateB1UUID,
 	}
 }
