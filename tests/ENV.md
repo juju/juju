@@ -2,6 +2,14 @@ The following is a list of environment variables that are used to control
 behaviour in the Bash tests. This list may not be complete, and as always, the
 definitive source is the code.
 
+Bootstraps on AWS, GCE, and Azure default to minimum controller constraints of
+`cores=2 mem=8G root-disk=30G` (see `PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS`). These
+are minimums, not resource limits; clouds may choose larger instances. The
+default is skipped when `BOOTSTRAP_ADDITIONAL_ARGS` already contains
+`--bootstrap-constraints`, so pass your own `--bootstrap-constraints` to
+control the controller machine sizing. Set `PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS`
+to a different value, or empty to disable it, for an entire run.
+
 | Variable name                 | Description                                                                        |
 |-------------------------------|------------------------------------------------------------------------------------|
 | `BOOTSTRAP_ADDITIONAL_ARGS`   | Additional arguments passed to `juju bootstrap`.                                   |
@@ -18,6 +26,7 @@ definitive source is the code.
 | `MODEL_ARCH`                  | Will be set as a model constraint on newly added models.                           |
 | `JUJU_MIGRATION_36_BIN`       | Path to a custom juju 3.6 client for the `migration` suite's source controllers. When unset, the suite pins the regular `juju` snap to `3.6/edge` and uses `/snap/bin/juju`; afterwards the snap is refreshed back to its previously tracked channel, or removed again when it was not installed before the run. |
 | `OPERATOR_IMAGE_ACCOUNT`      | Passed as the value of `--config caas-image-repo` when bootstrapping.              |
+| `PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS` | Default `--bootstrap-constraints` for AWS, GCE, and Azure bootstraps; empty disables them. |
 | `TEST_INSPECT`                | If set, pause before teardown to allow inspection of the controller.               |
 | `CONTAINER_NETWORKING_METHOD` | If set, the default container networking method (`local`, `provider`, or `fan`).   |
 
