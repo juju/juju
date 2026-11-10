@@ -328,6 +328,8 @@ func parseOptionalID(column string, value *string) (*int64, error) {
 }
 
 // UnitStateRelation converts legacy text relation keys to integer IDs.
+// The 4.0 schema stored the writer's integer IDs as text. Invalid keys
+// cannot be converted without inventing an ID, so the import fails.
 func (d deltas) UnitStateRelation(_ context.Context, src []v4_0_12.UnitStateRelation, _ *v4_0_12.ModelExport) ([]v4_1_0.UnitStateRelation, error) {
 	result := make([]v4_1_0.UnitStateRelation, len(src))
 	for i, row := range src {
