@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"sort"
 
 	"github.com/canonical/sqlair"
@@ -45,10 +44,10 @@ import (
 // does not exist.
 func (st *State) GetActiveModelSecretBackend(
 	ctx context.Context, modelUUID string,
-) (string, *provider.ModelBackendConfig, error) {
+) (*provider.ModelBackendConfig, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return "", nil, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 	var (
 		modelBackend modelSecretBackend
@@ -62,15 +61,14 @@ func (st *State) GetActiveModelSecretBackend(
 		if modelBackend.ModelType == coremodel.CAAS && modelBackend.SecretBackendName == kubernetes.BackendName {
 			backend, err = st.getK8sSecretBackendForModel(ctx, tx, modelUUID)
 		} else {
-			backend, err = st.getSecretBackend(
-				ctx, tx, secretbackend.BackendIdentifier{ID: modelBackend.SecretBackendID})
+			backend, err = st.getSecretBackendByID(ctx, tx, modelBackend.SecretBackendID)
 		}
 		return errors.Capture(err)
 	})
 	if err != nil {
-		return "", nil, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
-	return modelBackend.SecretBackendID, &provider.ModelBackendConfig{
+	return &provider.ModelBackendConfig{
 		ControllerUUID: modelBackend.ControllerUUID,
 		ModelUUID:      modelUUID,
 		ModelName:      modelBackend.ModelName,
@@ -226,7 +224,7 @@ GROUP BY vm.name, vcca.attribute_key`
 		return nil, errors.Capture(err)
 	}
 
-	sb, err := st.getSecretBackend(ctx, tx, secretbackend.BackendIdentifier{Name: kubernetes.BackendName})
+	sb, err := st.getSecretBackendByName(ctx, tx, kubernetes.BackendName)
 	if err != nil {
 		return nil, errors.Errorf("getting k8s secret backend for model %q: %w", mUUID, err)
 	}
@@ -248,23 +246,10 @@ func getK8sBackendConfig(
 	return k8sConfig, nil
 }
 
-func (st *State) getSecretBackend(
-	ctx context.Context, tx *sqlair.TX, identifier secretbackend.BackendIdentifier,
+func (st *State) getSecretBackendByID(
+	ctx context.Context, tx *sqlair.TX, id string,
 ) (*secretbackend.SecretBackend, error) {
-	if identifier.ID == "" && identifier.Name == "" {
-		return nil, errors.Errorf("%w: both ID and name are missing", secretbackenderrors.NotValid)
-	}
-	if identifier.ID != "" && identifier.Name != "" {
-		return nil, errors.Errorf("%w: both ID and name are provided", secretbackenderrors.NotValid)
-	}
-	columName := "uuid"
-	v := identifier.ID
-	if identifier.Name != "" {
-		columName = "name"
-		v = identifier.Name
-	}
-
-	q := fmt.Sprintf(`
+	q := `
 SELECT
     b.uuid                  AS &SecretBackendRow.uuid,
     b.name                  AS &SecretBackendRow.name,
@@ -275,21 +260,55 @@ SELECT
 FROM secret_backend b
     JOIN secret_backend_type bt ON b.backend_type_id = bt.id
     LEFT JOIN secret_backend_config c ON b.uuid = c.backend_uuid
-WHERE b.%s = $M.identifier`, columName)
-	stmt, err := st.Prepare(q, sqlair.M{}, SecretBackendRow{})
+WHERE b.uuid = $secretBackendIdentifier.identifier`
+	return st.querySecretBackend(ctx, tx, q, id)
+}
+
+func (st *State) getSecretBackendByName(
+	ctx context.Context, tx *sqlair.TX, name string,
+) (*secretbackend.SecretBackend, error) {
+	q := `
+SELECT
+    b.uuid                  AS &SecretBackendRow.uuid,
+    b.name                  AS &SecretBackendRow.name,
+    bt.type                 AS &SecretBackendRow.backend_type,
+    b.token_rotate_interval AS &SecretBackendRow.token_rotate_interval,
+    c.name                  AS &SecretBackendRow.config_name,
+    c.content               AS &SecretBackendRow.config_content
+FROM secret_backend b
+    JOIN secret_backend_type bt ON b.backend_type_id = bt.id
+    LEFT JOIN secret_backend_config c ON b.uuid = c.backend_uuid
+WHERE b.name = $secretBackendIdentifier.identifier`
+	return st.querySecretBackend(ctx, tx, q, name)
+}
+
+// querySecretBackend runs the given secret backend query with the provided
+// identifier value and returns the single matching secret backend.
+func (st *State) querySecretBackend(
+	ctx context.Context, tx *sqlair.TX, q, identifier string,
+) (*secretbackend.SecretBackend, error) {
+	input := secretBackendIdentifier{Identifier: identifier}
+	stmt, err := st.Prepare(q, input, SecretBackendRow{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	var rows secretBackendRows
-	err = tx.Query(ctx, stmt, sqlair.M{"identifier": v}).GetAll(&rows)
+	err = tx.Query(ctx, stmt, input).GetAll(&rows)
 	if errors.Is(err, sql.ErrNoRows) || len(rows) == 0 {
-		return nil, errors.Errorf("%w: %q", secretbackenderrors.NotFound, v)
+		return nil, errors.Errorf("%w: %q", secretbackenderrors.NotFound, identifier)
 	}
 	if err != nil {
 		return nil, errors.Errorf("querying secret backends: %w", err)
 	}
 	return rows.toSecretBackends(ctx, st.logger)[0], nil
+}
+
+// secretBackendIdentifier is used to identify a secret backend by either its
+// UUID or name, depending on the query it is used with.
+type secretBackendIdentifier struct {
+	// Identifier is the UUID or name of the secret backend.
+	Identifier string `db:"identifier"`
 }
 
 type modelDetails struct {

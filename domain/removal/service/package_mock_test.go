@@ -36,7 +36,7 @@ type MockControllerDBStateMockRecorder struct {
 	deleteModelExpects                  []*gomock.Call2_1[context.Context, string, error]
 	deleteOfferAccessExpects            []*gomock.Call2_1[context.Context, string, error]
 	ensureModelNotAliveExpects          []*gomock.Call3_1[context.Context, string, bool, error]
-	getActiveModelSecretBackendExpects  []*gomock.Call2_3[context.Context, string, string, *provider.ModelBackendConfig, error]
+	getActiveModelSecretBackendExpects  []*gomock.Call2_2[context.Context, string, *provider.ModelBackendConfig, error]
 	getModelLifeExpects                 []*gomock.Call2_2[context.Context, string, life.Life, error]
 	getModelUUIDsExpects                []*gomock.Call1_2[context.Context, []string, error]
 	isMigratingModelExpects             []*gomock.Call2_2[context.Context, string, bool, error]
@@ -113,22 +113,22 @@ func (mr *MockControllerDBStateMockRecorder) EnsureModelNotAlive(ctx, modelUUID,
 type MockControllerDBStateEnsureModelNotAliveCall = gomock.Call3_1[context.Context, string, bool, error]
 
 // GetActiveModelSecretBackend mocks base method.
-func (m *MockControllerDBState) GetActiveModelSecretBackend(ctx context.Context, modelUUID string) (string, *provider.ModelBackendConfig, error) {
+func (m *MockControllerDBState) GetActiveModelSecretBackend(ctx context.Context, modelUUID string) (*provider.ModelBackendConfig, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_3(&m.recorder.getActiveModelSecretBackendExpects, m.ctrl, m, "GetActiveModelSecretBackend", ctx, modelUUID)
+	return gomock.Dispatch2_2(&m.recorder.getActiveModelSecretBackendExpects, m.ctrl, m, "GetActiveModelSecretBackend", ctx, modelUUID)
 }
 
 // GetActiveModelSecretBackend indicates an expected call of GetActiveModelSecretBackend.
 func (mr *MockControllerDBStateMockRecorder) GetActiveModelSecretBackend(ctx, modelUUID any) *MockControllerDBStateGetActiveModelSecretBackendCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_3[context.Context, string, string, *provider.ModelBackendConfig, error](mr.mock.ctrl.T, mr.mock, "GetActiveModelSecretBackend", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	call := gomock.NewCall2_2[context.Context, string, *provider.ModelBackendConfig, error](mr.mock.ctrl.T, mr.mock, "GetActiveModelSecretBackend", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
 	mr.getActiveModelSecretBackendExpects = append(mr.getActiveModelSecretBackendExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockControllerDBStateGetActiveModelSecretBackendCall is the typed call wrapper for GetActiveModelSecretBackend.
-type MockControllerDBStateGetActiveModelSecretBackendCall = gomock.Call2_3[context.Context, string, string, *provider.ModelBackendConfig, error]
+type MockControllerDBStateGetActiveModelSecretBackendCall = gomock.Call2_2[context.Context, string, *provider.ModelBackendConfig, error]
 
 // GetModelLife mocks base method.
 func (m *MockControllerDBState) GetModelLife(ctx context.Context, modelUUID string) (life.Life, error) {
