@@ -159,7 +159,7 @@ func (g archiveGenerator) Create(ctx context.Context, notes string) (*corebackup
 		return nil, "", nil, err
 	}
 
-	modelServicesFor := ModelServicesForFunc(func(ctx context.Context, modelUUID coremodel.UUID) (ModelExportDomainServices, error) {
+	modelServicesFor := ModelServicesGetterFunc(func(ctx context.Context, modelUUID coremodel.UUID) (ModelExportDomainServices, error) {
 		modelServices, err := g.domainServices.ServicesForModel(ctx, modelUUID)
 		if err != nil {
 			return nil, err
@@ -177,22 +177,22 @@ func (g archiveGenerator) Create(ctx context.Context, notes string) (*corebackup
 	})
 
 	creator, err := NewCreator(CreatorConfig{
-		MachineTag:              g.config.ControllerTag,
-		ControllerUUID:          g.config.ControllerUUID,
-		ControllerModelUUID:     coremodel.UUID(g.config.ControllerModelUUID),
-		DataDir:                 g.paths.DataDir,
-		LogDir:                  g.paths.LogDir,
-		MachineInstanceIDGetter: g.config.MachineInstanceIDGetter,
-		ControllerExport:        controllerServices.ControllerExport(),
-		ModelServicesFor:        modelServicesFor,
-		MachineService:          controllerServices.Machine(),
-		ModelConfig:             controllerServices.Config(),
-		ControllerModelLister:   controllerServices.Controller(),
-		ControllerNodes:         controllerServices.ControllerNode(),
-		ControllerObjectStore:   controllerStore,
-		ObjectStoreForModel:     modelObjectStoreFor,
-		Clock:                   g.config.Clock,
-		Logger:                  g.config.Logger,
+		MachineTag:                    g.config.ControllerTag,
+		ControllerUUID:                g.config.ControllerUUID,
+		ControllerModelUUID:           coremodel.UUID(g.config.ControllerModelUUID),
+		DataDir:                       g.paths.DataDir,
+		LogDir:                        g.paths.LogDir,
+		MachineInstanceIDGetter:       g.config.MachineInstanceIDGetter,
+		ControllerExport:              controllerServices.ControllerExport(),
+		ModelServicesGetter:           modelServicesFor,
+		ControllerModelMachineService: controllerServices.Machine(),
+		ModelConfig:                   controllerServices.Config(),
+		ControllerModelLister:         controllerServices.Controller(),
+		ControllerNodes:               controllerServices.ControllerNode(),
+		ControllerObjectStore:         controllerStore,
+		ObjectStoreForModel:           modelObjectStoreFor,
+		Clock:                         g.config.Clock,
+		Logger:                        g.config.Logger,
 	})
 	if err != nil {
 		return nil, "", nil, err

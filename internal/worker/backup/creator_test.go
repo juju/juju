@@ -123,21 +123,21 @@ func (s *backupsSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 // newCreatorConfig returns a CreatorConfig wired to the suite's mocked
 // dependencies and the given model services resolver.
-func (s *backupsSuite) newCreatorConfig(c *tc.C, modelServicesFor ModelServicesForFunc) CreatorConfig {
+func (s *backupsSuite) newCreatorConfig(c *tc.C, modelServicesFor ModelServicesGetterFunc) CreatorConfig {
 	return CreatorConfig{
-		MachineTag:              names.NewMachineTag("0"),
-		ControllerUUID:          s.controllerUUID,
-		ControllerModelUUID:     s.controllerModelUUID,
-		DataDir:                 s.dataDirPath,
-		LogDir:                  s.logDirPath,
-		MachineInstanceIDGetter: MachineInstanceID,
-		ControllerExport:        s.controllerExport,
-		ModelServicesFor:        modelServicesFor,
-		MachineService:          s.machineService,
-		ModelConfig:             s.modelConfig,
-		ControllerModelLister:   s.controller,
-		ControllerNodes:         s.controllerNodes,
-		ControllerObjectStore:   s.controllerStore,
+		MachineTag:                    names.NewMachineTag("0"),
+		ControllerUUID:                s.controllerUUID,
+		ControllerModelUUID:           s.controllerModelUUID,
+		DataDir:                       s.dataDirPath,
+		LogDir:                        s.logDirPath,
+		MachineInstanceIDGetter:       MachineInstanceID,
+		ControllerExport:              s.controllerExport,
+		ModelServicesGetter:           modelServicesFor,
+		ControllerModelMachineService: s.machineService,
+		ModelConfig:                   s.modelConfig,
+		ControllerModelLister:         s.controller,
+		ControllerNodes:               s.controllerNodes,
+		ControllerObjectStore:         s.controllerStore,
 		ObjectStoreForModel: ObjectStoreForModelFunc(func(context.Context, string) (ReadObjectStore, error) {
 			return s.modelStore, nil
 		}),
@@ -155,7 +155,7 @@ func (s *backupsSuite) newCreatorFromConfig(c *tc.C, cfg CreatorConfig) *Creator
 
 // newCreator returns a Creator wired to the suite's mocked dependencies
 // and the given model services resolver.
-func (s *backupsSuite) newCreator(c *tc.C, modelServicesFor ModelServicesForFunc) *Creator {
+func (s *backupsSuite) newCreator(c *tc.C, modelServicesFor ModelServicesGetterFunc) *Creator {
 	return s.newCreatorFromConfig(c, s.newCreatorConfig(c, modelServicesFor))
 }
 
@@ -163,19 +163,19 @@ func (s *backupsSuite) TestCreatorConfigValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config := CreatorConfig{
-		MachineTag:              names.NewMachineTag("0"),
-		ControllerUUID:          s.controllerUUID,
-		ControllerModelUUID:     s.controllerModelUUID,
-		DataDir:                 s.dataDirPath,
-		LogDir:                  s.logDirPath,
-		MachineInstanceIDGetter: MachineInstanceID,
-		ControllerExport:        s.controllerExport,
-		ModelServicesFor:        s.modelServicesFor(),
-		MachineService:          s.machineService,
-		ModelConfig:             s.modelConfig,
-		ControllerModelLister:   s.controller,
-		ControllerNodes:         s.controllerNodes,
-		ControllerObjectStore:   s.controllerStore,
+		MachineTag:                    names.NewMachineTag("0"),
+		ControllerUUID:                s.controllerUUID,
+		ControllerModelUUID:           s.controllerModelUUID,
+		DataDir:                       s.dataDirPath,
+		LogDir:                        s.logDirPath,
+		MachineInstanceIDGetter:       MachineInstanceID,
+		ControllerExport:              s.controllerExport,
+		ModelServicesGetter:           s.modelServicesFor(),
+		ControllerModelMachineService: s.machineService,
+		ModelConfig:                   s.modelConfig,
+		ControllerModelLister:         s.controller,
+		ControllerNodes:               s.controllerNodes,
+		ControllerObjectStore:         s.controllerStore,
 		ObjectStoreForModel: ObjectStoreForModelFunc(func(context.Context, string) (ReadObjectStore, error) {
 			return s.modelStore, nil
 		}),
@@ -193,8 +193,8 @@ func (s *backupsSuite) TestCreatorConfigValidate(c *tc.C) {
 		{func(c *CreatorConfig) { c.LogDir = "" }, "empty LogDir not valid"},
 		{func(c *CreatorConfig) { c.MachineInstanceIDGetter = nil }, "nil MachineInstanceIDGetter not valid"},
 		{func(c *CreatorConfig) { c.ControllerExport = nil }, "nil ControllerExport not valid"},
-		{func(c *CreatorConfig) { c.ModelServicesFor = nil }, "nil ModelServicesFor not valid"},
-		{func(c *CreatorConfig) { c.MachineService = nil }, "nil MachineService not valid"},
+		{func(c *CreatorConfig) { c.ModelServicesGetter = nil }, "nil ModelServicesGetter not valid"},
+		{func(c *CreatorConfig) { c.ControllerModelMachineService = nil }, "nil ControllerModelMachineService not valid"},
 		{func(c *CreatorConfig) { c.ModelConfig = nil }, "nil ModelConfig not valid"},
 		{func(c *CreatorConfig) { c.ControllerModelLister = nil }, "nil ControllerModelLister not valid"},
 		{func(c *CreatorConfig) { c.ControllerNodes = nil }, "nil ControllerNodes not valid"},
@@ -211,10 +211,10 @@ func (s *backupsSuite) TestCreatorConfigValidate(c *tc.C) {
 	}
 }
 
-// modelServicesFor returns a ModelServicesForFunc handing back the
+// modelServicesFor returns a ModelServicesGetterFunc handing back the
 // suite's model export services mock for every model UUID.
-func (s *backupsSuite) modelServicesFor() ModelServicesForFunc {
-	return ModelServicesForFunc(func(context.Context, coremodel.UUID) (ModelExportDomainServices, error) {
+func (s *backupsSuite) modelServicesFor() ModelServicesGetterFunc {
+	return ModelServicesGetterFunc(func(context.Context, coremodel.UUID) (ModelExportDomainServices, error) {
 		return s.modelServices, nil
 	})
 }
@@ -485,7 +485,7 @@ func (s *backupsSuite) TestCreateModelServicesFailure(c *tc.C) {
 
 	backupDir := c.MkDir()
 	boom := errors.New("model services unavailable")
-	modelServicesFor := ModelServicesForFunc(func(context.Context, coremodel.UUID) (ModelExportDomainServices, error) {
+	modelServicesFor := ModelServicesGetterFunc(func(context.Context, coremodel.UUID) (ModelExportDomainServices, error) {
 		return nil, boom
 	})
 
@@ -785,7 +785,7 @@ func (s *backupsSuite) TestCreateMachineUUIDFailure(c *tc.C) {
 	failing.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return(machine.UUID(""), errors.New("uuid unavailable"))
 
 	cfg := s.newCreatorConfig(c, s.modelServicesFor())
-	cfg.MachineService = failing
+	cfg.ControllerModelMachineService = failing
 	_, _, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "")
 	c.Check(err, tc.ErrorMatches, "recording controller machine instance ID: retrieving controller machine UUID: uuid unavailable")
 	c.Check(cleanup, tc.IsNil)
@@ -810,7 +810,7 @@ func (s *backupsSuite) TestCreateMachineInstanceIDFailure(c *tc.C) {
 	failing.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("controller-machine-uuid")).Return(instance.Id(""), errors.New("instance unavailable"))
 
 	cfg := s.newCreatorConfig(c, s.modelServicesFor())
-	cfg.MachineService = failing
+	cfg.ControllerModelMachineService = failing
 	_, _, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "")
 	c.Check(err, tc.ErrorMatches, "recording controller machine instance ID: retrieving controller machine cloud instance ID: instance unavailable")
 	c.Check(cleanup, tc.IsNil)
@@ -834,7 +834,7 @@ func (s *backupsSuite) TestCreateEmptyMachineInstanceID(c *tc.C) {
 	empty.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("controller-machine-uuid")).Return(instance.Id(""), nil)
 
 	cfg := s.newCreatorConfig(c, s.modelServicesFor())
-	cfg.MachineService = empty
+	cfg.ControllerModelMachineService = empty
 	_, _, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "")
 	c.Check(err, tc.ErrorMatches, "recording controller machine instance ID: controller machine cloud instance ID is empty")
 	c.Check(cleanup, tc.IsNil)
@@ -861,7 +861,7 @@ func (s *backupsSuite) TestCreateNoMachineInstanceIDRecordsEmpty(c *tc.C) {
 	cfg := s.newCreatorConfig(c, s.modelServicesFor())
 	cfg.MachineTag = names.NewControllerAgentTag("0")
 	cfg.MachineInstanceIDGetter = NoMachineInstanceID
-	cfg.MachineService = NewMockMachineService(ctrl)
+	cfg.ControllerModelMachineService = NewMockMachineService(ctrl)
 	meta, _, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Cleanup(cleanup)

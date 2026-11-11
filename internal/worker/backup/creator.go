@@ -35,12 +35,12 @@ type Creator struct {
 	dataDir             string
 	logDir              string
 
-	controllerExport ControllerExportService
-	modelServicesFor ModelServicesForFunc
-	machineService   MachineService
-	modelConfig      ModelConfigService
-	controller       ControllerModelLister
-	controllerNodes  ControllerNodeLister
+	controllerExport    ControllerExportService
+	modelServicesGetter ModelServicesGetterFunc
+	machineService      MachineService
+	modelConfig         ModelConfigService
+	controller          ControllerModelLister
+	controllerNodes     ControllerNodeLister
 
 	controllerObjectStore ReadObjectStore
 	objectStoreForModel   ObjectStoreForModelFunc
@@ -56,7 +56,7 @@ type CreatorConfig struct {
 	ControllerModelUUID coremodel.UUID
 	DataDir             string
 	LogDir              string
-	ModelServicesFor    ModelServicesForFunc
+	ModelServicesGetter ModelServicesGetterFunc
 
 	// MachineInstanceIDGetter resolves the controller machine's cloud instance
 	// ID from MachineService, for recording in the archive metadata. The
@@ -69,10 +69,10 @@ type CreatorConfig struct {
 	// controller database into the archive.
 	ControllerExport ControllerExportService
 
-	// MachineService is the controller model's machine domain service, used to
+	// ControllerModelMachineService is the controller model's machine domain service, used to
 	// retrieve the controller machine's cloud instance ID for the archive
 	// metadata.
-	MachineService MachineService
+	ControllerModelMachineService MachineService
 
 	// ModelConfig is the controller model's config domain service, used to
 	// resolve the backup directory.
@@ -118,11 +118,11 @@ func (c CreatorConfig) Validate() error {
 	if c.ControllerExport == nil {
 		return jujuerrors.NotValidf("nil ControllerExport")
 	}
-	if c.ModelServicesFor == nil {
-		return jujuerrors.NotValidf("nil ModelServicesFor")
+	if c.ModelServicesGetter == nil {
+		return jujuerrors.NotValidf("nil ModelServicesGetter")
 	}
-	if c.MachineService == nil {
-		return jujuerrors.NotValidf("nil MachineService")
+	if c.ControllerModelMachineService == nil {
+		return jujuerrors.NotValidf("nil ControllerModelMachineService")
 	}
 	if c.ModelConfig == nil {
 		return jujuerrors.NotValidf("nil ModelConfig")
@@ -161,8 +161,8 @@ func NewCreator(cfg CreatorConfig) (*Creator, error) {
 		dataDir:               cfg.DataDir,
 		logDir:                cfg.LogDir,
 		controllerExport:      cfg.ControllerExport,
-		modelServicesFor:      cfg.ModelServicesFor,
-		machineService:        cfg.MachineService,
+		modelServicesGetter:   cfg.ModelServicesGetter,
+		machineService:        cfg.ControllerModelMachineService,
 		modelConfig:           cfg.ModelConfig,
 		controller:            cfg.ControllerModelLister,
 		controllerNodes:       cfg.ControllerNodes,
@@ -251,7 +251,7 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 		if err := ctx.Err(); err != nil {
 			return nil, "", nil, err
 		}
-		modelServices, err := c.modelServicesFor(ctx, coremodel.UUID(modelUUID))
+		modelServices, err := c.modelServicesGetter(ctx, coremodel.UUID(modelUUID))
 		if err != nil {
 			return nil, "", nil, errors.Capture(err)
 		}

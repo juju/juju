@@ -45,8 +45,8 @@ type ModelExportDomainServices interface {
 	Export() ModelExportService
 }
 
-// ModelServicesForFunc returns the export services for a given model UUID.
-type ModelServicesForFunc func(ctx context.Context, modelUUID coremodel.UUID) (ModelExportDomainServices, error)
+// ModelServicesGetterFunc returns the export services for a given model UUID.
+type ModelServicesGetterFunc func(ctx context.Context, modelUUID coremodel.UUID) (ModelExportDomainServices, error)
 
 // GetMachineInstanceIDFunc resolves the cloud instance ID of the machine
 // hosting the controller, for recording in archive metadata. The machine
