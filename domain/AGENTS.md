@@ -15,6 +15,9 @@ These rules apply to `domain/` and its sub-packages and supplement the
   embedded `SELECT` subqueries.
 - SQL queries must use explicit aliases for tables, CTEs, and projected values;
   use `AS` rather than relying on implicit aliasing.
+- SQL queries MUST avoid string concatenation or `fmt.Sprintf` to create
+  dynamic queries. Write a new state method with its own static query for
+  each query shape, rather than varying a query through parameters.
 - For changed queries and filters, identify which entities are included or
   excluded. Check missing join rows, empty or zero values, and entities created
   through alternative lifecycle paths. Trace excluded categories downstream
