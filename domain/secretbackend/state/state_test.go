@@ -1076,6 +1076,60 @@ SELECT uuid, 'my-other-ca-cert' FROM cloud WHERE name = 'my-cloud'`)
 	c.Check(map[string]any(config.Config), tc.DeepEquals, expectedConfig)
 }
 
+func (s *stateSuite) TestK8sBackendsWithoutCloudCACertificates(c *tc.C) {
+	modelUUID := s.createModel(c, coremodel.CAAS)
+	err := s.state.SetModelSecretBackend(c.Context(), modelUUID, kubernetes.BackendName)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.state.AddSecretBackendReference(c.Context(),
+		&secrets.ValueRef{BackendID: s.kubernetesBackendID}, modelUUID,
+		uuid.MustNewUUID().String(), "secret1")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), "DELETE FROM cloud_ca_cert")
+	c.Assert(err, tc.ErrorIsNil)
+
+	for _, certs := range [][]string{nil, {""}} {
+		if certs != nil {
+			_, err = s.DB().ExecContext(c.Context(), `
+INSERT INTO cloud_ca_cert (cloud_uuid, ca_cert)
+SELECT uuid, '' FROM cloud WHERE name = 'my-cloud'`)
+			c.Assert(err, tc.ErrorIsNil)
+		}
+		expectedConfig := map[string]any{
+			"endpoint":  "https://my-cloud.com",
+			"namespace": "my-model",
+			"ca-certs":  certs,
+			"token":     "token val",
+		}
+
+		backends, err := s.state.ListSecretBackends(c.Context())
+		c.Assert(err, tc.ErrorIsNil)
+		var backend *secretbackend.SecretBackend
+		for _, candidate := range backends {
+			if candidate.ID == s.kubernetesBackendID {
+				backend = candidate
+			}
+		}
+		c.Assert(backend, tc.NotNil)
+		c.Check(backend.NumSecrets, tc.Equals, 1)
+		c.Check(backend.Config, tc.DeepEquals, expectedConfig)
+
+		backends, err = s.state.ListSecretBackendsForModel(c.Context(), modelUUID, true)
+		c.Assert(err, tc.ErrorIsNil)
+		backend = nil
+		for _, candidate := range backends {
+			if candidate.ID == s.kubernetesBackendID {
+				backend = candidate
+			}
+		}
+		c.Assert(backend, tc.NotNil)
+		c.Check(backend.Config, tc.DeepEquals, expectedConfig)
+
+		_, config, err := s.state.GetActiveModelSecretBackend(c.Context(), modelUUID)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(map[string]any(config.Config), tc.DeepEquals, expectedConfig)
+	}
+}
+
 func (s *stateSuite) TestListSecretBackendIDs(c *tc.C) {
 	backendID1 := uuid.MustNewUUID().String()
 	_, err := s.state.CreateSecretBackend(c.Context(), secretbackend.CreateSecretBackendParams{

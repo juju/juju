@@ -174,7 +174,7 @@ SELECT DISTINCT
     vcca.attribute_value) AS (&cloudCredentialRow.*)
 FROM v_model vm
     JOIN v_cloud_auth vc ON vm.cloud_uuid = vc.uuid
-    JOIN cloud_ca_cert ccc ON vc.uuid = ccc.cloud_uuid
+    LEFT JOIN cloud_ca_cert ccc ON vc.uuid = ccc.cloud_uuid
     JOIN v_cloud_credential_attribute vcca ON vm.cloud_credential_uuid = vcca.uuid
 WHERE vm.uuid = $entityUUID.uuid`
 
@@ -447,7 +447,7 @@ type cloudRow struct {
 	IsControllerCloud bool `db:"is_controller_cloud"`
 
 	// CACert holds the ca cert.
-	CACert string `db:"ca_cert"`
+	CACert sql.NullString `db:"ca_cert"`
 }
 
 func (r cloudRow) toCloud() cloud.Cloud {
@@ -456,7 +456,6 @@ func (r cloudRow) toCloud() cloud.Cloud {
 		Endpoint:          r.Endpoint,
 		SkipTLSVerify:     r.SkipTLSVerify,
 		IsControllerCloud: r.IsControllerCloud,
-		CACertificates:    []string{r.CACert},
 	}
 }
 
@@ -467,13 +466,12 @@ func (rows cloudRows) toClouds() map[string]cloud.Cloud {
 	for _, row := range rows {
 		cld, ok := clouds[row.ID]
 		if !ok {
-			clouds[row.ID] = row.toCloud()
-			continue
+			cld = row.toCloud()
 		}
-		if !slices.Contains(cld.CACertificates, row.CACert) {
-			cld.CACertificates = append(cld.CACertificates, row.CACert)
-			clouds[row.ID] = cld
+		if row.CACert.Valid && !slices.Contains(cld.CACertificates, row.CACert.String) {
+			cld.CACertificates = append(cld.CACertificates, row.CACert.String)
 		}
+		clouds[row.ID] = cld
 	}
 	for _, cld := range clouds {
 		sort.Strings(cld.CACertificates)

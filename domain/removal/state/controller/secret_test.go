@@ -96,6 +96,37 @@ func (s *secretSuite) TestGetActiveModelSecretBackendK8sBuiltIn(c *tc.C) {
 	})
 }
 
+func (s *secretSuite) TestGetActiveModelSecretBackendK8sWithoutCACertificates(c *tc.C) {
+	s.SeedControllerUUID(c)
+	modelUUID := s.createK8sModel(c)
+	ccState := controllerconfigstate.NewState(s.TxnRunnerFactory())
+	err := ccState.UpdateControllerConfig(c.Context(), map[string]string{
+		"controller-name": "test",
+	}, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), "DELETE FROM cloud_ca_cert")
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	for _, certs := range [][]string{nil, {""}} {
+		if certs != nil {
+			_, err = s.DB().ExecContext(c.Context(), `
+INSERT INTO cloud_ca_cert (cloud_uuid, ca_cert)
+SELECT uuid, '' FROM cloud WHERE name = 'k8s-cloud'`)
+			c.Assert(err, tc.ErrorIsNil)
+		}
+		_, cfg, err := st.GetActiveModelSecretBackend(c.Context(), modelUUID.String())
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(cfg.Config, tc.DeepEquals, provider.ConfigAttrs{
+			"endpoint":  "https://k8s.example.com",
+			"ca-certs":  certs,
+			"namespace": "my-k8s-model",
+			"username":  "k8s-user",
+			"password":  "k8s-password",
+		})
+	}
+}
+
 func (s *secretSuite) createK8sModel(c *tc.C) coremodel.UUID {
 	userName := usertesting.GenNewName(c, "test-user")
 

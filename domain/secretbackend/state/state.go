@@ -530,7 +530,7 @@ FROM secret_backend_reference sbr
     JOIN secret_backend_type bt ON b.backend_type_id = bt.id
     JOIN v_model vm ON sbr.model_uuid = vm.uuid
     JOIN v_cloud_auth vc ON vm.cloud_uuid = vc.uuid
-    JOIN cloud_ca_cert ccc ON vc.uuid = ccc.cloud_uuid
+    LEFT JOIN cloud_ca_cert ccc ON vc.uuid = ccc.cloud_uuid
     JOIN v_cloud_credential_attribute vcca ON vm.cloud_credential_uuid = vcca.uuid
 WHERE b.name = '%s'
 GROUP BY
@@ -720,7 +720,7 @@ SELECT DISTINCT
     vcca.attribute_value) AS (&cloudCredentialRow.*)
 FROM v_model vm
     JOIN v_cloud_auth vc ON vm.cloud_uuid = vc.uuid
-    JOIN cloud_ca_cert ccc ON vc.uuid = ccc.cloud_uuid
+    LEFT JOIN cloud_ca_cert ccc ON vc.uuid = ccc.cloud_uuid
     JOIN v_cloud_credential_attribute vcca ON vm.cloud_credential_uuid = vcca.uuid
 WHERE vm.uuid = $modelIdentifier.uuid`, modelIdentifier{}, modelDetails{}, secretBackendForK8sModelRow{}, cloudRow{}, cloudCredentialRow{})
 	if err != nil {
