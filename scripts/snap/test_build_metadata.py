@@ -223,6 +223,26 @@ class MetadataFileTest(unittest.TestCase):
             build_metadata.main()
         self.assertEqual(json.loads(self.path.read_text()), values)
 
+    def _run_input(self, values):
+        self.path.write_text(json.dumps(values))
+        with mock.patch(
+            "sys.argv",
+            ["build_metadata.py", "--input", str(self.path)],
+        ), contextlib.redirect_stdout(io.StringIO()):
+            build_metadata.main()
+
+    def test_input_missing_version_fails(self):
+        with self.assertRaisesRegex(SystemExit, "missing key 'version'"):
+            self._run_input({"grade": "stable"})
+
+    def test_input_missing_grade_fails(self):
+        with self.assertRaisesRegex(SystemExit, "missing key 'grade'"):
+            self._run_input({"version": "2.9.61"})
+
+    def test_input_non_object_fails(self):
+        with self.assertRaisesRegex(SystemExit, "expected a JSON object"):
+            self._run_input(["version", "grade"])
+
 
 class MetadataTest(unittest.TestCase):
     def setUp(self):

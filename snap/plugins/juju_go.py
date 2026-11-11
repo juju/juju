@@ -38,6 +38,11 @@ from typing import Any, Dict, List, Set
 
 from snapcraft.plugins.v2 import PluginV2
 
+# The part running this plugin. Must match the part name in
+# snap/snapcraft.yaml: the plugin locates the part's build directory for the
+# metadata file that set-build-metadata.sh later reads.
+PART_NAME = "juju"
+
 
 class PluginImpl(PluginV2):
     @classmethod
@@ -94,7 +99,9 @@ class PluginImpl(PluginV2):
         if not part_build:
             # get_build_environment runs before Snapcraft exports the step
             # environment, so fall back to the part's build directory.
-            part_build = os.path.join(project_dir, "parts", "juju", "build")
+            part_build = os.path.join(
+                project_dir, "parts", PART_NAME, "build"
+            )
         return os.path.join(part_build, "build-metadata.json")
 
     def _build_metadata(self, metadata_file: str) -> Dict[str, str]:

@@ -177,6 +177,17 @@ def main():
             raise SystemExit(
                 f"invalid build metadata file {args.input}: {e}"
             ) from e
+        if not isinstance(values, dict):
+            raise SystemExit(
+                f"invalid build metadata file {args.input}: "
+                "expected a JSON object"
+            )
+        for key in ("version", "grade"):
+            if key not in values:
+                raise SystemExit(
+                    f"invalid build metadata file {args.input}: "
+                    f"missing key {key!r}"
+                )
     else:
         values = metadata(args.project_dir)
         if args.output:

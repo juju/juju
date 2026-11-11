@@ -183,35 +183,7 @@ func (w *modelSummaryWatcher) onSummaryUpdate(topic string, data interface{}) {
 
 	uuid := payload.summary.UUID
 	logger.Tracef("onSummaryChange: %s", uuid)
-	summary, ok := func() (ModelSummary, bool) {
-		w.mu.Lock()
-		defer w.mu.Unlock()
-		if payload.visibleTo(w.user) {
-			// Add is idempotent, and we don't care if we weren't previously tracking.
-			if lastHash := w.hashes[uuid]; lastHash == payload.hash {
-				// If we have already notified for this hash, then don't send
-				// again. If this is a newly watched model, the hash in the map
-				// will be the empty string.
-				return ModelSummary{}, false
-			}
-			w.hashes[uuid] = payload.hash
-			w.visibleModels.Add(uuid)
-			summary := payload.summary
-			summary.Controller = w.controller.Name()
-			return summary, true
-		}
-		if !w.visibleModels.Contains(uuid) {
-			// We aren't tracking, and shouldn't be, so nothing to do.
-			return ModelSummary{}, false
-		}
-		// If we were tracking this model, stop tracking this model.
-		w.visibleModels.Remove(uuid)
-		delete(w.hashes, uuid)
-		return ModelSummary{
-			UUID:    uuid,
-			Removed: true,
-		}, true
-	}()
+	summary, ok := w.claimSummary(payload)
 	if !ok {
 		return
 	}
@@ -220,6 +192,40 @@ func (w *modelSummaryWatcher) onSummaryUpdate(topic string, data interface{}) {
 	case <-w.tomb.Dying():
 	case w.summaryChange <- summary:
 	}
+}
+
+// claimSummary records the payload's model as visible or hidden and returns
+// the summary to send to the client. It reports false when the update can be
+// ignored.
+func (w *modelSummaryWatcher) claimSummary(payload modelSummaryPayload) (ModelSummary, bool) {
+	uuid := payload.summary.UUID
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if payload.visibleTo(w.user) {
+		// Add is idempotent, and we don't care if we weren't previously tracking.
+		if lastHash := w.hashes[uuid]; lastHash == payload.hash {
+			// If we have already notified for this hash, then don't send
+			// again. If this is a newly watched model, the hash in the map
+			// will be the empty string.
+			return ModelSummary{}, false
+		}
+		w.hashes[uuid] = payload.hash
+		w.visibleModels.Add(uuid)
+		summary := payload.summary
+		summary.Controller = w.controller.Name()
+		return summary, true
+	}
+	if !w.visibleModels.Contains(uuid) {
+		// We aren't tracking, and shouldn't be, so nothing to do.
+		return ModelSummary{}, false
+	}
+	// If we were tracking this model, stop tracking this model.
+	w.visibleModels.Remove(uuid)
+	delete(w.hashes, uuid)
+	return ModelSummary{
+		UUID:    uuid,
+		Removed: true,
+	}, true
 }
 
 func (w *modelSummaryWatcher) onModelRemove(topic string, data interface{}) {
