@@ -1248,7 +1248,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:               config.Clock,
 			Logger:              internallogger.GetLogger("juju.worker.backup"),
 			NewWorker:           backup.NewWorker,
-			NewRecordSource:     backup.MachineRecordSource,
+			NewArchiveGenerator: backup.MachineArchiveGenerator,
 		})),
 
 		// The controller proxy config updater uses local domain services
@@ -1506,7 +1506,7 @@ func K8sManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:               config.Clock,
 			Logger:              internallogger.GetLogger("juju.worker.backup"),
 			NewWorker:           backup.NewWorker,
-			NewRecordSource:     backup.K8sRecordSource,
+			NewArchiveGenerator: backup.K8sArchiveGenerator,
 		})),
 
 		// The controller proxy config updater uses local domain services

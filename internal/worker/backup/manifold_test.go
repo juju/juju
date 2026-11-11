@@ -34,16 +34,16 @@ func manifoldConfig(c *tc.C) ManifoldConfig {
 		ControllerNodeID:  worker.ControllerNodeID,
 		LocalConfigReader: localConfigStub{values: LocalValues{DataDir: "/data", LogDir: "/logs"}},
 		Clock:             worker.Clock, Logger: worker.Logger,
-		NewWorker:       NewWorker,
-		NewRecordSource: MachineRecordSource,
+		NewWorker:           NewWorker,
+		NewArchiveGenerator: MachineArchiveGenerator,
 	}
 }
 
 // k8sVariant returns the configuration the Kubernetes agent wires: the
-// Kubernetes source recorder, which reads the provider tracker.
+// Kubernetes archive generator, which reads the provider tracker.
 func k8sVariant(cfg ManifoldConfig) ManifoldConfig {
 	cfg.ProviderTrackerName = "providers"
-	cfg.NewRecordSource = K8sRecordSource
+	cfg.NewArchiveGenerator = K8sArchiveGenerator
 	return cfg
 }
 
@@ -152,7 +152,7 @@ func (s *manifoldSuite) TestInvalidConfiguration(c *tc.C) {
 		{func(c *ManifoldConfig) { c.Clock = nil }, "nil Clock not valid"},
 		{func(c *ManifoldConfig) { c.Logger = nil }, "nil Logger not valid"},
 		{func(c *ManifoldConfig) { c.NewWorker = nil }, "nil NewWorker not valid"},
-		{func(c *ManifoldConfig) { c.NewRecordSource = nil }, "nil NewRecordSource not valid"},
+		{func(c *ManifoldConfig) { c.NewArchiveGenerator = nil }, "nil NewArchiveGenerator not valid"},
 		{func(c *ManifoldConfig) { c.LocalConfigReader = localConfigStub{} }, "empty backup paths not valid"},
 		{func(c *ManifoldConfig) { c.LocalConfigReader = localConfigStub{err: errors.New("paths failed")} }, "reading backup paths: paths failed"},
 	}
@@ -179,17 +179,16 @@ func (s *manifoldSuite) TestWorkerFailure(c *tc.C) {
 	c.Check(err, tc.ErrorIs, failure)
 }
 
-// TestManifoldWiresRecordSource verifies that the manifold resolves the
-// configuration and resources at start, hands them to the wired recorder
-// constructor, and builds the archive generator with the recorder it
+// TestManifoldWiresArchiveGenerator verifies that the manifold resolves
+// the configuration and resources at start, hands them to the wired
+// generator constructor, and starts the worker with the generator it
 // returns.
-func (s *manifoldSuite) TestManifoldWiresRecordSource(c *tc.C) {
+func (s *manifoldSuite) TestManifoldWiresArchiveGenerator(c *tc.C) {
 	cfg := manifoldConfig(c)
-	failure := errors.New("services unavailable")
-	var gotArgs RecordSourceArgs
-	cfg.NewRecordSource = func(args RecordSourceArgs) (RecordSourceFunc, error) {
+	var gotArgs ArchiveGeneratorArgs
+	cfg.NewArchiveGenerator = func(args ArchiveGeneratorArgs) (corebackups.BackupCreator, error) {
 		gotArgs = args
-		return MachineRecordSource(args)
+		return MachineArchiveGenerator(args)
 	}
 	var startConfig Config
 	cfg.NewWorker = func(config Config) (worker.Worker, error) {
@@ -197,87 +196,116 @@ func (s *manifoldSuite) TestManifoldWiresRecordSource(c *tc.C) {
 		return NewWorker(config)
 	}
 	resources := manifoldResources()
-	resources["services"] = servicesGetterStub{get: func(context.Context, coremodel.UUID) (services.DomainServices, error) {
-		return nil, failure
-	}}
+	type contextKey struct{}
+	servicesCalls := 0
+	resources["services"] = servicesGetterStub{
+		get: func(ctx context.Context, modelUUID coremodel.UUID) (services.DomainServices, error) {
+			servicesCalls++
+			c.Check(ctx.Value(contextKey{}), tc.Equals, "request")
+			c.Check(modelUUID, tc.Equals, coremodel.UUID("workload-model"))
+			return domainServicesStub{}, nil
+		},
+	}
 	w, err := Manifold(cfg).Start(c.Context(), dt.StubGetter(resources))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Cleanup(func() { w.Kill(); c.Check(w.Wait(), tc.ErrorIsNil) })
+	c.Check(servicesCalls, tc.Equals, 0)
 
-	// The constructor received the configuration and the resources
-	// resolved at start.
+	// The constructor received the configuration, the local paths and
+	// the resources resolved at start.
 	c.Check(gotArgs.Config.ControllerUUID, tc.Equals, cfg.ControllerUUID)
 	c.Check(gotArgs.Config.ControllerModelUUID, tc.Equals, cfg.ControllerModelUUID)
 	c.Check(gotArgs.Config.ControllerNodeID, tc.Equals, cfg.ControllerNodeID)
 	c.Check(gotArgs.Config.ProviderTrackerName, tc.Equals, cfg.ProviderTrackerName)
+	c.Check(gotArgs.Paths, tc.DeepEquals, LocalValues{DataDir: "/data", LogDir: "/logs"})
 	c.Check(gotArgs.DomainServices, tc.NotNil)
+	c.Check(gotArgs.ObjectStores, tc.NotNil)
 	c.Check(gotArgs.ModelServicesFor, tc.NotNil)
 	controllerUUID, err := uuid.UUIDFromString(cfg.ControllerUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotArgs.ControllerUUID, tc.Equals, controllerUUID)
 
-	// The archive generator carries the recorder the constructor
-	// returned.
-	generator, ok := startConfig.CreateArchive.(archiveGenerator)
+	// The model services resolver remains deferred until an archive creation
+	// needs a workload model's export services, and keeps the request context.
+	modelServices, err := gotArgs.ModelServicesFor(
+		context.WithValue(c.Context(), contextKey{}, "request"),
+		coremodel.UUID("workload-model"),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(modelServices, tc.NotNil)
+	c.Check(servicesCalls, tc.Equals, 1)
+
+	// The worker's archive creator is the generator the constructor returned.
+	_, ok := startConfig.CreateArchive.(machineArchiveGenerator)
 	c.Assert(ok, tc.IsTrue)
-	c.Check(generator.recordSource, tc.NotNil)
-	var meta corebackups.Metadata
-	err = generator.recordSource(c.Context(), &meta)
-	c.Check(err, tc.ErrorMatches, "recording controller base for recovery: services unavailable")
 }
 
-// TestMachineRecordSource verifies that the machine recorder constructor
-// returns a recorder resolving the controller machine's base through the
-// controller model's services.
-func (s *manifoldSuite) TestMachineRecordSource(c *tc.C) {
+// TestMachineArchiveGenerator verifies that the machine generator
+// resolves a creation request's services through the resources the
+// manifold wired at start.
+func (s *manifoldSuite) TestMachineArchiveGenerator(c *tc.C) {
 	failure := errors.New("services unavailable")
-	args := RecordSourceArgs{
+	generator, err := MachineArchiveGenerator(ArchiveGeneratorArgs{
 		Config: manifoldConfig(c),
-		ModelServicesFor: ModelServicesForFunc(func(context.Context, coremodel.UUID) (ModelExportDomainServices, error) {
-			return nil, failure
-		}),
-	}
-	recordSource, err := MachineRecordSource(args)
-	c.Assert(err, tc.ErrorIsNil)
-
-	var meta corebackups.Metadata
-	err = recordSource(c.Context(), &meta)
-	c.Check(err, tc.ErrorMatches, "recording controller base for recovery: services unavailable")
-}
-
-// TestK8sRecordSource verifies that the Kubernetes recorder constructor
-// resolves the provider factory from the configured provider tracker and
-// returns a recorder reading the controller's provisioning facts through
-// it, deferring the controller model's services to each call.
-func (s *manifoldSuite) TestK8sRecordSource(c *tc.C) {
-	cfg := k8sVariant(manifoldConfig(c))
-	failure := errors.New("services unavailable")
-	calls := 0
-	controllerUUID, err := uuid.UUIDFromString(cfg.ControllerUUID)
-	c.Assert(err, tc.ErrorIsNil)
-	args := RecordSourceArgs{
-		Config: cfg,
-		Getter: dt.StubGetter(map[string]any{
-			cfg.ProviderTrackerName: &provisioningProviderFactoryStub{},
-		}),
 		DomainServices: servicesGetterStub{get: func(context.Context, coremodel.UUID) (services.DomainServices, error) {
-			calls++
 			return nil, failure
 		}},
-		ControllerUUID: controllerUUID,
-	}
-	recordSource, err := K8sRecordSource(args)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	_, ok := generator.(machineArchiveGenerator)
+	c.Assert(ok, tc.IsTrue)
+
+	_, _, _, err = generator.Create(c.Context(), "notes")
+	c.Check(err, tc.ErrorIs, failure)
+}
+
+// TestK8sArchiveGenerator verifies that the Kubernetes generator
+// requires the provider tracker name, resolves the provider factory from
+// the tracker resource, and resolves a creation request's services
+// through the resources the manifold wired at start.
+func (s *manifoldSuite) TestK8sArchiveGenerator(c *tc.C) {
+	cfg := k8sVariant(manifoldConfig(c))
+	controllerUUID, err := uuid.UUIDFromString(cfg.ControllerUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// The recorder records through the Kubernetes provisioning read,
-	// which resolves the controller model's services on each call.
-	var meta corebackups.Metadata
-	err = recordSource(c.Context(), &meta)
-	c.Check(err, tc.ErrorMatches, "recording Kubernetes provisioning: services unavailable")
-	c.Check(calls, tc.Equals, 1)
-	err = recordSource(c.Context(), &meta)
-	c.Check(err, tc.ErrorMatches, "recording Kubernetes provisioning: services unavailable")
-	c.Check(calls, tc.Equals, 2)
+	// The Kubernetes generator records provisioning facts read through
+	// the provider tracker, so the configuration must name one.
+	bad := cfg
+	bad.ProviderTrackerName = ""
+	_, err = K8sArchiveGenerator(ArchiveGeneratorArgs{Config: bad})
+	c.Check(err, tc.ErrorMatches, "empty ProviderTrackerName not valid")
+
+	// The provider factory is resolved from the tracker resource.
+	failure := errors.New("services unavailable")
+	_, err = K8sArchiveGenerator(ArchiveGeneratorArgs{
+		Config: cfg,
+		Getter: dt.StubGetter(map[string]any{}),
+	})
+	c.Check(err, tc.NotNil)
+
+	servicesCalls := 0
+	generator, err := K8sArchiveGenerator(ArchiveGeneratorArgs{
+		Config: cfg,
+		Getter: dt.StubGetter(map[string]any{"providers": providerFactoryStub{}}),
+		DomainServices: servicesGetterStub{
+			get: func(context.Context, coremodel.UUID) (services.DomainServices, error) {
+				servicesCalls++
+				return nil, failure
+			},
+		},
+		ControllerUUID: controllerUUID,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	k8sGenerator, ok := generator.(k8sArchiveGenerator)
+	c.Assert(ok, tc.IsTrue)
+	c.Check(k8sGenerator.providerFactory, tc.NotNil)
+	c.Check(servicesCalls, tc.Equals, 0)
+
+	// A creation request resolves its services through the wired
+	// resources.
+	_, _, _, err = generator.Create(c.Context(), "notes")
+	c.Check(err, tc.ErrorIs, failure)
+	c.Check(servicesCalls, tc.Equals, 1)
 }
 
 // localConfigStub stands in for the agent's local configuration reader.
@@ -307,20 +335,4 @@ func (s objectGetterStub) GetObjectStore(ctx context.Context, namespace string) 
 
 type providerFactoryStub struct {
 	providertracker.ProviderFactory
-}
-
-type provisioningProviderFactoryStub struct {
-	providertracker.ProviderFactory
-	provider providertracker.Provider
-	err      error
-	got      providertracker.EphemeralProviderConfig
-	called   bool
-}
-
-func (f *provisioningProviderFactoryStub) EphemeralProviderFromConfig(
-	_ context.Context, cfg providertracker.EphemeralProviderConfig,
-) (providertracker.Provider, error) {
-	f.called = true
-	f.got = cfg
-	return f.provider, f.err
 }

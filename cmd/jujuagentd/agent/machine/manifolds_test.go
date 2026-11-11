@@ -649,6 +649,46 @@ func (*ManifoldsSuite) TestChangeStreamDirectInputs(c *tc.C) {
 	checkNotContains(c, manifold.Inputs, "agent")
 }
 
+func (*ManifoldsSuite) TestBackupCreatorDirectInputs(c *tc.C) {
+	config := machine.ManifoldsConfig{
+		Agent:           &mockAgent{},
+		PreUpgradeSteps: preUpgradeSteps,
+	}
+	tests := []struct {
+		name      string
+		manifolds dependency.Manifolds
+		want      []string
+	}{
+		{
+			name:      "machine",
+			manifolds: machine.IAASManifolds(config),
+			want: []string{
+				"domain-services",
+				"is-controller-flag",
+				"lease-manager",
+				"object-store-facade",
+			},
+		},
+		{
+			name:      "Kubernetes",
+			manifolds: machine.K8sManifolds(config),
+			want: []string{
+				"domain-services",
+				"is-controller-flag",
+				"lease-manager",
+				"object-store-facade",
+				"provider-tracker",
+			},
+		},
+	}
+	for _, test := range tests {
+		c.Logf("case: %s", test.name)
+		backupCreator, ok := test.manifolds["backup-creator"]
+		c.Assert(ok, tc.IsTrue)
+		c.Check(backupCreator.Inputs, tc.SameContents, test.want)
+	}
+}
+
 func (*ManifoldsSuite) TestControllerOnlyWorkerDirectInputs(c *tc.C) {
 	for _, manifolds := range []dependency.Manifolds{
 		machine.IAASManifolds(machine.ManifoldsConfig{

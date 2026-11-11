@@ -3,7 +3,7 @@
 
 // Package backup owns archive generation and its controller-wide lease.
 // Its manifold outputs a creation function for the API server, with the
-// source recorder for the controller's substrate wired through the
+// archive generator for the controller's substrate wired through the
 // manifold configuration. Generation and renewal share cancellation; the
 // lease is released before archive download.
 package backup
