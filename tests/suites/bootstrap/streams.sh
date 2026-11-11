@@ -27,13 +27,16 @@ run_simplestream_metadata() {
 	name="test-bootstrap-stream"
 
 	file="${TEST_DIR}/test-bootstrap-stream.log"
+	echo "${name}" >>"${TEST_DIR}/jujus"
 	juju bootstrap "lxd" "${name}" \
 		--show-log \
 		--config agent-metadata-url="http://${server_address}:8666/" \
 		--config test-mode=true \
 		--bootstrap-base="${BOOTSTRAP_BASE}" \
 		--agent-version="${JUJUD_VERSION}" 2>&1 | OUTPUT "${file}"
-	echo "${name}" >>"${TEST_DIR}/jujus"
+	if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
+		return 1
+	fi
 
 	juju add-model default
 
