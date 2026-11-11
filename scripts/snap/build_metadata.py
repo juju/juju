@@ -73,18 +73,22 @@ def detect_mode(info):
     )
 
 
-def git_commit(project_dir):
+def git_commit(project_dir, mode):
     try:
         return subprocess.check_output(
             ["git", "-C", project_dir, "rev-parse", "HEAD"],
             stderr=subprocess.DEVNULL,
             text=True,
         ).strip()
-    except (OSError, subprocess.CalledProcessError):
+    except (OSError, subprocess.CalledProcessError) as e:
+        if mode in ("edge", "release"):
+            raise SystemExit(
+                f"git rev-parse failed in {project_dir}: {e}"
+            ) from e
         return ""
 
 
-def git_tree_state(project_dir, commit):
+def git_tree_state(project_dir, commit, mode):
     if not commit:
         return "archive"
     try:
@@ -93,8 +97,12 @@ def git_tree_state(project_dir, commit):
             stderr=subprocess.DEVNULL,
             text=True,
         )
-    except (OSError, subprocess.CalledProcessError):
-        return "archive"
+    except (OSError, subprocess.CalledProcessError) as e:
+        if mode in ("edge", "release"):
+            raise SystemExit(
+                f"git status failed in {project_dir}: {e}"
+            ) from e
+        return "dirty"
     return "dirty" if status.strip() else "clean"
 
 
@@ -128,7 +136,7 @@ def build_number(info, mode):
 def metadata(project_dir):
     info = image_info()
     mode = detect_mode(info)
-    commit = git_commit(project_dir)
+    commit = git_commit(project_dir, mode)
     base = base_version(project_dir)
     if mode in ("edge", "release") and not commit:
         raise SystemExit(f"{mode} build requires a git checkout")
@@ -145,7 +153,7 @@ def metadata(project_dir):
         "version": version,
         "grade": "devel" if mode in ("edge", "local") else "stable",
         "git_commit": commit,
-        "git_tree_state": git_tree_state(project_dir, commit),
+        "git_tree_state": git_tree_state(project_dir, commit, mode),
         "build": build,
         "oci_namespace": {
             "edge": EDGE_OCI_NAMESPACE,

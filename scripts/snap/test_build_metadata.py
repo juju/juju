@@ -150,10 +150,43 @@ class BaseVersionTest(unittest.TestCase):
             build_metadata.base_version(self.project_dir)
 
 
+class GitCommitTest(unittest.TestCase):
+    def test_commit(self):
+        with mock.patch.object(
+            build_metadata.subprocess,
+            "check_output",
+            return_value=COMMIT + "\n",
+        ):
+            self.assertEqual(
+                build_metadata.git_commit("/repo", "local"), COMMIT
+            )
+
+    def test_failure_local_returns_empty(self):
+        with mock.patch.object(
+            build_metadata.subprocess, "check_output", side_effect=OSError
+        ):
+            self.assertEqual(build_metadata.git_commit("/repo", "local"), "")
+
+    def test_failure_edge_raises(self):
+        with mock.patch.object(
+            build_metadata.subprocess, "check_output", side_effect=OSError
+        ):
+            with self.assertRaisesRegex(SystemExit, "git rev-parse failed"):
+                build_metadata.git_commit("/repo", "edge")
+
+    def test_failure_release_raises(self):
+        with mock.patch.object(
+            build_metadata.subprocess, "check_output", side_effect=OSError
+        ):
+            with self.assertRaisesRegex(SystemExit, "git rev-parse failed"):
+                build_metadata.git_commit("/repo", "release")
+
+
 class GitTreeStateTest(unittest.TestCase):
     def test_no_commit_is_archive(self):
         self.assertEqual(
-            build_metadata.git_tree_state("/does/not/matter", ""), "archive"
+            build_metadata.git_tree_state("/does/not/matter", "", "local"),
+            "archive",
         )
 
     def test_clean_tree(self):
@@ -161,7 +194,8 @@ class GitTreeStateTest(unittest.TestCase):
             build_metadata.subprocess, "check_output", return_value=""
         ):
             self.assertEqual(
-                build_metadata.git_tree_state("/repo", COMMIT), "clean"
+                build_metadata.git_tree_state("/repo", COMMIT, "local"),
+                "clean",
             )
 
     def test_dirty_tree(self):
@@ -171,16 +205,32 @@ class GitTreeStateTest(unittest.TestCase):
             return_value=" M version/version.go\n",
         ):
             self.assertEqual(
-                build_metadata.git_tree_state("/repo", COMMIT), "dirty"
+                build_metadata.git_tree_state("/repo", COMMIT, "local"),
+                "dirty",
             )
 
-    def test_git_failure_is_archive(self):
+    def test_git_failure_local_is_dirty(self):
         with mock.patch.object(
             build_metadata.subprocess, "check_output", side_effect=OSError
         ):
             self.assertEqual(
-                build_metadata.git_tree_state("/repo", COMMIT), "archive"
+                build_metadata.git_tree_state("/repo", COMMIT, "local"),
+                "dirty",
             )
+
+    def test_git_failure_edge_raises(self):
+        with mock.patch.object(
+            build_metadata.subprocess, "check_output", side_effect=OSError
+        ):
+            with self.assertRaisesRegex(SystemExit, "git status failed"):
+                build_metadata.git_tree_state("/repo", COMMIT, "edge")
+
+    def test_git_failure_release_raises(self):
+        with mock.patch.object(
+            build_metadata.subprocess, "check_output", side_effect=OSError
+        ):
+            with self.assertRaisesRegex(SystemExit, "git status failed"):
+                build_metadata.git_tree_state("/repo", COMMIT, "release")
 
 
 class MetadataFileTest(unittest.TestCase):
