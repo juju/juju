@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-type scriptletSourceCharm interface {
+type scriptletSourcesCharm interface {
 	ScriptletSources() []internalcharm.ScriptletSource
 }
 
@@ -988,7 +988,7 @@ func validateAddCharmArgs(args charm.AddCharmArgs) (*internalcharm.Meta, error) 
 // unitless feature.
 func validateScriptletSources(ch internalcharm.Charm, meta *internalcharm.Meta) ([]internalcharm.ScriptletSource, error) {
 	var scriptletSources []internalcharm.ScriptletSource
-	if scriptletCharm, ok := ch.(scriptletSourceCharm); ok {
+	if scriptletCharm, ok := ch.(scriptletSourcesCharm); ok {
 		scriptletSources = scriptletCharm.ScriptletSources()
 	}
 	hasScriptlets := len(scriptletSources) > 0
