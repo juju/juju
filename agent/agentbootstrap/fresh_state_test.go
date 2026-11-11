@@ -76,7 +76,8 @@ func (s *freshStateSuite) assertFreshState(
 	b, cfg := s.newBootstrap(c, cloudType)
 	info, ok := cfg.ControllerAgentInfo()
 	c.Assert(ok, tc.IsTrue)
-	b.bootstrapDqlite = func(ctx context.Context, _ database.BootstrapNodeManager, _ network.ProviderAddresses, modelUUID coremodel.UUID, _ corelogger.Logger, ops ...database.BootstrapOpt) error {
+	b.bootstrapDqlite = func(ctx context.Context, _ database.BootstrapNodeManager, _ string, modelUUID coremodel.UUID, _ corelogger.Logger, ops ...database.BootstrapOpt) error {
+		// The local password is changed only once all seed operations succeed.
 		apiInfo, ok := cfg.APIInfo()
 		c.Assert(ok, tc.IsTrue)
 		c.Check(apiInfo.Password, tc.Equals, "agent-before")
@@ -134,7 +135,7 @@ func (s *freshStateSuite) TestDatabaseFailureDoesNotChangeAgentConfig(c *tc.C) {
 	before, err := cfg.Render()
 	c.Assert(err, tc.ErrorIsNil)
 	expected := errors.New("database failed")
-	b.bootstrapDqlite = func(context.Context, database.BootstrapNodeManager, network.ProviderAddresses, coremodel.UUID, corelogger.Logger, ...database.BootstrapOpt) error {
+	b.bootstrapDqlite = func(context.Context, database.BootstrapNodeManager, string, coremodel.UUID, corelogger.Logger, ...database.BootstrapOpt) error {
 		return expected
 	}
 	err = b.Initialise(c.Context())
@@ -192,9 +193,12 @@ func (s *freshStateSuite) newBootstrap(c *tc.C, cloudType string) (*AgentBootstr
 			ControllerCloud:  cloud.Cloud{Name: "test-cloud", Type: cloudType, AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType}},
 			SSHServerHostKey: string(hostKey),
 		},
-		BootstrapDqlite: func(context.Context, database.BootstrapNodeManager, network.ProviderAddresses, coremodel.UUID, corelogger.Logger, ...database.BootstrapOpt) error {
+		BootstrapDqlite: func(context.Context, database.BootstrapNodeManager, string, coremodel.UUID, corelogger.Logger, ...database.BootstrapOpt) error {
 			c.Fatal("unexpected database initialisation")
 			return nil
+		},
+		DqliteBindAddressResolver: func(context.Context, network.ProviderAddresses) (string, error) {
+			return loopbackIP, nil
 		},
 		Logger: loggertesting.WrapCheckLog(c),
 	})

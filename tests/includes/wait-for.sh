@@ -202,6 +202,26 @@ idle_condition() {
 	echo ".applications | to_entries[] | select((${path}[\"juju-status\"].current == \"idle\") and (${path}[\"workload-status\"].current != \"error\")) | .key"
 }
 
+# wait_for_units_idle waits for the first <count> units of an application to
+# be idle. Use this before triggering a config change whose result is asserted
+# via status, so hooks queued during provisioning cannot overwrite it.
+wait_for_units_idle() {
+	local app count i
+
+	app=${1:?usage: wait_for_units_idle <app> <count>}
+	count=${2:?usage: wait_for_units_idle <app> <count>}
+
+	# A missing or non-numeric count would silently skip every wait.
+	if (( count < 1 )); then
+		echo "[-] $(red 'wait_for_units_idle:') unit count must be >= 1 for ${app}"
+		exit 1
+	fi
+
+	for ((i = 0; i < count; i++)); do
+		wait_for "${app}" "$(idle_condition "${app}" "${i}")"
+	done
+}
+
 active_idle_condition() {
 	local name unit_index
 

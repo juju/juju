@@ -161,7 +161,7 @@ func (w *removalWorker) processRemovalJobs(ctx context.Context) error {
 		}
 
 		w.cfg.Logger.Infof(ctx, "scheduling %s job %q", j.RemovalType, id)
-		if err := w.runner.StartWorker(ctx, id, newJobWorker(w.cfg.RemovalService, j)); err != nil {
+		if err := w.runner.StartWorker(ctx, id, newJobWorker(w.cfg.RemovalService, j, w.cfg.Logger)); err != nil {
 			return errors.Capture(err)
 		}
 	}
@@ -189,21 +189,32 @@ func (w *removalWorker) Wait() error {
 // jobWorker exists to expose enough of a tomb to satisfy [worker.Worker],
 // and to generate a report.
 type jobWorker struct {
-	tomb tomb.Tomb
-	job  removal.Job
+	tomb   tomb.Tomb
+	svc    RemovalService
+	job    removal.Job
+	logger logger.Logger
 }
 
 // newJobWorker returns a closure suitable for passing to
 // a runner's StartWorker method.
 // It uses the input service to run the input removal job.
-func newJobWorker(svc RemovalService, job removal.Job) func(context.Context) (worker.Worker, error) {
+func newJobWorker(svc RemovalService, job removal.Job, logger logger.Logger) func(context.Context) (worker.Worker, error) {
 	return func(ctx context.Context) (worker.Worker, error) {
-		w := jobWorker{job: job}
-		w.tomb.Go(func() error {
-			return svc.ExecuteJob(w.tomb.Context(context.Background()), job)
-		})
+		w := jobWorker{svc: svc, job: job, logger: logger}
+		w.tomb.Go(w.loop)
 		return &w, nil
 	}
+}
+
+func (w *jobWorker) loop() error {
+	ctx := w.tomb.Context(context.Background())
+	err := w.svc.ExecuteJob(ctx, w.job)
+	if err != nil {
+		w.logger.Warningf(ctx, "removal job %q (%s) attempt failed: %v", w.job.UUID, w.job.RemovalType, err)
+	} else {
+		w.logger.Tracef(ctx, "removal job %q (%s) completed", w.job.UUID, w.job.RemovalType)
+	}
+	return err
 }
 
 // Report returns information about the removal job that the worker is running.

@@ -143,6 +143,7 @@ jobs:
             check-smoke:
               - '**.go'
               - 'go.mod'
+              - 'tests/**'
               - '.github/workflows/smoke.yml'
               - 'caas/**'
               - 'Makefile'
