@@ -295,15 +295,10 @@ func (s *ControllerModelState) GetAllAgentStoreBinariesForStream(
 	}
 
 	agentBinariesQ := `
-SELECT &agentStoreBinary.*
-FROM (
-    SELECT abs.version,
-           abs.architecture_id,
-           $agentStream.stream_id AS stream_id
-    FROM   agent_binary_store abs
-)
-`
-	agentBinariesStmt, err := s.Prepare(agentBinariesQ, streamInput, agentStoreBinary{})
+SELECT abs.version AS &agentStoreBinary.version,
+       abs.architecture_id AS &agentStoreBinary.architecture_id
+FROM agent_binary_store AS abs`
+	agentBinariesStmt, err := s.Prepare(agentBinariesQ, agentStoreBinary{})
 	if err != nil {
 		return nil, errors.Errorf(
 			"preparing get all agent binaries for stream query: %w", err,
@@ -331,7 +326,7 @@ FROM (
 			return nil
 		}
 
-		err = tx.Query(ctx, agentBinariesStmt, streamInput).GetAll(&dbVals)
+		err = tx.Query(ctx, agentBinariesStmt).GetAll(&dbVals)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
@@ -354,7 +349,7 @@ FROM (
 		retVal = append(retVal, agentbinary.AgentBinary{
 			Version:      version,
 			Architecture: agentbinary.Architecture(dbVal.ArchitectureID),
-			Stream:       agentbinary.Stream(dbVal.StreamID),
+			Stream:       stream,
 		})
 	}
 

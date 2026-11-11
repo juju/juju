@@ -43,19 +43,12 @@ func (s *ControllerState) GetAllAgentStoreBinariesForStream(
 		return nil, errors.Capture(err)
 	}
 
-	streamInput := agentStream{StreamID: int(stream)}
-
 	q := `
-SELECT &agentStoreBinary.*
-FROM (
-    SELECT abs.version,
-           abs.architecture_id,
-           $agentStream.stream_id AS stream_id
-    FROM   agent_binary_store abs
-)
-`
+SELECT abs.version AS &agentStoreBinary.version,
+       abs.architecture_id AS &agentStoreBinary.architecture_id
+FROM agent_binary_store AS abs`
 
-	stmt, err := s.Prepare(q, streamInput, agentStoreBinary{})
+	stmt, err := s.Prepare(q, agentStoreBinary{})
 	if err != nil {
 		return nil, errors.Errorf(
 			"preparing get all agent binaries for stream query: %w", err,
@@ -64,7 +57,7 @@ FROM (
 
 	dbVals := []agentStoreBinary{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, streamInput).GetAll(&dbVals)
+		err := tx.Query(ctx, stmt).GetAll(&dbVals)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
@@ -87,7 +80,7 @@ FROM (
 		retVal = append(retVal, agentbinary.AgentBinary{
 			Version:      version,
 			Architecture: agentbinary.Architecture(dbVal.ArchitectureID),
-			Stream:       agentbinary.Stream(dbVal.StreamID),
+			Stream:       stream,
 		})
 	}
 
