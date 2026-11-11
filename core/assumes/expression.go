@@ -18,15 +18,7 @@ func expressionHasFeature(expr chassumes.Expression, featureName string) bool {
 	switch expr := expr.(type) {
 	case chassumes.FeatureExpression:
 		return expr.Name == featureName
-	case *chassumes.FeatureExpression:
-		return expr.Name == featureName
 	case chassumes.CompositeExpression:
-		for _, subExpr := range expr.SubExpressions {
-			if expressionHasFeature(subExpr, featureName) {
-				return true
-			}
-		}
-	case *chassumes.CompositeExpression:
 		for _, subExpr := range expr.SubExpressions {
 			if expressionHasFeature(subExpr, featureName) {
 				return true

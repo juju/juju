@@ -38,3 +38,22 @@ func (s *expressionSuite) TestHasFeature(c *tc.C) {
 	c.Check(HasFeature(tree, "storage"), tc.IsFalse)
 	c.Check(HasFeature(nil, "unitless"), tc.IsFalse)
 }
+
+func (s *expressionSuite) TestHasFeatureRootFeatureExpression(c *tc.C) {
+	tree := &chassumes.ExpressionTree{
+		Expression: chassumes.FeatureExpression{Name: "juju"},
+	}
+
+	c.Check(HasFeature(tree, "juju"), tc.IsTrue)
+	c.Check(HasFeature(tree, "k8s-api"), tc.IsFalse)
+}
+
+func (s *expressionSuite) TestHasFeatureEmptyComposite(c *tc.C) {
+	tree := &chassumes.ExpressionTree{
+		Expression: chassumes.CompositeExpression{
+			ExprType: chassumes.AllOfExpression,
+		},
+	}
+
+	c.Check(HasFeature(tree, "juju"), tc.IsFalse)
+}
