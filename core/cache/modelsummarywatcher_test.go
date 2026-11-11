@@ -236,11 +236,11 @@ func (s *modelSummaryWatcherSuite) TestModelAnnotationsChange(c *gc.C) {
 		},
 	}
 
-	s.ProcessChange(c, modelChange, s.events)
-
 	changes := watcher.Changes()
 	// discard the initial event
 	_ = s.next(c, changes)
+
+	s.ProcessChange(c, modelChange, s.events)
 
 	modelChange.Annotations = map[string]string{
 		"muted": "true",

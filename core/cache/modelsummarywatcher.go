@@ -184,7 +184,6 @@ func (w *modelSummaryWatcher) onSummaryUpdate(topic string, data interface{}) {
 	uuid := payload.summary.UUID
 	logger.Tracef("onSummaryChange: %s", uuid)
 	w.mu.Lock()
-	defer w.mu.Unlock()
 	var summary ModelSummary
 	if payload.visibleTo(w.user) {
 		// Add is idempotent, and we don't care if we weren't previously tracking.
@@ -192,6 +191,7 @@ func (w *modelSummaryWatcher) onSummaryUpdate(topic string, data interface{}) {
 			// If we have already notified for this hash, then don't send
 			// again. If this is a newly watched model, the hash in the map
 			// will be the empty string.
+			w.mu.Unlock()
 			return
 		}
 		w.hashes[uuid] = payload.hash
@@ -201,6 +201,7 @@ func (w *modelSummaryWatcher) onSummaryUpdate(topic string, data interface{}) {
 	} else {
 		if !w.visibleModels.Contains(uuid) {
 			// We aren't tracking, and shouldn't be, so nothing to do.
+			w.mu.Unlock()
 			return
 		}
 		// If we were tracking this model, stop tracking this model.
@@ -211,6 +212,7 @@ func (w *modelSummaryWatcher) onSummaryUpdate(topic string, data interface{}) {
 			Removed: true,
 		}
 	}
+	w.mu.Unlock()
 
 	select {
 	case <-w.tomb.Dying():
