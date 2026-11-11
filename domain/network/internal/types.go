@@ -91,6 +91,26 @@ type UnitAddress struct {
 	DeviceType corenetwork.LinkLayerDeviceType
 }
 
+// UnitDeviceAddress is a unit address together with the facts about its
+// device that are needed to identify the default route source address.
+type UnitDeviceAddress struct {
+	corenetwork.SpaceAddress
+
+	// DeviceUUID identifies the link-layer device that holds the address.
+	DeviceUUID string
+
+	// IsSecondary is true if the address is not the primary address for
+	// its subnet on the device.
+	IsSecondary bool
+
+	// IsDefaultGatewayDevice is true if the device carries the machine's
+	// IPv4 default route.
+	IsDefaultGatewayDevice bool
+
+	// GatewayAddress is the device's gateway address, if known.
+	GatewayAddress string
+}
+
 type ImportK8sService struct {
 	UUID        string // generated during import
 	DeviceUUID  string // generated during import

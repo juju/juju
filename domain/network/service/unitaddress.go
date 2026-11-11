@@ -79,11 +79,14 @@ func (s *Service) GetUnitPublicAddresses(ctx context.Context, unitName unit.Name
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	addrs, err := s.st.GetUnitAndK8sServiceAddresses(ctx, unitUUID)
+	unitAddrs, err := s.st.GetUnitAndK8sServiceAddresses(ctx, unitUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
+	// When there is no public address, the cloud-local addresses are used.
+	// Prefer the one used as the source of the default route.
+	addrs := markDefaultRouteSource(unitAddrs)
 	matchedAddrs := addrs.AllMatchingScope(network.ScopeMatchPublic)
 	if len(matchedAddrs) == 0 {
 		return nil, network.NoAddressError(string(network.ScopePublic))

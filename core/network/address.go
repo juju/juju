@@ -612,8 +612,9 @@ func (pas ProviderAddresses) OneMatchingScope(getMatcher ScopeMatchFunc) (Provid
 // It is used in logic for filtering addresses by space.
 type SpaceAddress struct {
 	MachineAddress
-	Origin  Origin
-	SpaceID SpaceUUID
+	Origin               Origin
+	SpaceID              SpaceUUID
+	IsDefaultRouteSource bool
 }
 
 // GoString implements fmt.GoStringer.
@@ -755,16 +756,19 @@ func (sas SpaceAddresses) Swap(i, j int) { sas[i], sas[j] = sas[j], sas[i] }
 func (sas SpaceAddresses) Less(i, j int) bool {
 	addr1 := sas[i]
 	addr2 := sas[j]
-	// Sort by scope first, then by origin then by address value.
+	// Sort by scope first, then prefer the default route source address,
+	// then by origin, then by address value.
 	order1 := SortOrderMostPublic(addr1)
 	order2 := SortOrderMostPublic(addr2)
 	if order1 == order2 {
-		originOrder1 := SortOrderOrigin(addr1)
-		originOrder2 := SortOrderOrigin(addr2)
-		if originOrder1 == originOrder2 {
+		if addr1.IsDefaultRouteSource != addr2.IsDefaultRouteSource {
+			return addr1.IsDefaultRouteSource
+		}
+		order1 = SortOrderOrigin(addr1)
+		order2 = SortOrderOrigin(addr2)
+		if order1 == order2 {
 			return addr1.Value < addr2.Value
 		}
-		return originOrder1 < originOrder2
 	}
 	return order1 < order2
 }

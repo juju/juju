@@ -13,6 +13,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
+	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -48,28 +49,34 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesIncludingK8sService(
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(addr, tc.SameContents, corenetwork.SpaceAddresses{
+	c.Check(addr, tc.SameContents, []internal.UnitDeviceAddress{
 		{
-			SpaceID: corenetwork.SpaceUUID(spaceUUID),
-			Origin:  corenetwork.OriginMachine,
-			MachineAddress: corenetwork.MachineAddress{
-				Value:      podAddr,
-				CIDR:       cidr,
-				Type:       corenetwork.IPv4Address,
-				Scope:      corenetwork.ScopeMachineLocal,
-				ConfigType: corenetwork.ConfigDHCP,
+			SpaceAddress: corenetwork.SpaceAddress{
+				SpaceID: corenetwork.SpaceUUID(spaceUUID),
+				Origin:  corenetwork.OriginMachine,
+				MachineAddress: corenetwork.MachineAddress{
+					Value:      podAddr,
+					CIDR:       cidr,
+					Type:       corenetwork.IPv4Address,
+					Scope:      corenetwork.ScopeMachineLocal,
+					ConfigType: corenetwork.ConfigDHCP,
+				},
 			},
+			DeviceUUID: podDeviceUUID,
 		},
 		{
-			SpaceID: corenetwork.SpaceUUID(spaceUUID),
-			Origin:  corenetwork.OriginProvider,
-			MachineAddress: corenetwork.MachineAddress{
-				Value:      svcAddr,
-				CIDR:       cidr,
-				Type:       corenetwork.IPv4Address,
-				Scope:      corenetwork.ScopePublic,
-				ConfigType: corenetwork.ConfigDHCP,
+			SpaceAddress: corenetwork.SpaceAddress{
+				SpaceID: corenetwork.SpaceUUID(spaceUUID),
+				Origin:  corenetwork.OriginProvider,
+				MachineAddress: corenetwork.MachineAddress{
+					Value:      svcAddr,
+					CIDR:       cidr,
+					Type:       corenetwork.IPv4Address,
+					Scope:      corenetwork.ScopePublic,
+					ConfigType: corenetwork.ConfigDHCP,
+				},
 			},
+			DeviceUUID: svcDeviceUUID,
 		},
 	})
 }
@@ -91,17 +98,20 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesWithoutK8sService(c 
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(addr, tc.DeepEquals, corenetwork.SpaceAddresses{
+	c.Check(addr, tc.DeepEquals, []internal.UnitDeviceAddress{
 		{
-			SpaceID: corenetwork.SpaceUUID(spaceUUID),
-			Origin:  corenetwork.OriginProvider,
-			MachineAddress: corenetwork.MachineAddress{
-				Value:      expectedAddr,
-				CIDR:       cidr,
-				Type:       corenetwork.IPv4Address,
-				Scope:      corenetwork.ScopeMachineLocal,
-				ConfigType: corenetwork.ConfigDHCP,
+			SpaceAddress: corenetwork.SpaceAddress{
+				SpaceID: corenetwork.SpaceUUID(spaceUUID),
+				Origin:  corenetwork.OriginProvider,
+				MachineAddress: corenetwork.MachineAddress{
+					Value:      expectedAddr,
+					CIDR:       cidr,
+					Type:       corenetwork.IPv4Address,
+					Scope:      corenetwork.ScopeMachineLocal,
+					ConfigType: corenetwork.ConfigDHCP,
+				},
 			},
+			DeviceUUID: deviceUUID,
 		},
 	})
 }
@@ -122,7 +132,135 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesNoAddresses(c *tc.C)
 
 	//Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(addr, tc.DeepEquals, corenetwork.SpaceAddresses{})
+	c.Assert(addr, tc.DeepEquals, []internal.UnitDeviceAddress{})
+}
+
+// TestGetUnitAndK8sServiceAddressesDefaultGateway checks that the device
+// facts needed to identify the default route source are returned with each
+// address, and that the state does not itself flag the source address.
+func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesDefaultGateway(c *tc.C) {
+	// Arrange
+	nodeUUID := s.addNetNode(c)
+	eth0UUID := s.linkLayerBaseSuite.addLinkLayerDevice(
+		c, nodeUUID, "eth0", "00:11:22:33:44:55", corenetwork.EthernetDevice)
+	eth1UUID := s.linkLayerBaseSuite.addLinkLayerDevice(
+		c, nodeUUID, "eth1", "00:11:22:33:44:66", corenetwork.EthernetDevice)
+	s.setDefaultGateway(c, eth0UUID, "10.1.0.1")
+
+	spaceUUID := s.addSpace(c)
+	eth0SubnetUUID := s.addSubnet(c, "10.1.0.0/24", spaceUUID)
+	eth1SubnetUUID := s.addSubnet(c, "10.0.0.0/24", spaceUUID)
+	s.addUnitDeviceIPAddress(c, nodeUUID, eth0UUID, eth0SubnetUUID,
+		"10.1.0.123/24", 0, 2, 0, false)
+	s.addUnitDeviceIPAddress(c, nodeUUID, eth0UUID, eth0SubnetUUID,
+		"10.1.0.124/24", 0, 2, 0, true)
+	s.addUnitDeviceIPAddress(c, nodeUUID, eth1UUID, eth1SubnetUUID,
+		"10.0.0.123/24", 0, 2, 0, false)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	// Act
+	addrs, err := s.state.GetUnitAndK8sServiceAddresses(c.Context(), unitUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	expected := func(
+		value, cidr, deviceUUID string,
+		isSecondary, isDefaultGatewayDevice bool,
+		gatewayAddress string,
+	) internal.UnitDeviceAddress {
+		return internal.UnitDeviceAddress{
+			SpaceAddress: corenetwork.SpaceAddress{
+				SpaceID: corenetwork.SpaceUUID(spaceUUID),
+				Origin:  corenetwork.OriginMachine,
+				MachineAddress: corenetwork.MachineAddress{
+					Value:      value,
+					CIDR:       cidr,
+					Type:       corenetwork.IPv4Address,
+					Scope:      corenetwork.ScopeCloudLocal,
+					ConfigType: corenetwork.ConfigDHCP,
+				},
+			},
+			DeviceUUID:             deviceUUID,
+			IsSecondary:            isSecondary,
+			IsDefaultGatewayDevice: isDefaultGatewayDevice,
+			GatewayAddress:         gatewayAddress,
+		}
+	}
+	c.Check(addrs, tc.SameContents, []internal.UnitDeviceAddress{
+		expected("10.1.0.123", "10.1.0.0/24", eth0UUID, false, true, "10.1.0.1"),
+		expected("10.1.0.124", "10.1.0.0/24", eth0UUID, true, true, "10.1.0.1"),
+		expected("10.0.0.123", "10.0.0.0/24", eth1UUID, false, false, ""),
+	})
+}
+
+// TestGetUnitAndK8sServiceAddressesExcludesOtherEntities checks that only the
+// addresses of the unit and of the K8s service of its own application are
+// returned. The addresses of another unit of the same application, and of
+// another application's unit and K8s service, are not.
+func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesExcludesOtherEntities(c *tc.C) {
+	// Arrange
+	spaceUUID := s.addSpace(c)
+	subnetUUID, cidr := s.addsubnet(c, spaceUUID)
+	charmUUID := s.addCharm(c)
+
+	addAddress := func(nodeUUID, value string) string {
+		deviceUUID := s.addLinkLayerDevice(c, nodeUUID)
+		s.addUnitDeviceIPAddress(c, nodeUUID, deviceUUID, subnetUUID,
+			value+"/24", 0, 2, 0, false)
+		return deviceUUID
+	}
+
+	// The unit and the K8s service of its application.
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitNodeUUID := s.addNetNode(c)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, unitNodeUUID)
+	unitDeviceUUID := addAddress(unitNodeUUID, "10.0.0.11")
+	svcNodeUUID := s.addNetNode(c)
+	s.addK8sServiceWithProviderID(c, svcNodeUUID, appUUID, "svc-1")
+	svcDeviceUUID := addAddress(svcNodeUUID, "10.0.0.12")
+
+	// Another unit of the same application, on its own net node.
+	otherUnitNodeUUID := s.addNetNode(c)
+	s.addUnit(c, appUUID, charmUUID, otherUnitNodeUUID)
+	addAddress(otherUnitNodeUUID, "10.0.0.21")
+
+	// Another application, with its own unit and K8s service.
+	otherAppUUID := s.addApplication(c, charmUUID, spaceUUID)
+	otherAppUnitNodeUUID := s.addNetNode(c)
+	s.addUnit(c, otherAppUUID, charmUUID, otherAppUnitNodeUUID)
+	addAddress(otherAppUnitNodeUUID, "10.0.0.31")
+	otherSvcNodeUUID := s.addNetNode(c)
+	s.addK8sServiceWithProviderID(c, otherSvcNodeUUID, otherAppUUID, "svc-2")
+	addAddress(otherSvcNodeUUID, "10.0.0.32")
+
+	// Act
+	addrs, err := s.state.GetUnitAndK8sServiceAddresses(c.Context(), unitUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	expected := func(value, deviceUUID string) internal.UnitDeviceAddress {
+		return internal.UnitDeviceAddress{
+			SpaceAddress: corenetwork.SpaceAddress{
+				SpaceID: corenetwork.SpaceUUID(spaceUUID),
+				Origin:  corenetwork.OriginMachine,
+				MachineAddress: corenetwork.MachineAddress{
+					Value:      value,
+					CIDR:       cidr,
+					Type:       corenetwork.IPv4Address,
+					Scope:      corenetwork.ScopeCloudLocal,
+					ConfigType: corenetwork.ConfigDHCP,
+				},
+			},
+			DeviceUUID: deviceUUID,
+		}
+	}
+	c.Check(addrs, tc.SameContents, []internal.UnitDeviceAddress{
+		expected("10.0.0.11", unitDeviceUUID),
+		expected("10.0.0.12", svcDeviceUUID),
+	})
 }
 
 func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesNotFound(c *tc.C) {
@@ -389,6 +527,24 @@ func (s *unitAddressSuite) addIPAddress(c *tc.C, nodeUUID, deviceUUID, subnetUUI
 	s.query(c, `INSERT INTO ip_address (uuid, net_node_uuid, device_uuid, address_value, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		ipAddrUUID, nodeUUID, deviceUUID, addr+"/24", 0, scopeID, originID, 1, subnetUUID)
 	return addr
+}
+
+// addUnitDeviceIPAddress adds an IP address with the input value, which
+// should include the prefix length, and returns the address UUID.
+// The type, scope and origin arguments are lookup table IDs.
+func (s *unitAddressSuite) addUnitDeviceIPAddress(
+	c *tc.C, nodeUUID, deviceUUID, subnetUUID, value string,
+	typeID, scopeID, originID int, isSecondary bool,
+) string {
+	ipAddrUUID := uuid.MustNewUUID().String()
+	s.query(c, `
+INSERT INTO ip_address (
+    uuid, net_node_uuid, device_uuid, address_value, type_id, scope_id,
+    origin_id, config_type_id, subnet_uuid, is_secondary)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		ipAddrUUID, nodeUUID, deviceUUID, value, typeID, scopeID, originID,
+		1, subnetUUID, isSecondary)
+	return ipAddrUUID
 }
 
 func (s *unitAddressSuite) addKubernetesIPAddress(c *tc.C, nodeUUID, deviceUUID, subnetUUID string, scopeID, originID int) string {

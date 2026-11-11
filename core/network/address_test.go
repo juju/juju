@@ -1329,6 +1329,230 @@ func (s *AddressSuite) TestSortOrderSameScopeSameOriginDiffValue(c *tc.C) {
 	})
 }
 
+// TestSortOrderDefaultRouteSourceBeforeLowerValue checks that the default
+// route source address sorts before a lower-valued address with the same
+// scope. Both addresses have the same origin, so only the flag can
+// override the value ordering.
+func (s *AddressSuite) TestSortOrderDefaultRouteSourceBeforeLowerValue(c *tc.C) {
+	// Arrange
+	unflagged := network.SpaceAddress{
+		MachineAddress: network.MachineAddress{
+			Value: "10.0.0.123",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Origin:  network.OriginMachine,
+		SpaceID: "0",
+	}
+	flagged := network.SpaceAddress{
+		MachineAddress: network.MachineAddress{
+			Value: "10.1.0.123",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Origin:               network.OriginMachine,
+		SpaceID:              "0",
+		IsDefaultRouteSource: true,
+	}
+	sas := network.SpaceAddresses{unflagged, flagged}
+
+	// Act
+	sort.Sort(sas)
+
+	// Assert
+	c.Check(sas, tc.DeepEquals, network.SpaceAddresses{flagged, unflagged})
+}
+
+// TestSortOrderDefaultRouteSourceBothFlagged checks that when both addresses
+// are flagged as the default route source, the flag does not decide the
+// order, and the origin and then the value ordering apply as usual. Both
+// input orders are sorted, so the result must not depend on the input order.
+func (s *AddressSuite) TestSortOrderDefaultRouteSourceBothFlagged(c *tc.C) {
+	// Arrange
+	newFlagged := func(
+		value string, origin network.Origin,
+	) network.SpaceAddress {
+		return network.SpaceAddress{
+			MachineAddress: network.MachineAddress{
+				Value: value,
+				Type:  network.IPv4Address,
+				Scope: network.ScopeCloudLocal,
+			},
+			Origin:               origin,
+			SpaceID:              "0",
+			IsDefaultRouteSource: true,
+		}
+	}
+
+	// Same origin: the lower value sorts first.
+	higher := newFlagged("10.1.0.123", network.OriginMachine)
+	lower := newFlagged("10.0.0.123", network.OriginMachine)
+
+	// Different origin: provider sorts first, even though the machine
+	// address has the lower value.
+	machine := newFlagged("10.0.0.123", network.OriginMachine)
+	provider := newFlagged("10.1.0.123", network.OriginProvider)
+
+	inputs := []struct {
+		input    network.SpaceAddresses
+		expected network.SpaceAddresses
+	}{
+		{network.SpaceAddresses{higher, lower}, network.SpaceAddresses{lower, higher}},
+		{network.SpaceAddresses{lower, higher}, network.SpaceAddresses{lower, higher}},
+		{network.SpaceAddresses{machine, provider}, network.SpaceAddresses{provider, machine}},
+		{network.SpaceAddresses{provider, machine}, network.SpaceAddresses{provider, machine}},
+	}
+
+	for i, test := range inputs {
+		// Act
+		sort.Sort(test.input)
+
+		// Assert
+		c.Check(test.input, tc.DeepEquals, test.expected, tc.Commentf("case %d", i))
+	}
+}
+
+// TestSortOrderDefaultRouteSourceBeforeOrigin checks that the default route
+// source flag takes priority over the address origin.
+func (s *AddressSuite) TestSortOrderDefaultRouteSourceBeforeOrigin(c *tc.C) {
+	// Arrange
+	unflaggedProvider := network.SpaceAddress{
+		MachineAddress: network.MachineAddress{
+			Value: "10.0.0.123",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Origin:  network.OriginProvider,
+		SpaceID: "0",
+	}
+	flaggedMachine := network.SpaceAddress{
+		MachineAddress: network.MachineAddress{
+			Value: "10.1.0.123",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Origin:               network.OriginMachine,
+		SpaceID:              "0",
+		IsDefaultRouteSource: true,
+	}
+	sas := network.SpaceAddresses{unflaggedProvider, flaggedMachine}
+
+	// Act
+	sort.Sort(sas)
+
+	// Assert
+	c.Check(sas, tc.DeepEquals, network.SpaceAddresses{
+		flaggedMachine, unflaggedProvider,
+	})
+}
+
+// TestSortOrderDefaultRouteSourceDoesNotBeatScope checks that the default
+// route source flag does not override a better scope.
+func (s *AddressSuite) TestSortOrderDefaultRouteSourceDoesNotBeatScope(c *tc.C) {
+	// Arrange
+	public := network.SpaceAddress{
+		MachineAddress: network.MachineAddress{
+			Value: "203.0.113.10",
+			Type:  network.IPv4Address,
+			Scope: network.ScopePublic,
+		},
+		Origin:  network.OriginMachine,
+		SpaceID: "0",
+	}
+	flaggedCloudLocal := network.SpaceAddress{
+		MachineAddress: network.MachineAddress{
+			Value: "10.1.0.123",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Origin:               network.OriginMachine,
+		SpaceID:              "0",
+		IsDefaultRouteSource: true,
+	}
+	sas := network.SpaceAddresses{flaggedCloudLocal, public}
+
+	// Act
+	sort.Sort(sas)
+
+	// Assert
+	c.Check(sas, tc.DeepEquals, network.SpaceAddresses{
+		public, flaggedCloudLocal,
+	})
+}
+
+// TestSortOrderDefaultRouteSourceDoesNotBeatType checks that the default
+// route source flag does not override the address type weighting, so an
+// IPv4 address sorts before a flagged IPv6 address of the same scope.
+func (s *AddressSuite) TestSortOrderDefaultRouteSourceDoesNotBeatType(c *tc.C) {
+	// Arrange
+	// The flag is not expected to be set on an IPv6 address in practice;
+	// this guards the order of precedence.
+	unflaggedIPv4 := network.SpaceAddress{
+		MachineAddress: network.MachineAddress{
+			Value: "10.0.0.123",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Origin:  network.OriginMachine,
+		SpaceID: "0",
+	}
+	flaggedIPv6 := network.SpaceAddress{
+		MachineAddress: network.MachineAddress{
+			Value: "fd00::123",
+			Type:  network.IPv6Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Origin:               network.OriginMachine,
+		SpaceID:              "0",
+		IsDefaultRouteSource: true,
+	}
+	sas := network.SpaceAddresses{flaggedIPv6, unflaggedIPv4}
+
+	// Act
+	sort.Sort(sas)
+
+	// Assert
+	c.Check(sas, tc.DeepEquals, network.SpaceAddresses{
+		unflaggedIPv4, flaggedIPv6,
+	})
+}
+
+// TestOneMatchingScopePublicPrefersDefaultRouteSource checks that when the
+// public scope match falls back to cloud-local addresses, the default route
+// source address is selected.
+func (s *AddressSuite) TestOneMatchingScopePublicPrefersDefaultRouteSource(c *tc.C) {
+	// Arrange
+	sas := network.SpaceAddresses{
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "10.0.0.123",
+				Type:  network.IPv4Address,
+				Scope: network.ScopeCloudLocal,
+			},
+			Origin:  network.OriginMachine,
+			SpaceID: "0",
+		},
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "10.1.0.123",
+				Type:  network.IPv4Address,
+				Scope: network.ScopeCloudLocal,
+			},
+			Origin:               network.OriginMachine,
+			SpaceID:              "0",
+			IsDefaultRouteSource: true,
+		},
+	}
+
+	// Act
+	addr, ok := sas.OneMatchingScope(network.ScopeMatchPublic)
+
+	// Assert
+	c.Assert(ok, tc.IsTrue)
+	c.Check(addr.Value, tc.Equals, "10.1.0.123")
+	c.Check(addr.IsDefaultRouteSource, tc.IsTrue)
+}
+
 type testFindSubnetAddr struct {
 	val string
 }

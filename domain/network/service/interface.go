@@ -113,7 +113,9 @@ type SubnetState interface {
 // NetConfigState describes persistence layer methods for
 // working with link-layer devices and IP addresses.
 type NetConfigState interface {
-	// GetUnitAndK8sServiceAddresses returns the addresses of the specified unit.
+	// GetUnitAndK8sServiceAddresses returns the addresses of the specified unit,
+	// together with the facts about their link-layer devices that are needed
+	// to identify the default route source address.
 	// The addresses are taken by unioning the net node UUIDs of the cloud
 	// service (if any) and the net node UUIDs of the unit, where each net node
 	// has an associated address.
@@ -122,7 +124,9 @@ type NetConfigState interface {
 	//
 	// The following errors may be returned:
 	// - [uniterrors.UnitNotFound] if the unit does not exist.
-	GetUnitAndK8sServiceAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error)
+	GetUnitAndK8sServiceAddresses(
+		ctx context.Context, uuid coreunit.UUID,
+	) ([]networkinternal.UnitDeviceAddress, error)
 
 	// GetControllerAPIAddresses returns controller API address candidates for
 	// the specified unit, including the supplying device type.

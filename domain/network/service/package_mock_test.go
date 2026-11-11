@@ -58,7 +58,7 @@ type MockStateMockRecorder struct {
 	getSubnetCIDRForDeviceExpects               []*gomock.Call4_2[context.Context, string, string, string, string, error]
 	getSubnetsByCIDRExpects                     []*gomock.Call1V_2[context.Context, string, network.SubnetInfos, error]
 	getUnitAddressesExpects                     []*gomock.Call2_2[context.Context, unit.UUID, network.SpaceAddresses, error]
-	getUnitAndK8sServiceAddressesExpects        []*gomock.Call2_2[context.Context, unit.UUID, network.SpaceAddresses, error]
+	getUnitAndK8sServiceAddressesExpects        []*gomock.Call2_2[context.Context, unit.UUID, []internal.UnitDeviceAddress, error]
 	getUnitEgressSubnetsExpects                 []*gomock.Call2_2[context.Context, string, []string, error]
 	getUnitEndpointNetworkInfoExpects           []*gomock.Call3_2[context.Context, string, []string, []internal.EndpointNetworkInfo, error]
 	getUnitNetworkInfoExpects                   []*gomock.Call2_2[context.Context, string, internal.UnitNetworkInfo, error]
@@ -561,7 +561,7 @@ func (mr *MockStateMockRecorder) GetUnitAddresses(ctx, uuid any) *MockStateGetUn
 type MockStateGetUnitAddressesCall = gomock.Call2_2[context.Context, unit.UUID, network.SpaceAddresses, error]
 
 // GetUnitAndK8sServiceAddresses mocks base method.
-func (m *MockState) GetUnitAndK8sServiceAddresses(ctx context.Context, uuid unit.UUID) (network.SpaceAddresses, error) {
+func (m *MockState) GetUnitAndK8sServiceAddresses(ctx context.Context, uuid unit.UUID) ([]internal.UnitDeviceAddress, error) {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch2_2(&m.recorder.getUnitAndK8sServiceAddressesExpects, m.ctrl, m, "GetUnitAndK8sServiceAddresses", ctx, uuid)
 }
@@ -569,14 +569,14 @@ func (m *MockState) GetUnitAndK8sServiceAddresses(ctx context.Context, uuid unit
 // GetUnitAndK8sServiceAddresses indicates an expected call of GetUnitAndK8sServiceAddresses.
 func (mr *MockStateMockRecorder) GetUnitAndK8sServiceAddresses(ctx, uuid any) *MockStateGetUnitAndK8sServiceAddressesCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, unit.UUID, network.SpaceAddresses, error](mr.mock.ctrl.T, mr.mock, "GetUnitAndK8sServiceAddresses", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uuid))
+	call := gomock.NewCall2_2[context.Context, unit.UUID, []internal.UnitDeviceAddress, error](mr.mock.ctrl.T, mr.mock, "GetUnitAndK8sServiceAddresses", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uuid))
 	mr.getUnitAndK8sServiceAddressesExpects = append(mr.getUnitAndK8sServiceAddressesExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStateGetUnitAndK8sServiceAddressesCall is the typed call wrapper for GetUnitAndK8sServiceAddresses.
-type MockStateGetUnitAndK8sServiceAddressesCall = gomock.Call2_2[context.Context, unit.UUID, network.SpaceAddresses, error]
+type MockStateGetUnitAndK8sServiceAddressesCall = gomock.Call2_2[context.Context, unit.UUID, []internal.UnitDeviceAddress, error]
 
 // GetUnitEgressSubnets mocks base method.
 func (m *MockState) GetUnitEgressSubnets(ctx context.Context, unitUUID string) ([]string, error) {

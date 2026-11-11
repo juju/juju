@@ -277,6 +277,17 @@ VALUES (?, ?, ?, ?, ?,
 	return deviceUUID
 }
 
+// setDefaultGateway marks the link layer device as carrying the default route
+// with the input gateway address.
+func (s *linkLayerBaseSuite) setDefaultGateway(
+	c *tc.C, deviceUUID, gatewayAddress string,
+) {
+	s.query(c, `
+UPDATE link_layer_device
+SET    is_default_gateway = true, gateway_address = ?
+WHERE  uuid = ?`, gatewayAddress, deviceUUID)
+}
+
 func (s *linkLayerBaseSuite) addDNSDomains(c *tc.C, deviceUUID string, dnsDomains ...string) {
 	for _, dnsDomain := range dnsDomains {
 		s.query(c, `
@@ -404,9 +415,17 @@ func (s *linkLayerBaseSuite) addUnit(c *tc.C, appUUID, charmUUID, nodeUUID strin
 // addK8sService inserts a new Kubernetes service into the database with the associated node, application, and
 // provider ID.
 func (s *linkLayerBaseSuite) addK8sService(c *tc.C, nodeUUID, appUUID string) {
+	s.addK8sServiceWithProviderID(c, nodeUUID, appUUID, "provider-id")
+}
+
+// addK8sServiceWithProviderID inserts a new Kubernetes service into the
+// database with the input provider ID, which must be unique across services.
+func (s *linkLayerBaseSuite) addK8sServiceWithProviderID(
+	c *tc.C, nodeUUID, appUUID, providerID string,
+) {
 	svcUUID := uuid.MustNewUUID().String()
 	s.query(c, `INSERT INTO k8s_service (uuid, net_node_uuid, application_uuid, provider_id) VALUES (?, ?, ?, ?)`,
-		svcUUID, nodeUUID, appUUID, "provider-id")
+		svcUUID, nodeUUID, appUUID, providerID)
 }
 
 func zeroNilPtr[T comparable](v *T) T {
