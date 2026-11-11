@@ -16,6 +16,8 @@ import (
 	"github.com/lestrrat-go/jwx/v3/jwt"
 )
 
+//go:generate go run github.com/canonical/gomock/mockgen -package jwtparser -destination httpclient_mock_test.go github.com/lestrrat-go/httprc/v3 HTTPClient
+
 type mockHTTPClient struct {
 	url  string
 	keys string
