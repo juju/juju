@@ -24,7 +24,7 @@ type ModelRelationNetworkState interface {
 	AddRelationNetworkIngress(ctx context.Context, relationUUID string, cidrs []string) error
 
 	// GetRelationNetworkIngress retrieves all ingress network CIDRs for the
-	// specified relation.
+	// specified relation in lexical order.
 	GetRelationNetworkIngress(ctx context.Context, relationUUID string) ([]string, error)
 
 	// GetRelationNetworkEgress retrieves all egress network CIDRs for the
@@ -75,7 +75,7 @@ func (s *Service) AddRelationNetworkIngress(ctx context.Context, relationUUID co
 }
 
 // GetRelationNetworkIngress retrieves all ingress network CIDRs for the
-// specified relation.
+// specified relation in lexical order.
 // The CIDRs are retrieved from the relation_network_ingress table.
 func (s *Service) GetRelationNetworkIngress(ctx context.Context, relationUUID corerelation.UUID) ([]string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
