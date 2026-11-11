@@ -247,26 +247,43 @@ func (s *addCharmSuite) TestAddLocalCharmError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `.*boom$`)
 }
 
+func (s *addCharmSuite) TestHooksAllowSymlink(c *tc.C) {
+	path := c.MkDir() + "/charm.zip"
+	file, err := os.Create(path)
+	c.Assert(err, tc.ErrorIsNil)
+	writer := zip.NewWriter(file)
+	header := &zip.FileHeader{Name: "hooks/install"}
+	header.SetMode(os.ModeSymlink | 0o777)
+	_, err = writer.CreateHeader(header)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(writer.Close(), tc.ErrorIsNil)
+	c.Assert(file.Close(), tc.ErrorIsNil)
+
+	found, err := (*charms.HasHooksDispatchOrScriptlets)(path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(found, tc.IsTrue)
+}
+
 func (s *addCharmSuite) TestMinVersionLocalCharm(c *tc.C) {
 	tests := []minverTest{
-		{"2.0.0", "1.0.0", false, true},
-		{"1.0.0", "2.0.0", false, false},
-		{"1.25.0", "1.24.0", false, true},
-		{"1.24.0", "1.25.0", false, false},
-		{"1.25.1", "1.25.0", false, true},
-		{"1.25.0", "1.25.1", false, false},
-		{"1.25.0", "1.25.0", false, true},
-		{"1.25.0", "1.25-alpha1", false, true},
-		{"1.25-alpha1", "1.25.0", false, true},
-		{"2.0.0", "1.0.0", true, true},
-		{"1.0.0", "2.0.0", true, false},
-		{"1.25.0", "1.24.0", true, true},
-		{"1.24.0", "1.25.0", true, false},
-		{"1.25.1", "1.25.0", true, true},
-		{"1.25.0", "1.25.1", true, false},
-		{"1.25.0", "1.25.0", true, true},
-		{"1.25.0", "1.25-alpha1", true, true},
-		{"1.25-alpha1", "1.25.0", true, true},
+		{juju: "2.0.0", charm: "1.0.0", force: false, ok: true},
+		{juju: "1.0.0", charm: "2.0.0", force: false, ok: false},
+		{juju: "1.25.0", charm: "1.24.0", force: false, ok: true},
+		{juju: "1.24.0", charm: "1.25.0", force: false, ok: false},
+		{juju: "1.25.1", charm: "1.25.0", force: false, ok: true},
+		{juju: "1.25.0", charm: "1.25.1", force: false, ok: false},
+		{juju: "1.25.0", charm: "1.25.0", force: false, ok: true},
+		{juju: "1.25.0", charm: "1.25-alpha1", force: false, ok: true},
+		{juju: "1.25-alpha1", charm: "1.25.0", force: false, ok: true},
+		{juju: "2.0.0", charm: "1.0.0", force: true, ok: true},
+		{juju: "1.0.0", charm: "2.0.0", force: true, ok: false},
+		{juju: "1.25.0", charm: "1.24.0", force: true, ok: true},
+		{juju: "1.24.0", charm: "1.25.0", force: true, ok: false},
+		{juju: "1.25.1", charm: "1.25.0", force: true, ok: true},
+		{juju: "1.25.0", charm: "1.25.1", force: true, ok: false},
+		{juju: "1.25.0", charm: "1.25.0", force: true, ok: true},
+		{juju: "1.25.0", charm: "1.25-alpha1", force: true, ok: true},
+		{juju: "1.25-alpha1", charm: "1.25.0", force: true, ok: true},
 	}
 	for _, t := range tests {
 		testMinVer(t, c)
