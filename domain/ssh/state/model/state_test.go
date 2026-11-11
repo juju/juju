@@ -255,6 +255,12 @@ func (s *stateSuite) TestEnsureMachineVirtualHostKeyReturnsExistingOnConflict(c 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(found, tc.IsTrue)
 	c.Check(key, tc.Equals, testPrivateKey)
+
+	var algorithm int
+	err = s.DB().QueryRowContext(c.Context(), `SELECT algorithm_type_id
+FROM machine_virtual_ssh_host_key`).Scan(&algorithm)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(algorithm, tc.Equals, domainssh.SSHKeyAlgorithmTypeED25519ID)
 }
 
 func (s *stateSuite) TestGetUnitVirtualHostKeyMissingUnit(c *tc.C) {
@@ -290,6 +296,96 @@ func (s *stateSuite) TestEnsureUnitVirtualHostKeyReturnsExistingOnConflict(c *tc
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(found, tc.IsTrue)
 	c.Check(key, tc.Equals, testPrivateKey)
+
+	var algorithm int
+	err = s.DB().QueryRowContext(c.Context(), `SELECT algorithm_type_id
+FROM unit_virtual_ssh_host_key`).Scan(&algorithm)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(algorithm, tc.Equals, domainssh.SSHKeyAlgorithmTypeED25519ID)
+}
+
+func (s *stateSuite) TestEnsureMachineVirtualHostKeyConcurrent(c *tc.C) {
+	s.addMachine(c, "1")
+	st := s.newState()
+	s.checkConcurrentHostKey(c, func(ctx context.Context, algorithm int, key string) (string, error) {
+		return st.EnsureMachineVirtualHostKeyByMachineName(ctx, "1", algorithm, key)
+	}, `SELECT ssh_key, algorithm_type_id FROM machine_virtual_ssh_host_key`)
+}
+
+func (s *stateSuite) TestEnsureUnitVirtualHostKeyConcurrent(c *tc.C) {
+	s.addUnit(c, "postgresql/0")
+	st := s.newState()
+	s.checkConcurrentHostKey(c, func(ctx context.Context, algorithm int, key string) (string, error) {
+		return st.EnsureUnitVirtualHostKeyByUnitName(ctx, "postgresql/0", algorithm, key)
+	}, `SELECT ssh_key, algorithm_type_id FROM unit_virtual_ssh_host_key`)
+}
+
+func (s *stateSuite) TestEnsureMachineVirtualHostKeyInvalidAlgorithm(c *tc.C) {
+	s.addMachine(c, "1")
+	st := s.newState()
+
+	_, err := st.EnsureMachineVirtualHostKeyByMachineName(c.Context(), "1", -1, testPrivateKey)
+	c.Assert(err, tc.ErrorMatches, `.*persisting machine virtual SSH host key.*`)
+	key, found, err := st.GetMachineVirtualHostKeyByMachineName(c.Context(), "1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(found, tc.IsFalse)
+	c.Check(key, tc.Equals, "")
+}
+
+func (s *stateSuite) TestEnsureUnitVirtualHostKeyInvalidAlgorithm(c *tc.C) {
+	s.addUnit(c, "postgresql/0")
+	st := s.newState()
+
+	_, err := st.EnsureUnitVirtualHostKeyByUnitName(c.Context(), "postgresql/0", -1, testPrivateKey)
+	c.Assert(err, tc.ErrorMatches, `.*persisting unit virtual SSH host key.*`)
+	key, found, err := st.GetUnitVirtualHostKeyByUnitName(c.Context(), "postgresql/0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(found, tc.IsFalse)
+	c.Check(key, tc.Equals, "")
+}
+
+func (s *stateSuite) checkConcurrentHostKey(
+	c *tc.C, ensure func(context.Context, int, string) (string, error), query string,
+) {
+	type result struct {
+		key string
+		err error
+	}
+	start := make(chan struct{})
+	results := make(chan result, 2)
+	ctx := c.Context()
+	for _, candidate := range []struct {
+		key       string
+		algorithm int
+	}{
+		{"first-key", domainssh.SSHKeyAlgorithmTypeED25519ID},
+		{"second-key", domainssh.SSHKeyAlgorithmTypeRSAID},
+	} {
+		go func() {
+			<-start
+			key, err := ensure(ctx, candidate.algorithm, candidate.key)
+			results <- result{key, err}
+		}()
+	}
+	close(start)
+	first, second := <-results, <-results
+	c.Assert(first.err, tc.ErrorIsNil)
+	c.Assert(second.err, tc.ErrorIsNil)
+	c.Check(first.key, tc.Equals, second.key)
+
+	var storedKey string
+	var algorithm int
+	err := s.DB().QueryRowContext(ctx, query).Scan(&storedKey, &algorithm)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(storedKey, tc.Equals, first.key)
+	switch storedKey {
+	case "first-key":
+		c.Check(algorithm, tc.Equals, domainssh.SSHKeyAlgorithmTypeED25519ID)
+	case "second-key":
+		c.Check(algorithm, tc.Equals, domainssh.SSHKeyAlgorithmTypeRSAID)
+	default:
+		c.Errorf("unexpected persisted key %q", storedKey)
+	}
 }
 
 func (s *stateSuite) TestGetMachineNameForUnitMissingUnit(c *tc.C) {
