@@ -15,36 +15,25 @@ var (
 // ClusterQueryError represents an issue when querying a cluster.
 type ClusterQueryError struct {
 	Message string
+	// Err is the underlying error that caused the cluster query to fail,
+	// if any. Callers can use errors.Is / errors.As on a ClusterQueryError
+	// to inspect the cause.
+	Err error
 }
 
 func (e ClusterQueryError) Error() string {
 	return e.Message
 }
 
+// Unwrap returns the underlying error, if any.
+func (e ClusterQueryError) Unwrap() error {
+	return e.Err
+}
+
 // IsClusterQueryError returns true if err is a ClusterQueryError.
 func IsClusterQueryError(err error) bool {
-	_, ok := err.(ClusterQueryError)
-	return ok
-}
-
-// NoRecommendedStorageError represents when Juju is unable to determine which storage a cluster uses (or should use)
-type NoRecommendedStorageError struct {
-	Message      string
-	ProviderName string
-}
-
-func (e NoRecommendedStorageError) Error() string {
-	return e.Message
-}
-
-func (e NoRecommendedStorageError) StorageProvider() string {
-	return e.ProviderName
-}
-
-// IsNoRecommendedStorageError returns true if err is a NoRecommendedStorageError
-func IsNoRecommendedStorageError(err error) bool {
-	_, ok := err.(NoRecommendedStorageError)
-	return ok
+	var e ClusterQueryError
+	return errors.As(err, &e)
 }
 
 // MaskError is used to signify that an error

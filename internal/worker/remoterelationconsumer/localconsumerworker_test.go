@@ -3376,7 +3376,131 @@ func (s *localConsumerWorkerSuite) TestRelationRemovedNotifiesOfferingModel(c *t
 		c.Fatalf("timed out waiting for PublishRelationChange to be called")
 	}
 
+	// Wait for the worker to be fully stopped before inspecting the cache:
+	// the removal handling deletes from it after publishing.
 	workertest.CleanKill(c, w)
+
+	// The primary path does not consume the cached credential, so this
+	// eviction must come from the removal handling once the relation is
+	// confirmed gone.
+	c.Check(w.relationMacaroons, tc.HasLen, 0)
+}
+
+// TestRelationRemovedNotifiesOfferingModelWithCachedMacaroon verifies that
+// the offering model is notified of a locally removed relation even when the
+// relation workers have already been stopped. The macaroon and consuming
+// application UUID retained by the parent when the relation was registered
+// are used, as no child worker is around to provide them. Skipping the
+// notification in that case would leave the offering model's offer
+// connection behind.
+func (s *localConsumerWorkerSuite) TestRelationRemovedNotifiesOfferingModelWithCachedMacaroon(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := s.expectWorkerStartup()
+	consumingRelationUUID := s.expectRegisterRemoteRelation(c)
+
+	// First event: the relation is alive, which registers it and caches the
+	// macaroon with the consuming application UUID.
+	s.crossModelService.EXPECT().GetRelationDetails(gomock.Any(), consumingRelationUUID).Return(domainrelation.RelationDetails{
+		UUID: consumingRelationUUID,
+		Life: life.Alive,
+		ID:   1,
+		Key:  corerelationtesting.GenNewKey(c, "blog:blog foo:db"),
+		Endpoints: []domainrelation.Endpoint{{
+			ApplicationName: "foo",
+			Relation: charm.Relation{
+				Name:      "db",
+				Role:      charm.RoleProvider,
+				Interface: "db",
+			},
+		}, {
+			ApplicationName: "bar",
+			Relation: charm.Relation{
+				Name:      "blog",
+				Role:      charm.RoleRequirer,
+				Interface: "blog",
+			},
+		}},
+		Suspended: false,
+	}, nil)
+
+	// Second event: the relation is gone and the offerer unit worker has
+	// already been removed. The fallback must publish dying with ForceCleanup
+	// using the cached credentials.
+	publishDone := make(chan struct{})
+	s.remoteModelRelationClient.EXPECT().
+		PublishRelationChange(gomock.Any(), params.RemoteRelationChangeEvent{
+			RelationToken:           consumingRelationUUID.String(),
+			Life:                    life.Dying,
+			ApplicationOrOfferToken: s.consumerApplicationUUID.String(),
+			Macaroons:               macaroon.Slice{newMacaroon(c, "test")},
+			BakeryVersion:           bakery.LatestVersion,
+			ForceCleanup:            new(true),
+		}).DoAndReturn(func(ctx context.Context, evt params.RemoteRelationChangeEvent) error {
+		defer close(publishDone)
+		return nil
+	})
+
+	s.crossModelService.EXPECT().GetRelationDetails(gomock.Any(), consumingRelationUUID).Return(
+		domainrelation.RelationDetails{}, relationerrors.RelationNotFound,
+	)
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	// Drive the registration through the real consumption path.
+	select {
+	case s.relationLifeChanges <- []string{consumingRelationUUID.String()}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out sending first relation change")
+	}
+
+	s.waitForAllWorkersStarted(c)
+
+	// The cache must hold the macaroon and consuming application UUID
+	// recorded at registration.
+	c.Assert(w.relationMacaroons, tc.HasLen, 1)
+	c.Check(w.relationMacaroons[consumingRelationUUID], tc.DeepEquals, relationMacaroonInfo{
+		macaroon:                 newMacaroon(c, "test"),
+		consumingApplicationUUID: s.consumerApplicationUUID,
+	})
+
+	// A speculative removal handled for the still-alive relation must not
+	// evict the cached credential.
+	err := w.handleRelationRemoved(c.Context(), consumingRelationUUID, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(w.relationMacaroons, tc.HasLen, 1)
+
+	// Simulate the race: the offerer unit worker is already gone when the
+	// removal is observed.
+	err = w.runner.StopAndRemoveWorker(offererUnitRelationWorkerName(consumingRelationUUID), c.Context().Done())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Send the second event (relation gone) to trigger the notification.
+	select {
+	case s.relationLifeChanges <- []string{consumingRelationUUID.String()}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out sending second relation change")
+	}
+
+	select {
+	case <-publishDone:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for PublishRelationChange to be called")
+	}
+
+	// Wait for the worker to be fully stopped before inspecting the cache:
+	// the removal handling deletes from it after publishing.
+	workertest.CleanKill(c, w)
+
+	// The cached credential was consumed by the fallback notification.
+	c.Check(w.relationMacaroons, tc.HasLen, 0)
 }
 
 func (s *localConsumerWorkerSuite) TestIsRelationWorkerDeadWhenRunnerDeadAndWorkerDying(c *tc.C) {
@@ -3427,9 +3551,9 @@ func (s *localConsumerWorkerSuite) TestIsRelationWorkerDeadWhenContextCancelled(
 }
 
 // TestRelationRemovedWithoutOffererUnitWorker tests that when a relation is
-// removed and no offerer unit relation worker exists (e.g. worker restarted),
-// the worker gracefully handles the situation without trying to notify the
-// offering model.
+// removed and no offerer unit relation worker or cached macaroon exists (e.g.
+// the relation was never registered by this worker), the worker gracefully
+// handles the situation without trying to notify the offering model.
 func (s *localConsumerWorkerSuite) TestRelationRemovedWithoutOffererUnitWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -3457,8 +3581,8 @@ func (s *localConsumerWorkerSuite) TestRelationRemovedWithoutOffererUnitWorker(c
 			return watchertest.NewMockWatcher(ch), nil
 		})
 
-	// Relation is already gone. No PublishRelationChange expected because
-	// no offerer unit worker exists.
+	// The relation is already gone. With no offerer unit worker or cached
+	// macaroon, no PublishRelationChange is expected.
 	s.crossModelService.EXPECT().
 		GetRelationDetails(gomock.Any(), relationUUID).
 		DoAndReturn(func(ctx context.Context, u relation.UUID) (domainrelation.RelationDetails, error) {
