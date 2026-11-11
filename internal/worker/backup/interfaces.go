@@ -92,3 +92,9 @@ type ControllerProvisioningReader interface {
 	// established.
 	ReadControllerProvisioning(ctx context.Context, controllerID string) (*corebackups.InstanceMetadata, error)
 }
+
+// RecordSourceFunc records the substrate-specific source facts in the
+// archive metadata: the controller machine's base on machine controllers,
+// the controller's provisioning facts on Kubernetes controllers. The
+// substrate manifolds inject the recorder for the running substrate.
+type RecordSourceFunc func(context.Context, *corebackups.Metadata) error

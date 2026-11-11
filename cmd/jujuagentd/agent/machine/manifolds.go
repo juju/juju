@@ -770,23 +770,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NonControllerLogSinkName: nonControllerLogSinkName,
 		}),
 
-		backupCreatorName: ifController(backup.Manifold(backup.ManifoldConfig{
-			LeaseManagerName:    leaseManagerName,
-			DomainServicesName:  domainServicesName,
-			ObjectStoreName:     objectStoreFacadeName,
-			ProviderTrackerName: providerTrackerName,
-			ControllerUUID:      config.ControllerUUID,
-			ControllerModelUUID: config.ControllerModelUUID,
-			ControllerNodeID:    config.ControllerID,
-			ControllerTag:       config.ControllerAgentTag,
-			LocalConfigReader:   config.StartupValueProvider,
-			Clock:               config.Clock,
-			Logger:              internallogger.GetLogger("juju.worker.backup"),
-			NewWorker:           backup.NewWorker,
-			NewMachineCreator:   backup.NewMachineCreator,
-			NewK8sCreator:       backup.NewK8sCreator,
-		})),
-
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
 			AuthenticatorName:      httpServerArgsName,
 			Clock:                  clock.WallClock,
@@ -1250,6 +1233,24 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			RemoveBootstrapSSHKeys:        bootstrap.DeleteBootstrapSSHKeys,
 		}))),
 
+		// The backup creator outputs the archive creation function the
+		// API server consumes. The machine source recorder records the
+		// controller machine's base in the archive metadata; machine
+		// controllers read no provider.
+		backupCreatorName: ifController(backup.Manifold(backup.ManifoldConfig{
+			LeaseManagerName:    leaseManagerName,
+			DomainServicesName:  domainServicesName,
+			ObjectStoreName:     objectStoreFacadeName,
+			ControllerUUID:      config.ControllerUUID,
+			ControllerModelUUID: config.ControllerModelUUID,
+			ControllerNodeID:    config.ControllerID,
+			LocalConfigReader:   config.StartupValueProvider,
+			Clock:               config.Clock,
+			Logger:              internallogger.GetLogger("juju.worker.backup"),
+			NewWorker:           backup.NewWorker,
+			NewRecordSource:     backup.MachineRecordSource,
+		})),
+
 		// The controller proxy config updater uses local domain services
 		// instead of calling back through the controller API server.
 		controllerProxyConfigUpdater: ifController(ifDatabaseUpgradeComplete(proxyupdater.ControllerManifold(proxyupdater.ControllerManifoldConfig{
@@ -1489,6 +1490,24 @@ func K8sManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentFinalizer:                bootstrap.K8sAgentFinalizer,
 			RemoveBootstrapSSHKeys:        func([]string) error { return nil },
 		}))),
+
+		// The backup creator outputs the archive creation function the
+		// API server consumes. The Kubernetes source recorder reads the
+		// controller's provisioning facts from the provider tracker.
+		backupCreatorName: ifController(backup.Manifold(backup.ManifoldConfig{
+			LeaseManagerName:    leaseManagerName,
+			DomainServicesName:  domainServicesName,
+			ObjectStoreName:     objectStoreFacadeName,
+			ProviderTrackerName: providerTrackerName,
+			ControllerUUID:      config.ControllerUUID,
+			ControllerModelUUID: config.ControllerModelUUID,
+			ControllerNodeID:    config.ControllerID,
+			LocalConfigReader:   config.StartupValueProvider,
+			Clock:               config.Clock,
+			Logger:              internallogger.GetLogger("juju.worker.backup"),
+			NewWorker:           backup.NewWorker,
+			NewRecordSource:     backup.K8sRecordSource,
+		})),
 
 		// The controller proxy config updater uses local domain services
 		// instead of calling back through the controller API server.

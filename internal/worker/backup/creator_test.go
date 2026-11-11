@@ -150,17 +150,25 @@ func (s *backupsSuite) newMachineCreator(c *tc.C, modelServicesFor ModelServices
 }
 
 // newK8sCreator returns a Kubernetes archive creator wired to the given
-// config and provisioning read.
-func (s *backupsSuite) newK8sCreator(c *tc.C, cfg K8sCreatorConfig) corebackups.BackupCreator {
-	creator, err := NewK8sCreator(cfg)
+// provisioning read and config.
+func (s *backupsSuite) newK8sCreator(
+	c *tc.C,
+	read func(context.Context) (*corebackups.InstanceMetadata, error),
+	cfg CreatorConfig,
+) corebackups.BackupCreator {
+	cfg.RecordSource = k8sSourceRecorder(read)
+	creator, err := newCreator(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	return creator
 }
 
 // newMachineCreatorFromConfig returns a machine archive creator wired
-// to the given config.
+// to the given config. The machine source recorder is bound from the
+// config's model services resolver and controller identity.
 func (s *backupsSuite) newMachineCreatorFromConfig(c *tc.C, cfg CreatorConfig) corebackups.BackupCreator {
-	creator, err := NewMachineCreator(cfg)
+	cfg.RecordSource = machineSourceRecorder(
+		cfg.ModelServicesFor, cfg.ControllerModelUUID, cfg.ControllerID)
+	creator, err := newCreator(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	return creator
 }
@@ -183,8 +191,9 @@ func (s *backupsSuite) TestCreatorConfigValidate(c *tc.C) {
 		ObjectStoreForModel: ObjectStoreForModelFunc(func(context.Context, string) (ReadObjectStore, error) {
 			return s.modelStore, nil
 		}),
-		Clock:  clock.WallClock,
-		Logger: loggertesting.WrapCheckLog(c),
+		RecordSource: func(context.Context, *corebackups.Metadata) error { return nil },
+		Clock:        clock.WallClock,
+		Logger:       loggertesting.WrapCheckLog(c),
 	}
 	tests := []struct {
 		change  func(*CreatorConfig)
@@ -202,6 +211,7 @@ func (s *backupsSuite) TestCreatorConfigValidate(c *tc.C) {
 		{func(c *CreatorConfig) { c.ControllerNodes = nil }, "nil ControllerNodes not valid"},
 		{func(c *CreatorConfig) { c.ControllerObjectStore = nil }, "nil ControllerObjectStore not valid"},
 		{func(c *CreatorConfig) { c.ObjectStoreForModel = nil }, "nil ObjectStoreForModel not valid"},
+		{func(c *CreatorConfig) { c.RecordSource = nil }, "nil RecordSource not valid"},
 		{func(c *CreatorConfig) { c.Clock = nil }, "nil Clock not valid"},
 		{func(c *CreatorConfig) { c.Logger = nil }, "nil Logger not valid"},
 	}
@@ -210,31 +220,6 @@ func (s *backupsSuite) TestCreatorConfigValidate(c *tc.C) {
 		test.change(&cfg)
 		err := cfg.Validate()
 		c.Check(err, tc.ErrorMatches, test.message)
-	}
-}
-
-// TestK8sCreatorConfigValidate verifies that the Kubernetes creator
-// requires its provisioning read in addition to the common dependencies.
-func (s *backupsSuite) TestK8sCreatorConfigValidate(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	config := K8sCreatorConfig{
-		CreatorConfig: s.newCreatorConfig(c, s.modelServicesFor()),
-		ControllerProvisioning: func(context.Context) (*corebackups.InstanceMetadata, error) {
-			return nil, nil
-		},
-	}
-	tests := []struct {
-		change  func(*K8sCreatorConfig)
-		message string
-	}{
-		{func(c *K8sCreatorConfig) { c.ControllerProvisioning = nil }, "nil ControllerProvisioning not valid"},
-		{func(c *K8sCreatorConfig) { c.DataDir = "" }, "empty DataDir not valid"},
-	}
-	for _, test := range tests {
-		cfg := config
-		test.change(&cfg)
-		c.Check(cfg.Validate(), tc.ErrorMatches, test.message)
 	}
 }
 
@@ -940,13 +925,10 @@ func (s *backupsSuite) TestCreateK8sControllerMetadata(c *tc.C) {
 		ServiceType:        "loadbalancer",
 	}
 	calls := 0
-	creator := s.newK8sCreator(c, K8sCreatorConfig{
-		CreatorConfig: s.newCreatorConfig(c, s.modelServicesFor()),
-		ControllerProvisioning: func(context.Context) (*corebackups.InstanceMetadata, error) {
-			calls++
-			return provisioning, nil
-		},
-	})
+	creator := s.newK8sCreator(c, func(context.Context) (*corebackups.InstanceMetadata, error) {
+		calls++
+		return provisioning, nil
+	}, s.newCreatorConfig(c, s.modelServicesFor()))
 
 	meta, archivePath, cleanup, err := creator.Create(c.Context(), "test")
 	c.Assert(err, tc.ErrorIsNil)
@@ -975,12 +957,9 @@ func (s *backupsSuite) TestCreateK8sControllerMetadataFailure(c *tc.C) {
 	backupDir := c.MkDir()
 	s.expectCreateDependencies(c, backupDir)
 
-	creator := s.newK8sCreator(c, K8sCreatorConfig{
-		CreatorConfig: s.newCreatorConfig(c, s.modelServicesFor()),
-		ControllerProvisioning: func(context.Context) (*corebackups.InstanceMetadata, error) {
-			return nil, errors.New("provisioning unavailable")
-		},
-	})
+	creator := s.newK8sCreator(c, func(context.Context) (*corebackups.InstanceMetadata, error) {
+		return nil, errors.New("provisioning unavailable")
+	}, s.newCreatorConfig(c, s.modelServicesFor()))
 
 	_, _, cleanup, err := creator.Create(c.Context(), "")
 	c.Check(err, tc.ErrorMatches, "recording Kubernetes provisioning: provisioning unavailable")
@@ -997,12 +976,9 @@ func (s *backupsSuite) TestCreateK8sControllerMetadataEmpty(c *tc.C) {
 	backupDir := c.MkDir()
 	s.expectCreateDependencies(c, backupDir)
 
-	creator := s.newK8sCreator(c, K8sCreatorConfig{
-		CreatorConfig: s.newCreatorConfig(c, s.modelServicesFor()),
-		ControllerProvisioning: func(context.Context) (*corebackups.InstanceMetadata, error) {
-			return nil, nil
-		},
-	})
+	creator := s.newK8sCreator(c, func(context.Context) (*corebackups.InstanceMetadata, error) {
+		return nil, nil
+	}, s.newCreatorConfig(c, s.modelServicesFor()))
 
 	_, _, cleanup, err := creator.Create(c.Context(), "")
 	c.Check(err, tc.ErrorMatches, "recording Kubernetes provisioning: no provisioning facts recorded")
