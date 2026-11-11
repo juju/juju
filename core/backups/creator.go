@@ -3,17 +3,7 @@
 
 package backups
 
-import (
-	"context"
-
-	"github.com/juju/juju/internal/errors"
-)
-
-const (
-	// ErrBackupCreationWorkerDying is returned when the backup creation worker
-	// is dying.
-	ErrBackupCreationWorkerDying = errors.ConstError("backup creation worker is dying")
-)
+import "context"
 
 // BackupCreator creates a backup archive with the supplied notes. It honours
 // context cancellation and returns only after generation and lease maintenance

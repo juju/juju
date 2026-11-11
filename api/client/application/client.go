@@ -271,8 +271,7 @@ type SetCharmConfig struct {
 	// facade version 2
 	ConfigSettingsYAML string
 
-	// Force forces the use of the charm in the following scenarios:
-	// overriding a lxd profile upgrade.
+	// Force allows the charm to be upgraded on units in an error state.
 	// In the future, we should deprecate ForceBase and ForceUnits and just
 	// use Force for all instances.
 	// TODO (stickupkid): deprecate ForceBase and ForceUnits in favour of
@@ -1096,9 +1095,9 @@ type DeployFromRepositoryArg struct {
 	DryRun bool
 	// EndpointBindings
 	EndpointBindings map[string]string
-	// Force can be set to true to bypass any checks for charm-specific
-	// requirements ("assumes" sections in charm metadata, supported series,
-	// LXD profile allow list)
+	// Force can be set to true to bypass checks for charm-specific
+	// requirements, such as "assumes" sections in charm metadata and
+	// supported bases.
 	Force bool
 	// NumUnits is the number of units to deploy. Defaults to 1 if no
 	// value provided. Synonymous with scale for kubernetes charms.

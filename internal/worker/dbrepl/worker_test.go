@@ -5,6 +5,9 @@ package dbrepl
 
 import (
 	"bytes"
+	"context"
+	"database/sql"
+	"fmt"
 	"strings"
 	stdtesting "testing"
 
@@ -13,6 +16,7 @@ import (
 	"github.com/juju/juju/domain/schema"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/database/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -36,6 +40,122 @@ func (s *dbReplSuite) SetUpTest(c *tc.C) {
 
 	s.ApplyDDL(c, &schematesting.SchemaApplier{
 		Schema: schema.ModelDDL(),
+	})
+}
+
+func (s *dbReplSuite) TestChangeLogRows(c *tc.C) {
+	s.seedChangeStream(c, []changeStreamRow{
+		{0, 1, 1000001, "shared", "2025-01-01T00:00:02Z"},
+		{1, 2, 1000001, "shared", "2025-01-01T00:00:01Z"},
+		{2, 4, 1000002, "other", "2025-01-01T00:00:03Z"},
+	})
+
+	output := s.changeOutput(c, (*dbReplWorker).changeLog)
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	c.Assert(lines, tc.HasLen, 4)
+	c.Check(strings.Fields(lines[0]), tc.DeepEquals, []string{
+		"id", "edit_type", "namespace", "changed", "created_at",
+	})
+	c.Check([][]string{
+		strings.Fields(lines[1]), strings.Fields(lines[2]), strings.Fields(lines[3]),
+	}, tc.SameContents, [][]string{
+		{"0", "create", "repl-test-a", "shared", "2025-01-01T00:00:02Z"},
+		{"1", "update", "repl-test-a", "shared", "2025-01-01T00:00:01Z"},
+		{"2", "delete", "repl-test-b", "other", "2025-01-01T00:00:03Z"},
+	})
+}
+
+func (s *dbReplSuite) TestChangeCommandsMatchingOutput(c *tc.C) {
+	s.seedChangeStream(c, []changeStreamRow{
+		{1, 1, 1000001, "shared", "2025-01-01T00:00:01Z"},
+	})
+	c.Check(s.changeOutput(c, (*dbReplWorker).changeLog), tc.Equals,
+		s.changeOutput(c, (*dbReplWorker).changeStream))
+}
+
+func (s *dbReplSuite) TestChangeLogEmpty(c *tc.C) {
+	s.seedChangeStream(c, nil)
+	output := s.changeOutput(c, (*dbReplWorker).changeLog)
+	c.Check(strings.Fields(output), tc.DeepEquals, []string{
+		"id", "edit_type", "namespace", "changed", "created_at",
+	})
+	c.Check(output, tc.Equals, s.changeOutput(c, (*dbReplWorker).changeStream))
+}
+
+func (s *dbReplSuite) TestPrintChangeLogRowsQueryError(c *tc.C) {
+	var stdout bytes.Buffer
+	var logs []string
+	worker := dbReplWorker{
+		cfg: WorkerConfig{
+			Stdout: &stdout,
+			Logger: loggertesting.WrapCheckLog(loggertesting.RecordLog(func(format string, args ...any) {
+				logs = append(logs, fmt.Sprintf(format, args...))
+			})),
+		},
+		currentDB: s.TxnRunner(),
+	}
+
+	worker.printChangeLogRows(c.Context(), "SELECT * FROM no_such_change_log_table")
+	c.Check(stdout.String(), tc.Equals, "")
+	c.Assert(logs, tc.HasLen, 1)
+	c.Check(logs[0], tc.Contains, "failed to execute query:")
+}
+
+func (s *dbReplSuite) TestChangeStreamLatestRows(c *tc.C) {
+	// Interleave keys and namespaces, and make timestamps disagree with ID
+	// order so every displayed field must come from the maximum-ID row.
+	s.seedChangeStream(c, []changeStreamRow{
+		{1, 1, 1000001, "shared", "2025-01-01T00:00:09Z"},
+		{2, 1, 1000001, "other", "2025-01-01T00:00:08Z"},
+		{3, 1, 1000002, "shared", "2025-01-01T00:00:07Z"},
+		{4, 2, 1000001, "shared", "2025-01-01T00:00:06Z"},
+		{5, 4, 1000002, "shared", "2025-01-01T00:00:05Z"},
+		{6, 2, 1000001, "other", "2025-01-01T00:00:04Z"},
+		{7, 4, 1000001, "shared", "2025-01-01T00:00:03Z"},
+	})
+
+	c.Check(s.changeStreamOutput(c), tc.DeepEquals, [][]string{
+		{"id", "edit_type", "namespace", "changed", "created_at"},
+		{"5", "delete", "repl-test-b", "shared", "2025-01-01T00:00:05Z"},
+		{"6", "update", "repl-test-a", "other", "2025-01-01T00:00:04Z"},
+		{"7", "delete", "repl-test-a", "shared", "2025-01-01T00:00:03Z"},
+	})
+}
+
+func (s *dbReplSuite) TestChangeStreamEmpty(c *tc.C) {
+	s.seedChangeStream(c, nil)
+
+	c.Check(s.changeStreamOutput(c), tc.DeepEquals, [][]string{
+		{"id", "edit_type", "namespace", "changed", "created_at"},
+	})
+}
+
+func (s *dbReplSuite) TestChangeStreamLowerBound(c *tc.C) {
+	// The command's existing bound excludes zero and negative IDs, including
+	// keys with no positive changes, but retains the first positive ID.
+	s.seedChangeStream(c, []changeStreamRow{
+		{-2, 1, 1000001, "negative", "2025-01-01T00:00:05Z"},
+		{-1, 1, 1000001, "shared", "2025-01-01T00:00:04Z"},
+		{0, 2, 1000001, "shared", "2025-01-01T00:00:03Z"},
+		{1, 4, 1000001, "shared", "2025-01-01T00:00:02Z"},
+		{2, 1, 1000002, "positive", "2025-01-01T00:00:01Z"},
+	})
+
+	c.Check(s.changeStreamOutput(c), tc.DeepEquals, [][]string{
+		{"id", "edit_type", "namespace", "changed", "created_at"},
+		{"1", "delete", "repl-test-a", "shared", "2025-01-01T00:00:02Z"},
+		{"2", "create", "repl-test-b", "positive", "2025-01-01T00:00:01Z"},
+	})
+}
+
+func (s *dbReplSuite) TestChangeStreamOnlyExcludedRows(c *tc.C) {
+	s.seedChangeStream(c, []changeStreamRow{
+		{-1, 1, 1000001, "negative", "2025-01-01T00:00:02Z"},
+		{0, 2, 1000001, "zero", "2025-01-01T00:00:01Z"},
+	})
+
+	c.Check(s.changeStreamOutput(c), tc.DeepEquals, [][]string{
+		{"id", "edit_type", "namespace", "changed", "created_at"},
 	})
 }
 
@@ -79,4 +199,58 @@ func (s *dbReplSuite) TestForeignKeysListIdentifier(c *tc.C) {
 	c.Assert(headerFields(output), tc.DeepEquals, []string{
 		"child_table", "child_column", "fk_id", "fk_seq", "reference_count",
 	})
+}
+
+type changeStreamRow struct {
+	id          int
+	editTypeID  int
+	namespaceID int
+	changed     string
+	createdAt   string
+}
+
+func (s *dbReplSuite) seedChangeStream(c *tc.C, changes []changeStreamRow) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, "DELETE FROM change_log"); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO change_log_namespace (id, namespace) VALUES
+    (1000001, 'repl-test-a'), (1000002, 'repl-test-b')
+`); err != nil {
+			return err
+		}
+		for _, change := range changes {
+			if _, err := tx.ExecContext(ctx, `
+INSERT INTO change_log (id, edit_type_id, namespace_id, changed, created_at)
+VALUES (?, ?, ?, ?, ?)
+`, change.id, change.editTypeID, change.namespaceID, change.changed, change.createdAt); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *dbReplSuite) changeStreamOutput(c *tc.C) [][]string {
+	output := s.changeOutput(c, (*dbReplWorker).changeStream)
+	var lines [][]string
+	for line := range strings.SplitSeq(strings.TrimSpace(output), "\n") {
+		lines = append(lines, strings.Fields(line))
+	}
+	return lines
+}
+
+func (s *dbReplSuite) changeOutput(c *tc.C, command func(*dbReplWorker, context.Context)) string {
+	var stdout bytes.Buffer
+	worker := dbReplWorker{
+		cfg: WorkerConfig{
+			Stdout: &stdout,
+			Logger: loggertesting.WrapCheckLog(c),
+		},
+		currentDB: s.TxnRunner(),
+	}
+	command(&worker, c.Context())
+	return stdout.String()
 }

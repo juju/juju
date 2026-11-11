@@ -128,14 +128,22 @@ func (s *freshControllerSuite) assertFreshController(c *tc.C, isK8s bool, databa
 
 	command := NewBootstrapCommand()
 	command.AgentConf = agentconf.NewAgentConf(dataDir)
+	const bindAddress = "192.168.1.10"
+	command.DqliteBindAddressResolver = func(
+		_ context.Context, gotAddresses network.ProviderAddresses,
+	) (string, error) {
+		c.Check(gotAddresses, tc.DeepEquals, addresses)
+		return bindAddress, nil
+	}
 	command.BootstrapAgent = func(args agentbootstrap.AgentBootstrapArgs) (*agentbootstrap.AgentBootstrap, error) {
 		c.Check(args.StateInitialisationParams.SSHServerHostKey, tc.Not(tc.Equals), "")
 		c.Check(args.BootstrapMachineAddresses, tc.DeepEquals, addresses)
 		return agentbootstrap.NewAgentBootstrap(args)
 	}
 	databaseCalled := false
-	command.DqliteInitialiser = func(_ context.Context, _ database.BootstrapNodeManager, _ network.ProviderAddresses, gotModelUUID coremodel.UUID, _ corelogger.Logger, _ ...database.BootstrapOpt) error {
+	command.DqliteInitialiser = func(_ context.Context, _ database.BootstrapNodeManager, gotBindAddress string, gotModelUUID coremodel.UUID, _ corelogger.Logger, _ ...database.BootstrapOpt) error {
 		databaseCalled = true
+		c.Check(gotBindAddress, tc.Equals, bindAddress)
 		c.Check(gotModelUUID, tc.Equals, modelUUID)
 		// Identity is persisted before database work; the new password is not.
 		identity, err := os.ReadFile(cfg.SystemIdentityPath())

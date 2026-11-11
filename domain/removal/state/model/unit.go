@@ -94,6 +94,14 @@ AND    life_id = 0`, unitUUID)
 		return cascaded, errors.Errorf("advancing unit life: %w", err)
 	}
 
+	charmUUID, err := st.getCharmUUIDIfLastAliveUnit(ctx, tx, uUUID)
+	if err != nil {
+		return cascaded, errors.Errorf("getting charm for last alive unit %q: %w", uUUID, err)
+	}
+	if charmUUID != "" {
+		cascaded.CharmUUID = &charmUUID
+	}
+
 	cascaded.CascadedStorageAttachmentLives, err = st.ensureUnitStorageAttachmentsNotAlive(
 		ctx, tx, uUUID,
 	)
@@ -125,6 +133,38 @@ AND    life_id = 0`, unitUUID)
 	}
 
 	return cascaded, nil
+}
+
+// getCharmUUIDIfLastAliveUnit returns the unit's charm UUID if no alive units
+// remain on that charm. Dying and dead units are deliberately excluded: their
+// removals are already in progress, and the charm job waits for their foreign
+// keys to disappear.
+func (st *State) getCharmUUIDIfLastAliveUnit(
+	ctx context.Context, tx *sqlair.TX, uUUID string,
+) (string, error) {
+	charmUUID, err := st.getCharmUUIDForUnit(ctx, tx, uUUID)
+	if err != nil || charmUUID == "" {
+		return charmUUID, errors.Capture(err)
+	}
+
+	charm := entityAssociationCount{UUID: charmUUID}
+	stmt, err := st.Prepare(`
+SELECT COUNT(*) AS &entityAssociationCount.count
+FROM   unit AS u
+WHERE  u.charm_uuid = $entityAssociationCount.uuid
+AND    u.life_id = 0
+`, charm)
+	if err != nil {
+		return "", errors.Errorf("preparing alive unit charm count: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, charm).Get(&charm); err != nil {
+		return "", errors.Errorf("counting alive units on charm %q: %w", charmUUID, err)
+	}
+	if charm.Count > 0 {
+		return "", nil
+	}
+	return charmUUID, nil
 }
 
 func (st *State) ensureUnitStorageAttachmentsNotAlive(

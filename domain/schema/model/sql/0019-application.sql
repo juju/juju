@@ -213,7 +213,7 @@ CREATE TABLE application_setting (
 
 CREATE TABLE application_platform (
     application_uuid TEXT NOT NULL PRIMARY KEY,
-    os_id TEXT NOT NULL,
+    os_id INT NOT NULL,
     channel TEXT,
     architecture_id INT NOT NULL,
     CONSTRAINT fk_application_platform_application
@@ -254,7 +254,7 @@ CREATE TABLE application_status (
 
 CREATE TABLE application_agent (
     application_uuid TEXT NOT NULL PRIMARY KEY,
-    password_hash_algorithm_id TEXT,
+    password_hash_algorithm_id INT,
     password_hash TEXT,
     CONSTRAINT fk_application_agent_application
     FOREIGN KEY (application_uuid)

@@ -288,6 +288,10 @@ type MockModelDBStateMockRecorder struct {
 	mock                                                    *MockModelDBState
 	applicationExistsExpects                                []*gomock.Call2_2[context.Context, string, bool, error]
 	applicationScheduleRemovalExpects                       []*gomock.Call5_1[context.Context, string, string, bool, time.Time, error]
+	charmExistsExpects                                      []*gomock.Call2_2[context.Context, string, bool, error]
+	charmHasApplicationReferencesExpects                    []*gomock.Call2_2[context.Context, string, bool, error]
+	charmHasReferencedResourcesExpects                      []*gomock.Call2_2[context.Context, string, bool, error]
+	charmScheduleRemovalExpects                             []*gomock.Call4_1[context.Context, string, string, time.Time, error]
 	checkStorageAttachmentHasNoDyingChildrenExpects         []*gomock.Call2_2[context.Context, string, bool, error]
 	checkStorageInstanceHasNoChildrenExpects                []*gomock.Call2_2[context.Context, string, bool, error]
 	checkVolumeBackedFilesystemCrossProvisionedExpects      []*gomock.Call2_2[context.Context, string, bool, error]
@@ -340,7 +344,6 @@ type MockModelDBStateMockRecorder struct {
 	getApplicationOwnedSecretRevisionRefsExpects            []*gomock.Call2_2[context.Context, string, []string, error]
 	getApplicationUnitAndRelationCountExpects               []*gomock.Call2_3[context.Context, string, int, int, error]
 	getCharmForApplicationExpects                           []*gomock.Call2_2[context.Context, string, string, error]
-	getCharmForUnitExpects                                  []*gomock.Call2_2[context.Context, string, string, error]
 	getDetachInfoForStorageAttachmentExpects                []*gomock.Call2_2[context.Context, string, internal.StorageAttachmentDetachInfo, error]
 	getFilesystemAttachmentLifeExpects                      []*gomock.Call2_2[context.Context, string, life.Life, error]
 	getFilesystemLifeExpects                                []*gomock.Call2_2[context.Context, string, life.Life, error]
@@ -453,6 +456,78 @@ func (mr *MockModelDBStateMockRecorder) ApplicationScheduleRemoval(ctx, removalU
 
 // MockModelDBStateApplicationScheduleRemovalCall is the typed call wrapper for ApplicationScheduleRemoval.
 type MockModelDBStateApplicationScheduleRemovalCall = gomock.Call5_1[context.Context, string, string, bool, time.Time, error]
+
+// CharmExists mocks base method.
+func (m *MockModelDBState) CharmExists(ctx context.Context, charmUUID string) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.charmExistsExpects, m.ctrl, m, "CharmExists", ctx, charmUUID)
+}
+
+// CharmExists indicates an expected call of CharmExists.
+func (mr *MockModelDBStateMockRecorder) CharmExists(ctx, charmUUID any) *MockModelDBStateCharmExistsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, bool, error](mr.mock.ctrl.T, mr.mock, "CharmExists", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(charmUUID))
+	mr.charmExistsExpects = append(mr.charmExistsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelDBStateCharmExistsCall is the typed call wrapper for CharmExists.
+type MockModelDBStateCharmExistsCall = gomock.Call2_2[context.Context, string, bool, error]
+
+// CharmHasApplicationReferences mocks base method.
+func (m *MockModelDBState) CharmHasApplicationReferences(ctx context.Context, charmUUID string) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.charmHasApplicationReferencesExpects, m.ctrl, m, "CharmHasApplicationReferences", ctx, charmUUID)
+}
+
+// CharmHasApplicationReferences indicates an expected call of CharmHasApplicationReferences.
+func (mr *MockModelDBStateMockRecorder) CharmHasApplicationReferences(ctx, charmUUID any) *MockModelDBStateCharmHasApplicationReferencesCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, bool, error](mr.mock.ctrl.T, mr.mock, "CharmHasApplicationReferences", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(charmUUID))
+	mr.charmHasApplicationReferencesExpects = append(mr.charmHasApplicationReferencesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelDBStateCharmHasApplicationReferencesCall is the typed call wrapper for CharmHasApplicationReferences.
+type MockModelDBStateCharmHasApplicationReferencesCall = gomock.Call2_2[context.Context, string, bool, error]
+
+// CharmHasReferencedResources mocks base method.
+func (m *MockModelDBState) CharmHasReferencedResources(ctx context.Context, charmUUID string) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.charmHasReferencedResourcesExpects, m.ctrl, m, "CharmHasReferencedResources", ctx, charmUUID)
+}
+
+// CharmHasReferencedResources indicates an expected call of CharmHasReferencedResources.
+func (mr *MockModelDBStateMockRecorder) CharmHasReferencedResources(ctx, charmUUID any) *MockModelDBStateCharmHasReferencedResourcesCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, bool, error](mr.mock.ctrl.T, mr.mock, "CharmHasReferencedResources", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(charmUUID))
+	mr.charmHasReferencedResourcesExpects = append(mr.charmHasReferencedResourcesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelDBStateCharmHasReferencedResourcesCall is the typed call wrapper for CharmHasReferencedResources.
+type MockModelDBStateCharmHasReferencedResourcesCall = gomock.Call2_2[context.Context, string, bool, error]
+
+// CharmScheduleRemoval mocks base method.
+func (m *MockModelDBState) CharmScheduleRemoval(ctx context.Context, removalUUID, charmUUID string, when time.Time) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch4_1(&m.recorder.charmScheduleRemovalExpects, m.ctrl, m, "CharmScheduleRemoval", ctx, removalUUID, charmUUID, when)
+}
+
+// CharmScheduleRemoval indicates an expected call of CharmScheduleRemoval.
+func (mr *MockModelDBStateMockRecorder) CharmScheduleRemoval(ctx, removalUUID, charmUUID, when any) *MockModelDBStateCharmScheduleRemovalCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall4_1[context.Context, string, string, time.Time, error](mr.mock.ctrl.T, mr.mock, "CharmScheduleRemoval", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(removalUUID), gomock.EnsureMatcher(charmUUID), gomock.EnsureMatcher(when))
+	mr.charmScheduleRemovalExpects = append(mr.charmScheduleRemovalExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelDBStateCharmScheduleRemovalCall is the typed call wrapper for CharmScheduleRemoval.
+type MockModelDBStateCharmScheduleRemovalCall = gomock.Call4_1[context.Context, string, string, time.Time, error]
 
 // CheckStorageAttachmentHasNoDyingChildren mocks base method.
 func (m *MockModelDBState) CheckStorageAttachmentHasNoDyingChildren(ctx context.Context, saUUID string) (bool, error) {
@@ -1389,24 +1464,6 @@ func (mr *MockModelDBStateMockRecorder) GetCharmForApplication(ctx, appUUID any)
 
 // MockModelDBStateGetCharmForApplicationCall is the typed call wrapper for GetCharmForApplication.
 type MockModelDBStateGetCharmForApplicationCall = gomock.Call2_2[context.Context, string, string, error]
-
-// GetCharmForUnit mocks base method.
-func (m *MockModelDBState) GetCharmForUnit(ctx context.Context, unitUUID string) (string, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getCharmForUnitExpects, m.ctrl, m, "GetCharmForUnit", ctx, unitUUID)
-}
-
-// GetCharmForUnit indicates an expected call of GetCharmForUnit.
-func (mr *MockModelDBStateMockRecorder) GetCharmForUnit(ctx, unitUUID any) *MockModelDBStateGetCharmForUnitCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, string, error](mr.mock.ctrl.T, mr.mock, "GetCharmForUnit", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(unitUUID))
-	mr.getCharmForUnitExpects = append(mr.getCharmForUnitExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockModelDBStateGetCharmForUnitCall is the typed call wrapper for GetCharmForUnit.
-type MockModelDBStateGetCharmForUnitCall = gomock.Call2_2[context.Context, string, string, error]
 
 // GetDetachInfoForStorageAttachment mocks base method.
 func (m *MockModelDBState) GetDetachInfoForStorageAttachment(arg0 context.Context, arg1 string) (internal.StorageAttachmentDetachInfo, error) {

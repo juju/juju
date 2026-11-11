@@ -242,6 +242,14 @@ func (s *stateSuite) TestPutMetadataConflictDifferentHash(c *tc.C) {
 	_, err = st.PutMetadata(c.Context(), uuid2, metadata2)
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 	c.Check(err, tc.ErrorIs, objectstoreerrors.ErrPathAlreadyExistsDifferentHash)
+
+	// The rejected put is rolled back, leaving the original metadata.
+	c.Check(s.countRows(c, "object_store_metadata"), tc.Equals, 1)
+	c.Check(s.countRows(c, "object_store_metadata_path"), tc.Equals, 1)
+
+	got, err := st.GetMetadata(c.Context(), metadata1.Path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, metadata1)
 }
 
 func (s *stateSuite) TestPutMetadataWithSameHashesAndSize(c *tc.C) {
@@ -266,11 +274,25 @@ func (s *stateSuite) TestPutMetadataWithSameHashesAndSize(c *tc.C) {
 		Size:   666,
 	}
 
-	_, err := st.PutMetadata(c.Context(), uuid1, metadata1)
+	rUUID1, err := st.PutMetadata(c.Context(), uuid1, metadata1)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(rUUID1, tc.Equals, uuid1)
 
-	_, err = st.PutMetadata(c.Context(), uuid2, metadata2)
+	// The second put reuses the existing metadata, so only the path is added.
+	rUUID2, err := st.PutMetadata(c.Context(), uuid2, metadata2)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(rUUID2, tc.Equals, uuid1)
+
+	c.Check(s.countRows(c, "object_store_metadata"), tc.Equals, 1)
+	c.Check(s.countRows(c, "object_store_metadata_path"), tc.Equals, 2)
+
+	got, err := st.GetMetadata(c.Context(), metadata1.Path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, metadata1)
+
+	got, err = st.GetMetadata(c.Context(), metadata2.Path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, metadata2)
 }
 
 func (s *stateSuite) TestPutMetadataWithSameSHA256AndSize(c *tc.C) {
@@ -301,7 +323,22 @@ func (s *stateSuite) TestPutMetadataWithSameSHA256AndSize(c *tc.C) {
 	rUUID2, err := st.PutMetadata(c.Context(), uuid2, metadata2)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(rUUID1, tc.Equals, rUUID2)
+	c.Check(rUUID1, tc.Equals, uuid1)
+	c.Check(rUUID2, tc.Equals, rUUID1)
+
+	// The existing metadata is reused unchanged, so the new path reports the
+	// original sha384 rather than the one supplied with the second put.
+	c.Check(s.countRows(c, "object_store_metadata"), tc.Equals, 1)
+	c.Check(s.countRows(c, "object_store_metadata_path"), tc.Equals, 2)
+
+	got, err := st.GetMetadata(c.Context(), metadata2.Path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, coreobjectstore.Metadata{
+		SHA256: "sha256",
+		SHA384: "foo",
+		Path:   "blah-foo-2",
+		Size:   666,
+	})
 }
 
 func (s *stateSuite) TestPutMetadataWithSameSHA384AndSize(c *tc.C) {
@@ -332,7 +369,22 @@ func (s *stateSuite) TestPutMetadataWithSameSHA384AndSize(c *tc.C) {
 	rUUID2, err := st.PutMetadata(c.Context(), uuid2, metadata2)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(rUUID1, tc.Equals, rUUID2)
+	c.Check(rUUID1, tc.Equals, uuid1)
+	c.Check(rUUID2, tc.Equals, rUUID1)
+
+	// The existing metadata is reused unchanged, so the new path reports the
+	// original sha256 rather than the one supplied with the second put.
+	c.Check(s.countRows(c, "object_store_metadata"), tc.Equals, 1)
+	c.Check(s.countRows(c, "object_store_metadata_path"), tc.Equals, 2)
+
+	got, err := st.GetMetadata(c.Context(), metadata2.Path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, coreobjectstore.Metadata{
+		SHA256: "foo",
+		SHA384: "sha384",
+		Path:   "blah-foo-2",
+		Size:   666,
+	})
 }
 
 func (s *stateSuite) TestPutMetadataWithSameHashDifferentSize(c *tc.C) {
@@ -363,6 +415,260 @@ func (s *stateSuite) TestPutMetadataWithSameHashDifferentSize(c *tc.C) {
 
 	_, err = st.PutMetadata(c.Context(), uuid2, metadata2)
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrHashAndSizeAlreadyExists)
+
+	c.Check(s.countRows(c, "object_store_metadata"), tc.Equals, 1)
+	c.Check(s.countRows(c, "object_store_metadata_path"), tc.Equals, 1)
+}
+
+func (s *stateSuite) TestPutMetadataWithSameSHA256DifferentSize(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
+
+	// A matching hash with a different size is a broken hash function
+	// somewhere, even if the other hash differs.
+
+	uuid1 := tc.Must(c, coreobjectstore.NewUUID).String()
+	uuid2 := tc.Must(c, coreobjectstore.NewUUID).String()
+
+	metadata1 := coreobjectstore.Metadata{
+		SHA256: "sha256",
+		SHA384: "foo",
+		Path:   "blah-foo-1",
+		Size:   666,
+	}
+	metadata2 := coreobjectstore.Metadata{
+		SHA256: "sha256",
+		SHA384: "bar",
+		Path:   "blah-foo-2",
+		Size:   42,
+	}
+
+	_, err := st.PutMetadata(c.Context(), uuid1, metadata1)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = st.PutMetadata(c.Context(), uuid2, metadata2)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrHashAndSizeAlreadyExists)
+
+	c.Check(s.countRows(c, "object_store_metadata"), tc.Equals, 1)
+	c.Check(s.countRows(c, "object_store_metadata_path"), tc.Equals, 1)
+}
+
+func (s *stateSuite) TestPutMetadataWithSameSHA384DifferentSize(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
+
+	// A matching hash with a different size is a broken hash function
+	// somewhere, even if the other hash differs.
+
+	uuid1 := tc.Must(c, coreobjectstore.NewUUID).String()
+	uuid2 := tc.Must(c, coreobjectstore.NewUUID).String()
+
+	metadata1 := coreobjectstore.Metadata{
+		SHA256: "foo",
+		SHA384: "sha384",
+		Path:   "blah-foo-1",
+		Size:   666,
+	}
+	metadata2 := coreobjectstore.Metadata{
+		SHA256: "bar",
+		SHA384: "sha384",
+		Path:   "blah-foo-2",
+		Size:   42,
+	}
+
+	_, err := st.PutMetadata(c.Context(), uuid1, metadata1)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = st.PutMetadata(c.Context(), uuid2, metadata2)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrHashAndSizeAlreadyExists)
+
+	c.Check(s.countRows(c, "object_store_metadata"), tc.Equals, 1)
+	c.Check(s.countRows(c, "object_store_metadata_path"), tc.Equals, 1)
+}
+
+func (s *stateSuite) TestPutMetadataWithSameUUIDDifferentHashes(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
+
+	// UUIDs are generated fresh by callers, so a reused UUID with different
+	// hashes is a caller bug. It must not replace or alias the existing
+	// metadata, and it must not be reported as an existing hash.
+
+	uuid := tc.Must(c, coreobjectstore.NewUUID).String()
+
+	metadata1 := coreobjectstore.Metadata{
+		SHA256: "sha256-1",
+		SHA384: "sha384-1",
+		Path:   "blah-foo-1",
+		Size:   666,
+	}
+	metadata2 := coreobjectstore.Metadata{
+		SHA256: "sha256-2",
+		SHA384: "sha384-2",
+		Path:   "blah-foo-2",
+		Size:   666,
+	}
+
+	_, err := st.PutMetadata(c.Context(), uuid, metadata1)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = st.PutMetadata(c.Context(), uuid, metadata2)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMetadataUUIDAlreadyExists)
+	c.Check(err, tc.Not(tc.ErrorIs), objectstoreerrors.ErrHashAndSizeAlreadyExists)
+
+	got, err := st.GetMetadata(c.Context(), metadata1.Path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, metadata1)
+
+	_, err = st.GetMetadata(c.Context(), metadata2.Path)
+	c.Check(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
+
+	c.Check(s.countRows(c, "object_store_metadata"), tc.Equals, 1)
+	c.Check(s.countRows(c, "object_store_metadata_path"), tc.Equals, 1)
+}
+
+func (s *stateSuite) TestPutMetadataWithSameUUIDDifferentSize(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
+	uuid := tc.Must(c, coreobjectstore.NewUUID).String()
+	metadata := coreobjectstore.Metadata{
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "original",
+		Size:   666,
+	}
+	_, err := st.PutMetadata(c.Context(), uuid, metadata)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A size-only UUID conflict is a caller bug, not deduplication.
+	conflicting := metadata
+	conflicting.Path = "rejected"
+	conflicting.Size = 42
+	_, err = st.PutMetadata(c.Context(), uuid, conflicting)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMetadataUUIDAlreadyExists)
+	c.Check(err, tc.Not(tc.ErrorIs), objectstoreerrors.ErrHashAndSizeAlreadyExists)
+
+	got, err := st.GetMetadata(c.Context(), metadata.Path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, metadata)
+	_, err = st.GetMetadata(c.Context(), conflicting.Path)
+	c.Check(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
+	c.Check(s.countRows(c, "object_store_metadata"), tc.Equals, 1)
+	c.Check(s.countRows(c, "object_store_metadata_path"), tc.Equals, 1)
+}
+
+func (s *stateSuite) TestPutMetadataWithSameUUIDSameHashes(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
+
+	// A reused UUID with the hashes and size already stored is deduplicated
+	// to the existing metadata, and the new path is added to it.
+
+	uuid := tc.Must(c, coreobjectstore.NewUUID).String()
+
+	metadata1 := coreobjectstore.Metadata{
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "blah-foo-1",
+		Size:   666,
+	}
+	metadata2 := coreobjectstore.Metadata{
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "blah-foo-2",
+		Size:   666,
+	}
+
+	rUUID1, err := st.PutMetadata(c.Context(), uuid, metadata1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(rUUID1, tc.Equals, uuid)
+
+	rUUID2, err := st.PutMetadata(c.Context(), uuid, metadata2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(rUUID2, tc.Equals, uuid)
+
+	c.Check(s.countRows(c, "object_store_metadata"), tc.Equals, 1)
+	c.Check(s.countRows(c, "object_store_metadata_path"), tc.Equals, 2)
+
+	got, err := st.GetMetadata(c.Context(), metadata2.Path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, metadata2)
+
+	// Repeating an existing path is still a conflict.
+	_, err = st.PutMetadata(c.Context(), uuid, metadata2)
+	c.Check(err, tc.ErrorIs, objectstoreerrors.ErrHashAndSizeAlreadyExists)
+	c.Check(s.countRows(c, "object_store_metadata_path"), tc.Equals, 2)
+}
+
+func (s *stateSuite) TestPutMetadataWithControllerIDHintSameUUIDDifferentHashes(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
+
+	// The conflict is detected before the placement hint is recorded, so the
+	// hint for the rejected put must not be stored against the existing
+	// metadata.
+
+	uuid := tc.Must(c, coreobjectstore.NewUUID).String()
+
+	metadata1 := coreobjectstore.Metadata{
+		SHA256: "sha256-1",
+		SHA384: "sha384-1",
+		Path:   "blah-foo-1",
+		Size:   666,
+	}
+	metadata2 := coreobjectstore.Metadata{
+		SHA256: "sha256-2",
+		SHA384: "sha384-2",
+		Path:   "blah-foo-2",
+		Size:   666,
+	}
+
+	_, err := st.PutMetadataWithControllerIDHint(c.Context(), uuid, metadata1, "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = st.PutMetadataWithControllerIDHint(c.Context(), uuid, metadata2, "2")
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMetadataUUIDAlreadyExists)
+	c.Check(err, tc.Not(tc.ErrorIs), objectstoreerrors.ErrHashAndSizeAlreadyExists)
+
+	got, err := st.GetMetadata(c.Context(), metadata1.Path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, metadata1)
+
+	_, err = st.GetMetadata(c.Context(), metadata2.Path)
+	c.Check(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
+
+	hints, err := st.GetControllerIDHints(c.Context(), metadata1.SHA384)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hints, tc.DeepEquals, []string{"1"})
+
+	c.Check(s.countRows(c, "object_store_metadata"), tc.Equals, 1)
+	c.Check(s.countRows(c, "object_store_metadata_path"), tc.Equals, 1)
+}
+
+func (s *stateSuite) TestPutMetadataWithControllerIDHintSameUUIDDifferentSize(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
+	uuid := tc.Must(c, coreobjectstore.NewUUID).String()
+	metadata := coreobjectstore.Metadata{
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "original",
+		Size:   666,
+	}
+	_, err := st.PutMetadataWithControllerIDHint(c.Context(), uuid, metadata, "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A size-only UUID conflict must not record the rejected placement hint.
+	conflicting := metadata
+	conflicting.Path = "rejected"
+	conflicting.Size = 42
+	_, err = st.PutMetadataWithControllerIDHint(c.Context(), uuid, conflicting, "2")
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMetadataUUIDAlreadyExists)
+	c.Check(err, tc.Not(tc.ErrorIs), objectstoreerrors.ErrHashAndSizeAlreadyExists)
+
+	got, err := st.GetMetadata(c.Context(), metadata.Path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, metadata)
+	_, err = st.GetMetadata(c.Context(), conflicting.Path)
+	c.Check(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
+	hints, err := st.GetControllerIDHints(c.Context(), metadata.SHA384)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hints, tc.DeepEquals, []string{"1"})
+	c.Check(s.countRows(c, "object_store_metadata"), tc.Equals, 1)
+	c.Check(s.countRows(c, "object_store_metadata_path"), tc.Equals, 1)
 }
 
 func (s *stateSuite) TestPutMetadataMultipleTimes(c *tc.C) {
@@ -1384,6 +1690,15 @@ WHERE type_id = 0`)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(backendUUID, tc.Equals, defaultFileBackendUUID)
+}
+
+func (s *stateSuite) countRows(c *tc.C, table string) int {
+	var count int
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT count(*) FROM "+table).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return count
 }
 
 func (s *stateSuite) markBackendAsDead(c *tc.C, uuid string) {

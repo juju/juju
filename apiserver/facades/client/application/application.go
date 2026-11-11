@@ -41,7 +41,6 @@ import (
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/permission"
 	coreresource "github.com/juju/juju/core/resource"
-	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
@@ -61,7 +60,6 @@ import (
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/configschema"
 	internalerrors "github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -2160,24 +2158,6 @@ func (api *APIBase) MergeBindings(ctx context.Context, in params.ApplicationMerg
 	}
 	return params.ErrorResults{Results: res}, nil
 }
-
-// AgentTools is a point of use agent tools requester.
-type AgentTools interface {
-	AgentTools() (*tools.Tools, error)
-}
-
-// AgentVersioner is a point of use agent version object.
-type AgentVersioner interface {
-	AgentVersion() (semversion.Number, error)
-}
-
-var (
-	// ErrInvalidAgentVersions is a sentinal error for when we can no longer
-	// upgrade juju using 2.5.x agents with 2.6 or greater controllers.
-	ErrInvalidAgentVersions = errors.Errorf(
-		"Unable to upgrade LXDProfile charms with the current model version. " +
-			"Please run juju upgrade-model to upgrade the current model to match your controller.")
-)
 
 // UnitsInfo returns unit information for the given entities (units or
 // applications).

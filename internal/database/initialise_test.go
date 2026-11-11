@@ -14,7 +14,6 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	coreschema "github.com/juju/juju/core/database/schema"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/schema"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -30,12 +29,9 @@ func TestInitialisationSuite(t *testing.T) {
 
 func (s *initialisationSuite) TestOpenDatabasesWithoutBootstrapData(c *tc.C) {
 	const bindAddress = "10.0.0.1"
-	addresses := network.NewMachineAddresses(
-		[]string{bindAddress}, network.WithScope(network.ScopeCloudLocal),
-	).AsProviderAddresses()
 	mgr := &testNodeManager{c: c}
 	var runners []coredatabase.TxnRunner
-	err := WithDqlite(c.Context(), mgr, addresses, loggertesting.WrapCheckLog(c), func(ctx context.Context, session *DqliteSession) error {
+	err := WithDqlite(c.Context(), mgr, bindAddress, loggertesting.WrapCheckLog(c), func(ctx context.Context, session *DqliteSession) error {
 		c.Check(session.NodeID(), tc.Not(tc.Equals), uint64(0))
 		c.Check(session.BindAddress(), tc.Equals, bindAddress)
 

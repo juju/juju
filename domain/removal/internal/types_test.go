@@ -62,6 +62,11 @@ func (s *typesSuite) TestCascadedUnitLivesEmpty(c *tc.C) {
 	cul.StorageAttachmentUUIDs = nil
 	cul.StorageInstanceUUIDs = []string{"burp"}
 	c.Check(cul.IsEmpty(), tc.IsFalse)
+
+	cul.StorageInstanceUUIDs = nil
+	charmUUID := "charm-uuid"
+	cul.CharmUUID = &charmUUID
+	c.Check(cul.IsEmpty(), tc.IsFalse)
 }
 
 func (s *typesSuite) TestCascadedMachineLivesEmpty(c *tc.C) {
@@ -77,6 +82,10 @@ func (s *typesSuite) TestCascadedMachineLivesEmpty(c *tc.C) {
 
 	cml.UnitUUIDs = nil
 	cml.StorageAttachmentUUIDs = []string{"burp"}
+	c.Check(cml.IsEmpty(), tc.IsFalse)
+
+	cml.StorageAttachmentUUIDs = nil
+	cml.CharmUUIDs = []string{"charm-uuid"}
 	c.Check(cml.IsEmpty(), tc.IsFalse)
 
 }
@@ -98,5 +107,9 @@ func (s *typesSuite) TestCascadedApplicationLivesEmpty(c *tc.C) {
 
 	cal.StorageAttachmentUUIDs = nil
 	cal.RelationUUIDs = []string{"burp"}
+	c.Check(cal.IsEmpty(), tc.IsFalse)
+
+	cal.RelationUUIDs = nil
+	cal.CharmUUIDs = []string{"charm-uuid"}
 	c.Check(cal.IsEmpty(), tc.IsFalse)
 }

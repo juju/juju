@@ -31,65 +31,61 @@ type MockServer struct {
 
 // MockServerMockRecorder is the mock recorder for MockServer.
 type MockServerMockRecorder struct {
-	mock                                *MockServer
-	aliveContainersExpects              []*gomock.Call1_2[string, []lxd0.Container, error]
-	containerAddressesExpects           []*gomock.Call1_2[string, []network.ProviderAddress, error]
-	createCertificateExpects            []*gomock.Call1_1[api.CertificatesPost, error]
-	createClientCertificateExpects      []*gomock.Call1_1[*lxd0.Certificate, error]
-	createContainerFromSpecExpects      []*gomock.Call1_2[lxd0.ContainerSpec, *lxd0.Container, error]
-	createNetworkForwardExpects         []*gomock.Call2_2[string, api.NetworkForwardsPost, lxd.Operation, error]
-	createPoolExpects                   []*gomock.Call3_1[string, string, map[string]string, error]
-	createProfileExpects                []*gomock.Call1_1[api.ProfilesPost, error]
-	createProfileWithConfigExpects      []*gomock.Call2_1[string, map[string]string, error]
-	createVolumeExpects                 []*gomock.Call3_1[string, string, map[string]string, error]
-	deleteCertificateExpects            []*gomock.Call1_1[string, error]
-	deleteNetworkForwardExpects         []*gomock.Call2_2[string, string, lxd.Operation, error]
-	deleteProfileExpects                []*gomock.Call1_1[string, error]
-	deleteStoragePoolVolumeExpects      []*gomock.Call3_2[string, string, string, lxd.Operation, error]
-	enableHTTPSListenerExpects          []*gomock.Call0_1[error]
-	ensureDefaultStorageExpects         []*gomock.Call2_1[*api.Profile, string, error]
-	findImageExpects                    []*gomock.Call7_2[context.Context, base.Base, string, instance.VirtType, []lxd0.ServerSpec, bool, environs.StatusCallbackFunc, lxd0.SourcedImage, error]
-	getCertificateExpects               []*gomock.Call1_3[string, *api.Certificate, string, error]
-	getClusterMembersExpects            []*gomock.Call0_2[[]api.ClusterMember, error]
-	getConnectionInfoExpects            []*gomock.Call0_2[*lxd.ConnectionInfo, error]
-	getContainerProfilesExpects         []*gomock.Call1_2[string, []string, error]
-	getInstanceExpects                  []*gomock.Call1_3[string, *api.Instance, string, error]
-	getInstanceStateExpects             []*gomock.Call1_3[string, *api.InstanceState, string, error]
-	getNICsFromProfileExpects           []*gomock.Call1_2[string, map[string]map[string]string, error]
-	getNetworkForwardsExpects           []*gomock.Call1_2[string, []api.NetworkForward, error]
-	getNetworkInProjectExpects          []*gomock.Call2_3[string, string, *api.Network, string, error]
-	getNetworkNamesExpects              []*gomock.Call0_2[[]string, error]
-	getNetworkStateExpects              []*gomock.Call1_2[string, *api.NetworkState, error]
-	getNetworksExpects                  []*gomock.Call0_2[[]api.Network, error]
-	getProfileExpects                   []*gomock.Call1_3[string, *api.Profile, string, error]
-	getProfileNamesExpects              []*gomock.Call0_2[[]string, error]
-	getProjectExpects                   []*gomock.Call1_3[string, *api.Project, string, error]
-	getServerExpects                    []*gomock.Call0_3[*api.Server, string, error]
-	getStoragePoolExpects               []*gomock.Call1_3[string, *api.StoragePool, string, error]
-	getStoragePoolVolumeExpects         []*gomock.Call3_3[string, string, string, *api.StorageVolume, string, error]
-	getStoragePoolVolumesExpects        []*gomock.Call1_2[string, []api.StorageVolume, error]
-	getStoragePoolsExpects              []*gomock.Call0_2[[]api.StoragePool, error]
-	hasExtensionExpects                 []*gomock.Call1_1[string, bool]
-	hasProfileExpects                   []*gomock.Call1_2[string, bool, error]
-	hostArchExpects                     []*gomock.Call0_1[string]
-	isClusteredExpects                  []*gomock.Call0_1[bool]
-	localBridgeNameExpects              []*gomock.Call0_1[string]
-	nameExpects                         []*gomock.Call0_1[string]
-	removeContainerExpects              []*gomock.Call1_1[string, error]
-	removeContainersExpects             []*gomock.Call1_1[[]string, error]
-	replaceOrAddContainerProfileExpects []*gomock.Call3_1[string, string, string, error]
-	serverCertificateExpects            []*gomock.Call0_1[string]
-	serverVersionExpects                []*gomock.Call0_1[string]
-	storageSupportedExpects             []*gomock.Call0_1[bool]
-	supportedArchesExpects              []*gomock.Call0_1[[]string]
-	updateContainerConfigExpects        []*gomock.Call2_1[string, map[string]string, error]
-	updateContainerProfilesExpects      []*gomock.Call2_1[string, []string, error]
-	updateServerConfigExpects           []*gomock.Call1_1[map[string]string, error]
-	updateStoragePoolVolumeExpects      []*gomock.Call5_2[string, string, string, api.StorageVolumePut, string, lxd.Operation, error]
-	useProjectExpects                   []*gomock.Call1_0[string]
-	useTargetServerExpects              []*gomock.Call2_2[context.Context, string, *lxd0.Server, error]
-	verifyNetworkDeviceExpects          []*gomock.Call2_1[*api.Profile, string, error]
-	writeContainerExpects               []*gomock.Call1_1[*lxd0.Container, error]
+	mock                           *MockServer
+	aliveContainersExpects         []*gomock.Call1_2[string, []lxd0.Container, error]
+	containerAddressesExpects      []*gomock.Call1_2[string, []network.ProviderAddress, error]
+	createCertificateExpects       []*gomock.Call1_1[api.CertificatesPost, error]
+	createClientCertificateExpects []*gomock.Call1_1[*lxd0.Certificate, error]
+	createContainerFromSpecExpects []*gomock.Call1_2[lxd0.ContainerSpec, *lxd0.Container, error]
+	createNetworkForwardExpects    []*gomock.Call2_2[string, api.NetworkForwardsPost, lxd.Operation, error]
+	createPoolExpects              []*gomock.Call3_1[string, string, map[string]string, error]
+	createProfileWithConfigExpects []*gomock.Call2_1[string, map[string]string, error]
+	createVolumeExpects            []*gomock.Call3_1[string, string, map[string]string, error]
+	deleteCertificateExpects       []*gomock.Call1_1[string, error]
+	deleteNetworkForwardExpects    []*gomock.Call2_2[string, string, lxd.Operation, error]
+	deleteProfileExpects           []*gomock.Call1_1[string, error]
+	deleteStoragePoolVolumeExpects []*gomock.Call3_2[string, string, string, lxd.Operation, error]
+	enableHTTPSListenerExpects     []*gomock.Call0_1[error]
+	ensureDefaultStorageExpects    []*gomock.Call2_1[*api.Profile, string, error]
+	findImageExpects               []*gomock.Call7_2[context.Context, base.Base, string, instance.VirtType, []lxd0.ServerSpec, bool, environs.StatusCallbackFunc, lxd0.SourcedImage, error]
+	getCertificateExpects          []*gomock.Call1_3[string, *api.Certificate, string, error]
+	getClusterMembersExpects       []*gomock.Call0_2[[]api.ClusterMember, error]
+	getConnectionInfoExpects       []*gomock.Call0_2[*lxd.ConnectionInfo, error]
+	getInstanceExpects             []*gomock.Call1_3[string, *api.Instance, string, error]
+	getInstanceStateExpects        []*gomock.Call1_3[string, *api.InstanceState, string, error]
+	getNICsFromProfileExpects      []*gomock.Call1_2[string, map[string]map[string]string, error]
+	getNetworkForwardsExpects      []*gomock.Call1_2[string, []api.NetworkForward, error]
+	getNetworkInProjectExpects     []*gomock.Call2_3[string, string, *api.Network, string, error]
+	getNetworkNamesExpects         []*gomock.Call0_2[[]string, error]
+	getNetworkStateExpects         []*gomock.Call1_2[string, *api.NetworkState, error]
+	getNetworksExpects             []*gomock.Call0_2[[]api.Network, error]
+	getProfileExpects              []*gomock.Call1_3[string, *api.Profile, string, error]
+	getProfileNamesExpects         []*gomock.Call0_2[[]string, error]
+	getProjectExpects              []*gomock.Call1_3[string, *api.Project, string, error]
+	getServerExpects               []*gomock.Call0_3[*api.Server, string, error]
+	getStoragePoolExpects          []*gomock.Call1_3[string, *api.StoragePool, string, error]
+	getStoragePoolVolumeExpects    []*gomock.Call3_3[string, string, string, *api.StorageVolume, string, error]
+	getStoragePoolVolumesExpects   []*gomock.Call1_2[string, []api.StorageVolume, error]
+	getStoragePoolsExpects         []*gomock.Call0_2[[]api.StoragePool, error]
+	hasExtensionExpects            []*gomock.Call1_1[string, bool]
+	hasProfileExpects              []*gomock.Call1_2[string, bool, error]
+	hostArchExpects                []*gomock.Call0_1[string]
+	isClusteredExpects             []*gomock.Call0_1[bool]
+	localBridgeNameExpects         []*gomock.Call0_1[string]
+	nameExpects                    []*gomock.Call0_1[string]
+	removeContainerExpects         []*gomock.Call1_1[string, error]
+	removeContainersExpects        []*gomock.Call1_1[[]string, error]
+	serverCertificateExpects       []*gomock.Call0_1[string]
+	serverVersionExpects           []*gomock.Call0_1[string]
+	storageSupportedExpects        []*gomock.Call0_1[bool]
+	supportedArchesExpects         []*gomock.Call0_1[[]string]
+	updateContainerConfigExpects   []*gomock.Call2_1[string, map[string]string, error]
+	updateServerConfigExpects      []*gomock.Call1_1[map[string]string, error]
+	updateStoragePoolVolumeExpects []*gomock.Call5_2[string, string, string, api.StorageVolumePut, string, lxd.Operation, error]
+	useProjectExpects              []*gomock.Call1_0[string]
+	useTargetServerExpects         []*gomock.Call2_2[context.Context, string, *lxd0.Server, error]
+	verifyNetworkDeviceExpects     []*gomock.Call2_1[*api.Profile, string, error]
+	writeContainerExpects          []*gomock.Call1_1[*lxd0.Container, error]
 }
 
 // NewMockServer creates a new mock instance.
@@ -229,24 +225,6 @@ func (mr *MockServerMockRecorder) CreatePool(name, driver, attrs any) *MockServe
 
 // MockServerCreatePoolCall is the typed call wrapper for CreatePool.
 type MockServerCreatePoolCall = gomock.Call3_1[string, string, map[string]string, error]
-
-// CreateProfile mocks base method.
-func (m *MockServer) CreateProfile(post api.ProfilesPost) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_1(&m.recorder.createProfileExpects, m.ctrl, m, "CreateProfile", post)
-}
-
-// CreateProfile indicates an expected call of CreateProfile.
-func (mr *MockServerMockRecorder) CreateProfile(post any) *MockServerCreateProfileCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_1[api.ProfilesPost, error](mr.mock.ctrl.T, mr.mock, "CreateProfile", gomock.EnsureMatcher(post))
-	mr.createProfileExpects = append(mr.createProfileExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockServerCreateProfileCall is the typed call wrapper for CreateProfile.
-type MockServerCreateProfileCall = gomock.Call1_1[api.ProfilesPost, error]
 
 // CreateProfileWithConfig mocks base method.
 func (m *MockServer) CreateProfileWithConfig(arg0 string, arg1 map[string]string) error {
@@ -463,24 +441,6 @@ func (mr *MockServerMockRecorder) GetConnectionInfo() *MockServerGetConnectionIn
 
 // MockServerGetConnectionInfoCall is the typed call wrapper for GetConnectionInfo.
 type MockServerGetConnectionInfoCall = gomock.Call0_2[*lxd.ConnectionInfo, error]
-
-// GetContainerProfiles mocks base method.
-func (m *MockServer) GetContainerProfiles(arg0 string) ([]string, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.getContainerProfilesExpects, m.ctrl, m, "GetContainerProfiles", arg0)
-}
-
-// GetContainerProfiles indicates an expected call of GetContainerProfiles.
-func (mr *MockServerMockRecorder) GetContainerProfiles(arg0 any) *MockServerGetContainerProfilesCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[string, []string, error](mr.mock.ctrl.T, mr.mock, "GetContainerProfiles", gomock.EnsureMatcher(arg0))
-	mr.getContainerProfilesExpects = append(mr.getContainerProfilesExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockServerGetContainerProfilesCall is the typed call wrapper for GetContainerProfiles.
-type MockServerGetContainerProfilesCall = gomock.Call1_2[string, []string, error]
 
 // GetInstance mocks base method.
 func (m *MockServer) GetInstance(name string) (*api.Instance, string, error) {
@@ -914,24 +874,6 @@ func (mr *MockServerMockRecorder) RemoveContainers(names any) *MockServerRemoveC
 // MockServerRemoveContainersCall is the typed call wrapper for RemoveContainers.
 type MockServerRemoveContainersCall = gomock.Call1_1[[]string, error]
 
-// ReplaceOrAddContainerProfile mocks base method.
-func (m *MockServer) ReplaceOrAddContainerProfile(arg0, arg1, arg2 string) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.replaceOrAddContainerProfileExpects, m.ctrl, m, "ReplaceOrAddContainerProfile", arg0, arg1, arg2)
-}
-
-// ReplaceOrAddContainerProfile indicates an expected call of ReplaceOrAddContainerProfile.
-func (mr *MockServerMockRecorder) ReplaceOrAddContainerProfile(arg0, arg1, arg2 any) *MockServerReplaceOrAddContainerProfileCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[string, string, string, error](mr.mock.ctrl.T, mr.mock, "ReplaceOrAddContainerProfile", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
-	mr.replaceOrAddContainerProfileExpects = append(mr.replaceOrAddContainerProfileExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockServerReplaceOrAddContainerProfileCall is the typed call wrapper for ReplaceOrAddContainerProfile.
-type MockServerReplaceOrAddContainerProfileCall = gomock.Call3_1[string, string, string, error]
-
 // ServerCertificate mocks base method.
 func (m *MockServer) ServerCertificate() string {
 	m.ctrl.T.Helper()
@@ -1021,24 +963,6 @@ func (mr *MockServerMockRecorder) UpdateContainerConfig(arg0, arg1 any) *MockSer
 
 // MockServerUpdateContainerConfigCall is the typed call wrapper for UpdateContainerConfig.
 type MockServerUpdateContainerConfigCall = gomock.Call2_1[string, map[string]string, error]
-
-// UpdateContainerProfiles mocks base method.
-func (m *MockServer) UpdateContainerProfiles(name string, profiles []string) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.updateContainerProfilesExpects, m.ctrl, m, "UpdateContainerProfiles", name, profiles)
-}
-
-// UpdateContainerProfiles indicates an expected call of UpdateContainerProfiles.
-func (mr *MockServerMockRecorder) UpdateContainerProfiles(name, profiles any) *MockServerUpdateContainerProfilesCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[string, []string, error](mr.mock.ctrl.T, mr.mock, "UpdateContainerProfiles", gomock.EnsureMatcher(name), gomock.EnsureMatcher(profiles))
-	mr.updateContainerProfilesExpects = append(mr.updateContainerProfilesExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockServerUpdateContainerProfilesCall is the typed call wrapper for UpdateContainerProfiles.
-type MockServerUpdateContainerProfilesCall = gomock.Call2_1[string, []string, error]
 
 // UpdateServerConfig mocks base method.
 func (m *MockServer) UpdateServerConfig(arg0 map[string]string) error {

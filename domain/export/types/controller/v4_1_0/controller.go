@@ -29,7 +29,7 @@ type AutocertCache struct {
 	UUID     string `db:"uuid" json:"uuid" yaml:"uuid"`
 	Name     string `db:"name" json:"name" yaml:"name"`
 	Data     string `db:"data" json:"data" yaml:"data"`
-	Encoding string `db:"encoding" json:"encoding" yaml:"encoding"`
+	Encoding int64  `db:"encoding" json:"encoding" yaml:"encoding"`
 }
 
 type AutocertCacheEncoding struct {
@@ -102,7 +102,7 @@ type CloudCaCert struct {
 type CloudCredential struct {
 	UUID          string  `db:"uuid" json:"uuid" yaml:"uuid"`
 	CloudUUID     string  `db:"cloud_uuid" json:"cloud_uuid" yaml:"cloud_uuid"`
-	AuthTypeID    string  `db:"auth_type_id" json:"auth_type_id" yaml:"auth_type_id"`
+	AuthTypeID    int64   `db:"auth_type_id" json:"auth_type_id" yaml:"auth_type_id"`
 	OwnerUUID     string  `db:"owner_uuid" json:"owner_uuid" yaml:"owner_uuid"`
 	Name          string  `db:"name" json:"name" yaml:"name"`
 	Revoked       *bool   `db:"revoked" json:"revoked" yaml:"revoked"`
@@ -217,7 +217,7 @@ type ControllerNodeNonce struct {
 
 type ControllerNodePassword struct {
 	ControllerID            string  `db:"controller_id" json:"controller_id" yaml:"controller_id"`
-	PasswordHashAlgorithmID *string `db:"password_hash_algorithm_id" json:"password_hash_algorithm_id" yaml:"password_hash_algorithm_id"`
+	PasswordHashAlgorithmID *int64  `db:"password_hash_algorithm_id" json:"password_hash_algorithm_id" yaml:"password_hash_algorithm_id"`
 	PasswordHash            *string `db:"password_hash" json:"password_hash" yaml:"password_hash"`
 }
 

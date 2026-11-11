@@ -295,7 +295,7 @@ CREATE TABLE secret_permission (
     -- defines the scope of the grant.
     -- It will be an application, unit, relation, or model uuid.
     scope_uuid TEXT NOT NULL,
-    scope_type_id TEXT NOT NULL,
+    scope_type_id INT NOT NULL,
     CONSTRAINT pk_secret_permission_secret_id_subject_uuid
     PRIMARY KEY (secret_id, subject_uuid),
     CONSTRAINT chk_empty_scope_uuid

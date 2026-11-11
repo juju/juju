@@ -183,6 +183,9 @@ AND    life_id < 2`, applicationUUID)
 			if cascaded.MachineUUID != nil {
 				res.MachineUUIDs = append(res.MachineUUIDs, *cascaded.MachineUUID)
 			}
+			if cascaded.CharmUUID != nil {
+				res.CharmUUIDs = append(res.CharmUUIDs, *cascaded.CharmUUID)
+			}
 
 			res.CascadedStorageLives = res.CascadedStorageLives.Merge(cascaded.CascadedStorageLives)
 		}
@@ -202,6 +205,7 @@ AND    life_id < 2`, applicationUUID)
 	res.FileSystemUUIDs = dedupeStrings(res.FileSystemUUIDs)
 	res.VolumeUUIDs = dedupeStrings(res.VolumeUUIDs)
 	res.StorageInstanceUUIDs = dedupeStrings(res.StorageInstanceUUIDs)
+	res.CharmUUIDs = dedupeStrings(res.CharmUUIDs)
 
 	return res, nil
 }
@@ -500,7 +504,8 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 }
 
 // DeleteCharmIfUnused deletes the charm with the input UUID if it is not used
-// by any application or unit.
+// by any application or unit. It returns [removalerrors.RemovalJobIncomplete]
+// while unit references remain.
 func (st *State) DeleteCharmIfUnused(ctx context.Context, charmUUID string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -860,8 +865,8 @@ WHERE  charm_uuid = $entityAssociationCount.uuid`, uuidCount)
 	if err := tx.Query(ctx, unitStmt, uuidCount).Get(&uuidCount); err != nil {
 		return errors.Errorf("running unit charm usage query: %w", err)
 	} else if uuidCount.Count > 0 {
-		st.logger.Infof(ctx, "charm %q is still used by %d unit(s), not deleting", charmUUID, uuidCount.Count)
-		return nil
+		return errors.Errorf("charm %q is still used by %d unit(s), not deleting", charmUUID, uuidCount.Count).
+			Add(removalerrors.RemovalJobIncomplete)
 	}
 
 	return st.deleteCharm(ctx, tx, charmUUID)
@@ -888,6 +893,7 @@ func (st *State) deleteCharm(ctx context.Context, tx *sqlair.TX, cUUID string) e
 		"DELETE FROM charm_hash WHERE charm_uuid = $entityUUID.uuid",
 		"DELETE FROM charm_metadata WHERE charm_uuid = $entityUUID.uuid",
 		"DELETE FROM charm_download_info WHERE charm_uuid = $entityUUID.uuid",
+		"DELETE FROM annotation_charm WHERE uuid = $entityUUID.uuid",
 	} {
 		deleteApplicationReferenceStmt, err := st.Prepare(table, charmUUID)
 		if err != nil {
