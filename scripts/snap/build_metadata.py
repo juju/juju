@@ -2,14 +2,31 @@
 """Compute build metadata for the Juju snap.
 
 The same values feed both snapcraft's adopted version/grade and the Go
-linker flags. Launchpad provides SNAPCRAFT_IMAGE_INFO; local builds have no
-image info and fall back to the checked-in version with devel metadata.
+linker flags.
+
+Launchpad provides SNAPCRAFT_IMAGE_INFO as a JSON object containing at least
+``build_url`` and ``build-request-id``. The recipe name in ``build_url``
+selects the build mode:
+
+- ``juju-edge-*``: edge build. The snap version is ``<base>-<commit>``,
+  grade is ``devel``, the Launchpad build request id (``lp-`` prefix
+  removed) is recorded as the build number, and OCI images come from the
+  test registry.
+- ``juju-release`` or ``juju-release-*``: release build. The snap version is
+  the checked-in version, grade is ``stable``, and OCI images come from
+  ``ghcr.io/juju``.
+
+Local builds have no image info and fall back to the checked-in version with
+devel metadata; the same applies to CI builders that set
+SNAPCRAFT_IMAGE_INFO purely for manifest provenance. A Launchpad build whose
+recipe matches neither pattern fails.
 """
 
 import argparse
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 
@@ -24,18 +41,34 @@ def image_info():
     if not raw:
         return {}
     try:
-        return json.loads(raw)
+        info = json.loads(raw)
     except (TypeError, ValueError) as e:
         raise SystemExit(f"invalid SNAPCRAFT_IMAGE_INFO: {e}") from e
+    if not isinstance(info, dict):
+        raise SystemExit(
+            "invalid SNAPCRAFT_IMAGE_INFO: expected a JSON object"
+        )
+    return info
 
 
 def detect_mode(info):
     build_url = str(info.get("build_url", ""))
-    if "/+snap/juju-edge-" in build_url:
+    if not build_url:
+        return "local"
+    match = re.search(r"/\+snap/([^/?#]+)", build_url)
+    if not match:
+        # Not a Launchpad snap recipe build; some CI builders set
+        # SNAPCRAFT_IMAGE_INFO for manifest provenance only.
+        return "local"
+    recipe = match.group(1)
+    if recipe.startswith("juju-edge-"):
         return "edge"
-    if "/+snap/juju-release" in build_url:
+    if recipe == "juju-release" or recipe.startswith("juju-release-"):
         return "release"
-    return "local"
+    raise SystemExit(
+        f"unsupported Launchpad snap recipe {recipe!r}: "
+        "expected juju-edge-* or juju-release*"
+    )
 
 
 def git_commit(project_dir):
@@ -141,7 +174,7 @@ def main():
         print(values[args.field])
     elif args.format == "shell":
         for key in ("version", "grade"):
-            print(f"{key}={values[key]}")
+            print(f"{key}={shlex.quote(values[key])}")
     else:
         json.dump(values, sys.stdout, sort_keys=True)
         print()
