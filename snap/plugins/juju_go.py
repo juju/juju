@@ -122,11 +122,11 @@ class PluginImpl(PluginV2):
                 ],
                 text=True,
             )
-        except (OSError, subprocess.CalledProcessError) as e:
+            return json.loads(output)
+        except (OSError, subprocess.CalledProcessError, ValueError) as e:
             raise RuntimeError(
                 f"failed to compute Juju snap build metadata: {e}"
             ) from e
-        return json.loads(output)
 
     def get_build_environment(self) -> Dict[str, str]:
         env = {

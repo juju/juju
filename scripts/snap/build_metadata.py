@@ -106,7 +106,9 @@ def base_version(project_dir):
     for path in candidates:
         try:
             with open(path, encoding="utf-8") as f:
-                match = re.search(r'^const version = "(.*)"', f.read(), re.M)
+                match = re.search(
+                    r'^const\s+version\s*=\s*"([^"]+)"', f.read(), re.M
+                )
         except OSError:
             continue
         if match:

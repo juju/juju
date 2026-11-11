@@ -16,6 +16,9 @@ run_compileall() {
 }
 
 run_script_unittests() {
+	# Run from a copy so __pycache__ is never written into the source tree.
+	# build_metadata.py runs git status --porcelain to compute git_tree_state,
+	# so stray bytecode under scripts/ would mark local snap builds as dirty.
 	if [ ! -d "${TEST_DIR}/scripts/snap" ]; then
 		cp -R scripts "${TEST_DIR}/"
 	fi

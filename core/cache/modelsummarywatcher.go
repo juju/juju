@@ -188,6 +188,9 @@ func (w *modelSummaryWatcher) onSummaryUpdate(topic string, data interface{}) {
 		return
 	}
 
+	// Sending without w.mu is safe for ordering only because the hub
+	// multiplexer dispatches topic handlers from a single goroutine, so two
+	// updates for the same model cannot overtake each other.
 	select {
 	case <-w.tomb.Dying():
 	case w.summaryChange <- summary:
