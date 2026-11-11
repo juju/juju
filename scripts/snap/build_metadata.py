@@ -2,7 +2,9 @@
 """Compute build metadata for the Juju snap.
 
 The same values feed both snapcraft's adopted version/grade and the Go
-linker flags.
+linker flags. The Go plugin computes them first and writes them with
+``--output``; ``set-build-metadata.sh`` reads that file with ``--input`` so
+both consumers observe the same source tree.
 
 Launchpad provides SNAPCRAFT_IMAGE_INFO as a JSON object containing at least
 ``build_url`` and ``build-request-id``. The recipe name in ``build_url``
@@ -157,22 +159,36 @@ def main():
         "--format", choices=("json", "shell"), default="json"
     )
     parser.add_argument(
-        "--field",
-        choices=(
-            "mode",
-            "version",
-            "grade",
-            "git_commit",
-            "git_tree_state",
-            "build",
-            "oci_namespace",
-        ),
+        "--input",
+        metavar="PATH",
+        help="read metadata from a JSON file instead of computing it",
+    )
+    parser.add_argument(
+        "--output",
+        metavar="PATH",
+        help="write the computed metadata as JSON to PATH",
     )
     args = parser.parse_args()
-    values = metadata(args.project_dir)
-    if args.field:
-        print(values[args.field])
-    elif args.format == "shell":
+    if args.input:
+        try:
+            with open(args.input, encoding="utf-8") as f:
+                values = json.load(f)
+        except (OSError, ValueError) as e:
+            raise SystemExit(
+                f"invalid build metadata file {args.input}: {e}"
+            ) from e
+    else:
+        values = metadata(args.project_dir)
+        if args.output:
+            try:
+                with open(args.output, "w", encoding="utf-8") as f:
+                    json.dump(values, f, sort_keys=True)
+                    f.write("\n")
+            except OSError as e:
+                raise SystemExit(
+                    f"cannot write build metadata to {args.output}: {e}"
+                ) from e
+    if args.format == "shell":
         for key in ("version", "grade"):
             print(f"{key}={shlex.quote(values[key])}")
     else:

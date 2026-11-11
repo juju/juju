@@ -88,10 +88,20 @@ class PluginImpl(PluginV2):
             os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         )
 
-    def _build_metadata(self) -> Dict[str, str]:
+    def _metadata_file(self) -> str:
+        project_dir = self._project_dir()
+        part_build = os.environ.get("SNAPCRAFT_PART_BUILD")
+        if not part_build:
+            # get_build_environment runs before Snapcraft exports the step
+            # environment, so fall back to the part's build directory.
+            part_build = os.path.join(project_dir, "parts", "juju", "build")
+        return os.path.join(part_build, "build-metadata.json")
+
+    def _build_metadata(self, metadata_file: str) -> Dict[str, str]:
         project_dir = self._project_dir()
         helper = os.path.join(project_dir, "scripts", "snap", "build_metadata.py")
         try:
+            os.makedirs(os.path.dirname(metadata_file), exist_ok=True)
             output = subprocess.check_output(
                 [
                     sys.executable,
@@ -100,6 +110,8 @@ class PluginImpl(PluginV2):
                     project_dir,
                     "--format",
                     "json",
+                    "--output",
+                    metadata_file,
                 ],
                 text=True,
             )
@@ -125,7 +137,8 @@ class PluginImpl(PluginV2):
             ld_flags += '-extldflags "-static" '
         ld_flags = ld_flags.strip()
 
-        metadata = self._build_metadata()
+        metadata_file = self._metadata_file()
+        metadata = self._build_metadata(metadata_file)
         external_strings = {
             "github.com/juju/juju/version.GitCommit": metadata["git_commit"],
             "github.com/juju/juju/version.GitTreeState": metadata[
@@ -139,6 +152,7 @@ class PluginImpl(PluginV2):
         for key, value in external_strings.items():
             ld_flags += f" -X {key}={value}"
         env.update({
+            "JUJU_BUILD_METADATA_FILE": metadata_file,
             "SNAPCRAFT_GO_LDFLAGS": f'{ld_flags}'
         })
         return env

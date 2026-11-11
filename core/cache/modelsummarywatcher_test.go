@@ -263,6 +263,33 @@ func (s *modelSummaryWatcherSuite) TestModelAnnotationsChange(c *gc.C) {
 	})
 }
 
+func (s *modelSummaryWatcherSuite) TestKillWithoutReadingChanges(c *gc.C) {
+	watcher := s.controller.WatchAllModels()
+	defer workertest.CleanKill(c, watcher)
+
+	// Don't read from watcher.Changes(): the loop is blocked trying to
+	// deliver the initial summaries. Publishing a summary update while the
+	// loop is initializing must not leave onSummaryUpdate holding w.mu.
+	s.ProcessChange(c, cache.ApplicationChange{
+		ModelUUID: "model-2-uuid",
+		Name:      "foo",
+		Life:      life.Alive,
+	}, s.events)
+	cache.WaitForModelSummaryHandled(c, s.controller, "model-2-uuid")
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		watcher.Kill()
+		_ = watcher.Wait()
+	}()
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatal("watcher did not stop after Kill")
+	}
+}
+
 func (s *modelSummaryWatcherSuite) TestAddingMachineIsChange(c *gc.C) {
 	watcher := s.controller.WatchAllModels()
 	defer workertest.CleanKill(c, watcher)

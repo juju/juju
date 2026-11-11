@@ -99,7 +99,7 @@ parts:
       set -eux
       project_dir="${SNAPCRAFT_PROJECT_DIR:-$SNAPCRAFT_PART_SRC}"
       bash "${project_dir}/scripts/snap/set-build-metadata.sh"
-      snapcraftctl build
+      craftctl default
 
       mkdir -p $SNAPCRAFT_PART_INSTALL/bash_completions
       cp -a etc/bash_completion.d/juju* $SNAPCRAFT_PART_INSTALL/bash_completions/.

@@ -183,36 +183,38 @@ func (w *modelSummaryWatcher) onSummaryUpdate(topic string, data interface{}) {
 
 	uuid := payload.summary.UUID
 	logger.Tracef("onSummaryChange: %s", uuid)
-	w.mu.Lock()
-	var summary ModelSummary
-	if payload.visibleTo(w.user) {
-		// Add is idempotent, and we don't care if we weren't previously tracking.
-		if lastHash := w.hashes[uuid]; lastHash == payload.hash {
-			// If we have already notified for this hash, then don't send
-			// again. If this is a newly watched model, the hash in the map
-			// will be the empty string.
-			w.mu.Unlock()
-			return
+	summary, ok := func() (ModelSummary, bool) {
+		w.mu.Lock()
+		defer w.mu.Unlock()
+		if payload.visibleTo(w.user) {
+			// Add is idempotent, and we don't care if we weren't previously tracking.
+			if lastHash := w.hashes[uuid]; lastHash == payload.hash {
+				// If we have already notified for this hash, then don't send
+				// again. If this is a newly watched model, the hash in the map
+				// will be the empty string.
+				return ModelSummary{}, false
+			}
+			w.hashes[uuid] = payload.hash
+			w.visibleModels.Add(uuid)
+			summary := payload.summary
+			summary.Controller = w.controller.Name()
+			return summary, true
 		}
-		w.hashes[uuid] = payload.hash
-		w.visibleModels.Add(uuid)
-		summary = payload.summary
-		summary.Controller = w.controller.Name()
-	} else {
 		if !w.visibleModels.Contains(uuid) {
 			// We aren't tracking, and shouldn't be, so nothing to do.
-			w.mu.Unlock()
-			return
+			return ModelSummary{}, false
 		}
 		// If we were tracking this model, stop tracking this model.
 		w.visibleModels.Remove(uuid)
 		delete(w.hashes, uuid)
-		summary = ModelSummary{
+		return ModelSummary{
 			UUID:    uuid,
 			Removed: true,
-		}
+		}, true
+	}()
+	if !ok {
+		return
 	}
-	w.mu.Unlock()
 
 	select {
 	case <-w.tomb.Dying():

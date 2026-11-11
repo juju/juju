@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Unit tests for scripts/snap/build_metadata.py."""
 
+import contextlib
 import importlib.util
+import io
+import json
 import os
 import tempfile
 import unittest
@@ -103,6 +106,122 @@ class ImageInfoTest(unittest.TestCase):
             os.environ, {"SNAPCRAFT_IMAGE_INFO": '["not", "an", "object"]'}
         ), self.assertRaisesRegex(SystemExit, "expected a JSON object"):
             build_metadata.image_info()
+
+
+class BaseVersionTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.project_dir = self._tmp.name
+
+    def _write_version(self, relative, content):
+        path = Path(self.project_dir) / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+
+    def test_version_file(self):
+        self._write_version("version/version.go", 'const version = "3.6.1"\n')
+        self.assertEqual(
+            build_metadata.base_version(self.project_dir), "3.6.1"
+        )
+
+    def test_core_version_fallback(self):
+        self._write_version(
+            "core/version/version.go",
+            '// Copyright\n\nconst version = "3.6.1"\n',
+        )
+        self.assertEqual(
+            build_metadata.base_version(self.project_dir), "3.6.1"
+        )
+
+    def test_version_file_takes_precedence(self):
+        self._write_version("version/version.go", 'const version = "3.6.1"\n')
+        self._write_version(
+            "core/version/version.go", 'const version = "4.0.0"\n'
+        )
+        self.assertEqual(
+            build_metadata.base_version(self.project_dir), "3.6.1"
+        )
+
+    def test_missing_version_fails(self):
+        with self.assertRaisesRegex(
+            SystemExit, "could not find the Juju version"
+        ):
+            build_metadata.base_version(self.project_dir)
+
+
+class GitTreeStateTest(unittest.TestCase):
+    def test_no_commit_is_archive(self):
+        self.assertEqual(
+            build_metadata.git_tree_state("/does/not/matter", ""), "archive"
+        )
+
+    def test_clean_tree(self):
+        with mock.patch.object(
+            build_metadata.subprocess, "check_output", return_value=""
+        ):
+            self.assertEqual(
+                build_metadata.git_tree_state("/repo", COMMIT), "clean"
+            )
+
+    def test_dirty_tree(self):
+        with mock.patch.object(
+            build_metadata.subprocess,
+            "check_output",
+            return_value=" M version/version.go\n",
+        ):
+            self.assertEqual(
+                build_metadata.git_tree_state("/repo", COMMIT), "dirty"
+            )
+
+    def test_git_failure_is_archive(self):
+        with mock.patch.object(
+            build_metadata.subprocess, "check_output", side_effect=OSError
+        ):
+            self.assertEqual(
+                build_metadata.git_tree_state("/repo", COMMIT), "archive"
+            )
+
+
+class MetadataFileTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.path = Path(self._tmp.name) / "metadata.json"
+
+    def test_input_skips_computation(self):
+        self.path.write_text(
+            json.dumps({"version": "2.9.61", "grade": "stable"})
+        )
+        with mock.patch(
+            "sys.argv",
+            [
+                "build_metadata.py",
+                "--input",
+                str(self.path),
+                "--format",
+                "shell",
+            ],
+        ), mock.patch.object(
+            build_metadata,
+            "metadata",
+            side_effect=AssertionError("should not be computed"),
+        ), contextlib.redirect_stdout(io.StringIO()) as out:
+            build_metadata.main()
+        self.assertEqual(
+            out.getvalue(), "version=2.9.61\ngrade=stable\n"
+        )
+
+    def test_output_writes_computed_values(self):
+        values = {"version": "2.9.61", "grade": "stable"}
+        with mock.patch(
+            "sys.argv",
+            ["build_metadata.py", "--output", str(self.path)],
+        ), mock.patch.object(
+            build_metadata, "metadata", return_value=values
+        ), contextlib.redirect_stdout(io.StringIO()):
+            build_metadata.main()
+        self.assertEqual(json.loads(self.path.read_text()), values)
 
 
 class MetadataTest(unittest.TestCase):
