@@ -144,11 +144,7 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 		res.Res = &types.CreateFolderResponse{}
 	case *methods.CreateImportSpecBody:
 		req := req.(*methods.CreateImportSpecBody).Req
-		var cisp any = req.Cisp
-		if params, ok := req.Cisp.(*types.OvfImportParams); ok {
-			cisp = params.OvfCreateImportSpecParams
-		}
-		r.MethodCall(r, "CreateImportSpec", req.OvfDescriptor, req.Datastore, cisp)
+		r.MethodCall(r, "CreateImportSpec", req.OvfDescriptor, req.Datastore, req.Cisp)
 		res.Res = &types.CreateImportSpecResponse{
 			Returnval: types.OvfCreateImportSpecResult{
 				FileItem: []types.OvfFileItem{
