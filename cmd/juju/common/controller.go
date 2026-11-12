@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/rpc"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/juju/clock"
@@ -129,6 +130,9 @@ func WaitForAgentInitialisation(
 			case params.ErrCode(retryErr) == params.CodeUpgradeInProgress:
 				ctx.Verbosef("Still waiting for API to become available: %v", retryErr)
 				return retryErr
+			case isRetryableNetworkError(retryErr):
+				ctx.Verbosef("Still waiting for API to become available: %v", retryErr)
+				return retryErr
 			case isRetryableErrorMessage(retryErr.Error()):
 				ctx.Verbosef("Still waiting for API to become available: %v", retryErr)
 				return retryErr
@@ -149,9 +153,22 @@ func WaitForAgentInitialisation(
 	)
 }
 
+// isRetryableNetworkError reports whether err was caused by a transient
+// network failure. It classifies by errno. errors.Is unwraps
+// the error chain, including any *net.OpError.
+func isRetryableNetworkError(err error) bool {
+	return errors.Is(err, syscall.EHOSTUNREACH) ||
+		errors.Is(err, syscall.ENETUNREACH) ||
+		errors.Is(err, syscall.ECONNREFUSED)
+}
+
+// isRetryableErrorMessage reports whether errorMessage, the text of an error,
+// describes a transient failure. It is a fallback for errors whose errno
+// cannot be inspected.
 func isRetryableErrorMessage(errorMessage string) bool {
 	switch {
 	case strings.HasSuffix(errorMessage, "no such host"), // wait for dns getting resolvable, aws elb for example.
+		strings.HasSuffix(errorMessage, "no route to host"),
 		strings.HasSuffix(errorMessage, "operation not permitted"),
 		strings.HasSuffix(errorMessage, "connection refused"),
 		strings.HasSuffix(errorMessage, "target machine actively refused it."), // Winsock message for connection refused

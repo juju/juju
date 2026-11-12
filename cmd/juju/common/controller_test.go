@@ -6,6 +6,9 @@ package common
 import (
 	"context"
 	"io"
+	"net"
+	"os"
+	"syscall"
 	"time"
 
 	"github.com/juju/cmd/v3"
@@ -72,6 +75,14 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyAllErrors(c *gc.C) {
 				Message: params.CodeUpgradeInProgress,
 				Code:    params.CodeUpgradeInProgress,
 			}
+		case 6:
+			return dialError(syscall.EHOSTUNREACH)
+		case 7:
+			return dialError(syscall.ENETUNREACH)
+		case 8:
+			return dialError(syscall.ECONNREFUSED)
+		case 9:
+			return errors.Trace(&opaqueError{err: dialError(syscall.ECONNREFUSED)})
 		}
 		return nil
 	}
@@ -80,6 +91,38 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyAllErrors(c *gc.C) {
 		err := WaitForAgentInitialisation(bootstrapCtx, base, false, "arthur", tryAPI)
 		c.Assert(err, jc.ErrorIsNil)
 	})
+}
+
+func dialError(errno syscall.Errno) error {
+	return &net.OpError{
+		Op:  "dial",
+		Net: "tcp",
+		Err: os.NewSyscallError("connect", errno),
+	}
+}
+
+// opaqueError hides the underlying error message so retry classification
+// cannot fall back to matching the error text.
+type opaqueError struct {
+	err error
+}
+
+func (e *opaqueError) Error() string { return "api dial failed" }
+
+func (e *opaqueError) Unwrap() error { return e.err }
+
+func (s *controllerSuite) TestIsRetryableNetworkError(c *gc.C) {
+	for _, errno := range []syscall.Errno{
+		syscall.EHOSTUNREACH,
+		syscall.ENETUNREACH,
+		syscall.ECONNREFUSED,
+	} {
+		c.Check(isRetryableNetworkError(dialError(errno)), jc.IsTrue,
+			gc.Commentf("errno %v", errno))
+	}
+	c.Check(isRetryableNetworkError(dialError(syscall.ECONNRESET)), jc.IsFalse)
+	c.Check(isRetryableNetworkError(errors.New("no route to host")), jc.IsFalse)
+	c.Check(isRetryableNetworkError(nil), jc.IsFalse)
 }
 
 func (s *controllerSuite) TestWaitForAgentAPIReadyUnknownError(c *gc.C) {

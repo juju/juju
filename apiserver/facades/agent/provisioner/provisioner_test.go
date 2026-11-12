@@ -217,10 +217,6 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
 
-	// Make the machine dead before trying to add containers.
-	err = s.machines[0].EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Create some containers to work on.
 	template := state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
@@ -250,7 +246,7 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
-			{Life: "dead"},
+			{Life: "alive"},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Life: "alive"},
 			{Life: "dead"},
