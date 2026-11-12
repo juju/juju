@@ -770,6 +770,23 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			},
 		})
 	}
+	if dump.Present["charm_scriptlet"] {
+		tables = append(tables, replayTable{
+			name:      "charm_scriptlet",
+			deleteSQL: `DELETE FROM "charm_scriptlet" AS t`,
+			insertSQL: `INSERT INTO "charm_scriptlet" ("charm_uuid", "path", "content") SELECT $M.charm_uuid AS "charm_uuid", $M.path AS "path", $M.content AS "content"`,
+			sample:    sqlair.M{},
+			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
+				return insertRows(ctx, tx, stmt, dump.CharmScriptlet, func(row exporttypes.CharmScriptlet) any {
+					return sqlair.M{
+						"charm_uuid": row.CharmUUID,
+						"path":       row.Path,
+						"content":    binaryValue(row.Content),
+					}
+				})
+			},
+		})
+	}
 	if dump.Present["charm_source"] {
 		tables = append(tables, replayTable{
 			name:      "charm_source",

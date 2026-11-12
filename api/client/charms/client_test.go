@@ -283,7 +283,7 @@ func (s *charmsMockSuite) TestZipHasHooksOnly(c *tc.C) {
 	charmPath := filepath.Join(c.MkDir(), "charm")
 	err := ch.ArchiveToPath(charmPath)
 	c.Assert(err, tc.ErrorIsNil)
-	f := *charms.HasHooksOrDispatch
+	f := *charms.HasHooksDispatchOrScriptlets
 	hasHooks, err := f(charmPath)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(hasHooks, tc.IsTrue)
@@ -294,7 +294,7 @@ func (s *charmsMockSuite) TestZipHasDispatchFileOnly(c *tc.C) {
 	charmPath := filepath.Join(c.MkDir(), "charm")
 	err := ch.ArchiveToPath(charmPath)
 	c.Assert(err, tc.ErrorIsNil)
-	f := *charms.HasHooksOrDispatch
+	f := *charms.HasHooksDispatchOrScriptlets
 	hasDispatch, err := f(charmPath)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(hasDispatch, tc.IsTrue)
@@ -305,7 +305,7 @@ func (s *charmsMockSuite) TestZipHasNoHooksNorDispatch(c *tc.C) {
 	charmPath := filepath.Join(c.MkDir(), "charm")
 	err := ch.ArchiveToPath(charmPath)
 	c.Assert(err, tc.ErrorIsNil)
-	f := *charms.HasHooksOrDispatch
+	f := *charms.HasHooksDispatchOrScriptlets
 	hasHooks, err := f(charmPath)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(hasHooks, tc.IsFalse)
@@ -334,7 +334,7 @@ func (s *charmsMockSuite) TestZipHasSingleHook(c *tc.C) {
 	c.Assert(zipReader.File[0].Mode().IsRegular(), tc.IsTrue)
 
 	// Verify this is validated as having a hook
-	hasHooks, err := (*charms.HasHooksOrDispatch)(tempFile.Name())
+	hasHooks, err := (*charms.HasHooksDispatchOrScriptlets)(tempFile.Name())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(hasHooks, tc.IsTrue)
 }
@@ -361,7 +361,7 @@ func (s *charmsMockSuite) TestZipEmptyHookDir(c *tc.C) {
 	c.Assert(zipReader.File[0].Mode().IsDir(), tc.IsTrue)
 
 	// Verify this is validated as having no hooks
-	hasHooks, err := (*charms.HasHooksOrDispatch)(tempFile.Name())
+	hasHooks, err := (*charms.HasHooksDispatchOrScriptlets)(tempFile.Name())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(hasHooks, tc.IsFalse)
 }
@@ -394,7 +394,7 @@ func (s *charmsMockSuite) TestZipSubfileHook(c *tc.C) {
 	}
 
 	// Verify this is not validated as having a hook
-	hasHooks, err := (*charms.HasHooksOrDispatch)(tempFile.Name())
+	hasHooks, err := (*charms.HasHooksDispatchOrScriptlets)(tempFile.Name())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(hasHooks, tc.IsFalse)
 }

@@ -876,6 +876,7 @@ func (st *State) deleteCharm(ctx context.Context, tx *sqlair.TX, cUUID string) e
 	charmUUID := entityUUID{UUID: cUUID}
 
 	for _, table := range []string{
+		"DELETE FROM charm_scriptlet WHERE charm_uuid = $entityUUID.uuid",
 		"DELETE FROM charm_config WHERE charm_uuid = $entityUUID.uuid",
 		"DELETE FROM charm_manifest_base WHERE charm_uuid = $entityUUID.uuid",
 		"DELETE FROM charm_action WHERE charm_uuid = $entityUUID.uuid",

@@ -68,12 +68,12 @@ func (c *LocalCharmClient) AddLocalCharm(curl *charm.URL, ch charm.Charm, force 
 		return nil, errors.Errorf("unsupported charm type %T", ch)
 	}
 
-	anyHooksOrDispatch, err := hasHooksOrDispatch(archive.Name())
+	hasExecutableContent, err := hasHooksDispatchOrScriptlets(archive.Name())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if !anyHooksOrDispatch {
-		return nil, errors.Errorf("invalid charm %q: has no hooks nor dispatch file", curl.Name)
+	if !hasExecutableContent {
+		return nil, errors.Errorf("invalid charm %q: has no hooks, dispatch file, or scriptlets", curl.Name)
 	}
 
 	hash, err := hashArchive(archive)
@@ -95,9 +95,10 @@ func (c *LocalCharmClient) AddLocalCharm(curl *charm.URL, ch charm.Charm, force 
 	return newCurl, nil
 }
 
-var hasHooksOrDispatch = hasHooksFolderOrDispatchFile
-
-func hasHooksFolderOrDispatchFile(name string) (bool, error) {
+// hasHooksDispatchOrScriptlets is a variable to allow patching in tests. It
+// reports whether the charm archive at the given path contains a hooks
+// directory, a dispatch file, or any scriptlets.
+var hasHooksDispatchOrScriptlets = func(name string) (bool, error) {
 	zipr, err := zip.OpenReader(name)
 	if err != nil {
 		return false, err
@@ -106,33 +107,38 @@ func hasHooksFolderOrDispatchFile(name string) (bool, error) {
 	// zip file spec 4.4.17.1 says that separators are always "/" even on Windows.
 	dispatchPath := "dispatch"
 	for _, f := range zipr.File {
-		if isHook(f) {
+		if isCharmFile(f, "hooks", false, true) {
 			return true, nil
 		}
 		if strings.Contains(f.Name, dispatchPath) {
+			return true, nil
+		}
+		if isCharmFile(f, "scriptlets", true, false) {
 			return true, nil
 		}
 	}
 	return false, nil
 }
 
-// isHook verifies whether the given file inside a zip archive is a valid hook
-// file.
-func isHook(f *zip.File) bool {
-	// Hook files must be in the top level of the 'hooks' directory
-	if filepath.Dir(f.Name) != "hooks" {
+// isCharmFile reports whether the archive member is a file in directory.
+func isCharmFile(f *zip.File, directory string, recursive, allowSymlink bool) bool {
+	dir := filepath.Dir(f.Name)
+	if recursive {
+		if dir != directory && !strings.HasPrefix(dir, directory+"/") {
+			return false
+		}
+	} else if dir != directory {
 		return false
 	}
-	// Valid file modes are regular files or symlinks. All others (directories,
-	// sockets, devices, etc.) are considered invalid file modes.
-	switch mode := f.Mode(); {
-	case mode.IsRegular():
+
+	mode := f.Mode()
+	if mode.IsRegular() {
 		return true
-	case mode&fs.ModeSymlink != 0:
-		return true
-	default:
-		return false
 	}
+	if allowSymlink && mode&fs.ModeSymlink != 0 {
+		return true
+	}
+	return false
 }
 
 func (c *LocalCharmClient) validateCharmVersion(ch charm.Charm, agentVersion semversion.Number) error {

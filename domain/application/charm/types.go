@@ -206,6 +206,16 @@ type Charm struct {
 	Architecture architecture.Architecture
 	// Available indicates whether the charm is available and ready to use.
 	Available bool
+	// Scriptlet contains the charm's Starform sources.
+	Scriptlet []ScriptletSource
+}
+
+// ScriptletSource is a Starform source from a charm archive.
+type ScriptletSource struct {
+	// Path is the source file name relative to the scriptlets directory.
+	Path string
+	// Content is the raw source file content.
+	Content []byte
 }
 
 // CharmLocator represents the parts of a charm that are needed to locate it

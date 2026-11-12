@@ -11,7 +11,7 @@ parts:
     plugin: dump
     source: .
     prime:
-      - hooks
       - manifest.yaml
+      - scriptlets
 assumes:
   - unitless

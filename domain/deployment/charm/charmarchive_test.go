@@ -150,6 +150,67 @@ func (s *CharmArchiveSuite) TestArchiveMembers(c *tc.C) {
 	c.Assert(manifest, tc.DeepEquals, set.NewStrings(dummyArchiveMembers...))
 }
 
+func (s *CharmArchiveSuite) TestScriptletSources(c *tc.C) {
+	srcPath := cloneDir(c, charmDirPath(c, "dummy"))
+	scriptletPath := filepath.Join(srcPath, "scriptlets")
+	err := os.MkdirAll(filepath.Join(scriptletPath, "foo", "bar"), 0o755)
+	c.Assert(err, tc.ErrorIsNil)
+	err = os.WriteFile(filepath.Join(scriptletPath, "file1.star"), []byte("some content"), 0o644)
+	c.Assert(err, tc.ErrorIsNil)
+	err = os.WriteFile(filepath.Join(scriptletPath, "foo", "file2.star"), []byte("some more content"), 0o644)
+	c.Assert(err, tc.ErrorIsNil)
+	err = os.WriteFile(filepath.Join(scriptletPath, "foo", "bar", "file3.star"), []byte("even more content"), 0o644)
+	c.Assert(err, tc.ErrorIsNil)
+	err = os.WriteFile(filepath.Join(scriptletPath, "README.md"), []byte("ignored"), 0o644)
+	c.Assert(err, tc.ErrorIsNil)
+
+	archive := archiveDir(c, srcPath)
+	sources := archive.ScriptletSources()
+	c.Check(archive.HasHooksOrDispatchFile(), tc.IsTrue)
+	c.Check(sources, tc.DeepEquals, []charm.ScriptletSource{{
+		Path:    "file1.star",
+		Content: []byte("some content"),
+	}, {
+		Path:    "foo/bar/file3.star",
+		Content: []byte("even more content"),
+	}, {
+		Path:    "foo/file2.star",
+		Content: []byte("some more content"),
+	}})
+}
+
+// TestScriptletSourcesExcludesSymlinks ensures that symlinked scriptlet
+// sources are not read into memory; this mirrors the validation performed
+// when uploading local charms.
+func (s *CharmArchiveSuite) TestScriptletSourcesExcludesSymlinks(c *tc.C) {
+	srcPath := cloneDir(c, charmDirPath(c, "dummy"))
+	scriptletPath := filepath.Join(srcPath, "scriptlets")
+	err := os.MkdirAll(filepath.Join(scriptletPath, "relations"), 0o755)
+	c.Assert(err, tc.ErrorIsNil)
+	err = os.WriteFile(filepath.Join(scriptletPath, "relations", "status.star"), []byte("set status"), 0o644)
+	c.Assert(err, tc.ErrorIsNil)
+	if err := os.Symlink("relations/status.star", filepath.Join(scriptletPath, "hook.star")); err != nil {
+		c.Skip("cannot symlink")
+	}
+
+	archive := archiveDir(c, srcPath)
+	c.Check(archive.ScriptletSources(), tc.DeepEquals, []charm.ScriptletSource{{
+		Path:    "relations/status.star",
+		Content: []byte("set status"),
+	}})
+}
+
+func (s *CharmArchiveSuite) TestHasHooksOrDispatchFileWithDispatch(c *tc.C) {
+	srcPath := cloneDir(c, charmDirPath(c, "dummy"))
+	err := os.RemoveAll(filepath.Join(srcPath, "hooks"))
+	c.Assert(err, tc.ErrorIsNil)
+	err = os.WriteFile(filepath.Join(srcPath, "dispatch"), []byte("dispatch"), 0o755)
+	c.Assert(err, tc.ErrorIsNil)
+
+	archive := archiveDir(c, srcPath)
+	c.Check(archive.HasHooksOrDispatchFile(), tc.IsTrue)
+}
+
 func (s *CharmArchiveSuite) TestArchiveMembersActions(c *tc.C) {
 	path := archivePath(c, readCharmDir(c, "dummy-actions"))
 	archive, err := charm.ReadCharmArchive(path)

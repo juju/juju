@@ -10,7 +10,7 @@ import (
 	commoncharms "github.com/juju/juju/api/common/charms"
 )
 
-var HasHooksOrDispatch = &hasHooksOrDispatch
+var HasHooksDispatchOrScriptlets = &hasHooksDispatchOrScriptlets
 
 func NewClientWithFacade(facade base.FacadeCaller, clientFacade base.ClientFacade) *Client {
 	charmInfoClient := commoncharms.NewCharmInfoClient(facade)

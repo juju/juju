@@ -44,6 +44,12 @@ type charmRemovalJob struct {
 	RemovalTypeID uint64    `db:"removal_type_id"`
 }
 
+type charmScriptlet struct {
+	CharmUUID string `db:"charm_uuid"`
+	Path      string `db:"path"`
+	Content   []byte `db:"content"`
+}
+
 // entityUUIDLife represents a UUID and life ID pair.
 type entityUUIDLife struct {
 	UUID   string `db:"uuid"`

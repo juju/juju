@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 
+	coreassumes "github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/objectstore"
@@ -21,6 +22,14 @@ import (
 	"github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/internal/errors"
 )
+
+type scriptletSourcesCharm interface {
+	ScriptletSources() []internalcharm.ScriptletSource
+}
+
+type hooksOrDispatchCharm interface {
+	HasHooksOrDispatchFile() bool
+}
 
 // CharmState describes retrieval and persistence methods for charms.
 type CharmState interface {
@@ -874,38 +883,9 @@ func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.
 }
 
 func (s *Service) addCharm(ctx context.Context, args charm.AddCharmArgs) (addCharmResult, []string, error) {
-	// We require a valid charm metadata.
-	if meta := args.Charm.Meta(); meta == nil {
-		return addCharmResult{}, nil, applicationerrors.CharmMetadataNotValid
-	} else if !application.IsValidCharmName(meta.Name) {
-		return addCharmResult{}, nil, applicationerrors.CharmNameNotValid
-	}
-
-	// We require a valid charm manifest.
-	if manifest := args.Charm.Manifest(); manifest == nil {
-		return addCharmResult{}, nil, applicationerrors.CharmManifestNotFound
-	} else if len(manifest.Bases) == 0 {
-		return addCharmResult{}, nil, applicationerrors.CharmManifestNotValid
-	}
-
-	// If the reference name is provided, it must be valid.
-	if !application.IsValidReferenceName(args.ReferenceName) {
-		return addCharmResult{}, nil, errors.Errorf("reference name: %w", applicationerrors.CharmNameNotValid)
-	}
-
-	// If the origin is from charmhub, then we require the download info.
-	if args.Source == corecharm.CharmHub {
-		if args.DownloadInfo == nil {
-			return addCharmResult{}, nil, applicationerrors.CharmDownloadInfoNotFound
-		}
-		if err := args.DownloadInfo.Validate(); err != nil {
-			return addCharmResult{}, nil, errors.Errorf("download info: %w", err)
-		}
-	}
-
-	// Charm sequence validation.
-	if args.RequiresSequencing && args.Revision != -1 {
-		return addCharmResult{}, nil, applicationerrors.CharmRevisionNotValid
+	meta, err := validateAddCharmArgs(args)
+	if err != nil {
+		return addCharmResult{}, nil, errors.Capture(err)
 	}
 
 	source, err := encodeCharmSource(args.Source)
@@ -913,10 +893,23 @@ func (s *Service) addCharm(ctx context.Context, args charm.AddCharmArgs) (addCha
 		return addCharmResult{}, nil, errors.Errorf("encoding charm source: %w", err)
 	}
 
-	architecture := encodeArchitecture(args.Architecture)
+	scriptletSources, err := validateScriptletSources(args.Charm, meta)
+	if err != nil {
+		return addCharmResult{}, nil, errors.Capture(err)
+	}
+
 	ch, warnings, err := encodeCharm(args.Charm)
 	if err != nil {
 		return addCharmResult{}, warnings, errors.Errorf("encoding charm: %w", err)
+	}
+	if len(scriptletSources) > 0 {
+		ch.Scriptlet = make([]charm.ScriptletSource, len(scriptletSources))
+		for i, source := range scriptletSources {
+			ch.Scriptlet[i] = charm.ScriptletSource{
+				Path:    source.Path,
+				Content: source.Content,
+			}
+		}
 	}
 
 	ch.Source = source
@@ -926,13 +919,103 @@ func (s *Service) addCharm(ctx context.Context, args charm.AddCharmArgs) (addCha
 	ch.ArchivePath = args.ArchivePath
 	ch.ObjectStoreUUID = args.ObjectStoreUUID
 	ch.Available = args.ArchivePath != ""
-	ch.Architecture = architecture
+	ch.Architecture = encodeArchitecture(args.Architecture)
 
 	charmID, locator, err := s.st.AddCharm(ctx, ch, args.DownloadInfo, args.RequiresSequencing)
 	return addCharmResult{
 		ID:      charmID,
 		Locator: locator,
 	}, warnings, errors.Capture(err)
+}
+
+// validateAddCharmArgs validates that the charm and arguments can be added,
+// returning the validated charm metadata. The following errors may be
+// returned:
+// - [applicationerrors.CharmMetadataNotValid] if the charm metadata is not
+// valid.
+// - [applicationerrors.CharmNameNotValid] if the charm name or reference
+// name is not valid.
+// - [applicationerrors.CharmManifestNotFound] if the charm manifest is
+// missing.
+// - [applicationerrors.CharmManifestNotValid] if the charm manifest is not
+// valid.
+// - [applicationerrors.CharmDownloadInfoNotFound] if the charmhub charm has
+// no download info.
+// - [applicationerrors.CharmRevisionNotValid] if the charm requires
+// sequencing but the revision is not -1.
+func validateAddCharmArgs(args charm.AddCharmArgs) (*internalcharm.Meta, error) {
+	// We require a valid charm metadata.
+	meta := args.Charm.Meta()
+	if meta == nil {
+		return nil, applicationerrors.CharmMetadataNotValid
+	} else if !application.IsValidCharmName(meta.Name) {
+		return nil, applicationerrors.CharmNameNotValid
+	}
+
+	// We require a valid charm manifest.
+	if manifest := args.Charm.Manifest(); manifest == nil {
+		return nil, applicationerrors.CharmManifestNotFound
+	} else if len(manifest.Bases) == 0 {
+		return nil, applicationerrors.CharmManifestNotValid
+	}
+
+	// If the reference name is provided, it must be valid.
+	if !application.IsValidReferenceName(args.ReferenceName) {
+		return nil, errors.Errorf("reference name: %w", applicationerrors.CharmNameNotValid)
+	}
+
+	// If the origin is from charmhub, then we require the download info.
+	if args.Source == corecharm.CharmHub {
+		if args.DownloadInfo == nil {
+			return nil, applicationerrors.CharmDownloadInfoNotFound
+		}
+		if err := args.DownloadInfo.Validate(); err != nil {
+			return nil, errors.Errorf("download info: %w", err)
+		}
+	}
+
+	// Charm sequence validation.
+	if args.RequiresSequencing && args.Revision != -1 {
+		return nil, applicationerrors.CharmRevisionNotValid
+	}
+	return meta, nil
+}
+
+// validateScriptletSources returns the scriptlet sources of the charm, if
+// the charm exposes any. The charm metadata must be valid, see
+// [validateAddCharmArgs]. A charm must not mix scriptlets with hooks or a
+// dispatch file, and it must have scriptlets if and only if it assumes the
+// unitless feature.
+func validateScriptletSources(ch internalcharm.Charm, meta *internalcharm.Meta) ([]internalcharm.ScriptletSource, error) {
+	var scriptletSources []internalcharm.ScriptletSource
+	if scriptletCharm, ok := ch.(scriptletSourcesCharm); ok {
+		scriptletSources = scriptletCharm.ScriptletSources()
+	}
+	hasScriptlets := len(scriptletSources) > 0
+	hasHooksOrDispatch := false
+	if charmWithHooks, ok := ch.(hooksOrDispatchCharm); ok {
+		hasHooksOrDispatch = charmWithHooks.HasHooksOrDispatchFile()
+	}
+	if hasScriptlets && hasHooksOrDispatch {
+		return nil, errors.Errorf(
+			"charm has scriptlets alongside hooks or a dispatch file: %w",
+			applicationerrors.CharmMetadataNotValid,
+		)
+	}
+
+	assumesUnitless := coreassumes.HasFeature(meta.Assumes, "unitless")
+	if hasScriptlets && !assumesUnitless {
+		return nil, errors.Errorf(
+			"charm has scriptlets but does not assume unitless: %w",
+			applicationerrors.CharmMetadataNotValid,
+		)
+	} else if assumesUnitless && !hasScriptlets {
+		return nil, errors.Errorf(
+			"charm assumes unitless but has no scriptlets: %w",
+			applicationerrors.CharmMetadataNotValid,
+		)
+	}
+	return scriptletSources, nil
 }
 
 // ReserveCharmRevision creates a new charm revision placeholder in state. This
