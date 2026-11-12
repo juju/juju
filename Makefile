@@ -612,6 +612,43 @@ install-sqlite3-dependencies:
 install-dependencies: install-snap-dependencies install-sqlite3-dependencies
 ## install-dependencies: Install all the dependencies
 	@echo "Installing dependencies"
+	@$(MAKE) verify-development-tools
+
+.PHONY: verify-development-tools
+verify-development-tools:
+## verify-development-tools: Check tools used for development and tests
+	@missing=0; \
+	for tool in curl python3 yq shellcheck golangci-lint gci stress shfmt go-licenses govulncheck; do \
+		if ! command -v "$$tool" >/dev/null 2>&1; then \
+			missing=1; \
+			case "$$tool" in \
+				curl|python3|shellcheck) hint="sudo apt-get install $$tool" ;; \
+				yq) hint="sudo snap install yq" ;; \
+				golangci-lint) hint="go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0" ;; \
+				gci) hint="go install github.com/daixiang0/gci@latest" ;; \
+				stress) hint="go install golang.org/x/tools/cmd/stress@latest" ;; \
+				shfmt) hint="go install mvdan.cc/sh/v3/cmd/shfmt@v3.7.0" ;; \
+				go-licenses) hint="go install github.com/google/go-licenses@latest" ;; \
+				govulncheck) hint="go install golang.org/x/vuln/cmd/govulncheck@latest" ;; \
+			esac; \
+			echo "Missing $$tool: $$hint" >&2; \
+		fi; \
+	done; \
+	if command -v yq >/dev/null 2>&1 && ! yq -n -o=json '.test = true' >/dev/null 2>&1; then \
+		echo "yq must support the v4 syntax; see tests/README.md" >&2; \
+		missing=1; \
+	fi; \
+	if command -v golangci-lint >/dev/null 2>&1; then \
+		version=$$(golangci-lint --version | cut -d ' ' -f 4 | cut -d '.' -f 1,2); \
+		if [ "$$version" != "2.14" ]; then \
+			echo "golangci-lint must be version 2.14.x; see .github/workflows/static-analysis.yml" >&2; \
+			missing=1; \
+		fi; \
+	fi; \
+	if [ "$$missing" -ne 0 ]; then \
+		echo "Ensure the Go binary directory is on PATH (see CONTRIBUTING.md)." >&2; \
+		exit 1; \
+	fi
 
 .PHONY: install-etc
 # Install bash_completion
