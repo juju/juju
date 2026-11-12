@@ -239,7 +239,7 @@ func (s *ModelState) MatchesMachinePasswordHashWithNonce(
 	passwordQuery := `
 SELECT
     COUNT(m.uuid) AS &machinePassword.machine_count,
-    mci.instance_id AS &machinePassword.instance_id
+    MAX(mci.instance_id) AS &machinePassword.instance_id
 FROM      machine m
 LEFT JOIN machine_cloud_instance mci ON mci.machine_uuid = m.uuid
 WHERE     m.uuid = $validatePasswordHashWithNonce.uuid

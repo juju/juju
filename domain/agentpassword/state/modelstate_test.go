@@ -333,6 +333,10 @@ WHERE machine_uuid = (
 	valid, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machineUUID, passwordHash, nonce)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(valid, tc.IsTrue)
+
+	valid, err = st.MatchesMachinePasswordHashWithNonce(c.Context(), machineUUID, passwordHash, "wrong")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsFalse)
 }
 
 func (s *modelStateSuite) TestMatchesMachinePasswordHashWithNonceMachineNotFound(c *tc.C) {
@@ -340,8 +344,9 @@ func (s *modelStateSuite) TestMatchesMachinePasswordHashWithNonceMachineNotFound
 
 	passwordHash := s.genPasswordHash(c)
 
-	_, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machine.UUID("foo"), passwordHash, "")
+	valid, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machine.UUID("foo"), passwordHash, "")
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsFalse)
 }
 
 func (s *modelStateSuite) TestMatchesMachinePasswordHashWithNonceInvalidPassword(c *tc.C) {
@@ -377,7 +382,45 @@ func (s *modelStateSuite) TestMatchesMachinePasswordHashWithNonceNotProvisioned(
 	err = st.SetMachinePasswordHash(c.Context(), machineUUID, passwordHash)
 	c.Assert(err, tc.ErrorIsNil)
 
+	_, err = s.DB().ExecContext(c.Context(),
+		`DELETE FROM machine_cloud_instance_status WHERE machine_uuid = ?`, machineUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(),
+		`DELETE FROM machine_cloud_instance WHERE machine_uuid = ?`, machineUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
 	valid, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machineUUID, passwordHash, nonce)
+	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
+	c.Check(valid, tc.IsFalse)
+}
+
+func (s *modelStateSuite) TestMatchesMachinePasswordHashWithNonceEmptyInstanceID(c *tc.C) {
+	st := NewModelState(s.TxnRunnerFactory())
+
+	s.createApplication(c, false)
+	machineName, nonce := s.createMachine(c)
+	machineUUID, err := st.GetMachineUUID(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	passwordHash := s.genPasswordHash(c)
+	err = st.SetMachinePasswordHash(c.Context(), machineUUID, passwordHash)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(c.Context(), `
+INSERT INTO machine_cloud_instance (machine_uuid, life_id, instance_id)
+VALUES (?, 0, NULL)
+ON CONFLICT (machine_uuid) DO UPDATE SET instance_id = NULL`, machineUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	valid, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machineUUID, passwordHash, nonce)
+	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
+	c.Check(valid, tc.IsFalse)
+
+	_, err = s.DB().ExecContext(c.Context(),
+		`UPDATE machine_cloud_instance SET instance_id = '' WHERE machine_uuid = ?`, machineUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	valid, err = st.MatchesMachinePasswordHashWithNonce(c.Context(), machineUUID, passwordHash, nonce)
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 	c.Check(valid, tc.IsFalse)
 }

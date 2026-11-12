@@ -35,7 +35,7 @@ func (s *controllerModelState) TestSetControllerNodePassword(c *tc.C) {
 	// Check that the password hash was set correctly.
 	var hash string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT password_hash FROM controller_node_password WHERE controller_id = 0").Scan(&hash)
+		err := tx.QueryRowContext(ctx, "SELECT password_hash FROM controller_node_password WHERE controller_id = '0'").Scan(&hash)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
