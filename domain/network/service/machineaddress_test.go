@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
+	networkinternal "github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -102,12 +103,50 @@ func (s *machineaddressSuite) TestGetMachineAddressesSuccess(c *tc.C) {
 
 	// Expect a call to GetNetNodeAddresses and return the addresses
 	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
-		Return(expectedAddresses, nil)
+		Return(toUnitDeviceAddresses(expectedAddresses), nil)
 
 	// Call the function and check the result
 	addresses, err := NewService(s.st, nil).GetMachineAddresses(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(addresses, tc.DeepEquals, expectedAddresses)
+}
+
+// TestGetMachineAddressesMarksDefaultRouteSource checks that only the primary
+// address on the default route device is marked as the default route source,
+// and that the addresses are returned in the order they were retrieved.
+func (s *machineaddressSuite) TestGetMachineAddressesMarksDefaultRouteSource(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	machineUUID := machinetesting.GenUUID(c)
+	netNodeUUID := "net-node-456"
+
+	eth1Addr := defaultRouteDeviceAddress("10.0.0.123", "10.0.0.0/24", "eth1-uuid")
+	eth1Addr.IsDefaultGatewayDevice = false
+	eth1Addr.GatewayAddress = ""
+	eth0Addr := defaultRouteDeviceAddress("10.1.0.123", "10.1.0.0/24", "eth0-uuid")
+	eth0Secondary := defaultRouteDeviceAddress("10.1.0.124", "10.1.0.0/24", "eth0-uuid")
+	eth0Secondary.IsSecondary = true
+
+	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
+		Return(netNodeUUID, nil)
+	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
+		Return([]networkinternal.UnitDeviceAddress{
+			eth1Addr, eth0Addr, eth0Secondary,
+		}, nil)
+
+	// Act
+	addresses, err := NewService(s.st, nil).GetMachineAddresses(c.Context(), machineUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	expectedSource := eth0Addr.SpaceAddress
+	expectedSource.IsDefaultRouteSource = true
+	c.Check(addresses, tc.DeepEquals, network.SpaceAddresses{
+		eth1Addr.SpaceAddress,
+		expectedSource,
+		eth0Secondary.SpaceAddress,
+	})
 }
 
 func (s *machineaddressSuite) TestGetMachinePublicAddressInvalidUUID(c *tc.C) {
@@ -176,7 +215,7 @@ func (s *machineaddressSuite) TestGetMachinePublicAddressNoPublicAddress(c *tc.C
 
 	// Expect a call to GetNetNodeAddresses and return the addresses
 	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
-		Return(addresses, nil)
+		Return(toUnitDeviceAddresses(addresses), nil)
 
 	// Call the function and check the error
 	_, err := NewService(s.st, nil).GetMachinePublicAddress(c.Context(), machineUUID)
@@ -203,7 +242,7 @@ func (s *machineaddressSuite) TestGetMachinePublicAddressSuccess(c *tc.C) {
 
 	// Expect a call to GetNetNodeAddresses and return the addresses
 	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
-		Return(addresses, nil)
+		Return(toUnitDeviceAddresses(addresses), nil)
 
 	// Call the function and check the result
 	address, err := NewService(s.st, nil).GetMachinePublicAddress(c.Context(), machineUUID)
@@ -277,7 +316,7 @@ func (s *machineaddressSuite) TestGetMachinePrivateAddressNoPrivateAddress(c *tc
 
 	// Expect a call to GetNetNodeAddresses and return the addresses
 	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
-		Return(addresses, nil)
+		Return(toUnitDeviceAddresses(addresses), nil)
 
 	// Call the function and check the error
 	_, err := NewService(s.st, nil).GetMachinePrivateAddress(c.Context(), machineUUID)
@@ -304,7 +343,7 @@ func (s *machineaddressSuite) TestGetMachinePrivateAddressSuccess(c *tc.C) {
 
 	// Expect a call to GetNetNodeAddresses and return the addresses
 	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
-		Return(addresses, nil)
+		Return(toUnitDeviceAddresses(addresses), nil)
 
 	// Call the function and check the result
 	address, err := NewService(s.st, nil).GetMachinePrivateAddress(c.Context(), machineUUID)
@@ -326,7 +365,7 @@ func (s *machineaddressSuite) TestGetMachinePrivateAddressSortsMatches(c *tc.C) 
 	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
 		Return(netNodeUUID, nil)
 	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
-		Return(addresses, nil)
+		Return(toUnitDeviceAddresses(addresses), nil)
 
 	address, err := NewService(s.st, nil).GetMachinePrivateAddress(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -352,7 +391,7 @@ func (s *machineaddressSuite) TestGetMachinePublicAddressSortsMatches(c *tc.C) {
 	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
 		Return(netNodeUUID, nil)
 	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
-		Return(addresses, nil)
+		Return(toUnitDeviceAddresses(addresses), nil)
 
 	address, err := NewService(s.st, nil).GetMachinePublicAddress(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -376,10 +415,70 @@ func (s *machineaddressSuite) TestGetMachinePublicAddressPrioritizeScope(c *tc.C
 	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
 		Return(netNodeUUID, nil)
 	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
-		Return(addresses, nil)
+		Return(toUnitDeviceAddresses(addresses), nil)
 
 	address, err := NewService(s.st, nil).GetMachinePublicAddress(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	// "2.2.2.2" sorts before "8.8.8.8", and "1.1.1.1" is not public.
 	c.Check(address, tc.DeepEquals, addresses[2])
+}
+
+// TestGetMachinePublicAddressPrefersDefaultRouteSource checks that, with no
+// public addresses, the cloud-local address on the default route device is
+// preferred over a lower-valued cloud-local address on another device.
+func (s *machineaddressSuite) TestGetMachinePublicAddressPrefersDefaultRouteSource(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	machineUUID := machinetesting.GenUUID(c)
+	netNodeUUID := "net-node-456"
+
+	eth1Addr := defaultRouteDeviceAddress("10.0.0.123", "10.0.0.0/24", "eth1-uuid")
+	eth1Addr.IsDefaultGatewayDevice = false
+	eth1Addr.GatewayAddress = ""
+	eth0Addr := defaultRouteDeviceAddress("10.1.0.123", "10.1.0.0/24", "eth0-uuid")
+
+	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
+		Return(netNodeUUID, nil)
+	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
+		Return([]networkinternal.UnitDeviceAddress{eth1Addr, eth0Addr}, nil)
+
+	// Act
+	address, err := NewService(s.st, nil).GetMachinePublicAddress(c.Context(), machineUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	expected := eth0Addr.SpaceAddress
+	expected.IsDefaultRouteSource = true
+	c.Check(address, tc.DeepEquals, expected)
+}
+
+// TestGetMachinePrivateAddressPrefersDefaultRouteSource checks that the
+// cloud-local address on the default route device is preferred over a
+// lower-valued cloud-local address on another device.
+func (s *machineaddressSuite) TestGetMachinePrivateAddressPrefersDefaultRouteSource(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	machineUUID := machinetesting.GenUUID(c)
+	netNodeUUID := "net-node-456"
+
+	eth1Addr := defaultRouteDeviceAddress("10.0.0.123", "10.0.0.0/24", "eth1-uuid")
+	eth1Addr.IsDefaultGatewayDevice = false
+	eth1Addr.GatewayAddress = ""
+	eth0Addr := defaultRouteDeviceAddress("10.1.0.123", "10.1.0.0/24", "eth0-uuid")
+
+	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
+		Return(netNodeUUID, nil)
+	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
+		Return([]networkinternal.UnitDeviceAddress{eth1Addr, eth0Addr}, nil)
+
+	// Act
+	address, err := NewService(s.st, nil).GetMachinePrivateAddress(c.Context(), machineUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	expected := eth0Addr.SpaceAddress
+	expected.IsDefaultRouteSource = true
+	c.Check(address, tc.DeepEquals, expected)
 }

@@ -50,7 +50,7 @@ type MockStateMockRecorder struct {
 	getMachineSpaceConstraintsExpects           []*gomock.Call2_3[context.Context, string, []internal.SpaceName, []internal.SpaceName, error]
 	getModelCloudTypeExpects                    []*gomock.Call1_2[context.Context, string, error]
 	getModelEgressSubnetsExpects                []*gomock.Call1_2[context.Context, []string, error]
-	getNetNodeAddressesExpects                  []*gomock.Call2_2[context.Context, string, network.SpaceAddresses, error]
+	getNetNodeAddressesExpects                  []*gomock.Call2_2[context.Context, string, []internal.UnitDeviceAddress, error]
 	getRelationEgressSubnetsExpects             []*gomock.Call2_2[context.Context, string, []string, error]
 	getSpaceExpects                             []*gomock.Call2_2[context.Context, network.SpaceUUID, *network.SpaceInfo, error]
 	getSpaceByNameExpects                       []*gomock.Call2_2[context.Context, network.SpaceName, *network.SpaceInfo, error]
@@ -416,7 +416,7 @@ func (mr *MockStateMockRecorder) GetModelEgressSubnets(ctx any) *MockStateGetMod
 type MockStateGetModelEgressSubnetsCall = gomock.Call1_2[context.Context, []string, error]
 
 // GetNetNodeAddresses mocks base method.
-func (m *MockState) GetNetNodeAddresses(ctx context.Context, netNodeUUID string) (network.SpaceAddresses, error) {
+func (m *MockState) GetNetNodeAddresses(ctx context.Context, netNodeUUID string) ([]internal.UnitDeviceAddress, error) {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch2_2(&m.recorder.getNetNodeAddressesExpects, m.ctrl, m, "GetNetNodeAddresses", ctx, netNodeUUID)
 }
@@ -424,14 +424,14 @@ func (m *MockState) GetNetNodeAddresses(ctx context.Context, netNodeUUID string)
 // GetNetNodeAddresses indicates an expected call of GetNetNodeAddresses.
 func (mr *MockStateMockRecorder) GetNetNodeAddresses(ctx, netNodeUUID any) *MockStateGetNetNodeAddressesCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, network.SpaceAddresses, error](mr.mock.ctrl.T, mr.mock, "GetNetNodeAddresses", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(netNodeUUID))
+	call := gomock.NewCall2_2[context.Context, string, []internal.UnitDeviceAddress, error](mr.mock.ctrl.T, mr.mock, "GetNetNodeAddresses", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(netNodeUUID))
 	mr.getNetNodeAddressesExpects = append(mr.getNetNodeAddressesExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStateGetNetNodeAddressesCall is the typed call wrapper for GetNetNodeAddresses.
-type MockStateGetNetNodeAddressesCall = gomock.Call2_2[context.Context, string, network.SpaceAddresses, error]
+type MockStateGetNetNodeAddressesCall = gomock.Call2_2[context.Context, string, []internal.UnitDeviceAddress, error]
 
 // GetRelationEgressSubnets mocks base method.
 func (m *MockState) GetRelationEgressSubnets(ctx context.Context, relationUUID string) ([]string, error) {

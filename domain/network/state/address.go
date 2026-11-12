@@ -8,32 +8,36 @@ import (
 
 	"github.com/canonical/sqlair"
 
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
 // GetNetNodeAddresses fetches network node addresses associated with
-// a given node UUID.
-func (st *State) GetNetNodeAddresses(ctx context.Context, nodeUUID string) (corenetwork.SpaceAddresses, error) {
+// a given node UUID, together with the facts about their link-layer devices
+// that are needed to identify the default route source address.
+func (st *State) GetNetNodeAddresses(
+	ctx context.Context, nodeUUID string,
+) ([]internal.UnitDeviceAddress, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var address []SpaceAddress
 	ident := entityUUID{UUID: nodeUUID}
 	stmt, err := st.Prepare(`
-SELECT    &SpaceAddress.*
+SELECT    &unitAddress.*
 FROM      v_ip_address_with_names AS ipa
+JOIN      link_layer_device AS lld ON ipa.device_uuid = lld.uuid
 LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
-WHERE     net_node_uuid = $entityUUID.uuid
-`, SpaceAddress{}, entityUUID{})
+WHERE     ipa.net_node_uuid = $entityUUID.uuid
+`, unitAddress{}, entityUUID{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
+	var addresses []unitAddress
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, ident).GetAll(&address)
+		err := tx.Query(ctx, stmt, ident).GetAll(&addresses)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("querying addresses for net node %q: %w", nodeUUID, err)
 		}
@@ -42,5 +46,5 @@ WHERE     net_node_uuid = $entityUUID.uuid
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return encodeIPAddresses(address)
+	return encodeUnitDeviceAddresses(addresses)
 }
