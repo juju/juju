@@ -152,26 +152,32 @@ func (c CascadedStorageLives) IsEmpty() bool {
 		len(c.VolumeAttachmentPlanUUIDs) == 0
 }
 
-// CascadedUnitLives contains identifiers for entities that were ensured to be
-// "dying" along with a unit. It is intended to inform the service layer which
-// entities should have removal jobs scheduled for them.
+// CascadedUnitLives contains identifiers for associated entities requiring
+// removal work after a unit was ensured to be "dying". It is intended to inform
+// the service layer which entities should have removal jobs scheduled for them.
 type CascadedUnitLives struct {
 	CascadedStorageLives
 
 	// MachineUUID if not nil indicates that the unit's
 	// machine is no longer alive.
 	MachineUUID *string
+
+	// CharmUUID if not nil identifies the unit's charm when no alive units
+	// remain on it. Dying and dead units can still reference the charm.
+	CharmUUID *string
 }
 
 // IsEmpty returns true if the struct value indicates that no associated
 // entites were ensured to be "dying" along with a unit.
 func (c CascadedUnitLives) IsEmpty() bool {
-	return c.MachineUUID == nil && c.CascadedStorageLives.IsEmpty()
+	return c.MachineUUID == nil && c.CharmUUID == nil &&
+		c.CascadedStorageLives.IsEmpty()
 }
 
-// CascadedApplicationLives contains identifiers for entities that were ensured
-// to be "dying" along with an application. It is intended to inform the service
-// layer which entities should have removal jobs scheduled for them.
+// CascadedApplicationLives contains identifiers for associated entities
+// requiring removal work after an application was ensured to be "dying". It is
+// intended to inform the service layer which entities should have removal jobs
+// scheduled for them.
 type CascadedApplicationLives struct {
 	CascadedStorageLives
 
@@ -185,6 +191,10 @@ type CascadedApplicationLives struct {
 	// RelationUUIDs identify relations that this application was participating
 	// in that advanced to dying along with it.
 	RelationUUIDs []string
+
+	// CharmUUIDs identify unit charms with no remaining alive units after the
+	// application's units advanced to dying.
+	CharmUUIDs []string
 }
 
 // IsEmpty returns true if the struct value indicates that no associated
@@ -193,12 +203,14 @@ func (c CascadedApplicationLives) IsEmpty() bool {
 	return c.CascadedStorageLives.IsEmpty() &&
 		len(c.MachineUUIDs) == 0 &&
 		len(c.UnitUUIDs) == 0 &&
-		len(c.RelationUUIDs) == 0
+		len(c.RelationUUIDs) == 0 &&
+		len(c.CharmUUIDs) == 0
 }
 
-// CascadedMachineLives contains identifiers for entities that were ensured to be
-// "dying" along with a machine. It is intended to inform the service layer
-// which entities should have removal jobs scheduled for them.
+// CascadedMachineLives contains identifiers for associated entities requiring
+// removal work after a machine was ensured to be "dying". It is intended to
+// inform the service layer which entities should have removal jobs scheduled
+// for them.
 type CascadedMachineLives struct {
 	CascadedStorageLives
 
@@ -209,6 +221,10 @@ type CascadedMachineLives struct {
 	// UnitUUIDs identify units on the machine or its conainers that were alive,
 	// but are now dying as a result of the machine's pending removal
 	UnitUUIDs []string
+
+	// CharmUUIDs identify unit charms with no remaining alive units after the
+	// machine's units advanced to dying.
+	CharmUUIDs []string
 }
 
 // IsEmpty returns true if the struct value indicates that no associated
@@ -216,7 +232,8 @@ type CascadedMachineLives struct {
 func (c CascadedMachineLives) IsEmpty() bool {
 	return c.CascadedStorageLives.IsEmpty() &&
 		len(c.MachineUUIDs) == 0 &&
-		len(c.UnitUUIDs) == 0
+		len(c.UnitUUIDs) == 0 &&
+		len(c.CharmUUIDs) == 0
 }
 
 // CascadedRemoteApplicationOffererLives contains identifiers for entities that

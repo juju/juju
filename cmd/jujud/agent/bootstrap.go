@@ -56,9 +56,10 @@ type BootstrapAgentFunc func(agentbootstrap.AgentBootstrapArgs) (*agentbootstrap
 type BootstrapCommand struct {
 	cmd.CommandBase
 	agentconf.AgentConf
-	Timeout           time.Duration
-	BootstrapAgent    BootstrapAgentFunc
-	DqliteInitializer agentbootstrap.DqliteInitialiserFunc
+	Timeout                   time.Duration
+	BootstrapAgent            BootstrapAgentFunc
+	DqliteInitializer         agentbootstrap.DqliteInitialiserFunc
+	DqliteBindAddressResolver agentbootstrap.DqliteBindAddressResolverFunc
 }
 
 // NewBootstrapCommand returns a new BootstrapCommand that has been initialized.
@@ -68,6 +69,9 @@ func NewBootstrapCommand() *BootstrapCommand {
 
 		BootstrapAgent:    agentbootstrap.NewAgentBootstrap,
 		DqliteInitializer: database.BootstrapDqlite,
+		DqliteBindAddressResolver: agentbootstrap.NewDqliteBindAddressResolver(
+			internallogger.GetLogger("juju.agent.bootstrap"),
+		),
 	}
 }
 
@@ -323,6 +327,7 @@ func (c *BootstrapCommand) runFromRuntimeConf(
 		StateInitialisationParams: args,
 		BootstrapMachineAddresses: addrs,
 		BootstrapDqlite:           c.DqliteInitializer,
+		DqliteBindAddressResolver: c.DqliteBindAddressResolver,
 		Logger:                    internallogger.GetLogger("juju.agent.bootstrap"),
 	})
 	if err != nil {

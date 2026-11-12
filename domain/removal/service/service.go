@@ -54,6 +54,7 @@ type ModelDBState interface {
 	OfferState
 	SecretModelState
 	ResourceState
+	CharmState
 
 	// GetAllJobs returns all removal jobs.
 	GetAllJobs(ctx context.Context) ([]removal.Job, error)
@@ -215,6 +216,9 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 	case removal.ResourceJob:
 		err = s.processResourceRemovalJob(ctx, job)
 
+	case removal.CharmJob:
+		err = s.processCharmRemovalJob(ctx, job)
+
 	default:
 		err = errors.Errorf("removal job type %q not supported", job.RemovalType).Add(
 			removalerrors.RemovalJobTypeNotSupported)
@@ -225,6 +229,7 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 		return nil
 	}
 	if err != nil && !errors.IsOneOf(err, nonRetryableErrors...) {
+		s.logger.Debugf(ctx, "removal job for %s %q failed, will retry: %v", job.RemovalType, job.EntityUUID, err)
 		return errors.Capture(err)
 	}
 
@@ -245,6 +250,7 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 			job.RemovalType, job.EntityUUID, err)
 	}
 
+	s.logger.Debugf(ctx, "removal job for %s %q completed", job.RemovalType, job.EntityUUID)
 	return nil
 }
 
