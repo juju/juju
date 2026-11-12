@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/container/lxd"
 	"github.com/juju/juju/internal/container/lxd/mocks"
@@ -580,7 +581,9 @@ func (s *containerSuite) TestRemoveContainersPartialFailure(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = jujuSvr.RemoveContainers([]string{"c1", "c2", "c3"})
-	c.Assert(err, tc.ErrorMatches, "failed to remove containers: c1, c2")
+	var stopErr *environs.StopInstancesError
+	c.Assert(errors.As(err, &stopErr), tc.IsTrue)
+	c.Check(stopErr.Failed, tc.DeepEquals, []instance.Id{"c1", "c2"})
 }
 
 func (s *containerSuite) TestDeleteInstancesPartialFailure(c *tc.C) {
@@ -619,7 +622,7 @@ func (s *containerSuite) TestDeleteInstancesPartialFailure(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = jujuSvr.RemoveContainers([]string{"c1", "c2"})
-	c.Assert(err, tc.ErrorMatches, "failed to remove containers: c2")
+	c.Assert(err, tc.ErrorMatches, "failed to stop instances: c2")
 }
 
 func (s *managerSuite) TestSpecApplyConstraints(c *tc.C) {
