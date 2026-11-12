@@ -19,8 +19,9 @@ GOARCH=$(shell go env GOARCH)
 GOHOSTOS=$(shell go env GOHOSTOS)
 GOHOSTARCH=$(shell go env GOHOSTARCH)
 GO_MOD_VERSION=$(shell grep "^go" go.mod | awk '{print $$2}')
+GO_MOD_TRACK=$(shell echo "$(GO_MOD_VERSION)" | cut -d '.' -f 1,2)
 GO_INSTALLED_VERSION=$(shell GOARCH=$(uname -m) go version | awk '{print $$3}' | sed -e /.*go/s///)
-GO_INSTALL_PATH=$(if $(value GOBIN),$(value GOBIN),$(shell GOARCH=$(uname -m) go env GOPATH)/bin)
+GO_INSTALL_PATH=$(if $(shell go env GOBIN),$(shell go env GOBIN),$(firstword $(subst :, ,$(shell go env GOPATH)))/bin)
 
 # Build number passed in must be a monotonic int representing
 # the build.
@@ -585,18 +586,21 @@ rebuild-export:
 # PPA includes the required mongodb-server binaries.
 install-snap-dependencies:
 ## install-snap-dependencies: Install the supported snap dependencies
-ifeq ($(shell if [ "$(GO_INSTALLED_VERSION)" \> "$(GO_MOD_VERSION)" -o "$(GO_INSTALLED_VERSION)" = "$(GO_MOD_VERSION)" ]; then echo 1; fi),1)
+ifeq ($(shell [ -n "$(GO_INSTALLED_VERSION)" ] && [ "$$(printf '%s\n' "$(GO_MOD_VERSION)" "$(GO_INSTALLED_VERSION)" | sort -V | head -n 1)" = "$(GO_MOD_VERSION)" ] && echo 1),1)
 	@echo 'Using installed go-$(GO_MOD_VERSION)'
-endif
+else
 ifeq ("$(GO_INSTALLED_VERSION)","")
 	@echo 'Installing go-$(GO_MOD_VERSION) snap'
-	@sudo snap install go --channel=$(GO_MOD_VERSION)/stable --classic
+	@sudo snap install go --channel=$(GO_MOD_TRACK)/stable --classic
 else
-ifeq ($(shell if [ "$(GO_INSTALLED_VERSION)" \< "$(GO_MOD_VERSION)" ]; then echo 1; fi),1)
-	$(warning "warning: version of go too low: use 'snap refresh go --channel=$(GO_MOD_VERSION)'")
+	$(warning "warning: version of go too low: use 'snap refresh go --channel=$(GO_MOD_TRACK)'")
 	$(error "error Installed go version '$(GO_INSTALLED_VERSION)' less than required go version '$(GO_MOD_VERSION)'")
 endif
 endif
+	@if ! command -v yq >/dev/null 2>&1; then \
+		echo 'Installing yq snap'; \
+		sudo snap install yq; \
+	fi
 
 WAIT_FOR_DPKG=bash -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
 
@@ -608,21 +612,59 @@ install-sqlite3-dependencies:
 	@sudo apt-get update
 	@sudo apt-get --yes install libsqlite3-dev
 
+.PHONY: install-development-system-dependencies
+install-development-system-dependencies: install-sqlite3-dependencies
+## install-development-system-dependencies: Install development system packages
+	@echo Installing development system packages
+	@$(WAIT_FOR_DPKG)
+	@sudo apt-get --yes install build-essential bzip2 curl git jq python3 shellcheck wget
+
 .PHONY: install-dependencies
-install-dependencies: install-snap-dependencies install-sqlite3-dependencies
+install-dependencies: install-snap-dependencies install-development-system-dependencies
 ## install-dependencies: Install all the dependencies
 	@echo "Installing dependencies"
-	@$(MAKE) verify-development-tools
+	@$(MAKE) install-development-go-tools
+
+.PHONY: install-development-go-tools
+install-development-go-tools:
+## install-development-go-tools: Install missing Go development tools
+	@set -e; \
+	gobin=$$(go env GOBIN); \
+	if [ -z "$$gobin" ]; then \
+		gobin=$$(go env GOPATH | cut -d ':' -f 1)/bin; \
+	fi; \
+	PATH="$$PATH:$$gobin"; export PATH; \
+	for spec in \
+		'golangci-lint github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0' \
+		'gci github.com/daixiang0/gci@latest' \
+		'stress golang.org/x/tools/cmd/stress@latest' \
+		'shfmt mvdan.cc/sh/v3/cmd/shfmt@v3.7.0' \
+		'go-licenses github.com/google/go-licenses@latest' \
+		'govulncheck golang.org/x/vuln/cmd/govulncheck@latest'; do \
+		tool=$${spec%% *}; \
+		module=$${spec#* }; \
+		if ! command -v "$$tool" >/dev/null 2>&1; then \
+			if [ -e "$$gobin/$$tool" ] || [ -L "$$gobin/$$tool" ]; then \
+				echo "Cannot install $$tool: $$gobin/$$tool already exists" >&2; \
+				exit 1; \
+			fi; \
+			echo "Installing $$tool"; \
+			GOOS='' GOARCH='' go install "$$module"; \
+		fi; \
+	done; \
+	$(MAKE) verify-development-tools; \
+	echo "Ensure $$gobin is on PATH when running development checks."
 
 .PHONY: verify-development-tools
 verify-development-tools:
 ## verify-development-tools: Check tools used for development and tests
 	@missing=0; \
-	for tool in curl python3 yq shellcheck golangci-lint gci stress shfmt go-licenses govulncheck; do \
+	for tool in gcc bzip2 curl git jq python3 wget yq shellcheck golangci-lint gci stress shfmt go-licenses govulncheck; do \
 		if ! command -v "$$tool" >/dev/null 2>&1; then \
 			missing=1; \
 			case "$$tool" in \
-				curl|python3|shellcheck) hint="sudo apt-get install $$tool" ;; \
+				gcc) hint="sudo apt-get install build-essential" ;; \
+				bzip2|curl|git|jq|python3|shellcheck|wget) hint="sudo apt-get install $$tool" ;; \
 				yq) hint="sudo snap install yq" ;; \
 				golangci-lint) hint="go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0" ;; \
 				gci) hint="go install github.com/daixiang0/gci@latest" ;; \
@@ -802,7 +844,7 @@ STATIC_ANALYSIS_JOB ?=
 .PHONY: static-analysis
 static-analysis: dqlite-install-if-missing
 ## static-analysis: Check the go code using static-analysis
-	@cd tests && CGO_ENABLED=1 \
+	@cd tests && PATH="${PATH}:$(GO_INSTALL_PATH)" CGO_ENABLED=1 \
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		./main.sh static_analysis ${STATIC_ANALYSIS_JOB}
 
