@@ -79,7 +79,7 @@ func ParseConstraints(s string) (Constraints, error) {
 			cons.Pool = field
 			continue
 		}
-		if count, ok, err := parseCount(field); ok {
+		if count, ok, err := parsePositiveCount(field); ok {
 			if err != nil {
 				return cons, errors.Annotate(err, "parsing storage count")
 			}
@@ -120,9 +120,9 @@ func ParseConstraints(s string) (Constraints, error) {
 //	starting with a letter, followed by zero or more digits
 //	or letters optionally separated by hyphens.
 //
-//	COUNT is a positive integer indicating how many instances
-//	of the storage to create. If unspecified, and SIZE is
-//	specified, COUNT defaults to 1.
+//	COUNT is a non-negative integer indicating how many instances
+//	of the storage to create. Zero is accepted. If unspecified,
+//	the existing count is left unchanged.
 //
 //	SIZE describes the minimum size of the storage instances to
 //	create. SIZE is a floating point number and multiplier from
@@ -147,7 +147,7 @@ func ParseDirectives(s string) (Directives, error) {
 				return cons, errors.Annotate(err, "parsing storage count")
 			}
 			if cons.Count != nil {
-				return cons, errors.NotValidf("storage instance count is already set to %d, new value %d", cons.Count, count)
+				return cons, errors.NotValidf("storage instance count is already set to %d, new value %d", *cons.Count, count)
 			}
 			cons.Count = &count
 			continue
@@ -157,7 +157,7 @@ func ParseDirectives(s string) (Directives, error) {
 				return cons, errors.Annotate(err, "cannot parse size")
 			}
 			if cons.Size != nil {
-				return cons, errors.NotValidf("storage size is already set to %d, new value %d", cons.Size, size)
+				return cons, errors.NotValidf("storage size is already set to %d, new value %d", *cons.Size, size)
 			}
 			cons.Size = &size
 			continue
@@ -221,24 +221,32 @@ func ParseConstraintsMap(args []string, mustHaveConstraints bool) (map[string]Co
 	return results, nil
 }
 
+// parseCount parses a non-negative storage instance count.
 func parseCount(s string) (uint64, bool, error) {
 	if !countRE.MatchString(s) {
 		return 0, false, nil
 	}
-	var n uint64
-	var err error
 	if s[0] == '-' {
-		goto bad
+		return 0, true, errors.Errorf("count must not be negative, got %q", s)
 	}
-	n, err = strconv.ParseUint(s, 10, 64)
+	n, err := strconv.ParseUint(s, 10, 64)
 	if err != nil {
 		return 0, false, nil
 	}
-	if n > 0 {
-		return n, true, nil
+	return n, true, nil
+}
+
+// parsePositiveCount parses a storage instance count like parseCount but
+// also rejects zero.
+func parsePositiveCount(s string) (uint64, bool, error) {
+	n, ok, err := parseCount(s)
+	if !ok || err != nil {
+		return n, ok, err
 	}
-bad:
-	return 0, true, errors.Errorf("count must be greater than zero, got %q", s)
+	if n == 0 {
+		return 0, true, errors.Errorf("count must be greater than zero, got %q", s)
+	}
+	return n, true, nil
 }
 
 func parseSize(s string) (uint64, bool, error) {
