@@ -8,37 +8,37 @@ package backups
 // it. The image fields are source pod references and may be tagged or
 // digest-addressed.
 //
-// Every field is optional in the serialised form: machine controllers
-// record only the machine identifiers, Kubernetes controllers also record
-// the substrate facts.
+// Machine controllers record only the machine identifiers, Kubernetes
+// controllers also record the substrate facts. Its serialised form is
+// owned by the archive metadata encoding.
 type InstanceMetadata struct {
 	// MachineID contains controller machine id from which this backup is taken.
-	MachineID string `json:",omitempty"`
+	MachineID string
 	// MachineInstanceID contains controller machine's instance id from
 	// which this backup is taken.
-	MachineInstanceID string `json:",omitempty"`
+	MachineInstanceID string
 
 	// AgentImage is the container image running the controller API server.
-	AgentImage string `json:",omitempty"`
+	AgentImage string
 	// CharmImage is the container image running the controller charm.
-	CharmImage string `json:",omitempty"`
+	CharmImage string
 	// Architecture is the CPU architecture of the node hosting the
 	// controller.
-	Architecture string `json:",omitempty"`
+	Architecture string
 	// StorageClass is the storage class of the controller's data volume.
-	StorageClass string `json:",omitempty"`
+	StorageClass string
 	// StorageCapacityMiB is the controller data volume capacity in
 	// mebibytes, rounded up to the next whole mebibyte.
-	StorageCapacityMiB uint64 `json:",omitempty"`
+	StorageCapacityMiB uint64
 	// ServiceType is the controller service exposure mode, using the
 	// caas.ServiceType values "cluster", "loadbalancer" or "external".
-	ServiceType string `json:",omitempty"`
+	ServiceType string
 	// ExternalName is the DNS name of an external name service.
-	ExternalName string `json:",omitempty"`
+	ExternalName string
 	// ExternalIPs are additional external IP addresses of the service.
-	ExternalIPs []string `json:",omitempty"`
+	ExternalIPs []string
 	// LoadBalancerIP is the requested IP of a load balancer service.
-	LoadBalancerIP string `json:",omitempty"`
+	LoadBalancerIP string
 	// ServiceAnnotations are the annotations of the controller service.
-	ServiceAnnotations map[string]string `json:",omitempty"`
+	ServiceAnnotations map[string]string
 }

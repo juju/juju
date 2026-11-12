@@ -43,7 +43,7 @@ func (s *metadataSuite) TestAsJSONBuffer(c *tc.C) {
 		`"Base":"ubuntu@22.04",`+
 		`"ControllerUUID":"",`+
 		`"HANodes":0,`+
-		`"Instance":{}`+
+		`"Instance":{"MachineID":"","MachineInstanceID":"","AgentImage":"","CharmImage":"","Architecture":"","StorageClass":"","StorageCapacityMiB":0,"ServiceType":"","ExternalName":"","ExternalIPs":null,"LoadBalancerIP":"","ServiceAnnotations":null}`+
 		`}`+"\n")
 }
 
@@ -97,7 +97,7 @@ func (s *metadataSuite) TestAsJSONBufferV2NonHA(c *tc.C) {
 		`"Base":"ubuntu@22.04",`+
 		`"ControllerUUID":"controller-uuid",`+
 		`"HANodes":0,`+
-		`"Instance":{"MachineID":"10","MachineInstanceID":"inst-10101010"}`+
+		`"Instance":{"MachineID":"10","MachineInstanceID":"inst-10101010","AgentImage":"","CharmImage":"","Architecture":"","StorageClass":"","StorageCapacityMiB":0,"ServiceType":"","ExternalName":"","ExternalIPs":null,"LoadBalancerIP":"","ServiceAnnotations":null}`+
 		`}`+"\n")
 }
 
@@ -127,7 +127,7 @@ func (s *metadataSuite) TestAsJSONBufferV2HA(c *tc.C) {
 		`"Base":"ubuntu@22.04",`+
 		`"ControllerUUID":"controller-uuid",`+
 		`"HANodes":3,`+
-		`"Instance":{"MachineID":"10","MachineInstanceID":"inst-10101010"}`+
+		`"Instance":{"MachineID":"10","MachineInstanceID":"inst-10101010","AgentImage":"","CharmImage":"","Architecture":"","StorageClass":"","StorageCapacityMiB":0,"ServiceType":"","ExternalName":"","ExternalIPs":null,"LoadBalancerIP":"","ServiceAnnotations":null}`+
 		`}`+"\n")
 }
 
