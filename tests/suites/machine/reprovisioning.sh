@@ -6,6 +6,7 @@ test_reprovisioning() {
 
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"aws" | "ec2")
+		setup_awscli_credential
 		check_dependencies juju aws yq
 		;;
 	"lxd" | "localhost")
