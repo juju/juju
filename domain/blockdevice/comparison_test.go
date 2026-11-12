@@ -76,6 +76,98 @@ func (s *comparisonSuite) TestSameDeviceByDevLinkMismatch(c *tc.C) {
 	c.Assert(res, tc.IsFalse)
 }
 
+func (s *comparisonSuite) TestSameDeviceByLoopInode(c *tc.C) {
+	for _, test := range []struct {
+		name      string
+		leftLink  string
+		rightLink string
+		leftName  string
+		rightName string
+		match     bool
+	}{
+		{
+			name:      "same backing file after formatting",
+			leftLink:  "/dev/disk/by-loop-inode/8:1-295572",
+			rightLink: "/dev/disk/by-loop-inode/8:1-295572",
+			leftName:  "loop0",
+			rightName: "loop0",
+			match:     true,
+		}, {
+			name:      "same backing file with a different loop name",
+			leftLink:  "/dev/disk/by-loop-inode/8:1-295572",
+			rightLink: "/dev/disk/by-loop-inode/8:1-295572",
+			leftName:  "loop0",
+			rightName: "loop1",
+			match:     true,
+		}, {
+			name:      "same loop name with a different backing inode",
+			leftLink:  "/dev/disk/by-loop-inode/8:1-295572",
+			rightLink: "/dev/disk/by-loop-inode/8:1-295573",
+			leftName:  "loop0",
+			rightName: "loop0",
+		}, {
+			name:      "same inode number on a different backing device",
+			leftLink:  "/dev/disk/by-loop-inode/8:1-295572",
+			rightLink: "/dev/disk/by-loop-inode/8:2-295572",
+			leftName:  "loop0",
+			rightName: "loop0",
+		}, {
+			name:      "same partition of the backing file",
+			leftLink:  "/dev/disk/by-loop-inode/8:1-295572-part1",
+			rightLink: "/dev/disk/by-loop-inode/8:1-295572-part1",
+			leftName:  "loop0p1",
+			rightName: "loop0p1",
+			match:     true,
+		}, {
+			name:      "different partitions of the backing file",
+			leftLink:  "/dev/disk/by-loop-inode/8:1-295572-part1",
+			rightLink: "/dev/disk/by-loop-inode/8:1-295572-part2",
+			leftName:  "loop0p1",
+			rightName: "loop0p2",
+		}, {
+			name:      "whole backing file and a partition",
+			leftLink:  "/dev/disk/by-loop-inode/8:1-295572",
+			rightLink: "/dev/disk/by-loop-inode/8:1-295572-part1",
+			leftName:  "loop0",
+			rightName: "loop0p1",
+		}, {
+			name:      "loop reference alone is not an identity",
+			leftLink:  "/dev/disk/by-loop-ref/volume-0",
+			rightLink: "/dev/disk/by-loop-ref/volume-0",
+			leftName:  "loop0",
+			rightName: "loop0",
+		}, {
+			name:      "disk sequence alone is not a persistent identity",
+			leftLink:  "/dev/disk/by-diskseq/14",
+			rightLink: "/dev/disk/by-diskseq/14",
+			leftName:  "loop0",
+			rightName: "loop0",
+		},
+	} {
+		left := blockdevice.BlockDevice{
+			DeviceName:  test.leftName,
+			DeviceLinks: []string{test.leftLink},
+			SizeMiB:     100,
+		}
+		right := blockdevice.BlockDevice{
+			DeviceName: test.rightName,
+			DeviceLinks: []string{
+				test.rightLink,
+				"/dev/disk/by-uuid/filesystem-uuid",
+			},
+			SizeMiB:        100,
+			FilesystemType: "ext4",
+			FilesystemUUID: "filesystem-uuid",
+			MountPoint:     "/srv/data",
+			InUse:          true,
+		}
+		c.Check(SameDevice(left, right), tc.Equals, test.match,
+			tc.Commentf("%s", test.name))
+		c.Check(SameDevice(right, left), tc.Equals, test.match,
+			tc.Commentf("%s (reversed)", test.name))
+	}
+}
+
 func (s *comparisonSuite) TestSameDeviceByWWN(c *tc.C) {
 	left := blockdevice.BlockDevice{
 		WWN: "abc",
