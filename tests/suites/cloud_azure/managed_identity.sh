@@ -12,6 +12,7 @@ check_managed_identity_controller() {
 
 	juju bootstrap "${cloud_region}" "${name}" \
 		--show-log \
+		--bootstrap-constraints="${PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS}" \
 		--constraints="instance-role=${identity_name}" 2>&1 | OUTPUT "${file}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
 

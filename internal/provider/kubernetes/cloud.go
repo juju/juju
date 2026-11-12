@@ -42,22 +42,24 @@ type KubeCloudParams struct {
 
 // KubeCloudStorageParams defines the parameters used to determine storage details for a k8s cluster.
 type KubeCloudStorageParams struct {
-	WorkloadStorage        string
 	HostCloudRegion        string
 	MetadataChecker        k8s.ClusterMetadataChecker
 	GetClusterMetadataFunc GetClusterMetadataFunc
 }
 
 // UpdateKubeCloudWithStorage updates the passed Cloud with storage details retrieved from the cloud's cluster.
+// On error the partially updated cloud is still returned so that callers
+// able to tolerate the error (see FinalizeCloud) can retain the updates
+// that were made.
 func UpdateKubeCloudWithStorage(k8sCloud cloud.Cloud, storageParams KubeCloudStorageParams) (cloud.Cloud, error) {
 	// Get the cluster metadata and see what storage comes back based on the
 	// preffered rules for metadata.
 	clusterMetadata, err := storageParams.GetClusterMetadataFunc(storageParams)
 	if err != nil {
-		return cloud.Cloud{}, ClusterQueryError{Message: err.Error()}
+		return k8sCloud, ClusterQueryError{Message: err.Error(), Err: err}
 	}
 	if clusterMetadata == nil {
-		return cloud.Cloud{}, ClusterQueryError{Message: "cannot get cluster metadata"}
+		return k8sCloud, ClusterQueryError{Message: "cannot get cluster metadata"}
 	}
 
 	if storageParams.HostCloudRegion == "" && clusterMetadata.Cloud != "" {
@@ -73,7 +75,7 @@ func UpdateKubeCloudWithStorage(k8sCloud cloud.Cloud, storageParams KubeCloudSto
 		_, region, err := cloud.SplitHostCloudRegion(k8sCloud.HostCloudRegion)
 		if err != nil {
 			// Shouldn't happen as HostCloudRegion is validated earlier.
-			return cloud.Cloud{}, errors.Trace(err)
+			return k8sCloud, errors.Trace(err)
 		}
 		if region != "" {
 			k8sCloud.Regions = []cloud.Region{{
@@ -87,10 +89,16 @@ func UpdateKubeCloudWithStorage(k8sCloud cloud.Cloud, storageParams KubeCloudSto
 		k8sCloud.Config = make(map[string]any)
 	}
 
-	// TODO(storage): maybe re-implement this to create storage pool templates
-	// on clouds.
-	if clusterMetadata.WorkloadStorageClass != nil {
-		_ = clusterMetadata.WorkloadStorageClass.Name
+	// The controller stack always creates a persistent volume claim, so a
+	// workload storage class is required to bootstrap. Let the caller
+	// decide how to report this: both add-k8s and bootstrap's FinalizeCloud
+	// warn and continue, because the controller storage class can still be
+	// resolved at bootstrap time from the storage pools scheduled for the
+	// controller model, or fail with a specific message if it cannot.
+	if clusterMetadata.WorkloadStorageClass == nil {
+		return k8sCloud, &environs.PreferredStorageNotFound{
+			Message: "no preferred workload storage class found in Kubernetes cluster",
+		}
 	}
 	return k8sCloud, nil
 }
@@ -135,8 +143,6 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 	// so that finalize credentials is free to change the credentials of the
 	// bootstrap. See lp-1918486
 	cld.AuthTypes = k8scloud.SupportedAuthTypes()
-
-	// TODO(storage): re-implement without workload-storage.
 
 	var credentials cloud.Credential
 	if cld.Name != k8s.K8sCloudMicrok8s {
@@ -187,18 +193,28 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 	storageUpdateParams := KubeCloudStorageParams{
 		MetadataChecker: broker,
 		GetClusterMetadataFunc: func(storageParams KubeCloudStorageParams) (*k8s.ClusterMetadata, error) {
-			clusterMetadata, err := storageParams.MetadataChecker.GetClusterMetadata(ctx, "")
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return clusterMetadata, nil
+			return storageParams.MetadataChecker.GetClusterMetadata(ctx, "")
 		},
 	}
 
-	cld, err = UpdateKubeCloudWithStorage(cld, storageUpdateParams)
+	updatedCloud, err := UpdateKubeCloudWithStorage(cld, storageUpdateParams)
 	if err != nil {
-		return cld, errors.Trace(err)
+		// A cluster with no discoverable workload storage class does not
+		// fail bootstrap here: bootstrap can still resolve a controller
+		// storage class from the storage pools scheduled for the
+		// controller model, and an unresolvable bootstrap fails later
+		// with a more specific message. The partially updated cloud is
+		// kept, so any updates made before the failure (such as the
+		// detected cloud/region) are not lost.
+		var notFoundPreferred *environs.PreferredStorageNotFound
+		if !errors.As(err, &notFoundPreferred) {
+			return cld, errors.Trace(err)
+		}
+		logger.Warningf(ctx,
+			"unable to determine a workload storage class for k8s cloud %q: %v",
+			cld.Name, err)
 	}
+	cld = updatedCloud
 
 	if cld.HostCloudRegion == "" {
 		cld.HostCloudRegion = k8s.K8sCloudOther

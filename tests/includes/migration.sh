@@ -51,6 +51,9 @@ bootstrap_controller_36() {
 	file="${TEST_DIR}/${name}-bootstrap36.log"
 
 	local bootstrap_args=()
+	if [[ ${BOOTSTRAP_PROVIDER:-} == "ec2" && -n ${PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS} ]]; then
+		bootstrap_args+=(--bootstrap-constraints "${PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS}")
+	fi
 	if [[ -n ${BOOTSTRAP_ARCH:-} ]]; then
 		bootstrap_args+=(--bootstrap-constraints "arch=${BOOTSTRAP_ARCH}")
 	fi
@@ -388,49 +391,74 @@ cleanup_mig_controllers_36() {
 	echo "====> Completed cleaning up juju 3.6 controllers"
 }
 
+# wait_for_mig_writes_increase polls until the continuous-writes counter
+# exceeds <baseline>, returning the new count on stdout. Progress and
+# diagnostics go to stderr so callers can capture the count. Failed reads
+# (including the charm's -1 result) are retried; valid regressions fail.
+#
+#   usage: wait_for_mig_writes_increase <bin> <model> <baseline> [timeout]
+wait_for_mig_writes_increase() {
+	local bin=${1} model=${2} baseline=${3} timeout=${4:-600}
+	local deadline remaining current delay attempt=0
+
+	if [[ ! ${baseline} =~ ^[0-9]+$ ]]; then
+		red "Failed: invalid continuous-writes baseline ${baseline:-<empty>} for ${model}" >&2
+		return 1
+	fi
+	if [[ ! ${timeout} =~ ^[0-9]+$ ]] || ((10#${timeout} <= 0)); then
+		red "Failed: invalid continuous-writes timeout ${timeout} for ${model}" >&2
+		return 1
+	fi
+	baseline=$((10#${baseline}))
+	timeout=$((10#${timeout}))
+	deadline=$(($(date -u +%s) + timeout))
+
+	while true; do
+		remaining=$((deadline - $(date -u +%s)))
+		if ((remaining <= 0)); then
+			break
+		fi
+		current=$(mig_writes_get "${bin}" "${model}" "${remaining}") || current=""
+		remaining=$((deadline - $(date -u +%s)))
+		if ((remaining <= 0)); then
+			break
+		fi
+		if [[ ${current} =~ ^[0-9]+$ ]]; then
+			current=$((10#${current}))
+			if ((current < baseline)); then
+				red "Failed: continuous writes regressed for ${model} (${baseline} -> ${current})" >&2
+				return 1
+			fi
+			if ((current > baseline)); then
+				echo "==> continuous writes increased: ${baseline} -> ${current} (${model})" >&2
+				printf '%s\n' "${current}"
+				return 0
+			fi
+		fi
+		echo "[+] (attempt ${attempt}) polling continuous writes for ${model}: ${current:-<empty>} (want > ${baseline})" >&2
+		delay=${SHORT_TIMEOUT}
+		if ((delay > remaining)); then
+			delay=${remaining}
+		fi
+		sleep "${delay}"
+		attempt=$((attempt + 1))
+	done
+
+	red "Failed: timed out after ${timeout}s waiting for continuous writes on ${model} (baseline=${baseline}, current=${current:-<empty>})" >&2
+	timeout 30s "${bin}" status -m "${model}" --relations >&2 || true
+	timeout 30s "${bin}" debug-log -m "${model}" --replay --no-tail >&2 || true
+	return 1
+}
+
 # mig_writes_get returns the continuous-writes counter of the
 # postgresql-test-app leader unit in the given model. <bin> is the juju
-# client that can talk to the model's controller.
+# client that can talk to the model's controller. The optional timeout
+# bounds the action to a polling loop's remaining deadline.
 mig_writes_get() {
-	local bin=${1} model=${2} out
+	local bin=${1} model=${2} timeout=${3:-600} out
 
-	out=$(${bin} run -m "${model}" postgresql-test-app/leader show-continuous-writes --format=yaml 2>/dev/null || true)
+	out=$(timeout "${timeout}s" "${bin}" run -m "${model}" postgresql-test-app/leader show-continuous-writes --wait="${timeout}s" --format=yaml 2>/dev/null || true)
 	echo "${out}" | yq -r '.[] | select(.results != null) | .results["writes"]' 2>/dev/null | head -n1
-}
-
-# mig_assert_writes_increase asserts the continuous-writes counter moved
-# from <previous> to <current> for <label>. bash's [[ > ]] is
-# lexicographic, so the comparison is arithmetic on purpose.
-mig_assert_writes_increase() {
-	local previous=${1} current=${2} baseline=${3} label=${4}
-
-	if [[ ! ${current} =~ ^[0-9]+$ || ! ${baseline} =~ ^[0-9]+$ ]]; then
-		red "Failed: could not parse continuous-writes counter (current=${current:-<empty>}, expected at least ${baseline:-<empty>}) for ${label}"
-		exit 1
-	fi
-	if ((current <= baseline)); then
-		red "Failed: continuous writes did not increase for ${label} (${previous} -> ${current}, expected at least ${baseline})"
-		exit 1
-	fi
-	echo "==> continuous writes increased: ${previous} -> ${current} (${label})"
-}
-
-# mig_assert_writes_ge asserts the continuous-writes counter is at least
-# <baseline> for <label>. Used where an absolute reset must be detected but
-# the counter may legitimately be below an earlier reading, e.g. across the
-# offering-side migration of a relation.
-mig_assert_writes_ge() {
-	local baseline=${1} current=${2} label=${3}
-
-	if [[ ! ${current} =~ ^[0-9]+$ || ! ${baseline} =~ ^[0-9]+$ ]]; then
-		red "Failed: could not parse continuous-writes counter (current=${current:-<empty>}, expected at least ${baseline:-<empty>}) for ${label}"
-		exit 1
-	fi
-	if ((current < baseline)); then
-		red "Failed: continuous writes regressed for ${label} (${baseline} -> ${current})"
-		exit 1
-	fi
-	echo "==> continuous writes at or above baseline: ${baseline} <= ${current} (${label})"
 }
 
 # arm_wrench_die_in_export arms the migrationmaster "die-in-export" wrench
