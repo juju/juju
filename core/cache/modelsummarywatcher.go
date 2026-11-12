@@ -183,39 +183,52 @@ func (w *modelSummaryWatcher) onSummaryUpdate(topic string, data interface{}) {
 
 	uuid := payload.summary.UUID
 	logger.Tracef("onSummaryChange: %s", uuid)
+	summary, ok := w.claimSummary(payload)
+	if !ok {
+		return
+	}
+
+	// Sending without w.mu is safe for ordering only because the hub
+	// multiplexer dispatches topic handlers from a single goroutine, so two
+	// updates for the same model cannot overtake each other.
+	select {
+	case <-w.tomb.Dying():
+	case w.summaryChange <- summary:
+	}
+}
+
+// claimSummary records the payload's model as visible or hidden and returns
+// the summary to send to the client. It reports false when the update can be
+// ignored.
+func (w *modelSummaryWatcher) claimSummary(payload modelSummaryPayload) (ModelSummary, bool) {
+	uuid := payload.summary.UUID
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	var summary ModelSummary
 	if payload.visibleTo(w.user) {
 		// Add is idempotent, and we don't care if we weren't previously tracking.
 		if lastHash := w.hashes[uuid]; lastHash == payload.hash {
 			// If we have already notified for this hash, then don't send
 			// again. If this is a newly watched model, the hash in the map
 			// will be the empty string.
-			return
+			return ModelSummary{}, false
 		}
 		w.hashes[uuid] = payload.hash
 		w.visibleModels.Add(uuid)
-		summary = payload.summary
+		summary := payload.summary
 		summary.Controller = w.controller.Name()
-	} else {
-		if !w.visibleModels.Contains(uuid) {
-			// We aren't tracking, and shouldn't be, so nothing to do.
-			return
-		}
-		// If we were tracking this model, stop tracking this model.
-		w.visibleModels.Remove(uuid)
-		delete(w.hashes, uuid)
-		summary = ModelSummary{
-			UUID:    uuid,
-			Removed: true,
-		}
+		return summary, true
 	}
-
-	select {
-	case <-w.tomb.Dying():
-	case w.summaryChange <- summary:
+	if !w.visibleModels.Contains(uuid) {
+		// We aren't tracking, and shouldn't be, so nothing to do.
+		return ModelSummary{}, false
 	}
+	// If we were tracking this model, stop tracking this model.
+	w.visibleModels.Remove(uuid)
+	delete(w.hashes, uuid)
+	return ModelSummary{
+		UUID:    uuid,
+		Removed: true,
+	}, true
 }
 
 func (w *modelSummaryWatcher) onModelRemove(topic string, data interface{}) {

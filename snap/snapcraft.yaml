@@ -1,5 +1,5 @@
 name: juju
-version: 2.9.61
+adopt-info: juju
 summary: Juju - a model-driven operator lifecycle manager for K8s and machines
 license: AGPL-3.0
 description: |
@@ -24,7 +24,6 @@ description: |
   This snap needs to read any relevant locally stored cloud credentials in order to manage resources on your behalf in a specified cloud. 
 
 confinement: classic
-grade: devel
 base: core20
 
 apps:
@@ -92,19 +91,15 @@ parts:
       - github.com/juju/juju/cmd/jujud
       - github.com/juju/juju/cmd/plugins/juju-metadata
       - github.com/juju/juju/cmd/plugins/juju-wait-for
-    # go-external-strings is not supported by the standard go plugin.
-    # these strings are filled in by CI.
-    go-external-strings:
-      github.com/juju/juju/version.GitCommit: ""
-      github.com/juju/juju/version.GitTreeState: ""
-      github.com/juju/juju/version.build: ""
-      github.com/juju/juju/cloudconfig/podcfg.JujudOCINamespace: ""
     # go-static is not supported by the standard go plugin.
     go-static: true
     # go-strip is not supported by the standard go plugin.
     go-strip: true
     override-build: |
-      snapcraftctl build
+      set -eux
+      project_dir="${SNAPCRAFT_PROJECT_DIR:-$SNAPCRAFT_PART_SRC}"
+      bash "${project_dir}/scripts/snap/set-build-metadata.sh"
+      craftctl default
 
       mkdir -p $SNAPCRAFT_PART_INSTALL/bash_completions
       cp -a etc/bash_completion.d/juju* $SNAPCRAFT_PART_INSTALL/bash_completions/.

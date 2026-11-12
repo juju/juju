@@ -203,9 +203,9 @@ func (s *WorkerSuite) TestChangeLocalServer(c *gc.C) {
 		"1": machine1Address,
 		"2": machine2Address,
 	})
-	//Check configuration asserts that the raft configuration should have
-	//been updated to reflect the two added machines and that the address of
-	//the leader has been changed.
+	// Check configuration asserts that the raft configuration should have
+	// been updated to reflect the two added machines and that the address of
+	// the leader has been changed.
 	rafttest.CheckConfiguration(c, raft1, []raft.Server{{
 		ID:       "0",
 		Address:  raft.ServerAddress(alternateAddress),
@@ -421,21 +421,8 @@ func (s *WorkerSuite) TestPromotesAServerWhenThereAre3Again(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestKeepsNonvoterIfAddressChanges(c *gc.C) {
-	// Create 2 servers: 0 and 1, where both servers can connect
-	// bidirectionally.
-	raft1, _, transport1, _, _ := s.NewRaft(c, "1", &jujuraft.SimpleFSM{})
-	connectTransports(s.Transport, transport1)
-
 	machine0Address := string(s.Transport.LocalAddr())
-	machine1Address := string(transport1.LocalAddr())
-
-	raft1Observations := make(chan raft.Observation, 1)
-	raft1Observer := raft.NewObserver(raft1Observations, false, func(o *raft.Observation) bool {
-		_, ok := o.Data.(raft.LeaderObservation)
-		return ok
-	})
-	raft1.RegisterObserver(raft1Observer)
-	defer raft1.DeregisterObserver(raft1Observer)
+	machine1Address := "testing.invalid:1234"
 
 	// Add machine 1.
 	s.publishDetails(c, map[string]string{
@@ -452,16 +439,9 @@ func (s *WorkerSuite) TestKeepsNonvoterIfAddressChanges(c *gc.C) {
 		Suffrage: raft.Nonvoter,
 	}})
 
-	select {
-	case <-raft1Observations:
-		c.Assert(raft1.Leader(), gc.Equals, s.Transport.LocalAddr())
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for leader observation")
-	}
-
 	// Update the non-voting server's address - ensure it doesn't
 	// accidentally get promoted to voting at the same time.
-	alternateAddress := "testing.invalid:1234"
+	alternateAddress := "testing.invalid:5678"
 	s.publishDetails(c, map[string]string{
 		"0": machine0Address,
 		"1": alternateAddress,

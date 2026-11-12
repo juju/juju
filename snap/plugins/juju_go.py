@@ -30,9 +30,18 @@ Additionally, this plugin uses the following plugin-specific keywords:
       (list of strings)
       Tags to use during the go build. Default is not to use any build tags.
 """
+import json
+import os
+import subprocess
+import sys
 from typing import Any, Dict, List, Set
 
 from snapcraft.plugins.v2 import PluginV2
+
+# The part running this plugin. Must match the part name in
+# snap/snapcraft.yaml: the plugin locates the part's build directory for the
+# metadata file that set-build-metadata.sh later reads.
+PART_NAME = "juju"
 
 
 class PluginImpl(PluginV2):
@@ -57,11 +66,6 @@ class PluginImpl(PluginV2):
                     "items": {"type": "string"},
                     "default": ["./..."],
                 },
-                "go-external-strings": {
-                    "type": "object",
-                    "additionalProperties": {"type": "string"},
-                    "default": {},
-                },
                 "go-static": {
                     "type": "boolean",
                     "default": False,
@@ -80,6 +84,50 @@ class PluginImpl(PluginV2):
     def get_build_packages(self) -> Set[str]:
         return {"gcc"}
 
+    @staticmethod
+    def _project_dir() -> str:
+        project_dir = os.environ.get("SNAPCRAFT_PROJECT_DIR")
+        if project_dir:
+            return project_dir
+        return os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+
+    def _metadata_file(self) -> str:
+        project_dir = self._project_dir()
+        part_build = os.environ.get("SNAPCRAFT_PART_BUILD")
+        if not part_build:
+            # get_build_environment runs before Snapcraft exports the step
+            # environment, so fall back to the part's build directory.
+            part_build = os.path.join(
+                project_dir, "parts", PART_NAME, "build"
+            )
+        return os.path.join(part_build, "build-metadata.json")
+
+    def _build_metadata(self, metadata_file: str) -> Dict[str, str]:
+        project_dir = self._project_dir()
+        helper = os.path.join(project_dir, "scripts", "snap", "build_metadata.py")
+        try:
+            os.makedirs(os.path.dirname(metadata_file), exist_ok=True)
+            output = subprocess.check_output(
+                [
+                    sys.executable,
+                    helper,
+                    "--project-dir",
+                    project_dir,
+                    "--format",
+                    "json",
+                    "--output",
+                    metadata_file,
+                ],
+                text=True,
+            )
+            return json.loads(output)
+        except (OSError, subprocess.CalledProcessError, ValueError) as e:
+            raise RuntimeError(
+                f"failed to compute Juju snap build metadata: {e}"
+            ) from e
+
     def get_build_environment(self) -> Dict[str, str]:
         env = {
             "GOBIN": "${SNAPCRAFT_PART_INSTALL}/bin",
@@ -96,10 +144,22 @@ class PluginImpl(PluginV2):
             ld_flags += '-extldflags "-static" '
         ld_flags = ld_flags.strip()
 
-        if len(self.options.go_external_strings) > 0:
-            for k, v in self.options.go_external_strings.items():
-                ld_flags += f' -X {k}={v}'
+        metadata_file = self._metadata_file()
+        metadata = self._build_metadata(metadata_file)
+        external_strings = {
+            "github.com/juju/juju/version.GitCommit": metadata["git_commit"],
+            "github.com/juju/juju/version.GitTreeState": metadata[
+                "git_tree_state"
+            ],
+            "github.com/juju/juju/version.build": metadata["build"],
+            "github.com/juju/juju/cloudconfig/podcfg.JujudOCINamespace": metadata[
+                "oci_namespace"
+            ],
+        }
+        for key, value in external_strings.items():
+            ld_flags += f" -X {key}={value}"
         env.update({
+            "JUJU_BUILD_METADATA_FILE": metadata_file,
             "SNAPCRAFT_GO_LDFLAGS": f'{ld_flags}'
         })
         return env
