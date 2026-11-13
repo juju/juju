@@ -432,21 +432,21 @@ WITH attachment AS (
 ),
 dying_attachment AS (
     SELECT sfa.uuid AS uuid
-    FROM   attachment AS a
+    FROM   storage_filesystem_attachment AS sfa
     JOIN   storage_instance_filesystem AS sif
-           ON a.storage_instance_uuid = sif.storage_instance_uuid
-    JOIN   storage_filesystem_attachment AS sfa
-           ON  sif.storage_filesystem_uuid = sfa.storage_filesystem_uuid
-           AND a.net_node_uuid = sfa.net_node_uuid
+           ON sfa.storage_filesystem_uuid = sif.storage_filesystem_uuid
+    JOIN   attachment AS a
+           ON  sif.storage_instance_uuid = a.storage_instance_uuid
+           AND sfa.net_node_uuid = a.net_node_uuid
     WHERE  sfa.life_id = 1
     UNION ALL
     SELECT sva.uuid AS uuid
-    FROM   attachment AS a
+    FROM   storage_volume_attachment AS sva
     JOIN   storage_instance_volume AS siv
-           ON a.storage_instance_uuid = siv.storage_instance_uuid
-    JOIN   storage_volume_attachment AS sva
-           ON  siv.storage_volume_uuid = sva.storage_volume_uuid
-           AND a.net_node_uuid = sva.net_node_uuid
+           ON sva.storage_volume_uuid = siv.storage_volume_uuid
+    JOIN   attachment AS a
+           ON  siv.storage_instance_uuid = a.storage_instance_uuid
+           AND sva.net_node_uuid = a.net_node_uuid
     WHERE  sva.life_id = 1
 )
 SELECT COUNT(*) AS &count.count

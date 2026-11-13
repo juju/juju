@@ -762,10 +762,10 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 		var numStorageAttachments entityAssociationCount
 		err = tx.Query(ctx, storageAttachmentCountStmt, unitUUIDCount).Get(&numStorageAttachments)
 		if err != nil {
-			return errors.Errorf("getting storage attachment count: %w", err)
+			return errors.Errorf("getting storage attachment count for unit %q: %w", unitUUID, err)
 		} else if numStorageAttachments.Count > 0 {
-			return errors.Errorf("unit still has %d storage attachment(s), waiting for storage removal",
-				numStorageAttachments.Count).
+			return errors.Errorf("unit %q still has %d storage attachment(s), waiting for storage removal",
+				unitUUID, numStorageAttachments.Count).
 				Add(removalerrors.RemovalJobIncomplete)
 		}
 	}

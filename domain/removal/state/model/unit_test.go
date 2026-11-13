@@ -1431,7 +1431,7 @@ func (s *unitSuite) TestDeleteK8sUnitWithStorageAttachmentReturnsIncomplete(c *t
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
 	c.Assert(len(unitUUIDs), tc.Equals, 1)
 
-	s.checkDeleteUnitWaitsForStorageAttachment(c, unitUUIDs[0])
+	s.checkDeleteUnitWaitsForStorageAttachment(c, unitUUIDs[0], true)
 }
 
 // TestDeleteUnitOnMachineWithStorageAttachmentReturnsIncomplete verifies that
@@ -1443,7 +1443,21 @@ func (s *unitSuite) TestDeleteUnitOnMachineWithStorageAttachmentReturnsIncomplet
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
 	c.Assert(len(unitUUIDs), tc.Equals, 1)
 
-	s.checkDeleteUnitWaitsForStorageAttachment(c, unitUUIDs[0])
+	s.checkDeleteUnitWaitsForStorageAttachment(c, unitUUIDs[0], true)
+}
+
+// TestDeleteUnitWithNonOwnedStorageAttachmentReturnsIncomplete verifies that
+// a unit is not deleted while it is attached to storage it does not own. The
+// storage provisioner finds all of the unit's attachments through the unit,
+// regardless of ownership.
+func (s *unitSuite) TestDeleteUnitWithNonOwnedStorageAttachmentReturnsIncomplete(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+
+	s.checkDeleteUnitWaitsForStorageAttachment(c, unitUUIDs[0], false)
 }
 
 // TestDeleteUnitWithStorageAttachmentForce verifies that a forced unit
@@ -1484,8 +1498,10 @@ func (s *unitSuite) TestDeleteUnitWithStorageAttachmentForce(c *tc.C) {
 	c.Check(n, tc.Equals, 1)
 }
 
-func (s *unitSuite) checkDeleteUnitWaitsForStorageAttachment(c *tc.C, unitUUID unit.UUID) {
-	_, saUUID := s.addUnitStorageAttachment(c, unitUUID, true)
+func (s *unitSuite) checkDeleteUnitWaitsForStorageAttachment(
+	c *tc.C, unitUUID unit.UUID, unitOwned bool,
+) {
+	_, saUUID := s.addUnitStorageAttachment(c, unitUUID, unitOwned)
 	s.advanceUnitLife(c, unitUUID, life.Dead)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))

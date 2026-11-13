@@ -253,9 +253,14 @@ func (s *storageSuite) TestCheckStorageAttachmentHasNoDyingChildrenVolumeAttachm
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
+	// An alive attachment is not being detached, so it is not waited on.
+	detached, err := st.CheckStorageAttachmentHasNoDyingChildren(c.Context(), saUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(detached, tc.IsTrue)
+
 	s.setVolumeAttachmentLife(c, vaUUID, 1)
 
-	detached, err := st.CheckStorageAttachmentHasNoDyingChildren(c.Context(), saUUID)
+	detached, err = st.CheckStorageAttachmentHasNoDyingChildren(c.Context(), saUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(detached, tc.IsFalse)
 
