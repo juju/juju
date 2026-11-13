@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	domainagentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
+	"github.com/juju/juju/domain/controllerupgrader/internal"
 	"github.com/juju/juju/internal/testhelpers"
 	coretools "github.com/juju/juju/internal/tools"
 )
@@ -124,17 +125,15 @@ func (s *agentFinderSuite) TestHasBinariesForVersionAndArchitecturesWithMissingA
 		},
 	}, nil)
 
-	s.ctrlSt.EXPECT().GetAllAgentStoreBinariesForStream(
-		gomock.Any(), domainagentbinary.AgentStreamReleased,
-	).Return([]domainagentbinary.AgentBinary{
+	s.ctrlSt.EXPECT().GetAllAgentStoreBinaries(
+		gomock.Any(),
+	).Return([]internal.AgentStoreBinary{
 		{
 			Architecture: domainagentbinary.ARM64,
-			Stream:       domainagentbinary.AgentStreamReleased,
 			Version:      version,
 		},
 		{
 			Architecture: domainagentbinary.S390X,
-			Stream:       domainagentbinary.AgentStreamReleased,
 			Version:      version,
 		},
 	}, nil)
@@ -178,11 +177,9 @@ func (s *agentFinderSuite) TestHasBinariesForVersionAndArchitecturesFallbackToSi
 		},
 	}, nil)
 	// Sadly the controller state doesn't have them as well.
-	s.ctrlSt.EXPECT().GetAllAgentStoreBinariesForStream(gomock.Any(),
-		domainagentbinary.AgentStreamReleased).Return([]domainagentbinary.AgentBinary{
+	s.ctrlSt.EXPECT().GetAllAgentStoreBinaries(gomock.Any()).Return([]internal.AgentStoreBinary{
 		{
 			Architecture: domainagentbinary.ARM64,
-			Stream:       domainagentbinary.AgentStreamReleased,
 			Version:      version,
 		},
 	}, nil)
@@ -246,11 +243,9 @@ func (s *agentFinderSuite) TestHasBinariesForVersionAndArchitecturesNoneAvailabl
 		},
 	}, nil)
 	// Sadly the controller state doesn't have them as well.
-	s.ctrlSt.EXPECT().GetAllAgentStoreBinariesForStream(gomock.Any(),
-		domainagentbinary.AgentStreamReleased).Return([]domainagentbinary.AgentBinary{
+	s.ctrlSt.EXPECT().GetAllAgentStoreBinaries(gomock.Any()).Return([]internal.AgentStoreBinary{
 		{
 			Architecture: domainagentbinary.ARM64,
-			Stream:       domainagentbinary.AgentStreamReleased,
 			Version:      version,
 		},
 	}, nil)
@@ -353,17 +348,15 @@ func (s *agentFinderSuite) TestHasBinariesForVersionStreamAndArchitecturesWithMi
 		},
 	}, nil)
 
-	s.ctrlSt.EXPECT().GetAllAgentStoreBinariesForStream(
-		gomock.Any(), domainagentbinary.AgentStreamReleased,
-	).Return([]domainagentbinary.AgentBinary{
+	s.ctrlSt.EXPECT().GetAllAgentStoreBinaries(
+		gomock.Any(),
+	).Return([]internal.AgentStoreBinary{
 		{
 			Architecture: domainagentbinary.ARM64,
-			Stream:       domainagentbinary.AgentStreamReleased,
 			Version:      version,
 		},
 		{
 			Architecture: domainagentbinary.S390X,
-			Stream:       domainagentbinary.AgentStreamReleased,
 			Version:      version,
 		},
 	}, nil)
@@ -399,16 +392,13 @@ func (s *agentFinderSuite) TestHasBinariesForVersionStreamAndArchitecturesWithDi
 	s.modelSt.EXPECT().GetAllAgentStoreBinariesForStream(gomock.Any(),
 		domainagentbinary.AgentStreamReleased).Return([]domainagentbinary.AgentBinary{},
 		nil)
-	s.ctrlSt.EXPECT().GetAllAgentStoreBinariesForStream(gomock.Any(),
-		domainagentbinary.AgentStreamReleased).Return([]domainagentbinary.AgentBinary{
+	s.ctrlSt.EXPECT().GetAllAgentStoreBinaries(gomock.Any()).Return([]internal.AgentStoreBinary{
 		{
 			Architecture: domainagentbinary.AMD64,
-			Stream:       domainagentbinary.AgentStreamReleased,
 			Version:      version,
 		},
 		{
 			Architecture: domainagentbinary.ARM64,
-			Stream:       domainagentbinary.AgentStreamReleased,
 			Version:      version,
 		},
 	}, nil)
@@ -447,11 +437,9 @@ func (s *agentFinderSuite) TestHasBinariesForVersionStreamAndArchitecturesFallba
 		},
 	}, nil)
 	// Sadly the controller state doesn't have them as well.
-	s.ctrlSt.EXPECT().GetAllAgentStoreBinariesForStream(gomock.Any(),
-		domainagentbinary.AgentStreamReleased).Return([]domainagentbinary.AgentBinary{
+	s.ctrlSt.EXPECT().GetAllAgentStoreBinaries(gomock.Any()).Return([]internal.AgentStoreBinary{
 		{
 			Architecture: domainagentbinary.ARM64,
-			Stream:       domainagentbinary.AgentStreamReleased,
 			Version:      version,
 		},
 	}, nil)
@@ -515,11 +503,9 @@ func (s *agentFinderSuite) TestTestHasBinariesForVersionStreamAndArchitecturesNo
 		},
 	}, nil)
 	// Sadly the controller state doesn't have them as well.
-	s.ctrlSt.EXPECT().GetAllAgentStoreBinariesForStream(gomock.Any(),
-		domainagentbinary.AgentStreamReleased).Return([]domainagentbinary.AgentBinary{
+	s.ctrlSt.EXPECT().GetAllAgentStoreBinaries(gomock.Any()).Return([]internal.AgentStoreBinary{
 		{
 			Architecture: domainagentbinary.ARM64,
-			Stream:       domainagentbinary.AgentStreamReleased,
 			Version:      version,
 		},
 	}, nil)
@@ -570,17 +556,14 @@ func (s *agentFinderSuite) TestGetHighestPatchVersionAvailable(c *tc.C) {
 		Return(domainagentbinary.AgentStreamReleased, nil)
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).
 		Return(version, nil)
-	s.ctrlSt.EXPECT().GetAllAgentStoreBinariesForStream(gomock.Any(),
-		domainagentbinary.AgentStreamReleased).
-		Return([]domainagentbinary.AgentBinary{
+	s.ctrlSt.EXPECT().GetAllAgentStoreBinaries(gomock.Any()).
+		Return([]internal.AgentStoreBinary{
 			{
 				Architecture: domainagentbinary.AMD64,
-				Stream:       domainagentbinary.AgentStreamReleased,
 				Version:      version,
 			},
 			{
 				Architecture: domainagentbinary.AMD64,
-				Stream:       domainagentbinary.AgentStreamReleased,
 				Version:      nonPatchVersion,
 			},
 		}, nil)
@@ -644,8 +627,7 @@ func (s *agentFinderSuite) TestGetHighestPatchVersionAvailableNoBinariesFound(c 
 		Return(version, nil)
 	s.agentFinder.EXPECT().GetProvider(gomock.Any()).
 		Return(s.bootstrapEnv, nil)
-	s.ctrlSt.EXPECT().GetAllAgentStoreBinariesForStream(gomock.Any(),
-		domainagentbinary.AgentStreamReleased).Return([]domainagentbinary.AgentBinary{}, nil)
+	s.ctrlSt.EXPECT().GetAllAgentStoreBinaries(gomock.Any()).Return([]internal.AgentStoreBinary{}, nil)
 	s.agentFinder.EXPECT().AgentBinaryFilter(
 		gomock.Any(), gomock.Any(), s.bootstrapEnv, version.Major,
 		version.Minor, []string{"released"}, coretools.Filter{},
@@ -671,17 +653,14 @@ func (s *agentFinderSuite) TestGetHighestPatchVersionAvailableForStream(c *tc.C)
 
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).
 		Return(version, nil)
-	s.ctrlSt.EXPECT().GetAllAgentStoreBinariesForStream(gomock.Any(),
-		domainagentbinary.AgentStreamReleased).
-		Return([]domainagentbinary.AgentBinary{
+	s.ctrlSt.EXPECT().GetAllAgentStoreBinaries(gomock.Any()).
+		Return([]internal.AgentStoreBinary{
 			{
 				Architecture: domainagentbinary.AMD64,
-				Stream:       domainagentbinary.AgentStreamReleased,
 				Version:      version,
 			},
 			{
 				Architecture: domainagentbinary.AMD64,
-				Stream:       domainagentbinary.AgentStreamReleased,
 				Version:      nonPatchVersion,
 			},
 		}, nil)
@@ -743,8 +722,7 @@ func (s *agentFinderSuite) TestGetHighestPatchVersionAvailableForStreamNoBinarie
 		Return(version, nil)
 	s.agentFinder.EXPECT().GetProvider(gomock.Any()).
 		Return(s.bootstrapEnv, nil)
-	s.ctrlSt.EXPECT().GetAllAgentStoreBinariesForStream(gomock.Any(),
-		domainagentbinary.AgentStreamReleased).Return([]domainagentbinary.AgentBinary{}, nil)
+	s.ctrlSt.EXPECT().GetAllAgentStoreBinaries(gomock.Any()).Return([]internal.AgentStoreBinary{}, nil)
 	s.agentFinder.EXPECT().AgentBinaryFilter(
 		gomock.Any(), gomock.Any(), s.bootstrapEnv, version.Major,
 		version.Minor, []string{"released"}, coretools.Filter{},
@@ -752,4 +730,31 @@ func (s *agentFinderSuite) TestGetHighestPatchVersionAvailableForStreamNoBinarie
 
 	_, err := binaryFinder.GetHighestPatchVersionAvailableForStream(c.Context(), domainagentbinary.AgentStreamReleased)
 	c.Assert(err, tc.ErrorIs, domainagentbinaryerrors.NotFound)
+}
+
+func (s *agentFinderSuite) TestHighestPatchUsesUnfilteredControllerStore(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	binaryFinder := NewStreamAgentBinaryFinder(s.ctrlSt, s.modelSt, s.agentFinder)
+	current := tc.Must1(c, semversion.Parse, "4.0.7")
+	stored := tc.Must1(c, semversion.Parse, "4.0.10")
+	otherMinor := tc.Must1(c, semversion.Parse, "4.1.20")
+
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(current, nil)
+	s.ctrlSt.EXPECT().GetAllAgentStoreBinaries(gomock.Any()).Return(
+		[]internal.AgentStoreBinary{
+			{Version: stored, Architecture: domainagentbinary.AMD64},
+			{Version: otherMinor, Architecture: domainagentbinary.ARM64},
+		}, nil,
+	)
+	s.agentFinder.EXPECT().GetProvider(gomock.Any()).Return(s.bootstrapEnv, nil)
+	s.agentFinder.EXPECT().AgentBinaryFilter(
+		gomock.Any(), gomock.Any(), s.bootstrapEnv, current.Major,
+		current.Minor, []string{"released"}, coretools.Filter{},
+	).Return(coretools.List{}, nil)
+
+	result, err := binaryFinder.GetHighestPatchVersionAvailableForStream(
+		c.Context(), domainagentbinary.AgentStreamReleased,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.Equals, stored)
 }

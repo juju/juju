@@ -354,9 +354,9 @@ type MockAgentFinderControllerState struct {
 
 // MockAgentFinderControllerStateMockRecorder is the mock recorder for MockAgentFinderControllerState.
 type MockAgentFinderControllerStateMockRecorder struct {
-	mock                                     *MockAgentFinderControllerState
-	getAllAgentStoreBinariesForStreamExpects []*gomock.Call2_2[context.Context, agentbinary.Stream, []agentbinary.AgentBinary, error]
-	getControllerTargetVersionExpects        []*gomock.Call1_2[context.Context, semversion.Number, error]
+	mock                              *MockAgentFinderControllerState
+	getAllAgentStoreBinariesExpects   []*gomock.Call1_2[context.Context, []internal.AgentStoreBinary, error]
+	getControllerTargetVersionExpects []*gomock.Call1_2[context.Context, semversion.Number, error]
 }
 
 // NewMockAgentFinderControllerState creates a new mock instance.
@@ -371,23 +371,23 @@ func (m *MockAgentFinderControllerState) EXPECT() *MockAgentFinderControllerStat
 	return m.recorder
 }
 
-// GetAllAgentStoreBinariesForStream mocks base method.
-func (m *MockAgentFinderControllerState) GetAllAgentStoreBinariesForStream(ctx context.Context, stream agentbinary.Stream) ([]agentbinary.AgentBinary, error) {
+// GetAllAgentStoreBinaries mocks base method.
+func (m *MockAgentFinderControllerState) GetAllAgentStoreBinaries(ctx context.Context) ([]internal.AgentStoreBinary, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getAllAgentStoreBinariesForStreamExpects, m.ctrl, m, "GetAllAgentStoreBinariesForStream", ctx, stream)
+	return gomock.Dispatch1_2(&m.recorder.getAllAgentStoreBinariesExpects, m.ctrl, m, "GetAllAgentStoreBinaries", ctx)
 }
 
-// GetAllAgentStoreBinariesForStream indicates an expected call of GetAllAgentStoreBinariesForStream.
-func (mr *MockAgentFinderControllerStateMockRecorder) GetAllAgentStoreBinariesForStream(ctx, stream any) *MockAgentFinderControllerStateGetAllAgentStoreBinariesForStreamCall {
+// GetAllAgentStoreBinaries indicates an expected call of GetAllAgentStoreBinaries.
+func (mr *MockAgentFinderControllerStateMockRecorder) GetAllAgentStoreBinaries(ctx any) *MockAgentFinderControllerStateGetAllAgentStoreBinariesCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, agentbinary.Stream, []agentbinary.AgentBinary, error](mr.mock.ctrl.T, mr.mock, "GetAllAgentStoreBinariesForStream", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(stream))
-	mr.getAllAgentStoreBinariesForStreamExpects = append(mr.getAllAgentStoreBinariesForStreamExpects, call)
+	call := gomock.NewCall1_2[context.Context, []internal.AgentStoreBinary, error](mr.mock.ctrl.T, mr.mock, "GetAllAgentStoreBinaries", gomock.EnsureMatcher(ctx))
+	mr.getAllAgentStoreBinariesExpects = append(mr.getAllAgentStoreBinariesExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockAgentFinderControllerStateGetAllAgentStoreBinariesForStreamCall is the typed call wrapper for GetAllAgentStoreBinariesForStream.
-type MockAgentFinderControllerStateGetAllAgentStoreBinariesForStreamCall = gomock.Call2_2[context.Context, agentbinary.Stream, []agentbinary.AgentBinary, error]
+// MockAgentFinderControllerStateGetAllAgentStoreBinariesCall is the typed call wrapper for GetAllAgentStoreBinaries.
+type MockAgentFinderControllerStateGetAllAgentStoreBinariesCall = gomock.Call1_2[context.Context, []internal.AgentStoreBinary, error]
 
 // GetControllerTargetVersion mocks base method.
 func (m *MockAgentFinderControllerState) GetControllerTargetVersion(ctx context.Context) (semversion.Number, error) {
