@@ -1751,6 +1751,41 @@ func (m *stateSuite) TestGetModelState(c *tc.C) {
 	})
 }
 
+func (m *stateSuite) TestGetModelStateImporting(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
+	importUUID := uuid.MustNewUUID().String()
+	sourceUUID := uuid.MustNewUUID().String()
+	err := m.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at)
+VALUES (?, ?, ?, '2026-01-02T03:04:05Z')`, importUUID, m.uuid.String(), sourceUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	state, err := m.modelState.GetModelState(c.Context(), m.uuid)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(state, tc.DeepEquals, model.ModelState{
+		Migrating: true,
+	})
+
+	controllerState, err := m.modelState.GetModelState(c.Context(), m.controllerModelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(controllerState.Migrating, tc.IsFalse)
+
+	err = m.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `DELETE FROM model_migration_import WHERE uuid = ?`, importUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	state, err = m.modelState.GetModelState(c.Context(), m.uuid)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(state.Migrating, tc.IsFalse)
+}
+
 // TestGetModelStateinvalidCredentials is here to assert  that when the model's
 // cloud credential is invalid, the model state is updated to indicate this with
 // the invalid reason.
