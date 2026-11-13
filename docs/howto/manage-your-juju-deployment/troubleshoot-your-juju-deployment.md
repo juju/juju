@@ -16,14 +16,14 @@ From the point of view of the user, there are four basic failure scenarios:
 
 In all cases you'll want to understand what's causing the error so you can figure out the way out:
 
-- For (1)-(3) you can check the documentation for the specific procedure you were trying to perform right before the error -- you might find a troubleshooting box with the exact error message, what it means, and how you can solve the issue.
+- For (1)-(3) you can check the documentation for the specific procedure you were trying to perform right before the error. The how-to for the procedure might have a troubleshooting box, and the reference page of the thing you were changing lists the errors of each of its operations, with the message, what triggers it and how to solve the issue.
 
 ```{ibnote}
 See more:
 
 - The troubleshooting box at the end of {ref}`bootstrap-a-controller`
-- The troubleshooting box at the end of {ref}`migrate-a-model`
-- ...
+- The errors of {ref}`adding models <model-adding>`, {ref}`migrating models <model-migrating>` and {ref}`destroying models <model-destroying>`
+- The errors of {ref}`adding clouds <cloud-adding>`, {ref}`removing clouds <cloud-removing>` and {ref}`adding SSH keys <ssh-key-adding>`
 ```
 
 - For (1)-(2) you can also retry the command with the global flags `--debug` and `--verbose` (best used together; for `bootstrap`, also use `--keep-broken` -- if a machine is provisioned, this will ensure that it is not destroyed upon bootstrap fail, which will enable you to examine the logs).

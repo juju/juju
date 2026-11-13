@@ -1,6 +1,6 @@
-# Cloud Reference Documentation — Conventions
+# Cloud Reference Documentation -- Conventions
 
-Cloud-specific reference docs describe **what a cloud is and what it supports in Juju**, in descriptive (not imperative) language (Diataxis reference style). Answer "What does this cloud require/support/create?" — not "How do I use it?"
+Cloud-specific reference docs describe **what a cloud is and what it supports in Juju**, in descriptive (not imperative) language (Diataxis reference style). Answer "What does this cloud require/support/create?" -- not "How do I use it?"
 
 Existing docs are the canonical examples. When in doubt, match what's already there.
 
@@ -18,11 +18,11 @@ The current structure deliberately departs from pure entity ordering in two ways
 
 2. **The cloud and Credentials are now promoted to top-level sections**, removing the `## Registration` wrapper which had no content of its own. `## Controllers` (previously `## Bootstrap`) is named for the entity, not the act. This makes the structure purely entity-based from `## The cloud` onward, mirroring the how-to index.
 
-The trade-off: the structure is slightly less pure but significantly more useful to the reader. The entity principle still governs the operational sections (Models → Machines → Storage) and still provides the stability guarantee for updates — new content almost always belongs to one of those entities without ambiguity.
+The trade-off: the structure is slightly less pure but significantly more useful to the reader. The entity principle still governs the operational sections (Models → Machines → Storage) and still provides the stability guarantee for updates -- new content almost always belongs to one of those entities without ambiguity.
 
-**Why Juju entities for the operational sections?** The content is graph-shaped, not tree-shaped. Every cloud resource simultaneously belongs to multiple valid classification axes: a security group is a networking resource *and* a bootstrap artifact *and* a per-machine artifact. A tree structure forces you to pick one axis and lose the others. Juju entities are the stable axis because Juju's entity model is stable — new cloud features almost always concern how a specific entity (model, machine, storage) behaves differently on that cloud.
+**Why Juju entities for the operational sections?** The content is graph-shaped, not tree-shaped. Every cloud resource simultaneously belongs to multiple valid classification axes: a security group is a networking resource *and* a bootstrap artifact *and* a per-machine artifact. A tree structure forces you to pick one axis and lose the others. Juju entities are the stable axis because Juju's entity model is stable -- new cloud features almost always concern how a specific entity (model, machine, storage) behaves differently on that cloud.
 
-**Why not resource type (compute/networking/storage)?** A resource-type axis creates crossed-wire problems at every update. "Where do security groups go — Networking or Bootstrap?" The answer is *both*, which is why resource-type top-level sections always end up either duplicating content or forcing artificial splits. "Machine constraints" in Juju is also a counterexample: `root-disk`, `root-disk-source`, `spaces`, and `zones` are all machine constraints even though they touch storage and networking respectively — splitting them by resource type would fight Juju's own model.
+**Why not resource type (compute/networking/storage)?** A resource-type axis creates crossed-wire problems at every update. "Where do security groups go -- Networking or Bootstrap?" The answer is *both*, which is why resource-type top-level sections always end up either duplicating content or forcing artificial splits. "Machine constraints" in Juju is also a counterexample: `root-disk`, `root-disk-source`, `spaces`, and `zones` are all machine constraints even though they touch storage and networking respectively -- splitting them by resource type would fight Juju's own model.
 
 **How resource types are still surfaced:** Compute/networking/storage sub-groupings appear **within** entity sections (as bold sub-headings inside resource lists and constraint lists) where they add clarity, but they do not define the skeleton. The entity axis provides the stable tree; the resource-type dimension is lightweight metadata within it.
 
@@ -34,9 +34,9 @@ Cross-cutting resources (e.g. security groups created at both bootstrap time and
 
 Networking and per-machine storage behavior belong under `## Machines`. VPC requirements, security group behavior, and spaces behavior go under `## Machines > ### Networking behavior`; root disk selection and AZ constraints go under `## Machines > ### Storage behavior`. Model config keys for networking or storage go under `## Models`. Dedicated top-level sections would either duplicate content or leave other sections incomplete.
 
-`## Storage` is kept as a top-level section, but it covers only the *storage provider reference* (available backends, pool config options) — not per-machine behavior. The distinction: storage providers are a configurable surface referenced by name in constraints and deploy directives; per-machine behavior is what Juju does when provisioning.
+`## Storage` is kept as a top-level section, but it covers only the *storage provider reference* (available backends, pool config options) -- not per-machine behavior. The distinction: storage providers are a configurable surface referenced by name in constraints and deploy directives; per-machine behavior is what Juju does when provisioning.
 
-The exception is clouds where Juju does not manage networking (Kubernetes clouds) — those simply have no `### Networking behavior` or `### Storage behavior` subsections.
+The exception is clouds where Juju does not manage networking (Kubernetes clouds) -- those simply have no `### Networking behavior` or `### Storage behavior` subsections.
 
 ---
 
@@ -54,7 +54,7 @@ Two templates: **machine clouds** and **Kubernetes clouds** (see below). Both or
 ## Limitations          ← surprising behavioral constraints (omit entirely if none)
 ## Requirements         ← IAM perms, version requirements (omit if none)
 ## Concepts             ← table mapping cloud abstractions → Juju concepts
-## The cloud           ← {include} list-of-supported-clouds/reuse/machine/cloud-definition.md, then Type/Name in Juju
+## The cloud           ← inline: "As for all machine clouds, the cloud is registered in Juju via a cloud definition …", then Type/Name in Juju
 ## Credentials
   ### Authentication types
     #### <auth-type>
@@ -88,12 +88,12 @@ Two templates: **machine clouds** and **Kubernetes clouds** (see below). Both or
 ```
 
 **Notes:**
-- `## Limitations` is first — before Requirements and Concepts — so readers discover showstoppers before investing time in the rest of the page. `## Requirements` follows. Both are omitted when empty.
-- From `## The cloud` onward, every top-level section is a Juju entity — mirroring the how-to index structure. There is no `## Registration` wrapper: The cloud and Credentials are entities in their own right.
+- `## Limitations` is first -- before Requirements and Concepts -- so readers discover showstoppers before investing time in the rest of the page. `## Requirements` follows. Both are omitted when empty.
+- From `## The cloud` onward, every top-level section is a Juju entity -- mirroring the how-to index structure. There is no `## Registration` wrapper: The cloud and Credentials are entities in their own right.
 - `## Controllers` (previously `## Bootstrap`) covers the controller entity on this cloud: bootstrap behavior and all resources created at bootstrap, grouped by **Compute / Networking / Storage** bold sub-headings.
 - `## Models` covers cloud-specific model configuration keys, grouped by dimension (**Networking**, **Compute**, **Storage**) as bold sub-headings.
 - `## Machines` covers the ongoing operational surface: what users can specify (constraints, placement) and what Juju creates per machine, grouped by dimension. `### Networking behavior` covers VPC/subnet requirements, subnet selection, spaces, IP handling, etc. `### Storage behavior` covers root disk selection, AZ constraints, volume attachment behavior, etc. Both are subsections of `## Machines`, not top-level sections.
-- `## Storage` covers cloud-specific storage providers — the available backends and their configuration options. Although storage volumes ultimately attach to machines or pods (just as networking ultimately resolves at the machine/pod level), storage providers are a distinct *configurable surface* referenced by name in storage constraints and deploy directives, and warrant their own section. Per-machine storage behavior (root disk defaults, AZ constraints, volume attachment) lives under `## Machines > ### Storage behavior`, with a cross-reference to the relevant provider in `## Storage`.
+- `## Storage` covers cloud-specific storage providers -- the available backends and their configuration options. Although storage volumes ultimately attach to machines or pods (just as networking ultimately resolves at the machine/pod level), storage providers are a distinct *configurable surface* referenced by name in storage constraints and deploy directives, and warrant their own section. Per-machine storage behavior (root disk defaults, AZ constraints, volume attachment) lives under `## Machines > ### Storage behavior`, with a cross-reference to the relevant provider in `## Storage`.
 - **Constraints, networking, and storage** can all be set at controller, model, or application scope, but they always take effect at the machine or pod level. This is why they all appear under `## Machines` (as constraints, resources, and behavior subsections) even when the scoping is broader.
 
 ### Kubernetes cloud structure
@@ -155,15 +155,15 @@ Omit the appendix clause for docs with no appendix.
 
 ### Limitations and Requirements sections
 
-`## Limitations` comes first — before `## Requirements` and `## Concepts` — so readers discover showstoppers before investing time in the rest of the page. If the cloud has no limitations worth calling out, omit the section entirely (absence is informative; do not add a "None" placeholder).
+`## Limitations` comes first -- before `## Requirements` and `## Concepts` -- so readers discover showstoppers before investing time in the rest of the page. If the cloud has no limitations worth calling out, omit the section entirely (absence is informative; do not add a "None" placeholder).
 
 `## Requirements` follows immediately after Limitations (or comes first if there are no limitations). It contains IAM/API permissions Juju needs and version requirements (e.g. LXD 5.x, MAAS 2+).
 
-**What qualifies as a Limitation?** Surprising behavioral constraints that would block or change a deployment design — things a reader might not expect from a general Juju cloud. The bar is: *would a reasonable person be surprised or blocked by this?* Example: EC2's single-NIC behavior when using multiple spaces is a limitation (users expect multiple NICs as on OpenStack/Azure). Missing features that aren't surprising (e.g. a cloud not supporting a specific auth type) are not limitations.
+**What qualifies as a Limitation?** Surprising behavioral constraints that would block or change a deployment design -- things a reader might not expect from a general Juju cloud. The bar is: *would a reasonable person be surprised or blocked by this?* Example: EC2's single-NIC behavior when using multiple spaces is a limitation (users expect multiple NICs as on OpenStack/Azure). Missing features that aren't surprising (e.g. a cloud not supporting a specific auth type) are not limitations.
 
-**Language principle for Limitations, Requirements, and Concepts:** Start from Juju-external language (cloud/infrastructure terms the reader already knows) and only progress to Juju-internal terms (spaces, endpoint bindings, models, units) at the end — specifically in the Concepts table where the mapping is made explicit. This eases onboarding: the reader encounters familiar ground first, then learns how Juju names it.
+**Language principle for Limitations, Requirements, and Concepts:** Start from Juju-external language (cloud/infrastructure terms the reader already knows) and only progress to Juju-internal terms (spaces, endpoint bindings, models, units) at the end -- specifically in the Concepts table where the mapping is made explicit. This eases onboarding: the reader encounters familiar ground first, then learns how Juju names it.
 
-Example — limitation phrasing (infrastructure-first, Juju consequence second):
+Example -- limitation phrasing (infrastructure-first, Juju consequence second):
 ```markdown
 - **Single NIC per machine**: EC2 machines are provisioned with one network interface. If your deployment relies on network isolation across multiple subnets, be aware that Juju will connect a machine to one subnet only. See {ref}`ec2-machine-networking-behavior`.
 ```
@@ -189,15 +189,13 @@ The ibnote goes **first** in the section (before the intro sentence), so it appe
 
 ### Reuse snippets
 
-Machine cloud docs include two shared snippets:
-- `{include} ../../../list-of-supported-clouds/reuse/machine/cloud-definition.md` — under `## The cloud`.
-- `{include} ../../../list-of-supported-clouds/reuse/machine/credential-definition.md` — under `## Credentials`.
+Machine cloud docs write the shared cloud-definition and credential-definition paragraphs inline, each opening "As for all machine clouds, …" (see `amazon-ec2.md`). The snippets in `docs/reference/cloud/list-of-supported-clouds/reuse/machine/` exist, but no Markdown page includes them; a change to the shared wording is made in every machine cloud page.
 
-Kubernetes cloud docs include snippets from `docs/reference/cloud/list-of-supported-clouds/list-of-supported-clouds/reuse/k8s/` for all shared content (see K8s structure above). Each snippet is self-contained: it opens with its own ibnote and an "As for all Kubernetes/machine clouds, …" intro sentence.
+Kubernetes cloud docs include snippets from `docs/reference/cloud/list-of-supported-clouds/reuse/k8s/` for all shared content (see K8s structure above), with `{include} ./reuse/k8s/<snippet>.md` (see `microk8s.md`). Each snippet is self-contained: it opens with its own ibnote and an "As for all Kubernetes/machine clouds, …" intro sentence.
 
 ### Compute/Networking/Storage groupings within sections
 
-Where a section lists resources or constraints across multiple dimensions, use **bold inline headings** to group them — do not create `###` or `####` sub-headings for this purpose:
+Where a section lists resources or constraints across multiple dimensions, use **bold inline headings** to group them -- do not create `###` or `####` sub-headings for this purpose:
 
 ```markdown
 ### Resources created
@@ -223,7 +221,7 @@ The controller runs on a machine provisioned via the same mechanisms as workload
 ```markdown
 ### Resources created at bootstrap
 
-The controller runs on an EC2 instance provisioned using the same mechanisms as workload machines — see {ref}`<cloud>-machine-resources-created-per-machine` for the full per-machine resource model. Controller-specific differences are noted below.
+The controller runs on an EC2 instance provisioned using the same mechanisms as workload machines -- see {ref}`<cloud>-machine-resources-created-per-machine` for the full per-machine resource model. Controller-specific differences are noted below.
 ```
 
 ```markdown
@@ -298,11 +296,11 @@ Rules:
 
 Bullet lists. Append cloud-specific notes inline (e.g. `. Valid values: \`amd64\`.`). Add a `{note}` block for mutual-exclusion rules. No `####` headings.
 
-Constraints are a Juju provisioning spec, not a pure compute concept — `root-disk`, `root-disk-source`, `spaces`, and `zones` are all constraints even though they touch storage and networking. Group them by dimension (**Compute / Networking / Storage**) using bold headings, but keep them in one flat list conceptually.
+Constraints are a Juju provisioning spec, not a pure compute concept -- `root-disk`, `root-disk-source`, `spaces`, and `zones` are all constraints even though they touch storage and networking. Group them by dimension (**Compute / Networking / Storage**) using bold headings, but keep them in one flat list conceptually.
 
 ### Storage providers
 
-Use `####` headings — providers have their own config options and behavior notes.
+Use `####` headings -- providers have their own config options and behavior notes.
 
 ### Appendix sections
 
@@ -310,10 +308,10 @@ Workflow heading style: `### <Verb phrase>` (e.g. `### Authenticate with managed
 
 ### Language and punctuation
 
-- Descriptive, not imperative: "is created", "can be configured" — not "Create...", "Configure..."
+- Descriptive, not imperative: "is created", "can be configured" -- not "Create...", "Configure..."
 - Sentential bullets end with periods.
 - Em-dash: ` -- ` (space-hyphen-hyphen-space).
-- "As for all machine/Kubernetes clouds, …" — intro sentence pattern for reuse snippet sections.
+- "As for all machine/Kubernetes clouds, …" -- intro sentence pattern for reuse snippet sections.
 
 ### What not to include
 
@@ -325,23 +323,23 @@ Workflow heading style: `### <Verb phrase>` (e.g. `### Authenticate with managed
 
 ## Adding a new cloud or updating an existing one
 
-1. Study `internal/provider/<cloud>/` — especially `credentials.go` (auth types/attributes), `config.go` (config keys + defaults), `environ_policy.go` (supported constraints), `environ.go` / `environ_broker.go` (bootstrap/machine resources), and the provider's networking implementation for spaces/subnet support.
+1. Study `internal/provider/<cloud>/` -- especially `credentials.go` (auth types/attributes), `config.go` (config keys + defaults), `environ_policy.go` (supported constraints), `environ.go` / `environ_broker.go` (bootstrap/machine resources), and the provider's networking implementation for spaces/subnet support.
 2. Check `docs/reference/space.md` for cloud-specific spaces behavior (single NIC vs multiple NICs, inherited vs discovered subnets) and add any limitations to `## Limitations`.
-3. Follow the structure and conventions above. The canonical example for machine clouds is `amazon-ec2.md`; for Kubernetes clouds, use `microk8s.md` (stub) alongside the `docs/reference/cloud/list-of-supported-clouds/list-of-supported-clouds/reuse/k8s/` snippets.
+3. Follow the structure and conventions above. The canonical example for machine clouds is `amazon-ec2.md`; for Kubernetes clouds, use `microk8s.md` (stub) alongside the `docs/reference/cloud/list-of-supported-clouds/reuse/k8s/` snippets.
 
 ### Verifying constraint accuracy against code
 
 The constraint tables are the most error-prone section. Before committing, cross-check each documented constraint against the provider code:
 
-**Step 1 — Check `var unsupportedConstraints`** in `environ_policy.go` (or `environ.go`, `constraints.go` — search with `grep -rn "var unsupportedConstraints" internal/provider/<cloud>/`). Any constraint in this list must **not** appear in the doc's constraint table.
+**Step 1 -- Check `var unsupportedConstraints`** in `environ_policy.go` (or `environ.go`, `constraints.go` -- search with `grep -rn "var unsupportedConstraints" internal/provider/<cloud>/`). Any constraint in this list must **not** appear in the doc's constraint table.
 
-**Step 2 — Check `validator.RegisterConflicts`** calls. The conflict note in the doc must exactly match what is registered. Common mistake: listing a constraint in the conflict group when it is only conditionally conflicting (e.g. OpenStack `root-disk` is validated in `PrecheckInstance`, not `RegisterConflicts`).
+**Step 2 -- Check `validator.RegisterConflicts`** calls. The conflict note in the doc must exactly match what is registered. Common mistake: listing a constraint in the conflict group when it is only conditionally conflicting (e.g. OpenStack `root-disk` is validated in `PrecheckInstance`, not `RegisterConflicts`).
 
-**Step 3 — Check `validator.RegisterVocabulary`** for `constraints.Arch` and other vocabulary-restricted constraints. If arch is registered as `[amd64, arm64]`, the doc must say `Valid values: amd64, arm64`.
+**Step 3 -- Check `validator.RegisterVocabulary`** for `constraints.Arch` and other vocabulary-restricted constraints. If arch is registered as `[amd64, arm64]`, the doc must say `Valid values: amd64, arm64`.
 
-**Step 4 — Check `RegisterConflictResolver`**. If a conflict has a resolver (e.g. EC2 and Azure allow `instance-type` + `arch` together when they are compatible), the conflict note must mention the exception.
+**Step 4 -- Check `RegisterConflictResolver`**. If a conflict has a resolver (e.g. EC2 and Azure allow `instance-type` + `arch` together when they are compatible), the conflict note must mention the exception.
 
-**Step 5 — Check that documented constraints are actually used.** If a constraint is not in `unsupportedConstraints` but is also never referenced in `StartInstances`/`environ.go`, Juju will accept it but silently ignore it. Such constraints should be omitted from the doc (e.g. OCI `cpu-power`).
+**Step 5 -- Check that documented constraints are actually used.** If a constraint is not in `unsupportedConstraints` but is also never referenced in `StartInstances`/`environ.go`, Juju will accept it but silently ignore it. Such constraints should be omitted from the doc (e.g. OCI `cpu-power`).
 
 The storage provider section likewise needs checking against `storage.go`: verify `DefaultPools()` for pool names, `ConfigSchema()` for `account-type` defaults and valid values, and the storage provider type name.
 

@@ -18,10 +18,6 @@ As its name indicates, the application status reports on the status of each depl
 
 The application status can be specified by the charm author. When not specified, it is the highest-priority status of the workload statuses of all of the application's units. So if all workloads are active, the application will also be active, but if even  just one workload is blocked, the application will also be marked blocked.
 
-The following figure provides an illustration of the status an application may be in at a given time, and lists the reasons for the transitions between different statuses:
-
-![application_status](status.png)
-
 (unit-status)=
 ### Unit status
 

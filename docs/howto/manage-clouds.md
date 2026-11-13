@@ -95,6 +95,7 @@ If the cluster has no storage provisioning capability at all, use `--skip-storag
 See more: {ref}`command-juju-add-k8s`
 ```
 
+(view-all-the-known-clouds)=
 ## View all the known clouds
 
 To get a list of all the clouds that your Juju client is currently aware of, run the `clouds` command with the `--client` and `-all` flags:
@@ -132,6 +133,7 @@ By omitting the flags, you will see a list of the clouds available on the client
 See more: {ref}`command-juju-clouds`
 ```
 
+(view-details-about-a-cloud)=
 ## View details about a cloud
 
 To get more detail about a particular cloud, run the `show-cloud` command followed by the cloud name. For example:
@@ -219,6 +221,7 @@ See more: {ref}`command-juju-default-region`
 
 See {ref}`manage-credentials`.
 
+(update-a-cloud)=
 ## Update a cloud
 
 The procedure for how to update a cloud on Juju depends on whether the cloud is public or private.
@@ -250,6 +253,7 @@ The command also allows you to indicate whether the update should happen on the 
 See more: {ref}`command-juju-update-cloud`
 ```
 
+(remove-a-cloud)=
 ## Remove a cloud
 
 ```{ibnote}

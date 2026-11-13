@@ -11,6 +11,7 @@ myst:
 See also: {ref}`subnet`
 ```
 
+(list-subnets)=
 ## List subnets
 
 To view the subnets known to `juju`, run:
@@ -48,6 +49,7 @@ subnets:
 See more: {ref}`command-juju-subnets`
 ```
 
+(move-a-subnet-to-another-space)=
 ## Move a subnet to another space
 
 For all providers other than MAAS, all subnets are initially in a default `alpha` space.

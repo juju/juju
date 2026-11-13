@@ -1,89 +1,95 @@
 ---
 myst:
   html_meta:
-    description: "Juju telemetry reference: the daily business metrics that models send to Charmhub, and the OpenTelemetry tracing that the controller, agents and charms can export to a collector."
+    description: "Juju telemetry reference: the business metrics that a model sends to Charmhub, the tracing configuration for the controller and its agents, and the log forwarding endpoint."
 ---
 
 (telemetry)=
 # Telemetry
 
-Telemetry is the automatic recording and transmission of data from remote sources. In Juju, it covers two independent mechanisms: {ref}`business metrics <telemetry-business-metrics>` that help the developers improve Juju, and {ref}`OpenTelemetry tracing <telemetry-tracing>` that helps you observe your own deployment.
+Telemetry is the data that Juju itself sends out about a deployment. It covers two independent things. The {ref}`business metrics <telemetry-business-metrics>` are counts that each model sends to Charmhub. The {ref}`tracing <telemetry-tracing>` and the log forwarding configuration tell the agents and the charms of every model where to send their traces and their logs: the {ref}`controller database <database>` holds them, a caller sets them over the controller's control socket, and the agents receive them through watchers.
 
 (telemetry-business-metrics)=
 ## Business metrics
 
-Each model gathers routine business metrics and sends them to [Charmhub](https://charmhub.io/) together with its daily check for new charm revisions. The metrics help the developers of Juju improve it.
+Business metrics are the counts that describe a deployment, which the developers of Juju use to improve it. A worker of each model gathers them and sends them to [Charmhub](https://charmhub.io/) once a day by default, together with the model's check for new charm revisions (the agent configuration sets the period). The metrics carry no user information:
 
-```{note}
-No user information is gathered.
-```
+- For the controller: the version of Juju that runs it and the controller's UUID.
+- For the model: the model's UUID, its cloud, the cloud's type, the cloud's region, and the counts of its applications, units, and machines.
+- For each application that comes from Charmhub: the number of its units.
 
-### What data is collected?
+The {ref}`disable-telemetry <model-config-disable-telemetry>` model configuration key turns the metrics off. The check for new charm revisions keeps running either way, without the metrics. The {ref}`transmit-vendor-metrics <model-config-transmit-vendor-metrics>` model configuration key has no effect.
 
-* For a controller
-  * juju version
-  * controller uuid
-* For a model
-  * number of applications
-  * number of units deployed
-  * number of machines deployed
-  * cloud
-  * cloud provider
-  * cloud region
-  * model uuid
-* For each application
-  * number of units
+(telemetry-database-schema)=
+## Telemetry database schema
 
-### What is the data used for?
+The telemetry database schema is the set of records that the {ref}`controller database <database>` keeps about the tracing and log forwarding configuration. Each record holds one configuration. No record links to another. The records, with the rules that apply to each, are:
 
-The data helps the developers gain a better understanding of how Juju is used in the field:
+- **Workload tracing configuration:** The configuration of the tracing that Juju itself exports: the traces of the controller and of the agents of every model on it. Its fields are `http-endpoint` and `grpc-endpoint` (the endpoints of the [OpenTelemetry](https://opentelemetry.io/) collector), `ca-certificate`, `insecure-skip-verify`, `stack-traces`, `sample-ratio`, and `tail-sampling-threshold`.
+  - *Rules:*
+    - A field appears once.
+- **Charm tracing configuration:** The configuration that gives the charms of every model on the controller a collector to write spans (the traced operations of the charm) to. Its fields are `http-endpoint`, `grpc-endpoint`, and `ca-certificate`.
+  - *Rules:*
+    - A field appears once.
+- **Log forwarding configuration:** The endpoint of the [Loki](https://grafana.com/oss/loki/) push API that the machine agents of the models forward their logs to, with the CA certificate that verifies it, whether to skip verifying that certificate, and an organization ID for a multi-tenant Loki.
+  - *Rules:*
+    - The controller keeps at most one log forwarding configuration.
 
-* Which clouds are the most popular?
-* How many applications, units and machines do models typically have?
-* How many models are used with a controller?
+(telemetry-change-streams)=
+## Telemetry change streams
 
-For example, the developers can better design improvements.
+Telemetry change streams are the changes to the tracing and the log forwarding configuration that the agents of a model follow. Each agent watches the configurations for its own tag: an agent calls `WatchControllerTracingConfig` to hear that the workload tracing configuration changed, and `WatchControllerLokiConfig` to hear that the log forwarding configuration changed. A {ref}`unit agent <unit-agent>` reads the charm tracing configuration when it builds the context of its unit, and passes it to the charm in the environment variables `JUJU_CHARM_TRACE_CONFIG_HTTP`, `JUJU_CHARM_TRACE_CONFIG_GRPC`, and `JUJU_CHARM_TRACE_CONFIG_CA_CERT`, so the charm needs no integration with the collector.
 
-### How do I disable data collection?
+(telemetry-calls)=
+## Telemetry calls
 
-To disable business metrics in a Juju model, set the {ref}`disable-telemetry <model-config-disable-telemetry>` model configuration key to `true`:
-
-```text
-juju model-config disable-telemetry=true
-```
-
-The daily check for new charm revisions continues to run and omits the metrics.
+Telemetry calls are the calls that set and read the tracing and the log forwarding configuration. The caller that sets them is the user the {ref}`controller machine agent <controller-agent>` runs as, on the controller machine: the configurations are set over the controller's control socket, a Unix socket named `control.socket` in the data directory of the controller machine agent, which accepts JSON `POST` requests. The `juju-controller` charm is the usual caller. The agents of the models are the readers.
 
 (telemetry-tracing)=
-## OpenTelemetry tracing
+### Setting the tracing configuration
 
-The controller and the agents in your models can export [OpenTelemetry](https://opentelemetry.io/) traces to a collector that you operate. Charms can write spans to the same collector.
+Setting the tracing configuration stores the workload tracing configuration and the charm tracing configuration. A field that the request omits or leaves empty is removed from the configuration. Setting an endpoint turns that tracing on; removing both endpoints turns it off.
 
-Tracing stays off until an OTLP collector endpoint is set.
+The caller, the rules, and the errors are:
 
-### Workload tracing
+- *Caller:* The user the controller machine agent runs as, on the controller machine. No model access level applies.
+- *Rules:*
+  - The workload tracing configuration is set with a `POST` request to `/workload-tracing-config`, with the fields `http_endpoint`, `grpc_endpoint`, `ca_cert`, `stack_traces`, `sample_ratio`, `tail_sampling_threshold`, and `insecure_skip_verify`.
+  - The charm tracing configuration is set with a `POST` request to `/charm-tracing-config`, with the fields `http_endpoint`, `grpc_endpoint`, and `ca_cert`.
+  - The sample ratio is a fraction between 0 and 1.
+  - The tail sampling threshold is a duration, such as `1ms`.
+- *Errors:* The socket answers each with the status named in the entry and this text in the body:
+  - **`invalid workload tracing config: sample-ratio value <value> must be a ratio between 0 and 1`** (400): *Trigger:* The sample ratio is below 0 or above 1. *Remediation:* Send a fraction between 0 and 1.
+  - **`invalid workload tracing config: tail-sampling-threshold value "<value>" must be a valid duration`** (400): *Trigger:* The threshold is not a duration. *Remediation:* Send a duration such as `1ms`.
+  - **`invalid workload tracing config: tail-sampling-threshold value "<value>" must be a positive duration`** (400): *Trigger:* The threshold is negative. *Remediation:* Send a non-negative duration.
+  - **`request Content-Type must be application/json`** (415): *Trigger:* The request has no `Content-Type: application/json` header. *Remediation:* Send the header.
+  - **`missing request body`** and **`request body is not valid JSON: <reason>`** (400): *Trigger:* The request has no body, or a body that is not JSON. *Remediation:* Send a JSON body.
+  - **`request body must not exceed 1048576 bytes`** (413): *Trigger:* The body is over 1 MiB. *Remediation:* Send a smaller body.
 
-Workload tracing covers the spans that Juju itself exports. The controller stores the configuration and distributes it to the controller and to the agents, so a single setting governs the whole system. Setting an HTTP or a gRPC endpoint turns tracing on; clearing both turns it off.
+### Setting the log forwarding endpoint
 
-The configuration takes these fields:
+Setting the log forwarding endpoint stores where the machine agents of the models send their logs. Removing it stops the forwarding.
 
-* `http_endpoint` and `grpc_endpoint`: the OTLP endpoints of the collector.
-* `ca_cert`: the CA certificate used to verify the collector.
-* `insecure_skip_verify`: whether to skip verifying the collector's certificate.
-* `stack_traces`: whether to attach stack traces to spans.
-* `sample_ratio`: the fraction of spans to sample, between `0` and `1` (default: `0.1`).
-* `tail_sampling_threshold`: a non-negative duration, for example `1ms` (default: `1ms`).
+The caller, the rules, and the errors are:
 
-A field that is omitted or empty is removed from the configuration.
+- *Caller:* The user the controller machine agent runs as, on the controller machine. No model access level applies.
+- *Rules:*
+  - The endpoint is set with a `POST` request to `/loki-endpoint`, with the fields `url`, `ca_cert`, `insecure_skip_verify`, and `org_id`.
+  - The endpoint is removed with a `DELETE` request to `/loki-endpoint`.
+  - The URL must have a scheme and a host, such as `https://loki.example.com:3100`.
+- *Errors:* The socket answers each with the status named in the entry and this text in the body:
+  - **`invalid loki endpoint: empty loki endpoint`** (400): *Trigger:* The request names no URL. *Remediation:* Send the URL of a Loki push API.
+  - **`invalid loki endpoint: loki endpoint "<url>": <reason>`** (400): *Trigger:* The URL cannot be parsed. *Remediation:* Send a well-formed URL.
+  - **`invalid loki endpoint: loki endpoint "<url>" missing scheme or host`** (400): *Trigger:* The URL has no scheme or no host. *Remediation:* Send a full URL.
+  - **`request Content-Type must be application/json`** (415): *Trigger:* The request has no `Content-Type: application/json` header. *Remediation:* Send the header.
 
-### Charm tracing
+### Reading the telemetry configuration
 
-Charm tracing gives the charms in your models a collector to write spans to. The configuration takes the fields `http_endpoint`, `grpc_endpoint` and `ca_cert`. When any of them is set, the unit agent passes them to the charm in the environment variables `JUJU_CHARM_TRACE_CONFIG_HTTP`, `JUJU_CHARM_TRACE_CONFIG_GRPC` and `JUJU_CHARM_TRACE_CONFIG_CA_CERT`, so the charm needs no integration with the collector.
+Reading the telemetry configuration returns the current tracing and log forwarding values to the agents of the models. An agent reads the workload tracing configuration with `GetControllerTracingConfig` and the log forwarding configuration with `GetControllerLokiConfig`, each for its own tag. A unit agent also reads the charm tracing configuration when it builds the context of its unit.
 
-### How is tracing configured?
+The caller and the rules are:
 
-The `juju-controller` charm sets both configurations through the controller's control socket, a Unix socket named `control.socket` in the data directory of the controller machine agent. The socket accepts a JSON `POST` request at `/workload-tracing-config` and at `/charm-tracing-config`.
-
-## Relationship to previous releases
-
-Earlier Juju releases also collected the names of the charms that an application is related to, and the `transmit-vendor-metrics` model configuration key controlled the upload of the metrics that charms declared. Juju 4.1 sends neither: It has dropped the relation names, and the `transmit-vendor-metrics` key has no effect.
+- *Caller:* An agent of the controller or of a model on it, for its own tag. No model access level applies.
+- *Rules:*
+  - The values the agent reads are the current ones: the watchers of {ref}`telemetry change streams <telemetry-change-streams>` tell the agent to read again after a change.
+  - An agent that reads the log forwarding configuration when none is set receives the error `loki config not found`, with the code `not found`.

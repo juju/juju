@@ -18,7 +18,7 @@ This document shows how to work with storage pools.
 First, check if your provider supports any storage configuration attributes. For example, in the case of AWS, the `ebs` storage provider supports several configuration attributes, and among these are `volume-type`, which configures the volume type (i.e. magnetic, ssd, or provisioned-iops), and `iops`, which indicates the IOPS per GiB.
 
 ```{ibnote}
-See more: {ref}`storage-provider` > `ebs`, [Wikipedia | IOPS](https://en.wikipedia.org/wiki/IOPS)
+See more: {ref}`storage provider <storage-provider>` > `ebs`, [Wikipedia | IOPS](https://en.wikipedia.org/wiki/IOPS)
 ```
 
 Second, use the `create-storage-pool` command, passing as parameters the desired name of the pool and the name of the provider and then all the key-value pairs that you want to specify. For example, the code below creates a storage pool with the name `iops` which is a version of `ebs` with 30 IOPS.
