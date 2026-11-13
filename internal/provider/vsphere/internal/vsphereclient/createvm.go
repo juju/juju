@@ -434,10 +434,10 @@ func (c *Client) createImportSpec(
 	resourcePool types.ManagedObjectReference,
 	datastore *object.Datastore,
 ) (*types.OvfCreateImportSpecResult, error) {
-	cisp := &types.OvfImportParams{
-		OvfCreateImportSpecParams: types.OvfCreateImportSpecParams{
-			EntityName: templateName,
-		},
+	// Do not use the OvfImportParams subclass here: it is vSphere 9.0-only,
+	// and its concrete type name goes on the wire, breaking vSphere 8.
+	cisp := &types.OvfCreateImportSpecParams{
+		EntityName: templateName,
 	}
 	c.logger.Debugf("Creating import spec: pool=%q, datastore=%q, entity=%q",
 		resourcePool, datastore, cisp.EntityName)
