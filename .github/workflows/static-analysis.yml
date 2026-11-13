@@ -7,6 +7,7 @@ on:
   #   paths:
   #     DON'T SET - these are "required" so they need to run on every PR
   workflow_dispatch:
+  merge_group:
 
 jobs:
   checks:
