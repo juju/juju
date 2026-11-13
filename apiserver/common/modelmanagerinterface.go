@@ -182,7 +182,9 @@ func (st modelManagerStateShim) GetBackend(modelUUID string) (ModelManagerBacken
 			return nil, nil, errors.Trace(mErr)
 		}
 
-		if mig == nil || mig.ModelUserAccess(st.user) == permission.NoAccess {
+		// External users may hold access without a stored permission
+		// record, so the target controller decides.
+		if mig == nil || (st.user.IsLocal() && mig.ModelUserAccess(st.user) == permission.NoAccess) {
 			return nil, nil, errors.Trace(err) // return original NotFound error
 		}
 
