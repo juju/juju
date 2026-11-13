@@ -18,7 +18,6 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainssh "github.com/juju/juju/domain/ssh"
-	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -279,9 +278,11 @@ WHERE name = $entityName.name`, entityUUID{}, entityName{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
+	// Handle key conflicts without aborting the transaction, then read the winner.
 	insertStmt, err := st.Prepare(`
 INSERT INTO machine_virtual_ssh_host_key (machine_uuid, algorithm_type_id, ssh_key)
-VALUES ($machineVirtualSSHHostKey.*)`, machineVirtualSSHHostKey{})
+VALUES ($machineVirtualSSHHostKey.*)
+ON CONFLICT (machine_uuid) DO NOTHING`, machineVirtualSSHHostKey{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -293,7 +294,7 @@ WHERE machine_uuid = $entityUUID.uuid`, sshPrivateKey{}, entityUUID{})
 		return "", errors.Capture(err)
 	}
 
-	actualKey := sshKey
+	var actualKey string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		machineUUID := entityUUID{}
 		txKey := sshPrivateKey{}
@@ -307,19 +308,14 @@ WHERE machine_uuid = $entityUUID.uuid`, sshPrivateKey{}, entityUUID{})
 
 		record := machineVirtualSSHHostKey{MachineUUID: machineUUID.UUID, AlgorithmTypeID: algorithmTypeID, SSHKey: sshKey}
 		err = tx.Query(ctx, insertStmt, record).Run()
-		if internaldatabase.IsErrConstraintPrimaryKey(err) || internaldatabase.IsErrConstraintUnique(err) {
-			err = tx.Query(ctx, getKeyStmt, machineUUID).Get(&txKey)
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Errorf("machine virtual SSH host key for %q not found after concurrent insert", machineName)
-			}
-			if err != nil {
-				return errors.Errorf("querying machine virtual SSH host key for %q after concurrent insert: %w", machineName, err)
-			}
-			actualKey = txKey.SSHKey
-			return nil
-		} else if err != nil {
+		if err != nil {
 			return errors.Errorf("persisting machine virtual SSH host key for %q: %w", machineName, err)
 		}
+		err = tx.Query(ctx, getKeyStmt, machineUUID).Get(&txKey)
+		if err != nil {
+			return errors.Errorf("querying machine virtual SSH host key for %q after insert: %w", machineName, err)
+		}
+		actualKey = txKey.SSHKey
 		return nil
 	})
 	if err != nil {
@@ -407,9 +403,11 @@ WHERE name = $entityName.name`, entityUUID{}, entityName{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
+	// Handle key conflicts without aborting the transaction, then read the winner.
 	insertStmt, err := st.Prepare(`
 INSERT INTO unit_virtual_ssh_host_key (unit_uuid, algorithm_type_id, ssh_key)
-VALUES ($unitVirtualSSHHostKey.*)`, unitVirtualSSHHostKey{})
+VALUES ($unitVirtualSSHHostKey.*)
+ON CONFLICT (unit_uuid) DO NOTHING`, unitVirtualSSHHostKey{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -421,7 +419,7 @@ WHERE unit_uuid = $entityUUID.uuid`, sshPrivateKey{}, entityUUID{})
 		return "", errors.Capture(err)
 	}
 
-	actualKey := sshKey
+	var actualKey string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		unitUUID := entityUUID{}
 		txKey := sshPrivateKey{}
@@ -435,19 +433,14 @@ WHERE unit_uuid = $entityUUID.uuid`, sshPrivateKey{}, entityUUID{})
 
 		record := unitVirtualSSHHostKey{UnitUUID: unitUUID.UUID, AlgorithmTypeID: algorithmTypeID, SSHKey: sshKey}
 		err = tx.Query(ctx, insertStmt, record).Run()
-		if internaldatabase.IsErrConstraintPrimaryKey(err) || internaldatabase.IsErrConstraintUnique(err) {
-			err = tx.Query(ctx, getKeyStmt, unitUUID).Get(&txKey)
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Errorf("unit virtual SSH host key for %q not found after concurrent insert", unitName)
-			}
-			if err != nil {
-				return errors.Errorf("querying unit virtual SSH host key for %q after concurrent insert: %w", unitName, err)
-			}
-			actualKey = txKey.SSHKey
-			return nil
-		} else if err != nil {
+		if err != nil {
 			return errors.Errorf("persisting unit virtual SSH host key for %q: %w", unitName, err)
 		}
+		err = tx.Query(ctx, getKeyStmt, unitUUID).Get(&txKey)
+		if err != nil {
+			return errors.Errorf("querying unit virtual SSH host key for %q after insert: %w", unitName, err)
+		}
+		actualKey = txKey.SSHKey
 		return nil
 	})
 	if err != nil {
