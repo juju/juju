@@ -268,6 +268,7 @@ else
 fi
 
 cleanup() {
+	local exit_status=$?
 	# Allow for failures and stop tracing everything
 	set +ex
 
@@ -289,8 +290,9 @@ cleanup() {
 
 	pop_daemon_scope 0
 
-	cleanup_jujus
-	cleanup_funcs
+	cleanup_models || TEST_RESULT=failure
+	cleanup_jujus || TEST_RESULT=failure
+	cleanup_funcs || TEST_RESULT=failure
 
 	# Migration controller cleanup still needs the 3.6 client. Restore the
 	# developer's snap only after every registered cleanup has finished.
@@ -311,12 +313,19 @@ cleanup() {
 
 	archive_logs "full"
 
-	if [ "${TEST_RESULT}" = "success" ]; then
+	if [[ ${TEST_RESULT} == "success" && -z ${SKIP_DESTROY} ]]; then
 		rm -rf "${TEST_DIR}"
 		echo "==> Tests Removed: ${TEST_DIR}"
 	fi
 
+	if [[ -n ${CREDS_DIR:-} ]]; then
+		rm -rf "${CREDS_DIR}"
+	fi
+
 	echo "==> TEST COMPLETE"
+	if [[ ${TEST_RESULT} != "success" && ${exit_status} -eq 0 ]]; then
+		exit 1
+	fi
 }
 
 # Move any artifacts to the chosen location
@@ -346,10 +355,28 @@ TEST_CURRENT=setup
 TEST_RESULT=failure
 
 push_daemon_scope
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # Setup test directory
 TEST_DIR=$(mktemp -d tmp.XXX | xargs -I % echo "$(pwd)/%")
+
+# Scratch directory for cloud CLI credentials written by test setup
+# helpers (e.g. setup_awscli_credential). Kept outside TEST_DIR so these
+# are never swept into archive_logs' artifact tarball and never retained
+# alongside TEST_DIR when a failed run is kept around for debugging.
+CREDS_DIR=$(mktemp -d)
+export CREDS_DIR
+
+# Exported here, not inside setup_awscli_credential, so that
+# cleanup_funcs registered via add_clean_func (which run from cleanup()
+# in this parent shell, not the suite's subshell) also see them when
+# tearing down AWS resources the suite created.
+export AWS_DEFAULT_PROFILE=default
+export AWS_SHARED_CREDENTIALS_FILE="${CREDS_DIR}/aws/credentials"
+export AWS_CONFIG_FILE="${CREDS_DIR}/aws/config"
 
 run_test() {
 	TEST_CURRENT=${1}
