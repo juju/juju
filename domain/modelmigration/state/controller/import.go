@@ -426,11 +426,11 @@ func (s *State) EnsureExternalControllerExists(
 
 // ensureExternalControllerExists is called both directly, via the eponymous
 // EnsureExternalControllerExists, and from within the ImportExternalControllers
-// write-group transaction. addrsOK decides whether the supplied addresses are
-// consistent with those of an existing row.
+// write-group transaction. addressesCompatible decides whether the supplied
+// addresses are consistent with those of an existing row.
 func (s *State) ensureExternalControllerExists(
 	ctx context.Context, tx *sqlair.TX, ref modelmigrationinternal.ExternalController,
-	addrsOK func([]addressValue, []modelmigrationinternal.ExternalControllerAddress) bool,
+	addressesCompatible func([]addressValue, []modelmigrationinternal.ExternalControllerAddress) bool,
 ) error {
 	ctrlUUID := entityUUID{UUID: ref.UUID}
 
@@ -469,7 +469,7 @@ WHERE  controller_uuid = $entityUUID.uuid
 	}
 	if existing.Alias == info.Alias &&
 		existing.CACert == info.CACert &&
-		addrsOK(existingAddrs, ref.Addresses) {
+		addressesCompatible(existingAddrs, ref.Addresses) {
 		return nil
 	}
 	return errors.Errorf(
