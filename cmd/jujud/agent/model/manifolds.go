@@ -57,6 +57,7 @@ import (
 	"github.com/juju/juju/internal/worker/singular"
 	storageprovisioner "github.com/juju/juju/internal/worker/storageprovisioner"
 	storageprovisionermodel "github.com/juju/juju/internal/worker/storageprovisioner/model"
+	"github.com/juju/juju/internal/worker/unitless"
 )
 
 // ManifoldsConfig holds the dependencies and configuration options for a
@@ -410,6 +411,16 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:              changestreampruner.NewWorker,
 			GetChangeStreamService: changestreampruner.GetModelChangeStreamService,
 		}))),
+
+		// The unitless worker runs controller-side scriptlets for unitless
+		// charm applications.
+		unitlessName: ifResponsible(ifNotMigrating(unitless.Manifold(unitless.ManifoldConfig{
+			DomainServicesName:  domainServicesName,
+			GetScriptletService: unitless.GetScriptletService,
+			NewWorker:           unitless.NewWorker,
+			Clock:               config.Clock,
+			Logger:              config.LoggingContext.GetLogger("juju.worker.unitless"),
+		}))),
 	}
 	return result
 }
@@ -634,6 +645,8 @@ const (
 
 	secretsPrunerName      = "secrets-pruner"
 	userSecretsDrainWorker = "user-secrets-drain-worker"
+
+	unitlessName = "unitless"
 
 	validCredentialFlagName = "valid-credential-flag"
 )
