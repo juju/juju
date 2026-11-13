@@ -485,7 +485,7 @@ type MockStateMockRecorder struct {
 	mergeExposeSettingsExpects                                []*gomock.Call3_1[context.Context, application.UUID, map[string]application0.ExposedEndpoint, error]
 	namespaceForWatchApplicationExpects                       []*gomock.Call0_1[string]
 	namespaceForWatchApplicationConfigExpects                 []*gomock.Call0_1[string]
-	namespaceForWatchApplicationExposedExpects                []*gomock.Call0_2[string, string]
+	namespaceForWatchApplicationExposedExpects                []*gomock.Call0_1[[]string]
 	namespaceForWatchApplicationScaleExpects                  []*gomock.Call0_1[string]
 	namespaceForWatchApplicationSettingExpects                []*gomock.Call0_1[string]
 	namespaceForWatchCharmExpects                             []*gomock.Call0_1[string]
@@ -2692,22 +2692,22 @@ func (mr *MockStateMockRecorder) NamespaceForWatchApplicationConfig() *MockState
 type MockStateNamespaceForWatchApplicationConfigCall = gomock.Call0_1[string]
 
 // NamespaceForWatchApplicationExposed mocks base method.
-func (m *MockState) NamespaceForWatchApplicationExposed() (string, string) {
+func (m *MockState) NamespaceForWatchApplicationExposed() []string {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch0_2(&m.recorder.namespaceForWatchApplicationExposedExpects, m.ctrl, m, "NamespaceForWatchApplicationExposed")
+	return gomock.Dispatch0_1(&m.recorder.namespaceForWatchApplicationExposedExpects, m.ctrl, m, "NamespaceForWatchApplicationExposed")
 }
 
 // NamespaceForWatchApplicationExposed indicates an expected call of NamespaceForWatchApplicationExposed.
 func (mr *MockStateMockRecorder) NamespaceForWatchApplicationExposed() *MockStateNamespaceForWatchApplicationExposedCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_2[string, string](mr.mock.ctrl.T, mr.mock, "NamespaceForWatchApplicationExposed")
+	call := gomock.NewCall0_1[[]string](mr.mock.ctrl.T, mr.mock, "NamespaceForWatchApplicationExposed")
 	mr.namespaceForWatchApplicationExposedExpects = append(mr.namespaceForWatchApplicationExposedExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStateNamespaceForWatchApplicationExposedCall is the typed call wrapper for NamespaceForWatchApplicationExposed.
-type MockStateNamespaceForWatchApplicationExposedCall = gomock.Call0_2[string, string]
+type MockStateNamespaceForWatchApplicationExposedCall = gomock.Call0_1[[]string]
 
 // NamespaceForWatchApplicationScale mocks base method.
 func (m *MockState) NamespaceForWatchApplicationScale() string {

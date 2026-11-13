@@ -1505,6 +1505,23 @@ func TestApplicationWatcherServiceSuite(t *testing.T) {
 	tc.Run(t, &applicationWatcherServiceSuite{})
 }
 
+// TestWatchApplicationExposedNoNamespaces verifies that an alternative state
+// implementation with no exposure namespaces fails rather than panicking or
+// creating a watcher that cannot observe changes.
+func (s *applicationWatcherServiceSuite) TestWatchApplicationExposedNoNamespaces(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	for _, namespaces := range [][]string{nil, {}} {
+		s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+		s.state.EXPECT().NamespaceForWatchApplicationExposed().Return(namespaces)
+
+		w, err := s.service.WatchApplicationExposed(c.Context(), "foo")
+		c.Check(err, tc.ErrorMatches, `no namespaces configured for watching exposure changes for application "foo"`)
+		c.Check(w, tc.IsNil)
+	}
+}
+
 func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMapper(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

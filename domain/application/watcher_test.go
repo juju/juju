@@ -1294,7 +1294,7 @@ func (s *watcherSuite) TestWatchApplicationExposed(c *tc.C) {
 
 	harness := watchertest.NewHarness[struct{}](s, watchertest.NewWatcherC[struct{}](c, watcher))
 
-	// Assert that a change to the exposed endpoints triggers the watcher.
+	// Assert that all-endpoint CIDR inserts alone trigger the watcher.
 	harness.AddTest(c, func(c *tc.C) {
 		err := svc.MergeExposeSettings(ctx, "foo", map[string]application.ExposedEndpoint{
 			"": {
@@ -1343,7 +1343,16 @@ func (s *watcherSuite) TestWatchApplicationExposed(c *tc.C) {
 		w.AssertChange()
 	})
 
-	// Assert multiple changes to the exposed endpoints triggers the watcher.
+	// Clear endpoint spaces so their deletion cannot mask a missing CIDR
+	// namespace when the next test inserts endpoint CIDRs.
+	harness.AddTest(c, func(c *tc.C) {
+		err := svc.UnsetExposeSettings(ctx, "foo", set.NewStrings("endpoint0"))
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Assert that a single endpoint exposed to CIDRs triggers a change.
 	harness.AddTest(c, func(c *tc.C) {
 		err := svc.MergeExposeSettings(ctx, "foo", map[string]application.ExposedEndpoint{
 			"endpoint0": {
@@ -1351,11 +1360,34 @@ func (s *watcherSuite) TestWatchApplicationExposed(c *tc.C) {
 			},
 		})
 		c.Assert(err, tc.ErrorIsNil)
-		err = svc.MergeExposeSettings(ctx, "foo", map[string]application.ExposedEndpoint{
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Clear wildcard CIDRs so their deletion cannot mask a missing space
+	// namespace when the next test inserts application-wide spaces.
+	harness.AddTest(c, func(c *tc.C) {
+		err := svc.UnsetExposeSettings(ctx, "foo", set.NewStrings(""))
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Assert that all endpoints exposed to spaces triggers a change.
+	harness.AddTest(c, func(c *tc.C) {
+		err := svc.MergeExposeSettings(ctx, "foo", map[string]application.ExposedEndpoint{
 			"": {
 				ExposeToSpaceIDs: set.NewStrings("space0-uuid"),
 			},
 		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Assert that unsetting exposure on all endpoints triggers a change.
+	harness.AddTest(c, func(c *tc.C) {
+		err := svc.UnsetExposeSettings(ctx, "foo", set.NewStrings(""))
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()

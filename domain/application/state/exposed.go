@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
@@ -211,7 +212,7 @@ func (st *State) UnsetExposeSettings(ctx context.Context, appID coreapplication.
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if exposedEndpoints.IsEmpty() {
-			return st.unsetAllExposedEndpoints(ctx, tx, appID)
+			return st.deleteAllExposure(ctx, tx, appID)
 		}
 		return st.unsetExposedEndpoints(ctx, tx, appID, exposedEndpoints.Values()...)
 	})
@@ -252,32 +253,23 @@ func (st *State) MergeExposeSettings(ctx context.Context, appID coreapplication.
 	return errors.Capture(err)
 }
 
-func (st *State) unsetAllExposedEndpoints(ctx context.Context, tx *sqlair.TX, appID coreapplication.UUID) error {
+func (st *State) deleteAllExposure(ctx context.Context, tx *sqlair.TX, appID coreapplication.UUID) error {
 	applicationID := entityUUID{UUID: appID.String()}
 
-	unsetExposedCIDRQuery := `
-DELETE FROM application_exposed_endpoint_cidr
-WHERE application_uuid = $entityUUID.uuid;
-`
-	unsetExposedCIDRStmt, err := st.Prepare(unsetExposedCIDRQuery, applicationID)
-	if err != nil {
-		return errors.Errorf("preparing unset exposed cidr query: %w", err)
-	}
-
-	unsetExposedSpaceQuery := `
-DELETE FROM application_exposed_endpoint_space
-WHERE application_uuid = $entityUUID.uuid;
-`
-	unsetExposedSpaceStmt, err := st.Prepare(unsetExposedSpaceQuery, applicationID)
-	if err != nil {
-		return errors.Errorf("preparing unset exposed space query: %w", err)
-	}
-
-	if err := tx.Query(ctx, unsetExposedCIDRStmt, applicationID).Run(); err != nil {
-		return errors.Errorf("unsetting all exposed endpoints to CIDRs of application %q: %w", appID, err)
-	}
-	if err := tx.Query(ctx, unsetExposedSpaceStmt, applicationID).Run(); err != nil {
-		return errors.Errorf("unsetting all exposed endpoints to spaces of application %q: %w", appID, err)
+	for _, table := range []string{
+		"application_exposed_cidr",
+		"application_exposed_space",
+		"application_exposed_endpoint_cidr",
+		"application_exposed_endpoint_space",
+	} {
+		query := fmt.Sprintf(`DELETE FROM %s WHERE application_uuid = $entityUUID.uuid`, table)
+		stmt, err := st.Prepare(query, applicationID)
+		if err != nil {
+			return errors.Errorf("preparing exposure deletion from %s: %w", table, err)
+		}
+		if err := tx.Query(ctx, stmt, applicationID).Run(); err != nil {
+			return errors.Errorf("deleting exposure from %s: %w", table, err)
+		}
 	}
 
 	return nil
@@ -315,15 +307,12 @@ AND application_endpoint_uuid IN (
 		return errors.Errorf("unsetting exposed cidr endpoint %q on application %q: %w", endpoint, appID, err)
 	}
 
-	// Since we need to keep referential integrity with respect to the endpoint
-	// as stored in charm_relation, we first check if the provided endpoint is
-	// the wildcard and in that case we simply remove the CIDRs where the
-	// application_endpoint_uuid is NULL.
+	// The wildcard endpoint is not an application endpoint; exposure on all
+	// endpoints is held in its own table.
 	if set.NewStrings(endpoint...).Contains(network.WildcardEndpoint) {
 		unsetExposedCIDRWildcardQuery := `
-DELETE FROM application_exposed_endpoint_cidr
-WHERE application_uuid = $entityUUID.uuid
-AND application_endpoint_uuid IS NULL;
+DELETE FROM application_exposed_cidr
+WHERE application_uuid = $entityUUID.uuid;
 `
 		unsetExposedCIDRWildcardStmt, err = st.Prepare(unsetExposedCIDRWildcardQuery, applicationID)
 		if err != nil {
@@ -359,15 +348,12 @@ AND application_endpoint_uuid IN (
 		return errors.Errorf("unsetting exposed space endpoint %q on application %q: %w", endpoint, appID, err)
 	}
 
-	// Since we need to keep referential integrity with respect to the endpoint
-	// as stored in charm_relation, we first check if the provided endpoint is
-	// the wildcard and in that case we simply remove the spaces where the
-	// application_endpoint_uuid is NULL.
+	// The wildcard endpoint is not an application endpoint; exposure on all
+	// endpoints is held in its own table.
 	if set.NewStrings(endpoint...).Contains(network.WildcardEndpoint) {
 		unsetExposedSpaceWildcardQuery := `
-DELETE FROM application_exposed_endpoint_space
-WHERE application_uuid = $entityUUID.uuid
-AND application_endpoint_uuid IS NULL;
+DELETE FROM application_exposed_space
+WHERE application_uuid = $entityUUID.uuid;
 `
 		unsetExposedSpaceWildcardStmt, err := st.Prepare(unsetExposedSpaceWildcardQuery, applicationID)
 		if err != nil {
@@ -390,7 +376,7 @@ func (st *State) upsertExposedSpaces(ctx context.Context, tx *sqlair.TX, appID c
 
 	if endpoint == network.WildcardEndpoint {
 		upsertExposedSpaceQuery = `
-INSERT INTO application_exposed_endpoint_space(application_uuid, space_uuid)
+INSERT INTO application_exposed_space(application_uuid, space_uuid)
 VALUES ($setExposedSpace.application_uuid, $setExposedSpace.space_uuid)
 `
 	} else {
@@ -429,13 +415,11 @@ func (st *State) upsertExposedCIDRs(ctx context.Context, tx *sqlair.TX, appID co
 
 	var upsertExposedCIDRQuery string
 
-	// Since we need to keep referential integrity with respect to the endpoint
-	// as stored in charm_relation, we first check if the provided endpoint is
-	// the wildcard and in that case we simply insert the CIDRs and let the
-	// endpoint NULL.
+	// The wildcard endpoint is not an application endpoint, so exposure on all
+	// endpoints is held in its own table rather than against an endpoint.
 	if endpoint == network.WildcardEndpoint {
 		upsertExposedCIDRQuery = `
-INSERT INTO application_exposed_endpoint_cidr(application_uuid, cidr)
+INSERT INTO application_exposed_cidr(application_uuid, cidr)
 VALUES ($setExposedCIDR.application_uuid, $setExposedCIDR.cidr)
 `
 	} else {
