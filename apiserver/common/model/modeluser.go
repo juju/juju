@@ -20,21 +20,32 @@ type modelService interface {
 	// GetModelUsers will retrieve basic information about users with
 	// permissions on the given model UUID.
 	GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) ([]coremodel.ModelUserInfo, error)
-	// GetModelUser will retrieve basic information about the specified model
-	// user.
+	// GetModelUser retrieves basic information about the specified
+	// model user. A user with no local permission row is still returned,
+	// with an empty access level.
 	GetModelUser(ctx context.Context, modelUUID coremodel.UUID, name user.Name) (coremodel.ModelUserInfo, error)
 }
 
+// APIUser is the authenticated caller and their resolved model access.
+type APIUser struct {
+	Name   user.Name
+	Access permission.Access
+}
+
 // ModelUserInfo gets model user info from the modelService and converts it
-// into params.ModelUserInfo.
-func ModelUserInfo(ctx context.Context, service modelService, modelTag names.ModelTag, apiUser user.Name, isAdmin bool) ([]params.ModelUserInfo, error) {
+// into params.ModelUserInfo. If listAllUsers is false, only the caller's
+// entry is returned, reporting apiUser.Access. Otherwise apiUser is unused.
+func ModelUserInfo(ctx context.Context, service modelService, modelTag names.ModelTag, apiUser APIUser, listAllUsers bool) ([]params.ModelUserInfo, error) {
 	var userInfo []coremodel.ModelUserInfo
 	var err error
-	if isAdmin {
+	if listAllUsers {
 		userInfo, err = service.GetModelUsers(ctx, coremodel.UUID(modelTag.Id()))
 	} else {
 		var ui coremodel.ModelUserInfo
-		ui, err = service.GetModelUser(ctx, coremodel.UUID(modelTag.Id()), apiUser)
+		ui, err = service.GetModelUser(ctx, coremodel.UUID(modelTag.Id()), apiUser.Name)
+		if err == nil {
+			ui.Access = apiUser.Access
+		}
 		userInfo = append(userInfo, ui)
 	}
 	if err != nil {

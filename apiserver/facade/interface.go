@@ -272,6 +272,10 @@ type Authorizer interface {
 	// EntityHasPermission reports whether the given access is allowed for the
 	// given target by the given entity.
 	EntityHasPermission(ctx context.Context, entity names.Tag, operation permission.Access, target names.Tag) error
+
+	// RequireAccess returns the authenticated entity's access level on
+	// target, or a permission error if it is below required.
+	RequireAccess(ctx context.Context, required permission.Access, target names.Tag) (permission.Access, error)
 }
 
 // MacaroonAuthenticator provides methods to authenticate macaroons for cross
