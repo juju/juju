@@ -752,8 +752,13 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 
 	// Ensure that the unit has no storage attachments. These are removed by
 	// their own removal jobs once the storage provisioner has detached the
-	// unit's filesystems and volumes, which it finds through the unit.
-	if !force {
+	// unit's filesystems and volumes, which it finds through the unit. Forced
+	// removal does not wait, and deletes them along with the unit.
+	if force {
+		if err := st.deleteUnitStorageAttachments(ctx, tx, unitUUID); err != nil {
+			return errors.Errorf("deleting storage attachments for unit %q: %w", unitUUID, err)
+		}
+	} else {
 		var numStorageAttachments entityAssociationCount
 		err = tx.Query(ctx, storageAttachmentCountStmt, unitUUIDCount).Get(&numStorageAttachments)
 		if err != nil {
@@ -813,6 +818,46 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 		return errors.Errorf("deleting unit for unit %q: %w", unitUUID, err)
 	}
 
+	return nil
+}
+
+// deleteUnitStorageAttachments deletes the unit's storage attachments, and its
+// ownership of the attached storage, as their removal jobs would. Filesystem
+// and volume attachments have their own removal jobs, scheduled when the unit
+// was made dying.
+func (st *State) deleteUnitStorageAttachments(
+	ctx context.Context, tx *sqlair.TX, uUUID string,
+) error {
+	unitUUIDRec := entityUUID{UUID: uUUID}
+
+	deleteOwnerStmt, err := st.Prepare(`
+WITH attached AS (
+    SELECT sa.storage_instance_uuid AS storage_instance_uuid
+    FROM   storage_attachment AS sa
+    WHERE  sa.unit_uuid = $entityUUID.uuid
+)
+DELETE FROM storage_unit_owner
+WHERE  unit_uuid = $entityUUID.uuid
+AND    storage_instance_uuid IN (
+    SELECT a.storage_instance_uuid FROM attached AS a
+)`, unitUUIDRec)
+	if err != nil {
+		return errors.Errorf("preparing unit storage owner deletion: %w", err)
+	}
+
+	deleteAttachmentStmt, err := st.Prepare(`
+DELETE FROM storage_attachment
+WHERE  unit_uuid = $entityUUID.uuid`, unitUUIDRec)
+	if err != nil {
+		return errors.Errorf("preparing unit storage attachment deletion: %w", err)
+	}
+
+	if err := tx.Query(ctx, deleteOwnerStmt, unitUUIDRec).Run(); err != nil {
+		return errors.Errorf("running unit storage owner deletion: %w", err)
+	}
+	if err := tx.Query(ctx, deleteAttachmentStmt, unitUUIDRec).Run(); err != nil {
+		return errors.Errorf("running unit storage attachment deletion: %w", err)
+	}
 	return nil
 }
 

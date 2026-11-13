@@ -1446,6 +1446,44 @@ func (s *unitSuite) TestDeleteUnitOnMachineWithStorageAttachmentReturnsIncomplet
 	s.checkDeleteUnitWaitsForStorageAttachment(c, unitUUIDs[0])
 }
 
+// TestDeleteUnitWithStorageAttachmentForce verifies that a forced unit
+// deletion does not wait for its storage attachments, and deletes them along
+// with its ownership of the attached storage.
+func (s *unitSuite) TestDeleteUnitWithStorageAttachmentForce(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	siUUID, saUUID := s.addUnitStorageAttachment(c, unitUUID, true)
+	s.advanceUnitLife(c, unitUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteUnit(c.Context(), unitUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exists, err := st.UnitExists(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
+
+	var n int
+	err = s.DB().QueryRow("SELECT count(*) FROM storage_attachment WHERE uuid = ?", saUUID).Scan(&n)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(n, tc.Equals, 0)
+
+	err = s.DB().QueryRow("SELECT count(*) FROM storage_unit_owner WHERE storage_instance_uuid = ?", siUUID).Scan(&n)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(n, tc.Equals, 0)
+
+	// The storage instance itself is left for its own removal job.
+	err = s.DB().QueryRow("SELECT count(*) FROM storage_instance WHERE uuid = ?", siUUID).Scan(&n)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(n, tc.Equals, 1)
+}
+
 func (s *unitSuite) checkDeleteUnitWaitsForStorageAttachment(c *tc.C, unitUUID unit.UUID) {
 	_, saUUID := s.addUnitStorageAttachment(c, unitUUID, true)
 	s.advanceUnitLife(c, unitUUID, life.Dead)
