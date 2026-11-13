@@ -278,6 +278,7 @@ WHERE name = $entityName.name`, entityUUID{}, entityName{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
+	// Handle key conflicts without aborting the transaction, then read the winner.
 	insertStmt, err := st.Prepare(`
 INSERT INTO machine_virtual_ssh_host_key (machine_uuid, algorithm_type_id, ssh_key)
 VALUES ($machineVirtualSSHHostKey.*)
@@ -311,9 +312,6 @@ WHERE machine_uuid = $entityUUID.uuid`, sshPrivateKey{}, entityUUID{})
 			return errors.Errorf("persisting machine virtual SSH host key for %q: %w", machineName, err)
 		}
 		err = tx.Query(ctx, getKeyStmt, machineUUID).Get(&txKey)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("machine virtual SSH host key for %q not found after insert", machineName)
-		}
 		if err != nil {
 			return errors.Errorf("querying machine virtual SSH host key for %q after insert: %w", machineName, err)
 		}
@@ -405,6 +403,7 @@ WHERE name = $entityName.name`, entityUUID{}, entityName{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
+	// Handle key conflicts without aborting the transaction, then read the winner.
 	insertStmt, err := st.Prepare(`
 INSERT INTO unit_virtual_ssh_host_key (unit_uuid, algorithm_type_id, ssh_key)
 VALUES ($unitVirtualSSHHostKey.*)
@@ -438,9 +437,6 @@ WHERE unit_uuid = $entityUUID.uuid`, sshPrivateKey{}, entityUUID{})
 			return errors.Errorf("persisting unit virtual SSH host key for %q: %w", unitName, err)
 		}
 		err = tx.Query(ctx, getKeyStmt, unitUUID).Get(&txKey)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("unit virtual SSH host key for %q not found after insert", unitName)
-		}
 		if err != nil {
 			return errors.Errorf("querying unit virtual SSH host key for %q after insert: %w", unitName, err)
 		}
