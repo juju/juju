@@ -5,11 +5,13 @@ package modelimport
 
 import (
 	"context"
+	"slices"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain/export/types/latest"
 	"github.com/juju/juju/domain/export/types/v4_1_0"
 	importstate "github.com/juju/juju/domain/modelimport/state/model"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -35,6 +37,7 @@ func (i *Importer) Import(ctx context.Context, payload *latest.ModelExport) erro
 		return nil
 	}
 	sanitized := sanitizeCharmBlobResidency(*payload)
+	sanitized = sanitizeModelConfig(sanitized)
 	if err := i.state.Import(ctx, &sanitized); err != nil {
 		return errors.Errorf("importing model-DB payload: %w", err)
 	}
@@ -70,6 +73,15 @@ func sanitizeCharmBlobResidency(payload latest.ModelExport) latest.ModelExport {
 		charms[i].ObjectStoreUUID = nil
 	}
 	payload.Charm = charms
+	return payload
+}
+
+// sanitizeModelConfig excludes agent keys before the generated bulk insert.
+// Bootstrap owns these values in agent_version, not model_config.
+func sanitizeModelConfig(payload latest.ModelExport) latest.ModelExport {
+	payload.ModelConfig = slices.DeleteFunc(slices.Clone(payload.ModelConfig), func(row v4_1_0.ModelConfig) bool {
+		return row.Key == config.AgentStreamKey || row.Key == config.AgentVersionKey
+	})
 	return payload
 }
 
