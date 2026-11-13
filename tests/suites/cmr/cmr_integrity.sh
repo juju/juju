@@ -337,6 +337,7 @@ run_cmr_force_remove_relation_offer_side() {
 	echo "Found relation id: ${REL_ID}"
 
 	echo "Force-remove the relation by id on the offering side"
+	juju switch model-offer-relforce
 	juju remove-relation "${REL_ID}" --force
 	wait_for_db_checks model-offer-relforce 300 \
 		"check_offerer_cleanup model-offer-relforce" || return 1
