@@ -546,6 +546,15 @@ If you want to use Juju with microk8s, the recommended way is to install the str
 Using the strictly confined microk8s snap means that Juju and microk8s will work together out of the box.`[1:])
 }
 
+func (s *addCAASSuite) TestInvalidCredentialName(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	command := s.makeCommand(c, true, true, true)
+	_, err := s.runCommand(c, nil, command, "36k8s")
+	c.Assert(err, tc.ErrorMatches, `k8s name "36k8s" not valid`)
+}
+
 func (s *addCAASSuite) TestMissingArgs(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
