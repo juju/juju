@@ -822,9 +822,11 @@ VALUES (?, ?, ?, ?, ?, ?)`, "reprovision-unit", "reprovision-charm", "data",
 	var persistent sql.Null[bool]
 	var readOnly sql.Null[bool]
 	var volumeStatus int
+	// Remove these casts when a dqlite release containing
+	// canonical/dqlite#883 is bundled; otherwise NULL BOOLEAN is read as false.
 	err = s.DB().QueryRowContext(c.Context(), `
-SELECT sv.provider_id, sv.size_mib, sv.hardware_id, sv.wwn, sv.persistent,
-       sva.provider_id, sva.block_device_uuid, sva.read_only, svs.status_id
+SELECT sv.provider_id, sv.size_mib, sv.hardware_id, sv.wwn, CAST(sv.persistent AS INTEGER),
+       sva.provider_id, sva.block_device_uuid, CAST(sva.read_only AS INTEGER), svs.status_id
 FROM storage_volume AS sv
 JOIN storage_volume_attachment AS sva ON sv.uuid = sva.storage_volume_uuid
 JOIN storage_volume_status AS svs ON sv.uuid = svs.volume_uuid
@@ -922,6 +924,39 @@ WHERE  sv.uuid = ?`, "storage-volume").Scan(&providerID, &statusID)
 	c.Check(provisioningInfo.VolumeAttachmentParams, tc.HasLen, 1)
 }
 
+func (s *stateSuite) TestReprovisionNullableBooleanProjection(c *tc.C) {
+	machineUUID, _ := s.ensureInstance(c)
+	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
+	s.addReprovisionUnit(c, netNodeUUID)
+	s.addReprovisionVolumeStorage(c, machineUUID.String(), netNodeUUID, 1, 1)
+
+	for _, test := range []struct {
+		name     string
+		value    any
+		expected sql.Null[bool]
+	}{
+		{name: "null", value: nil, expected: sql.Null[bool]{}},
+		{name: "false", value: false, expected: sql.Null[bool]{V: false, Valid: true}},
+		{name: "true", value: true, expected: sql.Null[bool]{V: true, Valid: true}},
+	} {
+		s.runQuery(c, "UPDATE storage_volume SET persistent = ? WHERE uuid = ?",
+			test.value, "storage-volume")
+		s.runQuery(c, "UPDATE storage_volume_attachment SET read_only = ? WHERE uuid = ?",
+			test.value, "storage-volume-attachment")
+
+		var persistent, readOnly sql.Null[bool]
+		// Match the temporary casts in the reprovision assertions.
+		err := s.DB().QueryRowContext(c.Context(), `
+SELECT CAST(sv.persistent AS INTEGER), CAST(sva.read_only AS INTEGER)
+FROM storage_volume AS sv
+JOIN storage_volume_attachment AS sva ON sv.uuid = sva.storage_volume_uuid
+WHERE sv.uuid = ?`, "storage-volume").Scan(&persistent, &readOnly)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(persistent, tc.DeepEquals, test.expected, tc.Commentf("%s persistent", test.name))
+		c.Check(readOnly, tc.DeepEquals, test.expected, tc.Commentf("%s read_only", test.name))
+	}
+}
+
 func (s *stateSuite) TestDetachLostMachineCloudInstanceCleansFilesystemAndPreservesIntent(c *tc.C) {
 	machineUUID, machineName := s.ensureInstance(c)
 	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
@@ -949,9 +984,11 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceCleansFilesystemAndPreser
 	var sizeMiB sql.Null[int]
 	var readOnly sql.Null[bool]
 	var filesystemStatus int
+	// Remove this cast when a dqlite release containing canonical/dqlite#883
+	// is bundled; otherwise NULL BOOLEAN is read as false.
 	err = s.DB().QueryRowContext(c.Context(), `
 SELECT sf.provider_id, sf.size_mib, sfa.provider_id, sfa.mount_point,
-       sfa.read_only, sfs.status_id
+       CAST(sfa.read_only AS INTEGER), sfs.status_id
 FROM storage_filesystem AS sf
 JOIN storage_filesystem_attachment AS sfa
     ON sf.uuid = sfa.storage_filesystem_uuid
