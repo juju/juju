@@ -34,6 +34,11 @@ Juju expects to see an operating system-like environment, so a LXD system contai
 - Juju `2.9.x`: LXD `5.0`
 - Juju `3.x.x`: LXD `5.x`
 
+(lxd-limitations)=
+## Limitations
+
+- **No firewall support**: The LXD provider does not implement firewalling. `juju expose`, `juju unexpose`, and ports opened or closed by charms (`open-port`, `close-port`) are recorded in the model and shown in `juju status`, but Juju does not create, update, or remove any LXD firewall rule or [network ACL](https://documentation.ubuntu.com/lxd/latest/howto/network_acls/). Whether a machine is reachable depends only on the LXD network configuration (for example, network ACLs on OVN or bridge networks), which must be managed outside Juju.
+
 (lxd-concepts)=
 ## Concepts
 
