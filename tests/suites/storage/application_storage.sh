@@ -5,24 +5,28 @@ run_application_storage_directives() {
 	file="${TEST_DIR}/test-${model_name}.log"
 
 	ensure "${model_name}" "${file}"
-	app_name="postgresql"
 
-	# Deploy an application with storage directive pgdata=2G.
+	# Deploy an application with a 2G storage directive. Local dummy charms
+	# are used so the test does not depend on Charmhub.
 	if [ "${BOOTSTRAP_PROVIDER:-}" = "k8s" ]; then
 		echo "Deploying k8s application"
-		app_name="postgresql-k8s"
-		juju deploy "$app_name" --storage pgdata=2G --trust
+		app_name="dummy-storage-k8s"
+		storage_name="data"
+		juju deploy "./testcharms/charms/${app_name}" \
+			--resource ubuntu-image=public.ecr.aws/ubuntu/ubuntu:22.04 \
+			--storage "${storage_name}=2G"
 	else
 		echo "Deploying non-k8s application"
-		app_name="postgresql"
-		juju deploy "$app_name" --storage pgdata=2G
+		app_name="dummy-storage"
+		storage_name="single-fs"
+		juju deploy "./testcharms/charms/${app_name}" --storage "${storage_name}=2G"
 	fi
 
 	# Wait for application to be active.
 	wait_for true ".applications[\"$app_name\"][\"application-status\"].current==\"active\""
 
 	juju application-storage "$app_name" --format=yaml
-	old_size=$(juju application-storage "$app_name" --format=json | jq -r '.pgdata.Size')
+	old_size=$(juju application-storage "$app_name" --format=json | jq -r --arg s "$storage_name" '.[$s].Size')
 	if [ "$old_size" != "2048" ]; then
 		echo "Expected storage size 2048Mi, got $old_size"
 		exit 1
@@ -32,7 +36,7 @@ run_application_storage_directives() {
 	if [ "${BOOTSTRAP_PROVIDER:-}" = "k8s" ]; then
 		echo "Checking initial PVC size"
 
-		# Get storageclass and PVC name (assumes single PVC for pgdata)
+		# Get the PVC name (assumes a single PVC for the application storage).
 		pvc_name=$(kubectl -n "${model_name}" get pvc -o json | jq -r '.items[0].metadata.name')
 		pvc_size=$(kubectl -n "${model_name}" get pvc "$pvc_name" -o json | jq -r '.spec.resources.requests.storage')
 
@@ -42,9 +46,9 @@ run_application_storage_directives() {
 		fi
 	fi
 
-	# Update the storage directive pgdata=3G.
-	juju application-storage "$app_name" pgdata=3G
-	new_size=$(juju application-storage "$app_name" --format=json | jq -r '.pgdata.Size')
+	# Update the storage directive to 3G.
+	juju application-storage "$app_name" "${storage_name}=3G"
+	new_size=$(juju application-storage "$app_name" --format=json | jq -r --arg s "$storage_name" '.[$s].Size')
 	if [ "$new_size" != "3072" ]; then
 		echo "Expected updated storage size to be 3072Mi, got $new_size"
 		exit 1
