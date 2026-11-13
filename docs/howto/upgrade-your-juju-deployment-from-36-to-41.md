@@ -453,7 +453,41 @@ Juju `4.0` and `4.1` allow a maximum of one SAAS per remote offer in a consuming
 
 If importing multiple SAAS entities for the same offer, Juju will unify them into a single SAAS.
 
-### 18. Backups are not available
+### 18. `add-k8s --storage` removed; `workload-storage` cloud keys ignored
+
+Juju `3.6` recorded the storage class for Kubernetes workload storage with `juju add-k8s --storage`, or with the
+`workload-storage` (and `operator-storage`) keys in a cloud definition. Juju `4.0` and `4.1` remove this mechanism: storage
+provisioning is always driven by the storage pools in the model and their configuration.
+
+- `juju add-k8s` no longer accepts `--storage`. A cluster where no storage class can be detected is still added, with
+  a warning; the storage class is nominated at bootstrap time instead.
+- Cloud definitions may still contain `workload-storage` / `operator-storage`; both keys are ignored with a warning
+  and no longer affect storage provisioning.
+- Since both keys are bootstrap-only attributes, `juju bootstrap --model-default workload-storage=<class>` now fails
+  with `is a bootstrap only attribute, and cannot be set as a model-default`.
+- A `storage-default-filesystem-source` naming a pool that is neither scheduled with `--storage-pool` nor one of the
+  pools seeded in every model (`kubernetes`, `rootfs`, `tmpfs`) now fails bootstrap fast, instead of silently falling
+  back to storage class discovery. This applies whether the source is set with `--config`, `--model-default`, or in
+  a cloud definition's `config:`; bootstrap with the flags above to make the pool exist first.
+
+To nominate the storage class for a Kubernetes controller's persistent volume claim and the controller model's charm
+storage, bootstrap with a Kubernetes storage pool and make it the model's default filesystem source:
+
+```text
+juju bootstrap <k8s cloud> \
+    --storage-pool name=<pool> --storage-pool type=kubernetes --storage-pool storage-class=<class> \
+    --config storage-default-filesystem-source=<pool>
+```
+
+Models migrated from `3.6` that carry the `workload-storage` model configuration key are translated on import: Juju
+creates a Kubernetes storage pool named after the recorded class (with the class as its `storage-class` attribute)
+and makes it the model's `storage-default-filesystem-source`. The `kubernetes` value that `3.6` recorded on every
+model counts as unset here, since `3.6` itself ignored it in favour of `workload-storage` when provisioning. A model
+that nominates a different default filesystem source, or that already defines a pool of the derived name, keeps what
+it has: nothing is synthesized and the default source is left alone — new charm storage then provisions from the
+model's default (the seeded `kubernetes` pool, bound to the cluster's default storage class).
+
+### 19. Backups are not available
 
 Dqlite-based backups are not delivered yet. In `4.0` and `4.1`, `juju create-backup` fails with a not-implemented error.
 
@@ -468,7 +502,7 @@ juju create-backup
 # Plan for controller recovery without `juju create-backup`.
 ```
 
-### 19. `juju ssh` and `juju scp` go through the controller by default
+### 20. `juju ssh` and `juju scp` go through the controller by default
 
 New in `4.1`: `juju ssh` and `juju scp` proxy the connection through the controller's SSH server (`ssh-server-port`, default `17022`, which must be open on the controller machine). Connecting to nested containers running on machines is not supported this way. Use `--direct` to connect directly, as in `3.6`; this is required for Juju 3 controllers.
 
@@ -486,7 +520,7 @@ juju ssh 0
 juju ssh --direct 0
 ```
 
-### 20. Bootstrap no longer adds your SSH keys
+### 21. Bootstrap no longer adds your SSH keys
 
 New in `4.1`: `juju bootstrap` no longer reads the public keys in `~/.ssh` (or creates a key in the Juju home directory) to authorize them on the controller. Provide keys explicitly with `--config authorized-keys` or `--config authorized-keys-path`, or add them afterwards with `juju add-ssh-key`.
 

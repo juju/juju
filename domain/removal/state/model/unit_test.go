@@ -508,7 +508,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`,
 	aes := []string{"some-app-ep1", "some-app-ep2", "some-app-ep3"}
 	for i, ae := range aes {
 		_, err = s.DB().ExecContext(ctx, `
-INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) 
+INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid)
 VALUES (?, ?, ?, ?)`,
 			ae, app, network.AlphaSpaceId, crs[i],
 		)
@@ -833,7 +833,7 @@ func (s *unitSuite) TestDeleteIAASUnitConsumingSecret(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	q := `
-INSERT INTO secret_unit_consumer(secret_id, source_model_uuid, unit_uuid, current_revision) 
+INSERT INTO secret_unit_consumer(secret_id, source_model_uuid, unit_uuid, current_revision)
 VALUES (?, 'some-model', ?, 0)`
 	_, err = s.DB().ExecContext(ctx, q, sID, unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -1418,6 +1418,111 @@ func (s *unitSuite) TestDeleteUnitWithRelationUnitReturnsIncomplete(c *tc.C) {
 	exists, err = st.UnitExists(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
+}
+
+// TestDeleteK8sUnitWithStorageAttachmentReturnsIncomplete verifies that a
+// Kubernetes unit is not deleted while it still has storage attachments. The
+// storage provisioner finds the unit's filesystem attachments through the
+// unit, so it must remain until its storage attachments have been removed.
+func (s *unitSuite) TestDeleteK8sUnitWithStorageAttachmentReturnsIncomplete(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createCAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+
+	s.checkDeleteUnitWaitsForStorageAttachment(c, unitUUIDs[0], true)
+}
+
+// TestDeleteUnitOnMachineWithStorageAttachmentReturnsIncomplete verifies that
+// a unit on a machine is not deleted while it still has storage attachments.
+func (s *unitSuite) TestDeleteUnitOnMachineWithStorageAttachmentReturnsIncomplete(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+
+	s.checkDeleteUnitWaitsForStorageAttachment(c, unitUUIDs[0], true)
+}
+
+// TestDeleteUnitWithNonOwnedStorageAttachmentReturnsIncomplete verifies that
+// a unit is not deleted while it is attached to storage it does not own. The
+// storage provisioner finds all of the unit's attachments through the unit,
+// regardless of ownership.
+func (s *unitSuite) TestDeleteUnitWithNonOwnedStorageAttachmentReturnsIncomplete(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+
+	s.checkDeleteUnitWaitsForStorageAttachment(c, unitUUIDs[0], false)
+}
+
+// TestDeleteUnitWithStorageAttachmentForce verifies that a forced unit
+// deletion does not wait for its storage attachments, and deletes them along
+// with its ownership of the attached storage.
+func (s *unitSuite) TestDeleteUnitWithStorageAttachmentForce(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	siUUID, saUUID := s.addUnitStorageAttachment(c, unitUUID, true)
+	s.advanceUnitLife(c, unitUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteUnit(c.Context(), unitUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exists, err := st.UnitExists(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
+
+	var n int
+	err = s.DB().QueryRow("SELECT count(*) FROM storage_attachment WHERE uuid = ?", saUUID).Scan(&n)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(n, tc.Equals, 0)
+
+	err = s.DB().QueryRow("SELECT count(*) FROM storage_unit_owner WHERE storage_instance_uuid = ?", siUUID).Scan(&n)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(n, tc.Equals, 0)
+
+	// The storage instance itself is left for its own removal job.
+	err = s.DB().QueryRow("SELECT count(*) FROM storage_instance WHERE uuid = ?", siUUID).Scan(&n)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(n, tc.Equals, 1)
+}
+
+func (s *unitSuite) checkDeleteUnitWaitsForStorageAttachment(
+	c *tc.C, unitUUID unit.UUID, unitOwned bool,
+) {
+	_, saUUID := s.addUnitStorageAttachment(c, unitUUID, unitOwned)
+	s.advanceUnitLife(c, unitUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteUnit(c.Context(), unitUUID.String(), false)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+
+	exists, err := st.UnitExists(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsTrue)
+
+	// Simulate the storage attachment removal job completing.
+	err = st.DeleteStorageAttachment(c.Context(), saUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.DeleteUnit(c.Context(), unitUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exists, err = st.UnitExists(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
 }
 
 func (s *unitSuite) getCharmUUIDForUnit(c *tc.C, unitUUID string) string {

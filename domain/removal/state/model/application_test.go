@@ -1046,7 +1046,10 @@ func (s *applicationSuite) TestDeleteApplicationNotWipingDeviceConstraints(c *tc
 	devices, err := svc.GetDeviceConstraints(c.Context(), "app2")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(devices, tc.HasLen, 1)
-	c.Assert(devices["bitcoinminer"].Count, tc.Equals, 20)
+	c.Check(devices["bitcoinminer"].Count, tc.Equals, 20)
+	c.Check(devices["bitcoinminer"].Attributes, tc.DeepEquals, map[string]string{
+		"model": "tesla",
+	})
 }
 
 func (s *applicationSuite) TestDeleteApplicationWithObjectstoreResource(c *tc.C) {

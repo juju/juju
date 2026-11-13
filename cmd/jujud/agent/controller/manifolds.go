@@ -573,24 +573,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewModelLogger: logsink.NewModelLogger,
 		}),
 
-		// backupCreatorName owns backup archive creation. It acquires and
-		// renews the controller backup lease while the archive is
-		// generated, and the API server consumes its output when a backup
-		// is requested.
-		backupCreatorName: backup.Manifold(backup.ManifoldConfig{
-			LeaseManagerName:    leaseManagerName,
-			DomainServicesName:  domainServicesName,
-			ObjectStoreName:     objectStoreFacadeName,
-			ControllerUUID:      config.ControllerUUID,
-			ControllerModelUUID: config.ControllerModelUUID,
-			ControllerNodeID:    config.ControllerID,
-			ControllerTag:       config.ControllerAgentTag,
-			LocalConfigReader:   config.StartupValueProvider,
-			Clock:               config.Clock,
-			Logger:              internallogger.GetLogger("juju.worker.backup"),
-			NewWorker:           backup.NewWorker,
-		}),
-
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
 			AuthenticatorName:      httpServerArgsName,
 			Clock:                  clock.WallClock,
@@ -1072,6 +1054,27 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:               internallogger.GetLogger("juju.worker.upgradestepscontroller"),
 			Clock:                config.Clock,
 		}))),
+
+		// backupCreatorName owns backup archive creation. It acquires and
+		// renews the controller backup lease while the archive is
+		// generated, and the API server consumes its output when a backup
+		// is requested. It resolves the controller machine's cloud
+		// instance ID from the controller model: this agent runs on a
+		// provider machine.
+		backupCreatorName: backup.Manifold(backup.ManifoldConfig{
+			LeaseManagerName:        leaseManagerName,
+			DomainServicesName:      domainServicesName,
+			ObjectStoreName:         objectStoreFacadeName,
+			ControllerUUID:          config.ControllerUUID,
+			ControllerModelUUID:     config.ControllerModelUUID,
+			ControllerNodeID:        config.ControllerID,
+			ControllerTag:           config.ControllerAgentTag,
+			LocalConfigReader:       config.StartupValueProvider,
+			MachineInstanceIDGetter: backup.MachineInstanceID,
+			Clock:                   config.Clock,
+			Logger:                  internallogger.GetLogger("juju.worker.backup"),
+			NewWorker:               backup.NewWorker,
+		}),
 	})
 }
 
@@ -1120,6 +1123,24 @@ func K8sManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:               internallogger.GetLogger("juju.worker.upgradestepscontroller"),
 			Clock:                config.Clock,
 		}))),
+
+		// backupCreatorName owns backup archive creation. It records no
+		// machine instance ID: this agent runs on Kubernetes, where the
+		// controller has no provider machine.
+		backupCreatorName: backup.Manifold(backup.ManifoldConfig{
+			LeaseManagerName:        leaseManagerName,
+			DomainServicesName:      domainServicesName,
+			ObjectStoreName:         objectStoreFacadeName,
+			ControllerUUID:          config.ControllerUUID,
+			ControllerModelUUID:     config.ControllerModelUUID,
+			ControllerNodeID:        config.ControllerID,
+			ControllerTag:           config.ControllerAgentTag,
+			LocalConfigReader:       config.StartupValueProvider,
+			MachineInstanceIDGetter: backup.NoMachineInstanceID,
+			Clock:                   config.Clock,
+			Logger:                  internallogger.GetLogger("juju.worker.backup"),
+			NewWorker:               backup.NewWorker,
+		}),
 	})
 }
 
