@@ -49,7 +49,7 @@ type MockApplicationServiceMockRecorder struct {
 	isControllerApplicationExpects             []*gomock.Call2_2[context.Context, application.UUID, bool, error]
 	setApplicationHasK8sResourcesExpects       []*gomock.Call2_1[context.Context, application.UUID, error]
 	setApplicationScalingStateExpects          []*gomock.Call4_1[context.Context, string, int, bool, error]
-	setApplicationScalingStateWithStartExpects []*gomock.Call5_1[context.Context, string, int, int, bool, error]
+	setApplicationScalingStateWithRangeExpects []*gomock.Call6_1[context.Context, string, int, int, int, bool, error]
 	updateCAASUnitExpects                      []*gomock.Call3_1[context.Context, unit.Name, service.UpdateCAASUnitParams, error]
 	updateK8sServiceExpects                    []*gomock.Call4_1[context.Context, string, string, network.ProviderAddresses, error]
 	watchApplicationScaleExpects               []*gomock.Call2_2[context.Context, string, watcher.NotifyWatcher, error]
@@ -322,23 +322,23 @@ func (mr *MockApplicationServiceMockRecorder) SetApplicationScalingState(ctx, na
 // MockApplicationServiceSetApplicationScalingStateCall is the typed call wrapper for SetApplicationScalingState.
 type MockApplicationServiceSetApplicationScalingStateCall = gomock.Call4_1[context.Context, string, int, bool, error]
 
-// SetApplicationScalingStateWithStart mocks base method.
-func (m *MockApplicationService) SetApplicationScalingStateWithStart(ctx context.Context, name string, scaleTarget, startOrdinal int, scaling bool) error {
+// SetApplicationScalingStateWithRange mocks base method.
+func (m *MockApplicationService) SetApplicationScalingStateWithRange(ctx context.Context, name string, scaleTarget, startOrdinal, endOrdinal int, scaling bool) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch5_1(&m.recorder.setApplicationScalingStateWithStartExpects, m.ctrl, m, "SetApplicationScalingStateWithStart", ctx, name, scaleTarget, startOrdinal, scaling)
+	return gomock.Dispatch6_1(&m.recorder.setApplicationScalingStateWithRangeExpects, m.ctrl, m, "SetApplicationScalingStateWithRange", ctx, name, scaleTarget, startOrdinal, endOrdinal, scaling)
 }
 
-// SetApplicationScalingStateWithStart indicates an expected call of SetApplicationScalingStateWithStart.
-func (mr *MockApplicationServiceMockRecorder) SetApplicationScalingStateWithStart(ctx, name, scaleTarget, startOrdinal, scaling any) *MockApplicationServiceSetApplicationScalingStateWithStartCall {
+// SetApplicationScalingStateWithRange indicates an expected call of SetApplicationScalingStateWithRange.
+func (mr *MockApplicationServiceMockRecorder) SetApplicationScalingStateWithRange(ctx, name, scaleTarget, startOrdinal, endOrdinal, scaling any) *MockApplicationServiceSetApplicationScalingStateWithRangeCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall5_1[context.Context, string, int, int, bool, error](mr.mock.ctrl.T, mr.mock, "SetApplicationScalingStateWithStart", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(scaleTarget), gomock.EnsureMatcher(startOrdinal), gomock.EnsureMatcher(scaling))
-	mr.setApplicationScalingStateWithStartExpects = append(mr.setApplicationScalingStateWithStartExpects, call)
+	call := gomock.NewCall6_1[context.Context, string, int, int, int, bool, error](mr.mock.ctrl.T, mr.mock, "SetApplicationScalingStateWithRange", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(scaleTarget), gomock.EnsureMatcher(startOrdinal), gomock.EnsureMatcher(endOrdinal), gomock.EnsureMatcher(scaling))
+	mr.setApplicationScalingStateWithRangeExpects = append(mr.setApplicationScalingStateWithRangeExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockApplicationServiceSetApplicationScalingStateWithStartCall is the typed call wrapper for SetApplicationScalingStateWithStart.
-type MockApplicationServiceSetApplicationScalingStateWithStartCall = gomock.Call5_1[context.Context, string, int, int, bool, error]
+// MockApplicationServiceSetApplicationScalingStateWithRangeCall is the typed call wrapper for SetApplicationScalingStateWithRange.
+type MockApplicationServiceSetApplicationScalingStateWithRangeCall = gomock.Call6_1[context.Context, string, int, int, int, bool, error]
 
 // UpdateCAASUnit mocks base method.
 func (m *MockApplicationService) UpdateCAASUnit(arg0 context.Context, arg1 unit.Name, arg2 service.UpdateCAASUnitParams) error {

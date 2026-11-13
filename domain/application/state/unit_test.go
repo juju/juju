@@ -267,14 +267,14 @@ func (s *unitStateSuite) TestRegisterCAASUnit(c *tc.C) {
 func (s *unitStateSuite) TestRegisterCAASUnitOrdinalRange(c *tc.C) {
 	s.createCAASScalingApplication(c, "bar", life.Alive, 2)
 
-	err := s.state.SetApplicationScalingStateWithStart(c.Context(), "bar", 2, 1, true)
+	err := s.state.SetApplicationScalingStateWithRange(c.Context(), "bar", 2, 1, 1, true)
 	c.Assert(err, tc.ErrorIsNil)
 
 	newArg := func(name coreunit.Name, ordinal int) application.RegisterCAASUnitArg {
 		return application.RegisterCAASUnitArg{
 			UnitUUID:     tc.Must(c, coreunit.NewUUID),
 			UnitName:     name,
-			PasswordHash: "passwordhash",
+			PasswordHash: fmt.Sprintf("passwordhash-%d", ordinal),
 			ProviderID:   "some-id",
 			Address:      new("10.6.6.6/8"),
 			Ports:        new([]string{"0"}),
@@ -291,6 +291,44 @@ func (s *unitStateSuite) TestRegisterCAASUnitOrdinalRange(c *tc.C) {
 
 	err = s.state.RegisterCAASUnit(c.Context(), "bar", newArg("bar/3", 3))
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotAssigned)
+}
+
+func (s *unitStateSuite) TestRegisterCAASUnitOnlyAppendsToOrdinalWindow(c *tc.C) {
+	s.createCAASScalingApplication(c, "bar", life.Alive, 3)
+
+	newArg := func(ordinal int) application.RegisterCAASUnitArg {
+		name := coreunit.Name(fmt.Sprintf("bar/%d", ordinal))
+		return application.RegisterCAASUnitArg{
+			UnitUUID:     tc.Must(c, coreunit.NewUUID),
+			UnitName:     name,
+			PasswordHash: fmt.Sprintf("passwordhash-%d", ordinal),
+			ProviderID:   fmt.Sprintf("bar-%d", ordinal),
+			OrderedScale: true,
+			OrderedId:    ordinal,
+		}
+	}
+
+	// Reserve [1,4) from an empty committed window. Registrations can arrive
+	// out of order because StatefulSet pod management is parallel.
+	err := s.state.SetApplicationScalingStateWithRange(c.Context(), "bar", 3, 1, 1, true)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.state.RegisterCAASUnit(c.Context(), "bar", newArg(3)), tc.ErrorIsNil)
+	c.Assert(s.state.RegisterCAASUnit(c.Context(), "bar", newArg(1)), tc.ErrorIsNil)
+
+	// Commit [1,4) with ordinal 2 absent, then begin another scale operation.
+	// The hole is historical and only ordinal 4 may be appended.
+	err = s.state.SetApplicationScalingStateWithRange(c.Context(), "bar", 0, 1, 4, false)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.SetApplicationScalingStateWithRange(c.Context(), "bar", 3, 1, 4, true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(s.state.RegisterCAASUnit(c.Context(), "bar", newArg(0)), tc.ErrorIs,
+		applicationerrors.UnitNotAssigned)
+	c.Check(s.state.RegisterCAASUnit(c.Context(), "bar", newArg(2)), tc.ErrorIs,
+		applicationerrors.UnitNotAssigned)
+	c.Assert(s.state.RegisterCAASUnit(c.Context(), "bar", newArg(4)), tc.ErrorIsNil)
+	c.Check(s.state.RegisterCAASUnit(c.Context(), "bar", newArg(5)), tc.ErrorIs,
+		applicationerrors.UnitNotAssigned)
 }
 
 func (s *unitStateSuite) TestRegisterCAASUnitWithFQDN(c *tc.C) {

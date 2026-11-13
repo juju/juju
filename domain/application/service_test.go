@@ -138,7 +138,7 @@ func (s *serviceSuite) TestSetScalingStateAlreadyScaling(c *tc.C) {
 	appID := s.createApplication(c, "foo", service.AddUnitArg{})
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "UPDATE application_scale SET scaling = true WHERE application_uuid = ?", appID)
+		_, err := tx.ExecContext(ctx, "UPDATE application_scale SET scaling = true, scale_target = 666 WHERE application_uuid = ?", appID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -209,7 +209,7 @@ func (s *serviceSuite) TestGetScalingState(c *tc.C) {
 	appID := s.createApplication(c, "foo", service.AddUnitArg{})
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "UPDATE application_scale SET scaling = true WHERE application_uuid = ?", appID)
+		_, err := tx.ExecContext(ctx, "UPDATE application_scale SET scaling = true, scale_target = 666 WHERE application_uuid = ?", appID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

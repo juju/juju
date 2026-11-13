@@ -1770,16 +1770,17 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAlreadyScaling(c *
 	})
 }
 
-func (s *applicationStateSuite) TestSetApplicationScalingStateWithStart(c *tc.C) {
+func (s *applicationStateSuite) TestSetApplicationScalingStateWithRange(c *tc.C) {
 	appUUID := s.createCAASApplication(c, "foo", life.Dead)
 
-	err := s.state.SetApplicationScalingStateWithStart(c.Context(), "foo", 2, 1, true)
+	err := s.state.SetApplicationScalingStateWithRange(c.Context(), "foo", 2, 1, 3, true)
 	c.Assert(err, tc.ErrorIsNil)
 
 	state, err := s.state.GetApplicationScaleState(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(state, tc.DeepEquals, application.ScaleState{
 		StartOrdinal: 1,
+		EndOrdinal:   3,
 		Scale:        2,
 		ScaleTarget:  2,
 		Scaling:      true,
@@ -1791,7 +1792,19 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateWithStart(c *tc.C)
 	state, err = s.state.GetApplicationScaleState(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(state.StartOrdinal, tc.Equals, 1)
+	c.Check(state.EndOrdinal, tc.Equals, 3)
 	c.Check(state.Scaling, tc.IsFalse)
+	c.Check(state.ScaleTarget, tc.Equals, 0)
+}
+
+func (s *applicationStateSuite) TestSetApplicationScalingStateCannotChangeActiveTarget(c *tc.C) {
+	s.createCAASApplication(c, "foo", life.Dead)
+
+	err := s.state.SetApplicationScalingStateWithRange(c.Context(), "foo", 2, 0, 0, true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetApplicationScalingStateWithRange(c.Context(), "foo", 3, 0, 0, true)
+	c.Check(err, tc.ErrorIs, applicationerrors.ScalingStateInconsistent)
 }
 
 func (s *applicationStateSuite) TestSetApplicationScalingStateInconsistent(c *tc.C) {
@@ -1885,7 +1898,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateNotScaling(c *tc.C
 	c.Assert(err, tc.ErrorIsNil)
 	checkResult(application.ScaleState{
 		Scale:       666,
-		ScaleTarget: 668,
+		ScaleTarget: 0,
 		Scaling:     false,
 	})
 }
