@@ -91,7 +91,7 @@ func (st *State) AddRelation(
 
 	return endpoint1, endpoint2, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Infers endpoint, ie get both application_endpoint_uuid.
-		ep1, ep2, err := st.inferEndpoints(ctx, tx, epIdentifier1, epIdentifier2)
+		ep1, ep2, err := st.inferEndpoints(ctx, tx, epIdentifier1, epIdentifier2, true)
 		if err != nil {
 			return errors.Errorf("cannot relate endpoints %q and %q: %w",
 				epIdentifier1,
@@ -181,7 +181,7 @@ func (st *State) InferRelationUUIDByEndpoints(
 
 	var potentialUUIDs []relationUUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		ep1, ep2, err := st.inferEndpoints(ctx, tx, epIdentifier1, epIdentifier2)
+		ep1, ep2, err := st.inferEndpoints(ctx, tx, epIdentifier1, epIdentifier2, false)
 		if errors.IsOneOf(err,
 			relationerrors.CompatibleEndpointsNotFound,
 			relationerrors.RelationEndpointNotFound,
@@ -3645,10 +3645,14 @@ WHERE  re.relation_uuid = $getCount.uuid
 // application, regarding the name of endpoint if provided, their interfaces,
 // their roles and their scopes.
 // If there is several matches or none, it will return an error.
+// If preferExplicit is true and there are several matches, those using an
+// implicit endpoint (juju-info) are discarded when that leaves exactly one.
 func (st *State) inferEndpoints(
 	ctx context.Context,
 	tx *sqlair.TX,
-	identifier1, identifier2 domainrelation.CandidateEndpointIdentifier) (Endpoint, Endpoint, error) {
+	identifier1, identifier2 domainrelation.CandidateEndpointIdentifier,
+	preferExplicit bool,
+) (Endpoint, Endpoint, error) {
 
 	// Get candidate endpoints.
 	endpoints1, err := st.getCandidateEndpoints(ctx, tx, identifier1)
@@ -3705,6 +3709,20 @@ func (st *State) inferEndpoints(
 			if ep1.CanRelateTo(ep2) {
 				matches = append(matches, match{ep1: &e1, ep2: &e2})
 			}
+		}
+	}
+
+	if preferExplicit && len(matches) > 1 {
+		var explicit []match
+		for _, m := range matches {
+			if m.ep1.toRelationEndpoint().IsImplicit() ||
+				m.ep2.toRelationEndpoint().IsImplicit() {
+				continue
+			}
+			explicit = append(explicit, m)
+		}
+		if len(explicit) == 1 {
+			matches = explicit
 		}
 	}
 

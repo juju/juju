@@ -1,0 +1,10 @@
+name: principal-link
+summary: Minimal principal test charm providing a subordinate-link endpoint
+maintainer: Juju QA <juju-qa@canonical.com>
+description: |
+  Minimal principal charm used to test endpoint inference. Together with
+  the subordinate-link charm, it can be related on two endpoint pairs:
+  the declared link endpoint and the implicit juju-info endpoint.
+provides:
+  link:
+    interface: subordinate-link
