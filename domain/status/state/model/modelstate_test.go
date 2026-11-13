@@ -2778,6 +2778,68 @@ func (s *modelStateSuite) TestGetMachineFullStatusesSecondaryAddressSortsLast(c 
 	})
 }
 
+// TestGetMachineFullStatusesUsesDeviceGateway checks that the gateway of the
+// default route device is used to pick the default route source, so that the
+// address in the gateway's subnet wins over a lower-valued primary address on
+// the same device. Without the gateway, both primary addresses on the device
+// would be marked, and the lower-valued one would sort first.
+func (s *modelStateSuite) TestGetMachineFullStatusesUsesDeviceGateway(c *tc.C) {
+	// Arrange
+	uuid, name := s.createMachine(c)
+	s.setMachineNetConfig(c, uuid,
+		newTestNetInterface("eth0", "00:11:22:33:44:55", nil,
+			newTestNetAddr("eth0", "10.0.0.10/24", corenetwork.ScopeCloudLocal),
+		),
+		newTestNetInterface("eth1", "00:11:22:33:44:66", new("10.1.0.1"),
+			newTestNetAddr("eth1", "10.0.5.5/24", corenetwork.ScopeCloudLocal),
+			newTestNetAddr("eth1", "10.1.0.50/24", corenetwork.ScopeCloudLocal),
+		),
+	)
+
+	// Act
+	statuses, err := s.state.GetMachineFullStatuses(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(statuses, tc.HasLen, 1)
+	c.Check(statuses[name].DNSName, tc.Equals, "10.1.0.50")
+	c.Check(statuses[name].IPAddresses, tc.DeepEquals, []string{
+		"10.1.0.50", "10.0.0.10", "10.0.5.5",
+	})
+}
+
+// TestGetMachineFullStatusesMarksBeforeScopeFilter checks that the default
+// route source is marked before the machine-local addresses are filtered
+// out, so the marking sees every address on the device. The only address in
+// the gateway's subnet is machine-local, so it is marked and then excluded,
+// and the other address on the device is not marked. If the marking happened
+// after the filter, nothing would match the gateway, the fallback would mark
+// the cloud-local address on the device, and it would sort first.
+func (s *modelStateSuite) TestGetMachineFullStatusesMarksBeforeScopeFilter(c *tc.C) {
+	// Arrange
+	uuid, name := s.createMachine(c)
+	s.setMachineNetConfig(c, uuid,
+		newTestNetInterface("eth0", "00:11:22:33:44:55", nil,
+			newTestNetAddr("eth0", "10.0.0.10/24", corenetwork.ScopeCloudLocal),
+		),
+		newTestNetInterface("eth1", "00:11:22:33:44:66", new("192.168.1.1"),
+			newTestNetAddr("eth1", "192.168.1.5/24", corenetwork.ScopeMachineLocal),
+			newTestNetAddr("eth1", "10.0.0.20/24", corenetwork.ScopeCloudLocal),
+		),
+	)
+
+	// Act
+	statuses, err := s.state.GetMachineFullStatuses(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(statuses, tc.HasLen, 1)
+	c.Check(statuses[name].DNSName, tc.Equals, "10.0.0.10")
+	c.Check(statuses[name].IPAddresses, tc.DeepEquals, []string{
+		"10.0.0.10", "10.0.0.20",
+	})
+}
+
 func (s *modelStateSuite) TestGetMachineFullStatusesEmptyModel(c *tc.C) {
 	statuses, err := s.state.GetMachineFullStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -3070,6 +3132,52 @@ WHERE rst.name = ?
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) Failed to insert relation status %s, status %s, message %q",
 		relationUUID, status, message))
+}
+
+// setMachineNetConfig sets the net config of the machine to the input
+// interfaces.
+func (s *modelStateSuite) setMachineNetConfig(
+	c *tc.C, machineUUID coremachine.UUID, interfaces ...domainnetwork.NetInterface,
+) {
+	netService := networkservice.NewService(
+		networkstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c)),
+		loggertesting.WrapCheckLog(c),
+	)
+	err := netService.SetMachineNetConfig(c.Context(), machineUUID, interfaces)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// newTestNetInterface returns an enabled ethernet interface with the input
+// addresses. If the gateway is not nil, the interface carries the default
+// route via that gateway.
+func newTestNetInterface(
+	name, mac string, gateway *string, addrs ...domainnetwork.NetAddr,
+) domainnetwork.NetInterface {
+	return domainnetwork.NetInterface{
+		Name:             name,
+		Type:             corenetwork.EthernetDevice,
+		MACAddress:       new(mac),
+		IsAutoStart:      true,
+		IsEnabled:        true,
+		IsDefaultGateway: gateway != nil,
+		GatewayAddress:   gateway,
+		Addrs:            addrs,
+	}
+}
+
+// newTestNetAddr returns a machine-origin IPv4 address with the input scope
+// on the interface. The value must include the subnet mask.
+func newTestNetAddr(
+	interfaceName, value string, scope corenetwork.Scope,
+) domainnetwork.NetAddr {
+	return domainnetwork.NetAddr{
+		InterfaceName: interfaceName,
+		AddressValue:  value,
+		AddressType:   corenetwork.IPv4Address,
+		ConfigType:    corenetwork.ConfigDHCP,
+		Origin:        corenetwork.OriginMachine,
+		Scope:         scope,
+	}
 }
 
 // setTwoDeviceNetConfig sets the net config of the machine to two devices
