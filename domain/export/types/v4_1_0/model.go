@@ -1282,9 +1282,10 @@ type SecretReference struct {
 }
 
 type SecretRemoteUnitConsumer struct {
-	SecretID        string `db:"secret_id" json:"secret_id" yaml:"secret_id"`
-	UnitName        string `db:"unit_name" json:"unit_name" yaml:"unit_name"`
-	CurrentRevision int64  `db:"current_revision" json:"current_revision" yaml:"current_revision"`
+	SecretID            string `db:"secret_id" json:"secret_id" yaml:"secret_id"`
+	OfferConnectionUUID string `db:"offer_connection_uuid" json:"offer_connection_uuid" yaml:"offer_connection_uuid"`
+	UnitName            string `db:"unit_name" json:"unit_name" yaml:"unit_name"`
+	CurrentRevision     int64  `db:"current_revision" json:"current_revision" yaml:"current_revision"`
 }
 
 type SecretReservation struct {
