@@ -7,6 +7,8 @@ import (
 	"context"
 	"io"
 
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	domainexport "github.com/juju/juju/domain/export"
@@ -25,14 +27,38 @@ type ModelExportService interface {
 	Export(ctx context.Context) (*domainexport.ModelExport, error)
 }
 
+// MachineService provides the machine lookup used to record the controller
+// machine's cloud instance ID in the archive metadata.
+type MachineService interface {
+	// GetMachineUUID returns the UUID for the given machine.
+	GetMachineUUID(ctx context.Context, mName machine.Name) (machine.UUID, error)
+	// GetInstanceID returns the cloud instance ID for the given machine.
+	// It errors if the machine has not been provisioned with a cloud
+	// instance ID; implementations never return an empty ID with a nil
+	// error.
+	GetInstanceID(ctx context.Context, machineUUID machine.UUID) (instance.Id, error)
+}
+
 // ModelExportDomainServices provides access to the model export service.
 type ModelExportDomainServices interface {
 	// Export returns the model export service.
 	Export() ModelExportService
 }
 
-// ModelServicesForFunc returns the export services for a given model UUID.
-type ModelServicesForFunc func(ctx context.Context, modelUUID coremodel.UUID) (ModelExportDomainServices, error)
+// ModelServicesGetterFunc returns the export services for a given model UUID.
+type ModelServicesGetterFunc func(ctx context.Context, modelUUID coremodel.UUID) (ModelExportDomainServices, error)
+
+// GetMachineInstanceIDFunc resolves the cloud instance ID of the machine
+// hosting the controller, for recording in archive metadata. The machine
+// service is scoped to the controller model. The implementation is chosen by
+// manifold wiring: machine-hosted controllers resolve it from the machine
+// service, while controllers without a machine, such as Kubernetes, report
+// none.
+type GetMachineInstanceIDFunc func(
+	ctx context.Context,
+	machineID string,
+	machineService MachineService,
+) (string, error)
 
 // ModelConfigService provides the model configuration, used to resolve the
 // backup directory.
