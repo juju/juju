@@ -221,6 +221,9 @@ AND    u.life_id < 2;`, machineUUID, uuids{})
 			if err != nil {
 				return errors.Errorf("cascading unit %q life advancement: %w", u, err)
 			}
+			if uc.CharmUUID != nil {
+				cascaded.CharmUUIDs = append(cascaded.CharmUUIDs, *uc.CharmUUID)
+			}
 			cascaded.CascadedStorageLives = cascaded.CascadedStorageLives.Merge(uc.CascadedStorageLives)
 		}
 
@@ -229,6 +232,7 @@ AND    u.life_id < 2;`, machineUUID, uuids{})
 		return cascaded, errors.Capture(err)
 	}
 
+	cascaded.CharmUUIDs = dedupeStrings(cascaded.CharmUUIDs)
 	return cascaded, nil
 }
 

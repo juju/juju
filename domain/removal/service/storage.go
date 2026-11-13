@@ -73,6 +73,13 @@ type StorageState interface {
 	// with the input UUID.
 	GetStorageAttachmentLife(ctx context.Context, rUUID string) (life.Life, error)
 
+	// CheckStorageAttachmentHasNoDyingChildren returns true if none of the
+	// filesystem or volume attachments for the storage attachment's storage
+	// instance, on the attached unit's net node, are dying.
+	CheckStorageAttachmentHasNoDyingChildren(
+		ctx context.Context, saUUID string,
+	) (bool, error)
+
 	// EnsureStorageAttachmentDeadCascade ensures that the storage attachment is
 	// dead and that all filesystem attachments, volume attachments and volume
 	// attachment plans are dying.
@@ -465,6 +472,28 @@ func (s *Service) processStorageAttachmentRemovalJob(ctx context.Context, job re
 					uuid, err,
 				)
 			}
+		}
+	}
+
+	// The storage provisioner finds a unit's filesystem and volume attachments
+	// through the unit, which cannot be deleted while it has storage
+	// attachments. Keep the storage attachment until the provisioner has
+	// detached them, otherwise they can be left dying forever.
+	if !job.Force {
+		detached, err := s.modelState.CheckStorageAttachmentHasNoDyingChildren(
+			ctx, job.EntityUUID,
+		)
+		if err != nil {
+			return errors.Errorf(
+				"checking storage attachment %q has no dying children: %w",
+				job.EntityUUID, err,
+			)
+		}
+		if !detached {
+			return errors.Errorf(
+				"storage attachment %q has dying filesystem or volume attachments",
+				job.EntityUUID,
+			).Add(removalerrors.RemovalJobIncomplete)
 		}
 	}
 

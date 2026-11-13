@@ -76,6 +76,66 @@ func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccessLastUnit(c *tc.C) 
 	s.checkMachineLife(c, unitMachineUUID.String(), life.Dying)
 }
 
+func (s *unitSuite) TestEnsureUnitNotAliveCascadeCharmBlockedByAliveUnitInAnotherApplication(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID1 := s.createIAASApplication(c, svc, "app1", applicationservice.AddIAASUnitArg{})
+	appUUID2 := s.createIAASApplication(c, svc, "app2", applicationservice.AddIAASUnitArg{})
+
+	app1UnitUUIDs := s.getAllUnitUUIDs(c, appUUID1)
+	c.Assert(app1UnitUUIDs, tc.HasLen, 1)
+	app2UnitUUIDs := s.getAllUnitUUIDs(c, appUUID2)
+	c.Assert(app2UnitUUIDs, tc.HasLen, 1)
+
+	// Simulate an upgraded second application whose unit still uses the first
+	// application's charm.
+	charmUUID := s.getCharmUUIDForUnit(c, app1UnitUUIDs[0].String())
+	_, err := s.DB().ExecContext(c.Context(), `
+UPDATE unit SET charm_uuid = ? WHERE uuid = ?`,
+		charmUUID, app2UnitUUIDs[0].String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	cascade, err := st.EnsureUnitNotAliveCascade(c.Context(), app1UnitUUIDs[0].String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cascade.CharmUUID, tc.IsNil)
+
+	s.checkUnitLife(c, app1UnitUUIDs[0].String(), life.Dying)
+	s.checkUnitLife(c, app2UnitUUIDs[0].String(), life.Alive)
+}
+
+func (s *unitSuite) TestEnsureUnitNotAliveCascadeReturnsCharmForLastAliveUnitOnRetry(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app",
+		applicationservice.AddIAASUnitArg{},
+		applicationservice.AddIAASUnitArg{},
+		applicationservice.AddIAASUnitArg{},
+	)
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(unitUUIDs, tc.HasLen, 3)
+	charmUUID := s.getCharmUUIDForUnit(c, unitUUIDs[0].String())
+
+	// Dying and dead units do not prevent the last alive unit from making its
+	// charm a removal candidate.
+	s.advanceUnitLife(c, unitUUIDs[1], life.Dying)
+	s.advanceUnitLife(c, unitUUIDs[2], life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	firstCascade, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUIDs[0].String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(firstCascade.CharmUUID, tc.NotNil)
+	c.Check(*firstCascade.CharmUUID, tc.Equals, charmUUID)
+
+	secondCascade, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUIDs[0].String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(secondCascade.CharmUUID, tc.NotNil)
+	c.Check(*secondCascade.CharmUUID, tc.Equals, charmUUID)
+
+	s.checkUnitLife(c, unitUUIDs[0].String(), life.Dying)
+	s.checkUnitLife(c, unitUUIDs[1].String(), life.Dying)
+	s.checkUnitLife(c, unitUUIDs[2].String(), life.Dead)
+}
+
 func (s *unitSuite) TestEnsureUnitNotAliveCascadeStorageAttachmentsDying(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
@@ -448,7 +508,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`,
 	aes := []string{"some-app-ep1", "some-app-ep2", "some-app-ep3"}
 	for i, ae := range aes {
 		_, err = s.DB().ExecContext(ctx, `
-INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) 
+INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid)
 VALUES (?, ?, ?, ?)`,
 			ae, app, network.AlphaSpaceId, crs[i],
 		)
@@ -773,7 +833,7 @@ func (s *unitSuite) TestDeleteIAASUnitConsumingSecret(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	q := `
-INSERT INTO secret_unit_consumer(secret_id, source_model_uuid, unit_uuid, current_revision) 
+INSERT INTO secret_unit_consumer(secret_id, source_model_uuid, unit_uuid, current_revision)
 VALUES (?, 'some-model', ?, 0)`
 	_, err = s.DB().ExecContext(ctx, q, sID, unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -1192,14 +1252,23 @@ func (s *unitSuite) TestDeleteCharmIfUnusedBeforeUnitDeletion(c *tc.C) {
 
 	charmUUID := s.getCharmUUIDForUnit(c, unitUUID.String())
 
-	// Act: Delete the charm, the unit and the application.
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err := st.DeleteCharmIfUnused(c.Context(), charmUUID)
-
-	// Assert: The charm deletion shouldn't fail as it's still referenced.
-	// And the charm shouldn't be deleted.
+	// Remove the application reference as would happen during a charm upgrade,
+	// leaving only the dead unit's old charm reference.
+	newCharmUUID := s.createBareCharm(c, true, s.now.Add(-time.Hour))
+	_, err := s.DB().ExecContext(c.Context(), `
+UPDATE application SET charm_uuid = ? WHERE uuid = ?`, newCharmUUID, appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	s.checkCharmsCount(c, 1)
+
+	// Act: Try to delete the old charm before deleting the unit.
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = st.DeleteCharmIfUnused(c.Context(), charmUUID)
+
+	// Assert: The unit reference makes the removal incomplete and retains the
+	// charm so the job can retry after the unit is deleted.
+	c.Assert(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+	exists, err := st.CharmExists(c.Context(), charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsTrue)
 }
 
 // TestDeleteCAASUnitNotAffectingOtherUnits is a regression test where deleting a CAAS unit
@@ -1351,12 +1420,147 @@ func (s *unitSuite) TestDeleteUnitWithRelationUnitReturnsIncomplete(c *tc.C) {
 	c.Check(exists, tc.Equals, false)
 }
 
+// TestDeleteK8sUnitWithStorageAttachmentReturnsIncomplete verifies that a
+// Kubernetes unit is not deleted while it still has storage attachments. The
+// storage provisioner finds the unit's filesystem attachments through the
+// unit, so it must remain until its storage attachments have been removed.
+func (s *unitSuite) TestDeleteK8sUnitWithStorageAttachmentReturnsIncomplete(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createCAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+
+	s.checkDeleteUnitWaitsForStorageAttachment(c, unitUUIDs[0], true)
+}
+
+// TestDeleteUnitOnMachineWithStorageAttachmentReturnsIncomplete verifies that
+// a unit on a machine is not deleted while it still has storage attachments.
+func (s *unitSuite) TestDeleteUnitOnMachineWithStorageAttachmentReturnsIncomplete(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+
+	s.checkDeleteUnitWaitsForStorageAttachment(c, unitUUIDs[0], true)
+}
+
+// TestDeleteUnitWithNonOwnedStorageAttachmentReturnsIncomplete verifies that
+// a unit is not deleted while it is attached to storage it does not own. The
+// storage provisioner finds all of the unit's attachments through the unit,
+// regardless of ownership.
+func (s *unitSuite) TestDeleteUnitWithNonOwnedStorageAttachmentReturnsIncomplete(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+
+	s.checkDeleteUnitWaitsForStorageAttachment(c, unitUUIDs[0], false)
+}
+
+// TestDeleteUnitWithStorageAttachmentForce verifies that a forced unit
+// deletion does not wait for its storage attachments, and deletes them along
+// with its ownership of the attached storage.
+func (s *unitSuite) TestDeleteUnitWithStorageAttachmentForce(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	siUUID, saUUID := s.addUnitStorageAttachment(c, unitUUID, true)
+	s.advanceUnitLife(c, unitUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteUnit(c.Context(), unitUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exists, err := st.UnitExists(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
+
+	var n int
+	err = s.DB().QueryRow("SELECT count(*) FROM storage_attachment WHERE uuid = ?", saUUID).Scan(&n)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(n, tc.Equals, 0)
+
+	err = s.DB().QueryRow("SELECT count(*) FROM storage_unit_owner WHERE storage_instance_uuid = ?", siUUID).Scan(&n)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(n, tc.Equals, 0)
+
+	// The storage instance itself is left for its own removal job.
+	err = s.DB().QueryRow("SELECT count(*) FROM storage_instance WHERE uuid = ?", siUUID).Scan(&n)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(n, tc.Equals, 1)
+}
+
+func (s *unitSuite) checkDeleteUnitWaitsForStorageAttachment(
+	c *tc.C, unitUUID unit.UUID, unitOwned bool,
+) {
+	_, saUUID := s.addUnitStorageAttachment(c, unitUUID, unitOwned)
+	s.advanceUnitLife(c, unitUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteUnit(c.Context(), unitUUID.String(), false)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+
+	exists, err := st.UnitExists(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsTrue)
+
+	// Simulate the storage attachment removal job completing.
+	err = st.DeleteStorageAttachment(c.Context(), saUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.DeleteUnit(c.Context(), unitUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exists, err = st.UnitExists(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
+}
+
 func (s *unitSuite) getCharmUUIDForUnit(c *tc.C, unitUUID string) string {
 	row := s.DB().QueryRow("SELECT charm_uuid FROM unit WHERE uuid = ?", unitUUID)
 	var charmUUID string
 	err := row.Scan(&charmUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	return charmUUID
+}
+
+func (s *unitSuite) TestDeleteUnitDoesNotScheduleCharmRemoval(c *tc.C) {
+	// Arrange: An application with two units, both running the application's
+	// charm.
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app",
+		applicationservice.AddIAASUnitArg{}, applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 2)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	for _, unitUUID := range unitUUIDs {
+		s.advanceUnitLife(c, unitUUID, life.Dead)
+	}
+
+	for _, unitUUID := range unitUUIDs {
+		// Act: Delete each unit, including the last unit using the charm.
+		err := st.DeleteUnit(c.Context(), unitUUID.String(), false)
+		c.Assert(err, tc.ErrorIsNil)
+
+		// Assert: Unit deletion never schedules a charm removal job itself.
+		var count int
+		err = s.DB().QueryRowContext(c.Context(),
+			"SELECT COUNT(*) FROM removal r JOIN removal_type t ON r.removal_type_id = t.id WHERE t.name = 'charm'",
+		).Scan(&count)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(count, tc.Equals, 0)
+	}
 }
 
 func (s *unitSuite) addUnitStorageAttachment(

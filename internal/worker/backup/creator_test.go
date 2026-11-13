@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package backupcreation
+package backup
 
 import (
 	"bytes"
@@ -24,6 +24,8 @@ import (
 
 	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
@@ -53,6 +55,7 @@ type backupsSuite struct {
 	controllerNodes  *MockControllerNodeLister
 	modelServices    *MockModelExportDomainServices
 	modelExport      *MockModelExportService
+	machineService   *MockMachineService
 
 	// Object stores the creator streams referenced objects from. The
 	// default empty stores satisfy models whose exports reference no
@@ -97,6 +100,13 @@ func (s *backupsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.controllerNodes = NewMockControllerNodeLister(ctrl)
 	s.modelServices = NewMockModelExportDomainServices(ctrl)
 	s.modelExport = NewMockModelExportService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
+
+	// Machine-controller metadata resolves the controller machine's cloud
+	// instance ID through the machine service. Failure-path tests may not
+	// reach metadata assembly, so allow zero calls here.
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return(machine.UUID("controller-machine-uuid"), nil).AnyTimes()
+	s.machineService.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("controller-machine-uuid")).Return(instance.Id("inst-controller-0"), nil).AnyTimes()
 
 	c.Cleanup(func() {
 		s.controllerExport = nil
@@ -105,51 +115,67 @@ func (s *backupsSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.controllerNodes = nil
 		s.modelServices = nil
 		s.modelExport = nil
+		s.machineService = nil
 	})
 
 	return ctrl
 }
 
-// newCreator returns a Creator wired to the suite's mocked dependencies
-// and the given model services resolver.
-func (s *backupsSuite) newCreator(c *tc.C, modelServicesFor ModelServicesForFunc) *Creator {
-	creator, err := NewCreator(CreatorConfig{
-		MachineTag:            names.NewMachineTag("0"),
-		ControllerUUID:        s.controllerUUID,
-		ControllerModelUUID:   s.controllerModelUUID,
-		DataDir:               s.dataDirPath,
-		LogDir:                s.logDirPath,
-		ControllerExport:      s.controllerExport,
-		ModelServicesFor:      modelServicesFor,
-		ModelConfig:           s.modelConfig,
-		Controller:            s.controller,
-		ControllerNodes:       s.controllerNodes,
-		ControllerObjectStore: s.controllerStore,
+// newCreatorConfig returns a CreatorConfig wired to the suite's mocked
+// dependencies and the given model services resolver.
+func (s *backupsSuite) newCreatorConfig(c *tc.C, modelServicesFor ModelServicesGetterFunc) CreatorConfig {
+	return CreatorConfig{
+		MachineTag:                    names.NewMachineTag("0"),
+		ControllerUUID:                s.controllerUUID,
+		ControllerModelUUID:           s.controllerModelUUID,
+		DataDir:                       s.dataDirPath,
+		LogDir:                        s.logDirPath,
+		MachineInstanceIDGetter:       MachineInstanceID,
+		ControllerExport:              s.controllerExport,
+		ModelServicesGetter:           modelServicesFor,
+		ControllerModelMachineService: s.machineService,
+		ModelConfig:                   s.modelConfig,
+		ControllerModelLister:         s.controller,
+		ControllerNodes:               s.controllerNodes,
+		ControllerObjectStore:         s.controllerStore,
 		ObjectStoreForModel: ObjectStoreForModelFunc(func(context.Context, string) (ReadObjectStore, error) {
 			return s.modelStore, nil
 		}),
 		Clock:  clock.WallClock,
 		Logger: loggertesting.WrapCheckLog(c),
-	})
+	}
+}
+
+// newCreatorFromConfig returns a Creator wired to the given config.
+func (s *backupsSuite) newCreatorFromConfig(c *tc.C, cfg CreatorConfig) *Creator {
+	creator, err := NewCreator(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	return creator
+}
+
+// newCreator returns a Creator wired to the suite's mocked dependencies
+// and the given model services resolver.
+func (s *backupsSuite) newCreator(c *tc.C, modelServicesFor ModelServicesGetterFunc) *Creator {
+	return s.newCreatorFromConfig(c, s.newCreatorConfig(c, modelServicesFor))
 }
 
 func (s *backupsSuite) TestCreatorConfigValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config := CreatorConfig{
-		MachineTag:            names.NewMachineTag("0"),
-		ControllerUUID:        s.controllerUUID,
-		ControllerModelUUID:   s.controllerModelUUID,
-		DataDir:               s.dataDirPath,
-		LogDir:                s.logDirPath,
-		ControllerExport:      s.controllerExport,
-		ModelServicesFor:      s.modelServicesFor(),
-		ModelConfig:           s.modelConfig,
-		Controller:            s.controller,
-		ControllerNodes:       s.controllerNodes,
-		ControllerObjectStore: s.controllerStore,
+		MachineTag:                    names.NewMachineTag("0"),
+		ControllerUUID:                s.controllerUUID,
+		ControllerModelUUID:           s.controllerModelUUID,
+		DataDir:                       s.dataDirPath,
+		LogDir:                        s.logDirPath,
+		MachineInstanceIDGetter:       MachineInstanceID,
+		ControllerExport:              s.controllerExport,
+		ModelServicesGetter:           s.modelServicesFor(),
+		ControllerModelMachineService: s.machineService,
+		ModelConfig:                   s.modelConfig,
+		ControllerModelLister:         s.controller,
+		ControllerNodes:               s.controllerNodes,
+		ControllerObjectStore:         s.controllerStore,
 		ObjectStoreForModel: ObjectStoreForModelFunc(func(context.Context, string) (ReadObjectStore, error) {
 			return s.modelStore, nil
 		}),
@@ -165,10 +191,12 @@ func (s *backupsSuite) TestCreatorConfigValidate(c *tc.C) {
 		{func(c *CreatorConfig) { c.ControllerModelUUID = "bad" }, "controller model UUID: .*"},
 		{func(c *CreatorConfig) { c.DataDir = "" }, "empty DataDir not valid"},
 		{func(c *CreatorConfig) { c.LogDir = "" }, "empty LogDir not valid"},
+		{func(c *CreatorConfig) { c.MachineInstanceIDGetter = nil }, "nil MachineInstanceIDGetter not valid"},
 		{func(c *CreatorConfig) { c.ControllerExport = nil }, "nil ControllerExport not valid"},
-		{func(c *CreatorConfig) { c.ModelServicesFor = nil }, "nil ModelServicesFor not valid"},
+		{func(c *CreatorConfig) { c.ModelServicesGetter = nil }, "nil ModelServicesGetter not valid"},
+		{func(c *CreatorConfig) { c.ControllerModelMachineService = nil }, "nil ControllerModelMachineService not valid"},
 		{func(c *CreatorConfig) { c.ModelConfig = nil }, "nil ModelConfig not valid"},
-		{func(c *CreatorConfig) { c.Controller = nil }, "nil Controller not valid"},
+		{func(c *CreatorConfig) { c.ControllerModelLister = nil }, "nil ControllerModelLister not valid"},
 		{func(c *CreatorConfig) { c.ControllerNodes = nil }, "nil ControllerNodes not valid"},
 		{func(c *CreatorConfig) { c.ControllerObjectStore = nil }, "nil ControllerObjectStore not valid"},
 		{func(c *CreatorConfig) { c.ObjectStoreForModel = nil }, "nil ObjectStoreForModel not valid"},
@@ -183,10 +211,10 @@ func (s *backupsSuite) TestCreatorConfigValidate(c *tc.C) {
 	}
 }
 
-// modelServicesFor returns a ModelServicesForFunc handing back the
+// modelServicesFor returns a ModelServicesGetterFunc handing back the
 // suite's model export services mock for every model UUID.
-func (s *backupsSuite) modelServicesFor() ModelServicesForFunc {
-	return ModelServicesForFunc(func(context.Context, coremodel.UUID) (ModelExportDomainServices, error) {
+func (s *backupsSuite) modelServicesFor() ModelServicesGetterFunc {
+	return ModelServicesGetterFunc(func(context.Context, coremodel.UUID) (ModelExportDomainServices, error) {
 		return s.modelServices, nil
 	})
 }
@@ -204,11 +232,15 @@ func (s *backupsSuite) expectModelConfig(c *tc.C, backupDir string) {
 	s.modelConfig.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 }
 
-// expectControllerExport primes the controller node lister to report two
-// controller machines, and the controller export mock to return an export
-// stamped with the latest controller export version.
-func (s *backupsSuite) expectControllerExport() {
-	s.controllerNodes.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"0", "1"}, nil)
+// expectControllerExport primes the controller node lister to report the
+// given controller machines (defaulting to two), and the controller export
+// mock to return an export stamped with the latest controller export
+// version.
+func (s *backupsSuite) expectControllerExport(controllerIDs ...string) {
+	if len(controllerIDs) == 0 {
+		controllerIDs = []string{"0", "1"}
+	}
+	s.controllerNodes.EXPECT().GetControllerIDs(gomock.Any()).Return(controllerIDs, nil)
 	s.controllerExport.EXPECT().Export(gomock.Any()).Return(&domainexport.ControllerExport{
 		Version: domainexport.LatestControllerExportVersion(),
 		Payload: &ctrlv4_1_0.ControllerExport{},
@@ -303,6 +335,7 @@ func (s *backupsSuite) TestCreate(c *tc.C) {
 	c.Check(s.createdMeta.Origin.Machine, tc.Equals, "0")
 	c.Check(s.createdMeta.Controller.UUID, tc.Equals, s.controllerUUID)
 	c.Check(s.createdMeta.Controller.MachineID, tc.Equals, "0")
+	c.Check(s.createdMeta.Controller.MachineInstanceID, tc.Equals, "inst-controller-0")
 	c.Check(s.createdMeta.Controller.HANodes, tc.Equals, int64(2))
 
 	// The archive is created with the collected files and one dump per
@@ -452,7 +485,7 @@ func (s *backupsSuite) TestCreateModelServicesFailure(c *tc.C) {
 
 	backupDir := c.MkDir()
 	boom := errors.New("model services unavailable")
-	modelServicesFor := ModelServicesForFunc(func(context.Context, coremodel.UUID) (ModelExportDomainServices, error) {
+	modelServicesFor := ModelServicesGetterFunc(func(context.Context, coremodel.UUID) (ModelExportDomainServices, error) {
 		return nil, boom
 	})
 
@@ -734,6 +767,137 @@ func (s *backupsSuite) TestCreateArchiveFailure(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
+}
+
+// TestCreateMachineUUIDFailure verifies that a failure resolving the
+// controller machine UUID aborts Create before an archive is published.
+func (s *backupsSuite) TestCreateMachineUUIDFailure(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	s.expectFilesToBackUp(c, backupDir)
+	s.expectModelConfig(c, backupDir)
+	s.expectControllerExport()
+	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{}, nil)
+
+	ctrl := gomock.NewController(c)
+	failing := NewMockMachineService(ctrl)
+	failing.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return(machine.UUID(""), errors.New("uuid unavailable"))
+
+	cfg := s.newCreatorConfig(c, s.modelServicesFor())
+	cfg.ControllerModelMachineService = failing
+	_, _, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "")
+	c.Check(err, tc.ErrorMatches, "recording controller machine instance ID: retrieving controller machine UUID: uuid unavailable")
+	c.Check(cleanup, tc.IsNil)
+	s.assertNoArchive(c, backupDir)
+}
+
+// TestCreateMachineInstanceIDFailure verifies that a failure resolving the
+// controller machine cloud instance ID aborts Create before an archive is
+// published.
+func (s *backupsSuite) TestCreateMachineInstanceIDFailure(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	s.expectFilesToBackUp(c, backupDir)
+	s.expectModelConfig(c, backupDir)
+	s.expectControllerExport()
+	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{}, nil)
+
+	ctrl := gomock.NewController(c)
+	failing := NewMockMachineService(ctrl)
+	failing.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return(machine.UUID("controller-machine-uuid"), nil)
+	failing.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("controller-machine-uuid")).Return(instance.Id(""), errors.New("instance unavailable"))
+
+	cfg := s.newCreatorConfig(c, s.modelServicesFor())
+	cfg.ControllerModelMachineService = failing
+	_, _, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "")
+	c.Check(err, tc.ErrorMatches, "recording controller machine instance ID: retrieving controller machine cloud instance ID: instance unavailable")
+	c.Check(cleanup, tc.IsNil)
+	s.assertNoArchive(c, backupDir)
+}
+
+// TestCreateEmptyMachineInstanceID verifies that an empty controller
+// machine cloud instance ID aborts Create before an archive is published.
+func (s *backupsSuite) TestCreateEmptyMachineInstanceID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	s.expectFilesToBackUp(c, backupDir)
+	s.expectModelConfig(c, backupDir)
+	s.expectControllerExport()
+	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{}, nil)
+
+	ctrl := gomock.NewController(c)
+	empty := NewMockMachineService(ctrl)
+	empty.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return(machine.UUID("controller-machine-uuid"), nil)
+	empty.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("controller-machine-uuid")).Return(instance.Id(""), nil)
+
+	cfg := s.newCreatorConfig(c, s.modelServicesFor())
+	cfg.ControllerModelMachineService = empty
+	_, _, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "")
+	c.Check(err, tc.ErrorMatches, "recording controller machine instance ID: controller machine cloud instance ID is empty")
+	c.Check(cleanup, tc.IsNil)
+	s.assertNoArchive(c, backupDir)
+}
+
+// TestCreateNoMachineInstanceIDRecordsEmpty verifies that the machineless
+// implementation injected by the Kubernetes manifold wiring records no
+// instance ID and never queries machine metadata.
+func (s *backupsSuite) TestCreateNoMachineInstanceIDRecordsEmpty(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	s.expectFilesToBackUp(c, backupDir)
+	s.expectArchiveCreation(c, backupDir)
+	s.expectModelConfig(c, backupDir)
+	s.expectControllerExport()
+	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{}, nil)
+
+	// The machineless implementation must not query the machine service:
+	// a machine metadata query would fail the request. A fresh mock with
+	// no expectations fails the test on any call.
+	ctrl := gomock.NewController(c)
+	cfg := s.newCreatorConfig(c, s.modelServicesFor())
+	cfg.MachineTag = names.NewControllerAgentTag("0")
+	cfg.MachineInstanceIDGetter = NoMachineInstanceID
+	cfg.ControllerModelMachineService = NewMockMachineService(ctrl)
+	meta, _, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Cleanup(cleanup)
+
+	c.Check(meta.Controller.MachineID, tc.Equals, "0")
+	c.Check(meta.Controller.MachineInstanceID, tc.Equals, "")
+}
+
+// TestCreateNonZeroControllerMachine verifies that metadata resolution
+// follows the agent's own machine tag: HA controllers run on machines
+// other than 0, so the instance ID must not be resolved from a hardcoded
+// or first controller machine.
+func (s *backupsSuite) TestCreateNonZeroControllerMachine(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	s.expectFilesToBackUp(c, backupDir)
+	s.expectArchiveCreation(c, backupDir)
+	s.expectModelConfig(c, backupDir)
+	// This controller is machine 3 of an HA pair with machine 0.
+	s.expectControllerExport("0", "3")
+	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{}, nil)
+
+	// Strict: the lookup must use the agent's machine name (3), not a
+	// hardcoded or first controller machine.
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("3")).Return(machine.UUID("machine-3-uuid"), nil)
+	s.machineService.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("machine-3-uuid")).Return(instance.Id("inst-controller-3"), nil)
+
+	cfg := s.newCreatorConfig(c, s.modelServicesFor())
+	cfg.MachineTag = names.NewMachineTag("3")
+	meta, _, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Cleanup(cleanup)
+
+	c.Check(meta.Controller.MachineID, tc.Equals, "3")
+	c.Check(meta.Controller.MachineInstanceID, tc.Equals, "inst-controller-3")
 }
 
 // stubObjectStore serves objects from memory, keyed by full SHA-256,

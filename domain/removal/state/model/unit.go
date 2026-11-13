@@ -94,6 +94,14 @@ AND    life_id = 0`, unitUUID)
 		return cascaded, errors.Errorf("advancing unit life: %w", err)
 	}
 
+	charmUUID, err := st.getCharmUUIDIfLastAliveUnit(ctx, tx, uUUID)
+	if err != nil {
+		return cascaded, errors.Errorf("getting charm for last alive unit %q: %w", uUUID, err)
+	}
+	if charmUUID != "" {
+		cascaded.CharmUUID = &charmUUID
+	}
+
 	cascaded.CascadedStorageAttachmentLives, err = st.ensureUnitStorageAttachmentsNotAlive(
 		ctx, tx, uUUID,
 	)
@@ -125,6 +133,38 @@ AND    life_id = 0`, unitUUID)
 	}
 
 	return cascaded, nil
+}
+
+// getCharmUUIDIfLastAliveUnit returns the unit's charm UUID if no alive units
+// remain on that charm. Dying and dead units are deliberately excluded: their
+// removals are already in progress, and the charm job waits for their foreign
+// keys to disappear.
+func (st *State) getCharmUUIDIfLastAliveUnit(
+	ctx context.Context, tx *sqlair.TX, uUUID string,
+) (string, error) {
+	charmUUID, err := st.getCharmUUIDForUnit(ctx, tx, uUUID)
+	if err != nil || charmUUID == "" {
+		return charmUUID, errors.Capture(err)
+	}
+
+	charm := entityAssociationCount{UUID: charmUUID}
+	stmt, err := st.Prepare(`
+SELECT COUNT(*) AS &entityAssociationCount.count
+FROM   unit AS u
+WHERE  u.charm_uuid = $entityAssociationCount.uuid
+AND    u.life_id = 0
+`, charm)
+	if err != nil {
+		return "", errors.Errorf("preparing alive unit charm count: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, charm).Get(&charm); err != nil {
+		return "", errors.Errorf("counting alive units on charm %q: %w", charmUUID, err)
+	}
+	if charm.Count > 0 {
+		return "", nil
+	}
+	return charmUUID, nil
 }
 
 func (st *State) ensureUnitStorageAttachmentsNotAlive(
@@ -267,7 +307,7 @@ func (st *State) ensureUnitOwnedStorageInstancesNotAlive(
 
 	stmt, err := st.Prepare(`
 SELECT si.uuid AS &entityUUID.uuid
-FROM   storage_unit_owner so 
+FROM   storage_unit_owner so
 JOIN   storage_instance si ON so.storage_instance_uuid = si.uuid
 WHERE  so.unit_uuid = $entityUUID.uuid
 AND    si.life_id < 2`, entityUUID{})
@@ -668,6 +708,15 @@ WHERE unit_uuid = $entityAssociationCount.uuid
 		return errors.Capture(err)
 	}
 
+	storageAttachmentCountStmt, err := st.Prepare(`
+SELECT count(*) AS &entityAssociationCount.count
+FROM   storage_attachment
+WHERE  unit_uuid = $entityAssociationCount.uuid
+`, unitUUIDCount)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	unitUUIDRec := entityUUID{UUID: unitUUID}
 	deleteUnitStmt, err := st.Prepare(`
 DELETE FROM unit
@@ -699,6 +748,26 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 		return errors.Errorf("unit %q still has %d relation(s) in scope, waiting for relation removal",
 			unitUUID, numRelationUnits.Count).
 			Add(removalerrors.RemovalJobIncomplete)
+	}
+
+	// Ensure that the unit has no storage attachments. These are removed by
+	// their own removal jobs once the storage provisioner has detached the
+	// unit's filesystems and volumes, which it finds through the unit. Forced
+	// removal does not wait, and deletes them along with the unit.
+	if force {
+		if err := st.deleteUnitStorageAttachments(ctx, tx, unitUUID); err != nil {
+			return errors.Errorf("deleting storage attachments for unit %q: %w", unitUUID, err)
+		}
+	} else {
+		var numStorageAttachments entityAssociationCount
+		err = tx.Query(ctx, storageAttachmentCountStmt, unitUUIDCount).Get(&numStorageAttachments)
+		if err != nil {
+			return errors.Errorf("getting storage attachment count for unit %q: %w", unitUUID, err)
+		} else if numStorageAttachments.Count > 0 {
+			return errors.Errorf("unit %q still has %d storage attachment(s), waiting for storage removal",
+				unitUUID, numStorageAttachments.Count).
+				Add(removalerrors.RemovalJobIncomplete)
+		}
 	}
 
 	// Delete all tasks related to the unit, and eventually removes
@@ -749,6 +818,46 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 		return errors.Errorf("deleting unit for unit %q: %w", unitUUID, err)
 	}
 
+	return nil
+}
+
+// deleteUnitStorageAttachments deletes the unit's storage attachments, and its
+// ownership of the attached storage, as their removal jobs would. Filesystem
+// and volume attachments have their own removal jobs, scheduled when the unit
+// was made dying.
+func (st *State) deleteUnitStorageAttachments(
+	ctx context.Context, tx *sqlair.TX, uUUID string,
+) error {
+	unitUUIDRec := entityUUID{UUID: uUUID}
+
+	deleteOwnerStmt, err := st.Prepare(`
+WITH attached AS (
+    SELECT sa.storage_instance_uuid AS storage_instance_uuid
+    FROM   storage_attachment AS sa
+    WHERE  sa.unit_uuid = $entityUUID.uuid
+)
+DELETE FROM storage_unit_owner
+WHERE  unit_uuid = $entityUUID.uuid
+AND    storage_instance_uuid IN (
+    SELECT a.storage_instance_uuid FROM attached AS a
+)`, unitUUIDRec)
+	if err != nil {
+		return errors.Errorf("preparing unit storage owner deletion: %w", err)
+	}
+
+	deleteAttachmentStmt, err := st.Prepare(`
+DELETE FROM storage_attachment
+WHERE  unit_uuid = $entityUUID.uuid`, unitUUIDRec)
+	if err != nil {
+		return errors.Errorf("preparing unit storage attachment deletion: %w", err)
+	}
+
+	if err := tx.Query(ctx, deleteOwnerStmt, unitUUIDRec).Run(); err != nil {
+		return errors.Errorf("running unit storage owner deletion: %w", err)
+	}
+	if err := tx.Query(ctx, deleteAttachmentStmt, unitUUIDRec).Run(); err != nil {
+		return errors.Errorf("running unit storage attachment deletion: %w", err)
+	}
 	return nil
 }
 
@@ -844,7 +953,7 @@ WITH devices AS (
 	WHERE lld.net_node_uuid = $entityUUID.uuid
 )
 DELETE FROM ip_address
-WHERE device_uuid IN devices
+WHERE device_uuid IN (SELECT d.uuid FROM devices AS d)
 `, netNodeIDRec)
 	if err != nil {
 		return errors.Capture(err)
@@ -907,7 +1016,7 @@ WITH referenced AS (
 )
 DELETE FROM fqdn_address
 WHERE uuid IN ($uuids[:])
-AND uuid NOT IN referenced`, uuids{})
+AND uuid NOT IN (SELECT r.uuid FROM referenced AS r)`, uuids{})
 	if err != nil {
 		return errors.Capture(err)
 	}

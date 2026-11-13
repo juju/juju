@@ -4,10 +4,14 @@
 # into a controller built from this branch (4.0). The source controllers
 # are bootstrapped with a juju 3.6 client binary (set JUJU_MIGRATION_36_BIN
 # to override the /snap/bin/juju default, which the suite pins to the
-# 3.6/stable snap channel itself); the migration target is the suite's
+# 3.6/edge snap channel itself); the migration target is the suite's
 # own 4.0 controller. All clients share
 # ~/.local/share/juju, so a 3.6 client and the 4.0 client see the same
 # controllers and credentials.
+#
+# NOTE: 3.6/edge is temporary until a 3.6.30 patch is released
+# on the 3.6/stable channel.
+# (it must carry juju/juju#23494 and publish the jujud-operator image).
 
 JUJU_36="${JUJU_MIGRATION_36_BIN:-/snap/bin/juju}"
 
@@ -30,7 +34,11 @@ bootstrap_controller_36() {
 		cloud_region="aws/${BOOTSTRAP_REGION:-us-east-1}"
 		;;
 	"k8s")
-		cloud_region="${BOOTSTRAP_CLOUD}"
+		cloud_region="${BOOTSTRAP_CLOUD:-$(default_k8s)}"
+		if [[ -z ${cloud_region} ]]; then
+			red "must specify k8s cloud to bootstrap"
+			exit 1
+		fi
 		;;
 	*)
 		red "juju 3.6 migration tests are not supported on provider ${BOOTSTRAP_PROVIDER}"
@@ -41,27 +49,34 @@ bootstrap_controller_36() {
 	START_TIME=$(date +%s)
 	echo "====> Bootstrapping juju 3.6 controller ${name} (${cloud_region})"
 	file="${TEST_DIR}/${name}-bootstrap36.log"
+	# A failed bootstrap can still leave a controller and cloud instances.
+	echo "${name}" >>"${TEST_DIR}/mig36-controllers"
 
 	local bootstrap_args=()
+	if [[ ${BOOTSTRAP_PROVIDER:-} == "ec2" && -n ${PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS} ]]; then
+		bootstrap_args+=(--bootstrap-constraints "${PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS}")
+	fi
 	if [[ -n ${BOOTSTRAP_ARCH:-} ]]; then
 		bootstrap_args+=(--bootstrap-constraints "arch=${BOOTSTRAP_ARCH}")
 	fi
-	# Match .github/workflows/migrate.yml: migration logging on every model
-	# and no OS upgrade noise in the controller model.
+	# Migration logging on every model (as .github/workflows/migrate.yml)
+	# and no OS upgrade noise in the controller model. <root>=INFO is
+	# explicit: without it the root level drops to WARNING, and 4.0 records
+	# status history through an INFO logger, so the migrated model's
+	# show-status-log would stop updating.
 	if ! ${JUJU_36} bootstrap "${cloud_region}" "${name}" \
 		"${bootstrap_args[@]}" \
-		--model-default logging-config="#migration=TRACE" \
+		--model-default logging-config="<root>=INFO;#migration=TRACE" \
 		--model-default enable-os-upgrade=false \
 		>"${file}" 2>&1; then
 		red "Failed: bootstrapping juju 3.6 controller ${name}"
 		cat "${file}"
 		exit 1
 	fi
-	echo "${name}" >>"${TEST_DIR}/mig36-controllers"
 
 	# Keep the migration logging explicit: --model-default only guarantees
 	# defaults for hosted models.
-	${JUJU_36} model-config -m "${name}:controller" "logging-config=#migration=TRACE" >/dev/null
+	${JUJU_36} model-config -m "${name}:controller" "logging-config=<root>=INFO;#migration=TRACE" >/dev/null
 
 	# Tail the controller model logs like the framework does for its own
 	# controllers, so failures can be introspected from ${TEST_DIR}.
@@ -103,7 +118,7 @@ add_model_36() {
 
 	${JUJU_36} add-model -c "${controller}" "${model}"
 	${JUJU_36} switch "${controller}:${model}"
-	${JUJU_36} model-config -m "${controller}:${model}" "logging-config=#migration=TRACE" >/dev/null
+	${JUJU_36} model-config -m "${controller}:${model}" "logging-config=<root>=INFO;#migration=TRACE" >/dev/null
 
 	if [[ -n ${MODEL_ARCH:-} ]]; then
 		${JUJU_36} set-model-constraints -m "${controller}:${model}" "arch=${MODEL_ARCH}"
@@ -307,12 +322,12 @@ destroy_controller_36() {
 		return
 	fi
 
-	local name output chk
+	local name output
 
 	name=${1}
 
 	# shellcheck disable=SC2086
-	OUT=$(${JUJU_36} controllers --format=json 2>/dev/null | yq 'select(.controllers) | .controllers | keys | .[]' | grep "^${name}$" || true)
+	OUT=$(${JUJU_36} controllers --format=json 2>/dev/null | yq 'select(.controllers) | .controllers | keys | .[]' | grep -Fx "${name}" || true)
 	# shellcheck disable=SC2181
 	if [[ -z ${OUT} ]]; then
 		return
@@ -327,16 +342,23 @@ destroy_controller_36() {
 
 	output="${TEST_DIR}/${name}-destroy36.log"
 	echo "====> Destroying juju 3.6 controller ($(green "${name}"))"
-	timeout "${DESTROY_TIMEOUT}" "${JUJU_36}" destroy-controller \
-		--destroy-all-models --destroy-storage --no-prompt "${name}" >"${output}" 2>&1 || true
-
-	chk=$(cat "${output}" | grep -i "ERROR" || true)
-	if [[ -n ${chk} ]]; then
-		printf '\nFound some issues destroying juju 3.6 controller\n'
+	if ! timeout "${DESTROY_TIMEOUT}" "${JUJU_36}" destroy-controller \
+		--destroy-all-models --destroy-storage --no-prompt "${name}" >"${output}" 2>&1; then
+		echo "====> Destroy failed for ${name}; trying --force"
 		cat "${output}"
+		if ! timeout "${DESTROY_TIMEOUT}" "${JUJU_36}" destroy-controller \
+			--destroy-all-models --destroy-storage --force --no-prompt "${name}" >>"${output}" 2>&1; then
+			echo "====> Forced destroy failed for ${name}; trying kill-controller"
+			if ! timeout "${DESTROY_TIMEOUT}" "${JUJU_36}" kill-controller -t 0 \
+				--no-prompt "${name}" >>"${output}" 2>&1; then
+				cat "${output}"
+				return 1
+			fi
+		fi
 	fi
 
-	sed -i "/^${name}$/d" "${TEST_DIR}/mig36-controllers" 2>/dev/null || true
+	grep -Fvx "${name}" "${TEST_DIR}/mig36-controllers" >"${TEST_DIR}/mig36-controllers.remaining" || true
+	mv "${TEST_DIR}/mig36-controllers.remaining" "${TEST_DIR}/mig36-controllers"
 	echo "====> Destroyed juju 3.6 controller ($(green "${name}"))"
 }
 
@@ -366,60 +388,96 @@ remove_controller_offers_36() {
 # tracked, with the 3.6 client. Registered as a clean-up function by every
 # migration scenario.
 cleanup_mig_controllers_36() {
+	if [[ -n ${SKIP_DESTROY} ]]; then
+		echo "====> Keeping juju 3.6 controllers (SKIP_DESTROY set)"
+		return
+	fi
+	local failed=0 name
 	if [[ -f "${TEST_DIR}/mig36-controllers" ]]; then
 		echo "====> Cleaning up juju 3.6 controllers"
 		while read -r name; do
 			[[ -z ${name} ]] && continue
-			destroy_controller_36 "${name}"
-		done <"${TEST_DIR}/mig36-controllers"
-		rm -f "${TEST_DIR}/mig36-controllers" || true
+			if ! destroy_controller_36 "${name}"; then
+				echo "====> Failed to clean up juju 3.6 controller ${name}" >&2
+				failed=1
+			fi
+		done < <(sort -u "${TEST_DIR}/mig36-controllers")
+		if [[ ${failed} -eq 0 ]]; then
+			rm -f "${TEST_DIR}/mig36-controllers"
+		fi
 	fi
 	echo "====> Completed cleaning up juju 3.6 controllers"
+	return "${failed}"
+}
+
+# wait_for_mig_writes_increase polls until the continuous-writes counter
+# exceeds <baseline>, returning the new count on stdout. Progress and
+# diagnostics go to stderr so callers can capture the count. Failed reads
+# (including the charm's -1 result) are retried; valid regressions fail.
+#
+#   usage: wait_for_mig_writes_increase <bin> <model> <baseline> [timeout]
+wait_for_mig_writes_increase() {
+	local bin=${1} model=${2} baseline=${3} timeout=${4:-600}
+	local deadline remaining current delay attempt=0
+
+	if [[ ! ${baseline} =~ ^[0-9]+$ ]]; then
+		red "Failed: invalid continuous-writes baseline ${baseline:-<empty>} for ${model}" >&2
+		return 1
+	fi
+	if [[ ! ${timeout} =~ ^[0-9]+$ ]] || ((10#${timeout} <= 0)); then
+		red "Failed: invalid continuous-writes timeout ${timeout} for ${model}" >&2
+		return 1
+	fi
+	baseline=$((10#${baseline}))
+	timeout=$((10#${timeout}))
+	deadline=$(($(date -u +%s) + timeout))
+
+	while true; do
+		remaining=$((deadline - $(date -u +%s)))
+		if ((remaining <= 0)); then
+			break
+		fi
+		current=$(mig_writes_get "${bin}" "${model}" "${remaining}") || current=""
+		remaining=$((deadline - $(date -u +%s)))
+		if ((remaining <= 0)); then
+			break
+		fi
+		if [[ ${current} =~ ^[0-9]+$ ]]; then
+			current=$((10#${current}))
+			if ((current < baseline)); then
+				red "Failed: continuous writes regressed for ${model} (${baseline} -> ${current})" >&2
+				return 1
+			fi
+			if ((current > baseline)); then
+				echo "==> continuous writes increased: ${baseline} -> ${current} (${model})" >&2
+				printf '%s\n' "${current}"
+				return 0
+			fi
+		fi
+		echo "[+] (attempt ${attempt}) polling continuous writes for ${model}: ${current:-<empty>} (want > ${baseline})" >&2
+		delay=${SHORT_TIMEOUT}
+		if ((delay > remaining)); then
+			delay=${remaining}
+		fi
+		sleep "${delay}"
+		attempt=$((attempt + 1))
+	done
+
+	red "Failed: timed out after ${timeout}s waiting for continuous writes on ${model} (baseline=${baseline}, current=${current:-<empty>})" >&2
+	timeout 30s "${bin}" status -m "${model}" --relations >&2 || true
+	timeout 30s "${bin}" debug-log -m "${model}" --replay --no-tail >&2 || true
+	return 1
 }
 
 # mig_writes_get returns the continuous-writes counter of the
 # postgresql-test-app leader unit in the given model. <bin> is the juju
-# client that can talk to the model's controller.
+# client that can talk to the model's controller. The optional timeout
+# bounds the action to a polling loop's remaining deadline.
 mig_writes_get() {
-	local bin=${1} model=${2} out
+	local bin=${1} model=${2} timeout=${3:-600} out
 
-	out=$(${bin} run -m "${model}" postgresql-test-app/leader show-continuous-writes --format=yaml 2>/dev/null || true)
+	out=$(timeout "${timeout}s" "${bin}" run -m "${model}" postgresql-test-app/leader show-continuous-writes --wait="${timeout}s" --format=yaml 2>/dev/null || true)
 	echo "${out}" | yq -r '.[] | select(.results != null) | .results["writes"]' 2>/dev/null | head -n1
-}
-
-# mig_assert_writes_increase asserts the continuous-writes counter moved
-# from <previous> to <current> for <label>. bash's [[ > ]] is
-# lexicographic, so the comparison is arithmetic on purpose.
-mig_assert_writes_increase() {
-	local previous=${1} current=${2} baseline=${3} label=${4}
-
-	if [[ ! ${current} =~ ^[0-9]+$ || ! ${baseline} =~ ^[0-9]+$ ]]; then
-		red "Failed: could not parse continuous-writes counter (current=${current:-<empty>}, expected at least ${baseline:-<empty>}) for ${label}"
-		exit 1
-	fi
-	if ((current <= baseline)); then
-		red "Failed: continuous writes did not increase for ${label} (${previous} -> ${current}, expected at least ${baseline})"
-		exit 1
-	fi
-	echo "==> continuous writes increased: ${previous} -> ${current} (${label})"
-}
-
-# mig_assert_writes_ge asserts the continuous-writes counter is at least
-# <baseline> for <label>. Used where an absolute reset must be detected but
-# the counter may legitimately be below an earlier reading, e.g. across the
-# offering-side migration of a relation.
-mig_assert_writes_ge() {
-	local baseline=${1} current=${2} label=${3}
-
-	if [[ ! ${current} =~ ^[0-9]+$ || ! ${baseline} =~ ^[0-9]+$ ]]; then
-		red "Failed: could not parse continuous-writes counter (current=${current:-<empty>}, expected at least ${baseline:-<empty>}) for ${label}"
-		exit 1
-	fi
-	if ((current < baseline)); then
-		red "Failed: continuous writes regressed for ${label} (${baseline} -> ${current})"
-		exit 1
-	fi
-	echo "==> continuous writes at or above baseline: ${baseline} <= ${current} (${label})"
 }
 
 # arm_wrench_die_in_export arms the migrationmaster "die-in-export" wrench
@@ -440,12 +498,13 @@ cleanup_wrench_die_in_export_36() {
 		'sudo mkdir -p /var/lib/juju/wrench && : | sudo tee /var/lib/juju/wrench/migrationmaster >/dev/null' >/dev/null 2>&1 || true
 }
 
-# ensure_juju36_client pins the regular juju snap to the 3.6/stable
-# channel when the default /snap/bin/juju location is in use, mirroring
-# the upgrade suite's prior-stable install (tests/suites/upgrade/
-# streams.sh). A custom JUJU_MIGRATION_36_BIN is used as-is. Call this
-# un-captured from the wrapper path (like run_migration_*); never from
-# inside a $( ...) capture, or sudo's password prompt has no terminal.
+# ensure_juju36_client pins the regular juju snap to the
+# 3.6/edge channel when the default /snap/bin/juju
+# location is in use, mirroring the upgrade suite's prior-stable install
+# (tests/suites/upgrade/streams.sh). A custom JUJU_MIGRATION_36_BIN is
+# used as-is. Call this un-captured from the wrapper path (like
+# run_migration_*); never from inside a $( ...) capture, or sudo's
+# password prompt has no terminal.
 # The channel the snap tracked before pinning is captured so the
 # framework cleanup can restore it (restore_juju36_channel): a local
 # run must not leave the developer's juju pinned to 3.6.
@@ -453,7 +512,9 @@ ensure_juju36_client() {
 	if [[ ${JUJU_36} != "/snap/bin/juju" ]]; then
 		return
 	fi
-	if [[ $(${JUJU_36} version 2>/dev/null || true) == 3.6* ]]; then
+	# TODO: switch back to 3.6/stable once 3.6.30 is released.
+	if [[ $(${JUJU_36} version 2>/dev/null || true) == 3.6* ]] &&
+		[[ "$(snap info juju 2>/dev/null | awk '/^tracking:/{print $2}')" == "3.6/edge" ]]; then
 		return
 	fi
 
@@ -479,7 +540,8 @@ ensure_juju36_client() {
 	fi
 
 	local attempts=0
-	while [[ $(${JUJU_36} version 2>/dev/null || true) != 3.6* ]]; do
+	while [[ $(${JUJU_36} version 2>/dev/null || true) != 3.6* ]] ||
+		[[ "$(snap info juju 2>/dev/null | awk '/^tracking:/{print $2}')" != "3.6/edge" ]]; do
 		if (( attempts >= 3 )); then
 			echo "failed to install the juju 3.6 snap after ${attempts} attempts" >&2
 			return 1
@@ -488,28 +550,29 @@ ensure_juju36_client() {
 		# Re-evaluate install vs refresh on every attempt: a failed
 		# attempt may leave the snap listed but unusable, and retrying
 		# install against a listed snap fails deterministically.
-		local action opts
+		local action
 		if snap list juju >/dev/null 2>&1; then
 			action="refresh"
-			opts=""
-			if (( attempts > 0 )); then
-				# Like the upgrade suite: a channel-changing
-				# refresh is rejected without --amend, so a
-				# byte-identical retry cannot succeed.
-				opts=" --amend"
-			fi
 		else
 			action="install"
-			opts=""
 		fi
-		sudo snap "${action}" juju --classic --channel 3.6/stable${opts} 2>&1 && break || sleep 10
+		# All 3.6/stable and 3.6/edge revisions are strictly confined,
+		# so no --classic here.
+		local -a snap_args=("${action}" juju --channel 3.6/edge)
+		if [[ ${action} == "refresh" ]] && (( attempts > 0 )); then
+			# Like the upgrade suite: a channel-changing refresh
+			# is rejected without --amend, so a byte-identical
+			# retry cannot succeed.
+			snap_args+=(--amend)
+		fi
+		sudo snap "${snap_args[@]}" 2>&1 && break || sleep 10
 		attempts=$((attempts + 1))
 	done
 }
 
 # restore_juju36_channel returns the regular juju snap to the state it
-# was in before ensure_juju36_client pinned it to 3.6/stable: refreshed
-# back to its previously tracked channel, or removed again when the
+# was in before ensure_juju36_client pinned it to the migration channel:
+# refreshed back to its previously tracked channel, or removed again when the
 # suite installed it in the first place. The runner calls this after all
 # controller cleanup, not through the ordered cleanup callback list.
 restore_juju36_channel() {

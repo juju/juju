@@ -43,7 +43,7 @@ run_resource_charm_transition_same_store_resource() {
 	# Revision 31 and the destination revision 26 both use resource revision 2.
 	juju deploy juju-qa-test --channel 2.0/candidate --revision 31 \
 		--base ubuntu@20.04 -n 2
-	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+	wait_for_units_idle juju-qa-test 2
 	juju config juju-qa-test foo-file=true
 	wait_for "resource line one: testing two." "$(workload_status juju-qa-test 0).message"
 	wait_for "resource line one: testing two." "$(workload_status juju-qa-test 1).message"
@@ -58,6 +58,7 @@ run_resource_charm_transition_same_store_resource() {
 	juju config juju-qa-test foo-file=false
 	juju refresh juju-qa-test --channel latest/stable --revision 26
 	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "latest/stable")"
+	wait_for_units_idle juju-qa-test 2
 	juju config juju-qa-test foo-file=true
 	wait_for "resource line one: testing two." "$(workload_status juju-qa-test 0).message"
 	wait_for "resource line one: testing two." "$(workload_status juju-qa-test 1).message"
@@ -89,7 +90,7 @@ run_resource_charm_transition_store_resource_revision() {
 
 	juju deploy juju-qa-test --channel 2.0/candidate --revision 31 \
 		--base ubuntu@20.04 -n 2
-	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+	wait_for_units_idle juju-qa-test 2
 	juju config juju-qa-test foo-file=true
 	wait_for "resource line one: testing two." "$(workload_status juju-qa-test 0).message"
 	wait_for "resource line one: testing two." "$(workload_status juju-qa-test 1).message"
@@ -100,6 +101,7 @@ run_resource_charm_transition_store_resource_revision() {
 	juju config juju-qa-test foo-file=false
 	juju refresh juju-qa-test --channel latest/stable --revision 26 --resource foo-file=3
 	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "latest/stable")"
+	wait_for_units_idle juju-qa-test 2
 	juju config juju-qa-test foo-file=true
 	wait_for "resource line one: testing one plus one." "$(workload_status juju-qa-test 0).message"
 	wait_for "resource line one: testing one plus one." "$(workload_status juju-qa-test 1).message"
@@ -131,7 +133,7 @@ run_resource_charm_transition_pinned_upload() {
 	juju deploy juju-qa-test --channel 2.0/candidate --revision 31 \
 		--base ubuntu@20.04 -n 2 \
 		--resource foo-file="./tests/suites/resources/foo-file.txt"
-	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+	wait_for_units_idle juju-qa-test 2
 	juju config juju-qa-test foo-file=true
 	wait_for "resource line one: did the resource attach?" "$(workload_status juju-qa-test 0).message"
 	wait_for "resource line one: did the resource attach?" "$(workload_status juju-qa-test 1).message"
@@ -144,6 +146,7 @@ run_resource_charm_transition_pinned_upload() {
 	juju config juju-qa-test foo-file=false
 	juju refresh juju-qa-test --channel latest/stable --revision 26
 	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "latest/stable")"
+	wait_for_units_idle juju-qa-test 2
 	juju config juju-qa-test foo-file=true
 	wait_for "resource line one: did the resource attach?" "$(workload_status juju-qa-test 0).message"
 	wait_for "resource line one: did the resource attach?" "$(workload_status juju-qa-test 1).message"
@@ -192,6 +195,8 @@ run_resource_charm_transition_resource_names() {
 	juju deploy "${charm_v1}" resource-lifecycle -n 2 \
 		--resource retained="${retained_file}" \
 		--resource removed="${removed_file}"
+	# Ensure both units run the v1 charm before the first transition.
+	wait_for_units_idle resource-lifecycle 2
 	wait_for "retained=${retained_digest}" "$(workload_status resource-lifecycle 0).message"
 	wait_for "retained=${retained_digest}" "$(workload_status resource-lifecycle 1).message"
 	check_resource_names resource-lifecycle "removed,retained"

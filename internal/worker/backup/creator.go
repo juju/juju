@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package backupcreation
+package backup
 
 import (
 	"context"
@@ -16,6 +16,7 @@ import (
 	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	coreversion "github.com/juju/juju/core/version"
 	domainexport "github.com/juju/juju/domain/export"
@@ -30,14 +31,16 @@ type Creator struct {
 	controllerUUID      string
 	controllerModelUUID coremodel.UUID
 	machineID           string
+	machineInstanceID   GetMachineInstanceIDFunc
 	dataDir             string
 	logDir              string
 
-	controllerExport ControllerExportService
-	modelServicesFor ModelServicesForFunc
-	modelConfig      ModelConfigService
-	controller       ControllerModelLister
-	controllerNodes  ControllerNodeLister
+	controllerExport    ControllerExportService
+	modelServicesGetter ModelServicesGetterFunc
+	machineService      MachineService
+	modelConfig         ModelConfigService
+	controller          ControllerModelLister
+	controllerNodes     ControllerNodeLister
 
 	controllerObjectStore ReadObjectStore
 	objectStoreForModel   ObjectStoreForModelFunc
@@ -48,20 +51,48 @@ type Creator struct {
 
 // CreatorConfig supplies the dependencies needed to create backup archives.
 type CreatorConfig struct {
-	MachineTag            names.Tag
-	ControllerUUID        string
-	ControllerModelUUID   coremodel.UUID
-	DataDir               string
-	LogDir                string
-	ControllerExport      ControllerExportService
-	ModelServicesFor      ModelServicesForFunc
-	ModelConfig           ModelConfigService
-	Controller            ControllerModelLister
-	ControllerNodes       ControllerNodeLister
+	MachineTag          names.Tag
+	ControllerUUID      string
+	ControllerModelUUID coremodel.UUID
+	DataDir             string
+	LogDir              string
+	ModelServicesGetter ModelServicesGetterFunc
+
+	// MachineInstanceIDGetter resolves the controller machine's cloud instance
+	// ID from MachineService, for recording in the archive metadata. The
+	// implementation is chosen by manifold wiring: machine-hosted controllers
+	// resolve it from the machine service, while controllers without a machine,
+	// such as Kubernetes, report none.
+	MachineInstanceIDGetter GetMachineInstanceIDFunc
+
+	// ControllerExport is the controller domain service that exports the
+	// controller database into the archive.
+	ControllerExport ControllerExportService
+
+	// ControllerModelMachineService is the controller model's machine domain service, used to
+	// retrieve the controller machine's cloud instance ID for the archive
+	// metadata.
+	ControllerModelMachineService MachineService
+
+	// ModelConfig is the controller model's config domain service, used to
+	// resolve the backup directory.
+	ModelConfig ModelConfigService
+
+	// ControllerModelLister is the controller domain service that lists the
+	// model namespaces to export into the archive.
+	ControllerModelLister ControllerModelLister
+
+	// ControllerNodes is the controller domain service that lists the controller
+	// machine IDs, recorded as the HA node count in the archive metadata.
+	ControllerNodes ControllerNodeLister
+
+	// ControllerObjectStore is the object store for the controller namespace,
+	// used to stream controller objects into the archive.
 	ControllerObjectStore ReadObjectStore
-	ObjectStoreForModel   ObjectStoreForModelFunc
-	Clock                 clock.Clock
-	Logger                corelogger.Logger
+
+	ObjectStoreForModel ObjectStoreForModelFunc
+	Clock               clock.Clock
+	Logger              corelogger.Logger
 }
 
 // Validate checks that archive creation dependencies are complete.
@@ -81,17 +112,23 @@ func (c CreatorConfig) Validate() error {
 	if c.LogDir == "" {
 		return jujuerrors.NotValidf("empty LogDir")
 	}
+	if c.MachineInstanceIDGetter == nil {
+		return jujuerrors.NotValidf("nil MachineInstanceIDGetter")
+	}
 	if c.ControllerExport == nil {
 		return jujuerrors.NotValidf("nil ControllerExport")
 	}
-	if c.ModelServicesFor == nil {
-		return jujuerrors.NotValidf("nil ModelServicesFor")
+	if c.ModelServicesGetter == nil {
+		return jujuerrors.NotValidf("nil ModelServicesGetter")
+	}
+	if c.ControllerModelMachineService == nil {
+		return jujuerrors.NotValidf("nil ControllerModelMachineService")
 	}
 	if c.ModelConfig == nil {
 		return jujuerrors.NotValidf("nil ModelConfig")
 	}
-	if c.Controller == nil {
-		return jujuerrors.NotValidf("nil Controller")
+	if c.ControllerModelLister == nil {
+		return jujuerrors.NotValidf("nil ControllerModelLister")
 	}
 	if c.ControllerNodes == nil {
 		return jujuerrors.NotValidf("nil ControllerNodes")
@@ -120,12 +157,14 @@ func NewCreator(cfg CreatorConfig) (*Creator, error) {
 		controllerUUID:        cfg.ControllerUUID,
 		controllerModelUUID:   cfg.ControllerModelUUID,
 		machineID:             cfg.MachineTag.Id(),
+		machineInstanceID:     cfg.MachineInstanceIDGetter,
 		dataDir:               cfg.DataDir,
 		logDir:                cfg.LogDir,
 		controllerExport:      cfg.ControllerExport,
-		modelServicesFor:      cfg.ModelServicesFor,
+		modelServicesGetter:   cfg.ModelServicesGetter,
+		machineService:        cfg.ControllerModelMachineService,
 		modelConfig:           cfg.ModelConfig,
-		controller:            cfg.Controller,
+		controller:            cfg.ControllerModelLister,
 		controllerNodes:       cfg.ControllerNodes,
 		controllerObjectStore: cfg.ControllerObjectStore,
 		objectStoreForModel:   cfg.ObjectStoreForModel,
@@ -212,7 +251,7 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 		if err := ctx.Err(); err != nil {
 			return nil, "", nil, err
 		}
-		modelServices, err := c.modelServicesFor(ctx, coremodel.UUID(modelUUID))
+		modelServices, err := c.modelServicesGetter(ctx, coremodel.UUID(modelUUID))
 		if err != nil {
 			return nil, "", nil, errors.Capture(err)
 		}
@@ -324,6 +363,17 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 	hostname, _ := os.Hostname()
 
 	meta := corebackups.NewMetadata(c.clock.Now())
+
+	// The controller machine's cloud instance ID is resolved by the
+	// implementation injected at manifold wiring: machine-hosted controllers
+	// look it up in the controller model's machine service, while controllers
+	// without a machine, such as Kubernetes, record it as empty. For
+	// machine-hosted controllers the lookup is fatal: the archive metadata must
+	// not record a missing or incorrect instance ID.
+	instanceID, err := c.machineInstanceID(ctx, c.machineID, c.machineService)
+	if err != nil {
+		return nil, "", nil, errors.Errorf("recording controller machine instance ID: %w", err)
+	}
 	meta.Notes = notes
 	meta.Origin = corebackups.Origin{
 		Model:    c.controllerModelUUID.String(),
@@ -337,7 +387,7 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 	meta.Controller = corebackups.ControllerMetadata{
 		UUID:              c.controllerUUID,
 		MachineID:         c.machineID,
-		MachineInstanceID: corebackups.UnknownString,
+		MachineInstanceID: instanceID,
 		HANodes:           int64(len(controllerIDs)),
 	}
 
@@ -371,4 +421,37 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 	completed = true
 	cleanup := func() { _ = os.RemoveAll(tmpDir) }
 	return meta, filename, cleanup, nil
+}
+
+// MachineInstanceID resolves the controller machine's cloud instance ID from
+// the controller model's machine service. Manifold wiring for machine-hosted
+// controllers injects this implementation.
+func MachineInstanceID(
+	ctx context.Context,
+	machineID string,
+	machineService MachineService,
+) (string, error) {
+	machineUUID, err := machineService.GetMachineUUID(ctx, machine.Name(machineID))
+	if err != nil {
+		return "", errors.Errorf("retrieving controller machine UUID: %w", err)
+	}
+	instanceID, err := machineService.GetInstanceID(ctx, machineUUID)
+	if err != nil {
+		return "", errors.Errorf("retrieving controller machine cloud instance ID: %w", err)
+	}
+	// GetInstanceID errors if the machine has no cloud instance ID, so
+	// an empty result indicates an implementation that violates the
+	// MachineService contract; return an error rather than write an
+	// empty instance ID to the archive metadata.
+	if instanceID == "" {
+		return "", errors.New("controller machine cloud instance ID is empty")
+	}
+	return string(instanceID), nil
+}
+
+// NoMachineInstanceID reports that the controller has no provider machine.
+// Manifold wiring for Kubernetes controllers injects this implementation, so
+// no machine metadata is queried and the archive records no instance ID.
+func NoMachineInstanceID(_ context.Context, _ string, _ MachineService) (string, error) {
+	return "", nil
 }

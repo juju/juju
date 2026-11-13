@@ -605,65 +605,34 @@ func (w *dbReplWorker) execViews(ctx context.Context) {
 }
 
 func (w *dbReplWorker) changeLog(ctx context.Context) {
-	type row struct {
-		id        int
-		editType  string
-		namespace string
-		changed   string
-		createdAt string
-	}
-	var changelogRows []row
-
-	err := w.currentDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		changelogRows = nil
-
-		rows, err := tx.QueryContext(ctx, `
+	w.printChangeLogRows(ctx, `
 SELECT c.id, t.edit_type, n.namespace, c.changed, c.created_at 
 FROM change_log AS c
 JOIN change_log_edit_type AS t ON c.edit_type_id = t.id
 JOIN change_log_namespace AS n ON c.namespace_id = n.id;
 `)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = rows.Close() }()
-
-		for rows.Next() {
-			var r row
-			if err := rows.Scan(&r.id, &r.editType, &r.namespace, &r.changed, &r.createdAt); err != nil {
-				return err
-			}
-			changelogRows = append(changelogRows, r)
-		}
-		return rows.Err()
-	})
-
-	if err != nil {
-		w.cfg.Logger.Errorf(ctx, "failed to execute query: %v", err)
-		return
-	}
-
-	headerStyle := color.New(color.Bold)
-	var sb strings.Builder
-	writer := ansiterm.NewTabWriter(&sb, 0, 8, 1, '\t', 0)
-
-	_, _ = headerStyle.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\t\n",
-		"id", "edit_type", "namespace", "changed", "created_at")
-	for _, r := range changelogRows {
-		_, _ = fmt.Fprintf(writer, "%d\t%s\t%s\t%s\t%s\t\n",
-			r.id, r.editType, r.namespace, r.changed, r.createdAt)
-	}
-
-	if err := writer.Flush(); err != nil {
-		w.cfg.Logger.Errorf(ctx, "failed to flush writer: %v", err)
-		// If the flush fails, we still want to print the
-		// output that has been written so far.
-	}
-
-	_, _ = fmt.Fprintln(w.cfg.Stdout, sb.String())
 }
 
 func (w *dbReplWorker) changeStream(ctx context.Context) {
+	// Select the latest row explicitly instead of relying on SQLite's
+	// bare-column MAX behaviour for the other displayed fields.
+	w.printChangeLogRows(ctx, `
+WITH latest AS (
+    SELECT MAX(id) AS id
+    FROM change_log
+    WHERE id > ?
+    GROUP BY namespace_id, changed
+)
+SELECT c.id, t.edit_type, n.namespace, c.changed, c.created_at
+FROM latest
+JOIN change_log AS c ON c.id = latest.id
+JOIN change_log_edit_type AS t ON c.edit_type_id = t.id
+JOIN change_log_namespace AS n ON c.namespace_id = n.id
+ORDER BY c.id;
+`, 0)
+}
+
+func (w *dbReplWorker) printChangeLogRows(ctx context.Context, query string, args ...any) {
 	type row struct {
 		id        int
 		editType  string
@@ -676,15 +645,7 @@ func (w *dbReplWorker) changeStream(ctx context.Context) {
 	err := w.currentDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		changelogRows = nil
 
-		rows, err := tx.QueryContext(ctx, `
-SELECT MAX(c.id), t.edit_type, n.namespace, changed, created_at
-FROM change_log AS c
-JOIN change_log_edit_type AS t ON c.edit_type_id = t.id
-JOIN change_log_namespace AS n ON c.namespace_id = n.id
-WHERE c.id > ?
-GROUP BY c.namespace_id, c.changed
-ORDER BY c.id;
-`, 0)
+		rows, err := tx.QueryContext(ctx, query, args...)
 		if err != nil {
 			return err
 		}

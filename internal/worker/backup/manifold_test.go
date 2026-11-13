@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package backupcreation
+package backup
 
 import (
 	"context"
@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/internal/services"
 )
 
@@ -30,10 +31,11 @@ func manifoldConfig(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
 		LeaseManagerName: "leases", DomainServicesName: "services", ObjectStoreName: "objects",
 		ControllerUUID: worker.ControllerUUID, ControllerModelUUID: worker.ControllerModelUUID,
-		ControllerNodeID:  worker.ControllerNodeID,
-		ControllerTag:     names.NewControllerAgentTag("0"),
-		LocalConfigReader: localConfigStub{values: LocalValues{DataDir: "/data", LogDir: "/logs"}},
-		Clock:             worker.Clock, Logger: worker.Logger,
+		ControllerNodeID:        worker.ControllerNodeID,
+		ControllerTag:           names.NewControllerAgentTag("0"),
+		MachineInstanceIDGetter: NoMachineInstanceID,
+		LocalConfigReader:       localConfigStub{values: LocalValues{DataDir: "/data", LogDir: "/logs"}},
+		Clock:                   worker.Clock, Logger: worker.Logger,
 		NewWorker: NewWorker,
 	}
 }
@@ -121,6 +123,7 @@ func (s *manifoldSuite) TestInvalidConfiguration(c *tc.C) {
 		{func(c *ManifoldConfig) { c.DomainServicesName = "" }, "empty DomainServicesName not valid"},
 		{func(c *ManifoldConfig) { c.ObjectStoreName = "" }, "empty ObjectStoreName not valid"},
 		{func(c *ManifoldConfig) { c.ControllerTag = nil }, "nil ControllerTag not valid"},
+		{func(c *ManifoldConfig) { c.MachineInstanceIDGetter = nil }, "nil MachineInstanceIDGetter not valid"},
 		{func(c *ManifoldConfig) { c.ControllerNodeID = "" }, "empty ControllerNodeID not valid"},
 		{func(c *ManifoldConfig) { c.LocalConfigReader = nil }, "nil LocalConfigReader not valid"},
 		{func(c *ManifoldConfig) { c.Clock = nil }, "nil Clock not valid"},
@@ -152,7 +155,16 @@ type localConfigStub struct {
 
 func (s localConfigStub) BackupLocalValues() (LocalValues, error) { return s.values, s.err }
 
-type domainServicesStub struct{ services.DomainServices }
+// domainServicesStub shadows Machine on the embedded DomainServices
+// interface, so the archive generator can resolve the machine service
+// without a database; the other getters stay nil and panic if reached.
+type domainServicesStub struct {
+	services.DomainServices
+	machine *machineservice.WatchableService
+}
+
+func (s domainServicesStub) Machine() *machineservice.WatchableService { return s.machine }
+
 type servicesGetterStub struct {
 	get func(context.Context, coremodel.UUID) (services.DomainServices, error)
 }

@@ -16,6 +16,9 @@ run_resource_refresh() {
 
 	juju refresh juju-qa-test --channel 2.0/stable
 	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "2.0/stable")"
+	# The channel flip alone does not mean the unit runs the new charm; wait
+	# for it to settle so the stale status cannot satisfy the wait below.
+	wait_for_units_idle juju-qa-test 1
 
 	juju config juju-qa-test foo-file=true
 	wait_for "resource line one: testing one." "$(workload_status juju-qa-test 0).message"
@@ -37,14 +40,18 @@ run_resource_refresh_no_new_charm_rev() {
 
 	# wait for update-status
 	wait_for "resource line one: testing four." "$(workload_status juju-qa-test 0).message"
-	juju resources juju-qa-test --format json | yq '.resources[0] | .[ "revision"] == "4"'
+	juju resources juju-qa-test --format json |
+		yq -r '.resources[] | select(.name == "foo-file") | .revision' |
+		check "^4$"
 	juju config juju-qa-test foo-file=false
 
 	juju refresh juju-qa-test
 
 	juju config juju-qa-test foo-file=true
 	wait_for "resource line one: testing two." "$(workload_status juju-qa-test 0).message"
-	juju resources juju-qa-test --format json | yq '.resources[0] | .[ "revision"] == "2"'
+	juju resources juju-qa-test --format json |
+		yq -r '.resources[] | select(.name == "foo-file") | .revision' |
+		check "^2$"
 
 	destroy_model "test-${name}"
 }
@@ -89,7 +96,7 @@ run_resource_refresh_no_new_charm_rev_supply_res_rev() {
 		check '^2$'
 
 	juju deploy juju-qa-test --channel latest/stable -n 2
-	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+	wait_for_units_idle juju-qa-test 2
 	juju config juju-qa-test foo-file=true
 
 	# wait for update-status
@@ -100,6 +107,7 @@ run_resource_refresh_no_new_charm_rev_supply_res_rev() {
 	juju config juju-qa-test foo-file=false
 
 	juju refresh juju-qa-test --revision "${charm_revision}" --resource foo-file=3
+	wait_for_units_idle juju-qa-test 2
 
 	juju config juju-qa-test foo-file=true
 	wait_for "resource line one: testing one plus one." "$(workload_status juju-qa-test 0).message"
@@ -133,8 +141,12 @@ run_resource_no_upgrade_after_upload() {
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 
 	# check resource revision hasn't changed.
-	juju resources juju-qa-test --format json | yq '.resources[0] | .[ "revision"] == "0"'
-	juju resources juju-qa-test --format json | yq '.resources[0] | .[ "origin"] == "upload"'
+	juju resources juju-qa-test --format json |
+		yq -r '.resources[] | select(.name == "foo-file") | .revision' |
+		check "^0$"
+	juju resources juju-qa-test --format json |
+		yq -r '.resources[] | select(.name == "foo-file") | .origin' |
+		check "^upload$"
 
 	destroy_model "test-${name}"
 }

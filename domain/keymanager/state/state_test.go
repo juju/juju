@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
@@ -24,6 +25,8 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	statemodeltesting "github.com/juju/juju/domain/model/state/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/database/dqlite"
 	"github.com/juju/juju/internal/ssh"
 )
 
@@ -123,6 +126,52 @@ func (s *stateSuite) TestAddPublicKeyForUser(c *tc.C) {
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
 	c.Check(keys, tc.DeepEquals, testingPublicKeys)
+}
+
+func (s *stateSuite) TestEnsureUserPublicKeyConcurrentWrite(c *tc.C) {
+	if !dqlite.Enabled {
+		_, err := s.DB().ExecContext(c.Context(), "PRAGMA journal_mode=WAL")
+		c.Assert(err, tc.ErrorIsNil)
+		var journalMode string
+		err = s.DB().QueryRowContext(c.Context(), "PRAGMA journal_mode").Scan(&journalMode)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(journalMode, tc.Equals, "wal")
+	}
+
+	state := NewState(s.TxnRunnerFactory())
+	keys := generatePublicKeys(c, testingPublicKeys[:2])
+	tx, err := sqlair.NewDB(s.DB()).Begin(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Cleanup(func() {
+		if err := tx.Rollback(); err != sql.ErrTxDone {
+			c.Check(err, tc.ErrorIsNil)
+		}
+	})
+
+	err = state.checkUserExists(c.Context(), s.userId, tx)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Commit another writer after establishing the first transaction's snapshot.
+	err = state.EnsurePublicKeysForUser(c.Context(), s.modelId, s.userId, keys[:1])
+	c.Assert(err, tc.ErrorIsNil)
+
+	key := keys[1]
+	_, err = state.ensureUserPublicKey(c.Context(), userPublicKeyInsert{
+		Comment:                  key.Comment,
+		FingerprintHashAlgorithm: key.FingerprintHash.String(),
+		Fingerprint:              key.Fingerprint,
+		PublicKey:                key.Key,
+		UserId:                   s.userId.String(),
+	}, tx)
+	c.Check(database.IsErrRetryable(err), tc.IsTrue, tc.Commentf("%v", err))
+	err = tx.Rollback()
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = state.EnsurePublicKeysForUser(c.Context(), s.modelId, s.userId, keys[1:])
+	c.Assert(err, tc.ErrorIsNil)
+	data, err := state.GetPublicKeysDataForUser(c.Context(), s.modelId, s.userId)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(data, tc.SameContents, []string{keys[0].Key, keys[1].Key})
 }
 
 // TestAddPublicKeysForUserAlreadyExists is asserting that if we try and add the

@@ -338,6 +338,7 @@ func registerCommands(r commandRegistry) {
 	r.Register(newVersionCommand())
 	// Creation commands.
 	r.Register(newBootstrapCommand())
+	r.Register(newRecoveryCommand())
 	r.Register(application.NewAddRelationCommand())
 
 	// Cross model relations commands.

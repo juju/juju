@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/removal"
 	domainsequence "github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/internal/errors"
@@ -1140,4 +1141,37 @@ WHERE charm_uuid = $entityUUID.uuid;
 	}
 
 	return charmHash.Hash, nil
+}
+
+// scheduleCharmRemoval schedules a removal job for the charm with the input
+// UUID, inside the current transaction.
+// UUIDs are normally generated in the service layer. This is intentionally
+// an exception because the charm being displaced is selected inside this
+// transaction. Pre-generating the job UUID would require a separate read
+// that can become stale when a concurrent operation changes the charm. The
+// job UUID is not returned, and a retried transaction rolls back the UUID
+// from its previous attempt, so generating it here is safe and keeps the
+// charm change atomic with scheduling its removal.
+func (s *State) scheduleCharmRemoval(ctx context.Context, tx *sqlair.TX, charmUUID string) error {
+	jobUUID, err := removal.NewUUID()
+	if err != nil {
+		return errors.Errorf("generating charm removal job UUID: %w", err)
+	}
+	job := charmRemovalJob{
+		UUID:          jobUUID.String(),
+		CharmUUID:     charmUUID,
+		ScheduledFor:  s.clock.Now().UTC(),
+		RemovalTypeID: uint64(removal.CharmJob),
+	}
+	stmt, err := s.Prepare(`
+INSERT INTO removal (uuid, removal_type_id, entity_uuid, scheduled_for)
+VALUES ($charmRemovalJob.uuid,
+        $charmRemovalJob.removal_type_id,
+        $charmRemovalJob.charm_uuid,
+        $charmRemovalJob.scheduled_for)
+`, job)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return errors.Capture(tx.Query(ctx, stmt, job).Run())
 }

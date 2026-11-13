@@ -58,7 +58,8 @@ type ApplicationState interface {
 	IsApplicationK8sResourcesManaged(ctx context.Context, appUUID string) (bool, error)
 
 	// DeleteCharmIfUnused deletes the charm with the input UUID if it is not
-	// used by any other application/unit.
+	// used by any other application or unit. It returns
+	// [removalerrors.RemovalJobIncomplete] while unit references remain.
 	DeleteCharmIfUnused(ctx context.Context, charmUUID string) error
 
 	// DeleteOrphanedResources deletes any resources associated with the input
@@ -157,6 +158,10 @@ func (s *Service) RemoveApplication(
 	}
 
 	if err := s.scheduleCascaded(ctx, cascaded.StorageInstanceUUIDs, force, wait, s.storageInstanceScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
+	}
+
+	if err := s.scheduleCharmRemovals(ctx, cascaded.CharmUUIDs); err != nil {
 		return "", errors.Capture(err)
 	}
 
