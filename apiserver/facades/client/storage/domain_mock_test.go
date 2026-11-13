@@ -21,6 +21,7 @@ import (
 	removal "github.com/juju/juju/domain/removal"
 	service "github.com/juju/juju/domain/status/service"
 	storage0 "github.com/juju/juju/domain/storage"
+	storage1 "github.com/juju/juju/internal/storage"
 )
 
 // MockApplicationService is a mock of ApplicationService interface.
@@ -421,6 +422,7 @@ type MockStorageServiceMockRecorder struct {
 	mock                                                     *MockStorageService
 	adoptFilesystemExpects                                   []*gomock.Call5_2[context.Context, storage0.Name, storage0.StoragePoolUUID, string, bool, storage.ID, error]
 	createStoragePoolExpects                                 []*gomock.Call4_2[context.Context, string, storage0.ProviderType, map[string]any, storage0.StoragePoolUUID, error]
+	deleteStoragePoolExpects                                 []*gomock.Call2_1[context.Context, string, error]
 	getFilesystemsByMachinesExpects                          []*gomock.Call2_2[context.Context, []machine.UUID, []storage0.FilesystemUUID, error]
 	getStorageAttachmentUUIDForStorageInstanceAndUnitExpects []*gomock.Call3_2[context.Context, storage0.StorageInstanceUUID, unit.UUID, storage0.StorageAttachmentUUID, error]
 	getStorageInstanceAttachmentsExpects                     []*gomock.Call2_2[context.Context, storage0.StorageInstanceUUID, []storage0.StorageAttachmentUUID, error]
@@ -432,6 +434,7 @@ type MockStorageServiceMockRecorder struct {
 	listStoragePoolsByNamesExpects                           []*gomock.Call2_2[context.Context, storage0.Names, []storage0.StoragePool, error]
 	listStoragePoolsByNamesAndProvidersExpects               []*gomock.Call3_2[context.Context, storage0.Names, storage0.Providers, []storage0.StoragePool, error]
 	listStoragePoolsByProvidersExpects                       []*gomock.Call2_2[context.Context, storage0.Providers, []storage0.StoragePool, error]
+	replaceStoragePoolExpects                                []*gomock.Call4_1[context.Context, string, storage1.ProviderType, map[string]any, error]
 }
 
 // NewMockStorageService creates a new mock instance.
@@ -481,6 +484,24 @@ func (mr *MockStorageServiceMockRecorder) CreateStoragePool(arg0, arg1, arg2, ar
 
 // MockStorageServiceCreateStoragePoolCall is the typed call wrapper for CreateStoragePool.
 type MockStorageServiceCreateStoragePoolCall = gomock.Call4_2[context.Context, string, storage0.ProviderType, map[string]any, storage0.StoragePoolUUID, error]
+
+// DeleteStoragePool mocks base method.
+func (m *MockStorageService) DeleteStoragePool(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.deleteStoragePoolExpects, m.ctrl, m, "DeleteStoragePool", arg0, arg1)
+}
+
+// DeleteStoragePool indicates an expected call of DeleteStoragePool.
+func (mr *MockStorageServiceMockRecorder) DeleteStoragePool(arg0, arg1 any) *MockStorageServiceDeleteStoragePoolCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "DeleteStoragePool", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.deleteStoragePoolExpects = append(mr.deleteStoragePoolExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStorageServiceDeleteStoragePoolCall is the typed call wrapper for DeleteStoragePool.
+type MockStorageServiceDeleteStoragePoolCall = gomock.Call2_1[context.Context, string, error]
 
 // GetFilesystemsByMachines mocks base method.
 func (m *MockStorageService) GetFilesystemsByMachines(ctx context.Context, uuids []machine.UUID) ([]storage0.FilesystemUUID, error) {
@@ -679,3 +700,21 @@ func (mr *MockStorageServiceMockRecorder) ListStoragePoolsByProviders(ctx, provi
 
 // MockStorageServiceListStoragePoolsByProvidersCall is the typed call wrapper for ListStoragePoolsByProviders.
 type MockStorageServiceListStoragePoolsByProvidersCall = gomock.Call2_2[context.Context, storage0.Providers, []storage0.StoragePool, error]
+
+// ReplaceStoragePool mocks base method.
+func (m *MockStorageService) ReplaceStoragePool(arg0 context.Context, arg1 string, arg2 storage1.ProviderType, arg3 map[string]any) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch4_1(&m.recorder.replaceStoragePoolExpects, m.ctrl, m, "ReplaceStoragePool", arg0, arg1, arg2, arg3)
+}
+
+// ReplaceStoragePool indicates an expected call of ReplaceStoragePool.
+func (mr *MockStorageServiceMockRecorder) ReplaceStoragePool(arg0, arg1, arg2, arg3 any) *MockStorageServiceReplaceStoragePoolCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall4_1[context.Context, string, storage1.ProviderType, map[string]any, error](mr.mock.ctrl.T, mr.mock, "ReplaceStoragePool", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2), gomock.EnsureMatcher(arg3))
+	mr.replaceStoragePoolExpects = append(mr.replaceStoragePoolExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStorageServiceReplaceStoragePoolCall is the typed call wrapper for ReplaceStoragePool.
+type MockStorageServiceReplaceStoragePoolCall = gomock.Call4_1[context.Context, string, storage1.ProviderType, map[string]any, error]
