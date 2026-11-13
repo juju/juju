@@ -15,7 +15,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/services"
 	internalworker "github.com/juju/juju/internal/worker"
 )
 
@@ -92,7 +91,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		)
 	}
 
-	var domainServices services.ModelDomainServices
+	var domainServices DomainServices
 	if err := getter.Get(config.DomainServicesName, &domainServices); err != nil {
 		return nil, errors.Errorf(
 			"getting domain services for input name %q: %w",
@@ -113,11 +112,22 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		)
 	}
 
+	controllerServiceUpdater, ok := broker.(caas.ControllerServiceUpdater)
+	if !ok {
+		return nil, errors.Errorf(
+			"caas broker %T does not support updating the controller service",
+			broker,
+		).Add(coreerrors.NotSupported)
+	}
+
 	w, err := config.NewFirewallWorker(FirewallerConfig{
-		ApplicationService: domainServices.Application(),
-		Clock:              clock,
-		Logger:             config.Logger,
-		WorkerCreator:      appFirewallCreator,
+		ApplicationService:       domainServices.Application(),
+		Clock:                    clock,
+		Logger:                   config.Logger,
+		WorkerCreator:            appFirewallCreator,
+		ModelInfoService:         domainServices.ModelInfo(),
+		ControllerSSHService:     domainServices.ControllerSSH(),
+		ControllerServiceUpdater: controllerServiceUpdater,
 	})
 	if err != nil {
 		return nil, errors.Errorf("starting new worker for manifold: %w", err)

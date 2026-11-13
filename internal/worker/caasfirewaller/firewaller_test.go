@@ -4,6 +4,7 @@
 package caasfirewaller
 
 import (
+	"context"
 	"testing"
 	"testing/synctest"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	internaltesting "github.com/juju/juju/internal/testing"
@@ -26,8 +28,11 @@ import (
 // firewallerSuite defines a set of tests for asserting the contract of the
 // [firewaller] worker.
 type firewallerSuite struct {
-	appFirewallerWorker *mocks.MockWorker
-	applicationService  *mocks.MockApplicationService
+	appFirewallerWorker      *mocks.MockWorker
+	applicationService       *mocks.MockApplicationService
+	modelInfoService         *mocks.MockModelInfoService
+	controllerSSHService     *mocks.MockControllerSSHService
+	controllerServiceUpdater *mocks.MockControllerServiceUpdater
 }
 
 // TestFirewallerSuite runs the tests defined in [firewallerSuite].
@@ -42,12 +47,24 @@ func (s *firewallerSuite) setupMocks(c *testing.T) *gomock.Controller {
 
 	s.appFirewallerWorker = mocks.NewMockWorker(ctrl)
 	s.applicationService = mocks.NewMockApplicationService(ctrl)
+	s.modelInfoService = mocks.NewMockModelInfoService(ctrl)
+	s.controllerSSHService = mocks.NewMockControllerSSHService(ctrl)
+	s.controllerServiceUpdater = mocks.NewMockControllerServiceUpdater(ctrl)
 
 	c.Cleanup(func() {
 		s.appFirewallerWorker = nil
 		s.applicationService = nil
+		s.modelInfoService = nil
+		s.controllerSSHService = nil
+		s.controllerServiceUpdater = nil
 	})
 	return ctrl
+}
+
+// expectNotControllerModel sets up the worker to run in a model other than
+// the controller model, so the controller Service is left alone.
+func (s *firewallerSuite) expectNotControllerModel() {
+	s.modelInfoService.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
 }
 
 // appFirewallerWorkerCreator is a testing helper for this suite to provide an
@@ -62,10 +79,13 @@ func (s *firewallerSuite) appFirewallerWorkerCreator(
 // suite.
 func (s *firewallerSuite) getValidConfig(t *testing.T) FirewallerConfig {
 	return FirewallerConfig{
-		ApplicationService: s.applicationService,
-		Clock:              clock.WallClock,
-		Logger:             loggertesting.WrapCheckLog(t),
-		WorkerCreator:      s.appFirewallerWorkerCreator,
+		ApplicationService:       s.applicationService,
+		Clock:                    clock.WallClock,
+		Logger:                   loggertesting.WrapCheckLog(t),
+		WorkerCreator:            s.appFirewallerWorkerCreator,
+		ModelInfoService:         s.modelInfoService,
+		ControllerSSHService:     s.controllerSSHService,
+		ControllerServiceUpdater: s.controllerServiceUpdater,
 	}
 }
 
@@ -102,6 +122,24 @@ func (s *firewallerSuite) TestValidateConfig(c *tc.C) {
 		config.WorkerCreator = nil
 		tc.Check(c, config.Validate(), tc.ErrorIs, coreerrors.NotValid)
 	})
+
+	c.Run("nil ModelInfoService", func(c *testing.T) {
+		config := s.getValidConfig(c)
+		config.ModelInfoService = nil
+		tc.Check(c, config.Validate(), tc.ErrorIs, coreerrors.NotValid)
+	})
+
+	c.Run("nil ControllerSSHService", func(c *testing.T) {
+		config := s.getValidConfig(c)
+		config.ControllerSSHService = nil
+		tc.Check(c, config.Validate(), tc.ErrorIs, coreerrors.NotValid)
+	})
+
+	c.Run("nil ControllerServiceUpdater", func(c *testing.T) {
+		config := s.getValidConfig(c)
+		config.ControllerServiceUpdater = nil
+		tc.Check(c, config.Validate(), tc.ErrorIs, coreerrors.NotValid)
+	})
 }
 
 // TestStartStopAppWorkerOnLifeNotFoundError tests that the application
@@ -131,6 +169,7 @@ func (s *firewallerSuite) TestStartStopAppWorkerOnLifeNotFoundError(c *tc.C) {
 		appSvcExp.GetApplicationLife(gomock.Any(), app2UUID).Return(
 			"", applicationerrors.ApplicationNotFound,
 		)
+		s.expectNotControllerModel()
 
 		w, err := NewFirewallerWorker(s.getValidConfig(c))
 		tc.Assert(c, err, tc.ErrorIsNil)
@@ -175,6 +214,7 @@ func (s *firewallerSuite) TestStartStopAppWorkerOnLifeDead(c *tc.C) {
 		appSvcExp.GetApplicationLife(gomock.Any(), app2UUID).Return(
 			life.Dead, nil,
 		)
+		s.expectNotControllerModel()
 
 		w, err := NewFirewallerWorker(s.getValidConfig(c))
 		tc.Assert(c, err, tc.ErrorIsNil)
@@ -224,13 +264,11 @@ func (s *firewallerSuite) TestSingleWorkerPerApplication(c *tc.C) {
 		workerExp := s.appFirewallerWorker.EXPECT()
 		workerExp.Kill().AnyTimes()
 		workerExp.Wait().Return(nil).AnyTimes()
+		s.expectNotControllerModel()
 
-		w, err := NewFirewallerWorker(FirewallerConfig{
-			ApplicationService: s.applicationService,
-			Clock:              clock.WallClock,
-			Logger:             loggertesting.WrapCheckLog(c),
-			WorkerCreator:      newAppFirewallerWorker,
-		})
+		config := s.getValidConfig(c)
+		config.WorkerCreator = newAppFirewallerWorker
+		w, err := NewFirewallerWorker(config)
 		tc.Assert(c, err, tc.ErrorIsNil)
 
 		// Trigger to start app workers.
@@ -256,6 +294,7 @@ func (s *firewallerSuite) TestWatcherChannelCloseStopsWorker(c *tc.C) {
 
 	appSvcExp := s.applicationService.EXPECT()
 	appSvcExp.WatchApplications(gomock.Any()).Return(appWatcher, nil).AnyTimes()
+	s.expectNotControllerModel()
 
 	w, err := NewFirewallerWorker(s.getValidConfig(c.T))
 	c.Assert(err, tc.ErrorIsNil)
@@ -291,16 +330,154 @@ func (s *firewallerSuite) TestFailedApplicationWorkerStopsFirewaller(c *tc.C) {
 	workerExp := s.appFirewallerWorker.EXPECT()
 	workerExp.Kill().AnyTimes()
 	workerExp.Wait().Return(nil).AnyTimes()
+	s.expectNotControllerModel()
 
-	w, err := NewFirewallerWorker(FirewallerConfig{
-		ApplicationService: s.applicationService,
-		Clock:              clock.WallClock,
-		Logger:             loggertesting.WrapCheckLog(c),
-		WorkerCreator:      newAppFirewallerWorker,
-	})
+	config := s.getValidConfig(c.T)
+	config.WorkerCreator = newAppFirewallerWorker
+	w, err := NewFirewallerWorker(config)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Trigger to start app workers.
 	appWatcherChan <- []string{app1UUID.String()}
 	c.Check(w.Wait(), tc.ErrorIs, FailingWorkerError)
+}
+
+// TestControllerServiceSSHPortFollowsSSHServerPort asserts that in the
+// controller model the controller Service's SSH port is set from the SSH server
+// port when the worker starts and again whenever it changes.
+func (s *firewallerSuite) TestControllerServiceSSHPortFollowsSSHServerPort(c *tc.C) {
+	synctest.Test(c.T, func(c *testing.T) {
+		ctrl := s.setupMocks(c)
+		defer ctrl.Finish()
+
+		appWatcher := watchertest.NewMockStringsWatcher(make(chan []string))
+		s.applicationService.EXPECT().WatchApplications(gomock.Any()).Return(appWatcher, nil)
+
+		portCh := make(chan struct{}, 2)
+		modelInfoService := mocks.NewMockModelInfoService(ctrl)
+		modelInfoService.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
+		sshService := mocks.NewMockControllerSSHService(ctrl)
+		sshService.EXPECT().WatchSSHServerPort(gomock.Any()).Return(watchertest.NewMockNotifyWatcher(portCh), nil)
+		gomock.InOrder(
+			sshService.EXPECT().GetSSHServerPort(gomock.Any()).Return(17022, nil),
+			sshService.EXPECT().GetSSHServerPort(gomock.Any()).Return(17099, nil),
+		)
+
+		updated := make(chan int, 2)
+		updater := mocks.NewMockControllerServiceUpdater(ctrl)
+		updater.EXPECT().UpdateControllerServiceSSHPort(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, port int) error {
+				updated <- port
+				return nil
+			},
+		).Times(2)
+
+		config := s.getValidConfig(c)
+		config.ModelInfoService = modelInfoService
+		config.ControllerSSHService = sshService
+		config.ControllerServiceUpdater = updater
+		w, err := NewFirewallerWorker(config)
+		tc.Assert(c, err, tc.ErrorIsNil)
+
+		// The initial event sets the current port, then a change moves it.
+		portCh <- struct{}{}
+		tc.Check(c, <-updated, tc.Equals, 17022)
+		portCh <- struct{}{}
+		tc.Check(c, <-updated, tc.Equals, 17099)
+
+		w.Kill()
+		tc.Check(c, w.Wait(), tc.ErrorIsNil)
+	})
+}
+
+// TestControllerServiceSSHPortNotControllerModel asserts that outside the
+// controller model the SSH server port isn't watched and the controller Service
+// isn't touched.
+func (s *firewallerSuite) TestControllerServiceSSHPortNotControllerModel(c *tc.C) {
+	synctest.Test(c.T, func(c *testing.T) {
+		ctrl := s.setupMocks(c)
+		defer ctrl.Finish()
+
+		appWatcher := watchertest.NewMockStringsWatcher(make(chan []string))
+		s.applicationService.EXPECT().WatchApplications(gomock.Any()).Return(appWatcher, nil)
+		s.expectNotControllerModel()
+
+		w, err := NewFirewallerWorker(s.getValidConfig(c))
+		tc.Assert(c, err, tc.ErrorIsNil)
+
+		synctest.Wait()
+		w.Kill()
+		tc.Check(c, w.Wait(), tc.ErrorIsNil)
+	})
+}
+
+// TestControllerServiceSSHPortErrors asserts that a failure keeping the
+// controller Service's SSH port up to date stops the worker with that error,
+// so the manifold restarts it and the port is applied again.
+func (s *firewallerSuite) TestControllerServiceSSHPortErrors(c *tc.C) {
+	boom := errors.New("boom")
+
+	c.Run("is controller model", func(c *testing.T) {
+		defer s.setupMocks(c).Finish()
+
+		appWatcher := watchertest.NewMockStringsWatcher(make(chan []string))
+		s.applicationService.EXPECT().WatchApplications(gomock.Any()).Return(appWatcher, nil)
+		s.modelInfoService.EXPECT().IsControllerModel(gomock.Any()).Return(false, boom)
+
+		w, err := NewFirewallerWorker(s.getValidConfig(c))
+		tc.Assert(c, err, tc.ErrorIsNil)
+		tc.Check(c, w.Wait(), tc.ErrorIs, boom)
+	})
+
+	c.Run("watch ssh server port", func(c *testing.T) {
+		defer s.setupMocks(c).Finish()
+
+		appWatcher := watchertest.NewMockStringsWatcher(make(chan []string))
+		s.applicationService.EXPECT().WatchApplications(gomock.Any()).Return(appWatcher, nil)
+		s.modelInfoService.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
+		s.controllerSSHService.EXPECT().WatchSSHServerPort(gomock.Any()).Return(nil, boom)
+
+		w, err := NewFirewallerWorker(s.getValidConfig(c))
+		tc.Assert(c, err, tc.ErrorIsNil)
+		tc.Check(c, w.Wait(), tc.ErrorIs, boom)
+	})
+
+	c.Run("get ssh server port", func(c *testing.T) {
+		defer s.setupMocks(c).Finish()
+
+		appWatcher := watchertest.NewMockStringsWatcher(make(chan []string))
+		s.applicationService.EXPECT().WatchApplications(gomock.Any()).Return(appWatcher, nil)
+		s.modelInfoService.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
+		portCh := make(chan struct{}, 1)
+		portCh <- struct{}{}
+		s.controllerSSHService.EXPECT().WatchSSHServerPort(gomock.Any()).Return(
+			watchertest.NewMockNotifyWatcher(portCh), nil,
+		)
+		s.controllerSSHService.EXPECT().GetSSHServerPort(gomock.Any()).Return(0, boom)
+
+		w, err := NewFirewallerWorker(s.getValidConfig(c))
+		tc.Assert(c, err, tc.ErrorIsNil)
+		tc.Check(c, w.Wait(), tc.ErrorIs, boom)
+	})
+
+	c.Run("update controller service", func(c *testing.T) {
+		defer s.setupMocks(c).Finish()
+
+		appWatcher := watchertest.NewMockStringsWatcher(make(chan []string))
+		s.applicationService.EXPECT().WatchApplications(gomock.Any()).Return(appWatcher, nil)
+		s.modelInfoService.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
+		portCh := make(chan struct{}, 1)
+		portCh <- struct{}{}
+		s.controllerSSHService.EXPECT().WatchSSHServerPort(gomock.Any()).Return(
+			watchertest.NewMockNotifyWatcher(portCh), nil,
+		)
+		s.controllerSSHService.EXPECT().GetSSHServerPort(gomock.Any()).Return(17022, nil)
+		s.controllerServiceUpdater.EXPECT().UpdateControllerServiceSSHPort(
+			gomock.Any(), 17022,
+		).Return(boom)
+
+		w, err := NewFirewallerWorker(s.getValidConfig(c))
+		tc.Assert(c, err, tc.ErrorIsNil)
+		tc.Check(c, w.Wait(), tc.ErrorIs, boom)
+	})
 }
