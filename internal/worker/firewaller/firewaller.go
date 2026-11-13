@@ -20,7 +20,6 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
-	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
@@ -65,7 +64,6 @@ type Config struct {
 	EnvironModelFirewaller    EnvironModelFirewaller
 	EnvironInstances          EnvironInstances
 	EnvironIPV6CIDRSupport    bool
-	IsControllerModel         bool
 
 	NewCrossModelFacadeFunc newCrossModelFacadeFunc
 
@@ -142,9 +140,6 @@ type Firewaller struct {
 	portsWatcher         watcher.StringsWatcher
 	subnetWatcher        watcher.StringsWatcher
 	modelFirewallWatcher watcher.NotifyWatcher
-	// Watch the controller firewall ports, only started for the controller
-	// model.
-	controllerPortsWatcher watcher.NotifyWatcher
 	// Watch the remote relations, only emits in the consuming model.
 	consumerRelationsWatcher watcher.StringsWatcher
 	// Watch the remote relations, only emits in the offering model.
@@ -162,19 +157,7 @@ type Firewaller struct {
 	// Set to true if the environment supports ingress rules containing
 	// IPV6 CIDRs.
 	envIPV6CIDRSupport bool
-	// Set to true if the firewaller is running for the controller model.
-	isControllerModel bool
-	needsToFlushModel bool
-
-	// controllerFirewallPortRanges caches the port ranges that must be
-	// opened on the instance firewall for the controller units, obtained
-	// from the firewaller API. The api-port and autocert-dns-name can't change
-	// after bootstrap, but the ssh server port can, so the cache is cleared
-	// when it does.
-	controllerFirewallPortRanges []network.PortRange
-	// controllerFirewallPortsFetched distinguishes a cached empty result
-	// from a value that has not been fetched yet.
-	controllerFirewallPortsFetched bool
+	needsToFlushModel  bool
 
 	modelUUID                  string
 	newRemoteFirewallerAPIFunc newCrossModelFacadeFunc
@@ -227,7 +210,6 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		environModelFirewaller:     cfg.EnvironModelFirewaller,
 		environInstances:           cfg.EnvironInstances,
 		envIPV6CIDRSupport:         cfg.EnvironIPV6CIDRSupport,
-		isControllerModel:          cfg.IsControllerModel,
 		newRemoteFirewallerAPIFunc: cfg.NewCrossModelFacadeFunc,
 		modelUUID:                  cfg.ModelUUID,
 		machineds:                  make(map[machine.Name]*machineData),
@@ -319,16 +301,6 @@ func (fw *Firewaller) setUp(ctx context.Context) error {
 		}
 	}
 
-	if fw.isControllerModel {
-		fw.controllerPortsWatcher, err = fw.firewallerAPI.WatchControllerFirewallPorts(ctx)
-		if err != nil {
-			return errors.Annotatef(err, "starting controller firewall ports watcher")
-		}
-		if err := fw.catacomb.Add(fw.controllerPortsWatcher); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
 	if fw.spaceInfos, err = fw.firewallerAPI.AllSpaceInfos(ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -354,10 +326,6 @@ func (fw *Firewaller) loop() error {
 	var ensureModelFirewalls <-chan time.Time
 	if fw.modelFirewallWatcher != nil {
 		modelFirewallChanges = fw.modelFirewallWatcher.Changes()
-	}
-	var controllerPortsChanges watcher.NotifyChannel
-	if fw.controllerPortsWatcher != nil {
-		controllerPortsChanges = fw.controllerPortsWatcher.Changes()
 	}
 
 	for {
@@ -420,13 +388,6 @@ func (fw *Firewaller) loop() error {
 				if err := fw.openedPortsChanged(ctx, unitUUID); err != nil {
 					return errors.Trace(err)
 				}
-			}
-		case _, ok := <-controllerPortsChanges:
-			if !ok {
-				return errors.New("controller firewall ports watcher closed")
-			}
-			if err := fw.controllerPortsChanged(ctx); err != nil {
-				return errors.Trace(err)
 			}
 		case _, ok := <-fw.subnetWatcher.Changes():
 			if !ok {
@@ -983,28 +944,6 @@ func (fw *Firewaller) gatherIngressRules(ctx context.Context, machines ...*machi
 			want = append(want, unitRules...)
 		}
 
-		// Controller application ports are managed on each controller
-		// instance of the controller model. This keeps them separate from
-		// the model firewall so controller access can be restricted with
-		// the application's expose CIDRs.
-		var controllerPorts []network.PortRange
-		for _, unitd := range machined.unitds {
-			if !fw.isControllerUnit(unitd) {
-				continue
-			}
-			// Fetch controller firewall ports once per controller machine;
-			// the firewaller API caches the ranges for the worker's
-			// lifetime.
-			if controllerPorts == nil {
-				var err error
-				controllerPorts, err = fw.controllerFirewallPorts(ctx)
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-			}
-			unitRules := fw.ingressRulesForControllerUnit(ctx, unitd, controllerPorts)
-			want = append(want, unitRules...)
-		}
 	}
 	if err := want.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -1018,83 +957,6 @@ func (fw *Firewaller) gatherIngressRules(ctx context.Context, machines ...*machi
 	}
 
 	return want, nil
-}
-
-// isControllerUnit reports whether the given unit belongs to the
-// controller application of the controller model. Matching on the
-// application name alone is not sufficient: a user model may contain an
-// application named "controller", and its ports must not be treated as
-// controller ports.
-func (fw *Firewaller) isControllerUnit(unitd *unitData) bool {
-	return fw.isControllerModel &&
-		unitd.applicationd != nil &&
-		unitd.applicationd.applicationTag.Id() == coreapplication.ControllerApplicationName
-}
-
-// controllerFirewallPorts returns the port ranges to open on the instance
-// firewall for the controller units. The ranges are obtained from the
-// firewaller API and cached until the ssh server port changes.
-func (fw *Firewaller) controllerFirewallPorts(ctx context.Context) ([]network.PortRange, error) {
-	if fw.controllerFirewallPortsFetched {
-		return fw.controllerFirewallPortRanges, nil
-	}
-	ports, err := fw.firewallerAPI.ControllerFirewallPorts(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	fw.controllerFirewallPortsFetched = true
-	fw.controllerFirewallPortRanges = ports
-	return ports, nil
-}
-
-// controllerPortsChanged clears the cached controller firewall ports and
-// re-flushes every machine with a controller unit, so the old ssh server
-// port is closed and the new one opened.
-func (fw *Firewaller) controllerPortsChanged(ctx context.Context) error {
-	fw.controllerFirewallPortsFetched = false
-	fw.controllerFirewallPortRanges = nil
-
-	// Controller units are kept on their machine until the machine is
-	// forgotten, so look at the machines rather than the units.
-	for _, machined := range fw.machineds {
-		for _, unitd := range machined.unitds {
-			if !fw.isControllerUnit(unitd) {
-				continue
-			}
-			if err := fw.flushMachine(ctx, machined); err != nil {
-				return errors.Trace(err)
-			}
-			break
-		}
-	}
-	return nil
-}
-
-// ingressRulesForControllerUnit returns the instance firewall rules for a
-// controller unit. When the controller application is exposed, the rules
-// use the configured expose CIDRs; otherwise the ports are open to all
-// networks.
-func (fw *Firewaller) ingressRulesForControllerUnit(ctx context.Context, unitd *unitData, controllerPorts []network.PortRange) firewall.IngressRules {
-	if unitd.applicationd.exposed {
-		rules := fw.ingressRulesForExposedMachineUnit(ctx, unitd, network.GroupedPortRanges{
-			network.WildcardEndpoint: controllerPorts,
-		})
-		// If the exposed endpoints calculation yields zero rules (e.g., edge
-		// cases like empty expose maps or spaces without subnets), it safely
-		// falls back to opening the controller ports to all networks
-		// (0.0.0.0/0, ::/0) to guarantee API accessibility.
-		if len(rules) > 0 {
-			return rules
-		}
-	}
-
-	var rules firewall.IngressRules
-	for _, portRange := range controllerPorts {
-		rules = append(rules, firewall.NewIngressRule(portRange, firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR))
-	}
-	rules = rules.UniqueRules()
-	sort.Slice(rules, func(i, j int) bool { return rules[i].LessThan(rules[j]) })
-	return rules
 }
 
 func (fw *Firewaller) ingressRulesForMachineUnit(ctx context.Context, machine *machineData, unit *unitData) (firewall.IngressRules, error) {
@@ -1479,15 +1341,7 @@ func (fw *Firewaller) forgetUnit(ctx context.Context, unitd *unitData) {
 
 	// Clean up after stopping.
 	delete(fw.unitds, unitd.name)
-	// The controller unit entry is kept on its machine so the controller
-	// ports stay open until the machine itself is forgotten, whether the
-	// unit is forgotten with the machine or observed as dead or reassigned
-	// while the machine is still alive.
-	if fw.isControllerUnit(unitd) {
-		fw.logger.Debugf(ctx, "skipping unit removal for %s", unitd.name)
-	} else {
-		delete(machined.unitds, unitd.name)
-	}
+	delete(machined.unitds, unitd.name)
 	delete(applicationd.unitds, unitd.name)
 	fw.logger.Debugf(ctx, "stopped watching %q", unitd.name)
 	if stoppedApplication {
