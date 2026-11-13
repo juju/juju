@@ -655,10 +655,6 @@ type DeviceAddress struct {
 	// DeviceUUID identifies the link-layer device that holds the address.
 	DeviceUUID string
 
-	// IsSecondary is true if the address is not the primary address for
-	// its subnet on the device.
-	IsSecondary bool
-
 	// IsDefaultGatewayDevice is true if the device carries the machine's
 	// IPv4 default route.
 	IsDefaultGatewayDevice bool

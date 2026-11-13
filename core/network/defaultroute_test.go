@@ -73,6 +73,31 @@ func (s *defaultRouteSuite) TestMarkDefaultRouteSourceOnlySecondary(c *tc.C) {
 	c.Check(markedValues(result), tc.HasLen, 0)
 }
 
+// TestMarkDefaultRouteSourceSkipsSecondaryOption checks that an address
+// created as secondary with WithSecondary is not marked. The secondary state
+// belongs to the address itself, so it must be honoured however the address
+// was built.
+func (s *defaultRouteSuite) TestMarkDefaultRouteSourceSkipsSecondaryOption(c *tc.C) {
+	// Arrange
+	secondary := network.DeviceAddress{
+		SpaceAddress: network.NewSpaceAddress("10.1.0.100",
+			network.WithCIDR("10.1.0.0/24"),
+			network.WithScope(network.ScopeCloudLocal),
+			network.WithSecondary(true),
+		),
+		DeviceUUID:             "eth0",
+		IsDefaultGatewayDevice: true,
+		GatewayAddress:         "10.1.0.1",
+	}
+
+	// Act
+	result := network.MarkDefaultRouteSource(
+		[]network.DeviceAddress{secondary})
+
+	// Assert
+	c.Check(markedValues(result), tc.HasLen, 0)
+}
+
 // TestMarkDefaultRouteSourceSkipsIPv6 checks that an IPv6 address on the
 // default route device is not marked. There is no gateway, so every
 // candidate is marked; only the IPv6 exclusion keeps the IPv6 address out.

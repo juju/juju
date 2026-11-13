@@ -338,7 +338,7 @@ func encodeIPAddresses(addresses []SpaceAddress) (corenetwork.SpaceAddresses, er
 }
 
 // encodeDeviceAddresses converts the device address rows to core device
-// addresses.
+// addresses, keeping the secondary flag on the embedded machine address.
 func encodeDeviceAddresses(addresses []deviceAddress) ([]corenetwork.DeviceAddress, error) {
 	res := make([]corenetwork.DeviceAddress, len(addresses))
 	for i, addr := range addresses {
@@ -346,10 +346,10 @@ func encodeDeviceAddresses(addresses []deviceAddress) ([]corenetwork.DeviceAddre
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
+		encodedIP.IsSecondary = addr.IsSecondary
 		res[i] = corenetwork.DeviceAddress{
 			SpaceAddress:           encodedIP,
 			DeviceUUID:             addr.DeviceUUID,
-			IsSecondary:            addr.IsSecondary,
 			IsDefaultGatewayDevice: addr.IsDefaultGateway,
 			GatewayAddress:         addr.GatewayAddress.String,
 		}

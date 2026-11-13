@@ -2731,6 +2731,53 @@ func (s *modelStateSuite) TestGetMachineFullStatusesNoDefaultRouteSource(c *tc.C
 	})
 }
 
+// TestGetMachineFullStatusesSecondaryAddressSortsLast checks that a secondary
+// address sorts after a primary address of the same scope, even when its value
+// is lower. This relies on the secondary flag being kept on the address when
+// it is read from the database.
+func (s *modelStateSuite) TestGetMachineFullStatusesSecondaryAddressSortsLast(c *tc.C) {
+	// Arrange
+	uuid, name := s.createMachine(c)
+	netService := networkservice.NewService(
+		networkstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c)),
+		loggertesting.WrapCheckLog(c),
+	)
+	newAddr := func(value string, isSecondary bool) domainnetwork.NetAddr {
+		return domainnetwork.NetAddr{
+			InterfaceName: "eth0",
+			AddressValue:  value,
+			AddressType:   corenetwork.IPv4Address,
+			ConfigType:    corenetwork.ConfigDHCP,
+			Origin:        corenetwork.OriginMachine,
+			Scope:         corenetwork.ScopeCloudLocal,
+			IsSecondary:   isSecondary,
+		}
+	}
+	err := netService.SetMachineNetConfig(c.Context(), uuid, []domainnetwork.NetInterface{{
+		Name:        "eth0",
+		Type:        corenetwork.EthernetDevice,
+		MACAddress:  new("00:11:22:33:44:55"),
+		IsAutoStart: true,
+		IsEnabled:   true,
+		Addrs: []domainnetwork.NetAddr{
+			newAddr("10.0.0.10/24", true),
+			newAddr("10.0.0.20/24", false),
+		},
+	}})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	statuses, err := s.state.GetMachineFullStatuses(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(statuses, tc.HasLen, 1)
+	c.Check(statuses[name].DNSName, tc.Equals, "10.0.0.20")
+	c.Check(statuses[name].IPAddresses, tc.DeepEquals, []string{
+		"10.0.0.20", "10.0.0.10",
+	})
+}
+
 func (s *modelStateSuite) TestGetMachineFullStatusesEmptyModel(c *tc.C) {
 	statuses, err := s.state.GetMachineFullStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
