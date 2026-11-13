@@ -143,9 +143,9 @@ FROM   machine m
        JOIN application a ON u.application_uuid = a.uuid
        JOIN charm_metadata cm on a.charm_uuid = cm.charm_uuid
        JOIN all_bound b ON u.application_uuid = b.application_uuid
-       JOIN space s ON IFNULL(b.space_uuid, a.space_uuid) = s.uuid
+       JOIN space s ON COALESCE(b.space_uuid, a.space_uuid) = s.uuid
 WHERE  m.uuid = $entityUUID.uuid
-AND    cm.subordinate = 0`
+AND    cm.subordinate = FALSE`
 
 	stmt, err := st.Prepare(qry, mUUID, spaceConstraint{})
 	if err != nil {

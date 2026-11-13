@@ -63,8 +63,7 @@ type machineUUID struct {
 }
 
 type machinePassword struct {
-	MachineCount int              `db:"machine_count"`
-	InstanceID   sql.Null[string] `db:"instance_id"`
+	InstanceID sql.Null[string] `db:"instance_id"`
 }
 
 type modelPasswordHash struct {
