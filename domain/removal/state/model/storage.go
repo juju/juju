@@ -1433,7 +1433,7 @@ WITH fs AS (
 )
 UPDATE storage_filesystem
 SET    life_id = 2
-WHERE  life_id = 1 AND uuid IN fs
+WHERE  life_id = 1 AND uuid IN (SELECT f.storage_filesystem_uuid FROM fs AS f)
 `, fsaUUID)
 	if err != nil {
 		return errors.Errorf(
@@ -1668,7 +1668,7 @@ WITH vol AS (
 )
 UPDATE storage_volume
 SET    life_id = 2
-WHERE  life_id = 1 AND uuid IN vol
+WHERE  life_id = 1 AND uuid IN (SELECT v.storage_volume_uuid FROM vol AS v)
 `, vaUUID)
 	if err != nil {
 		return errors.Errorf(
@@ -1900,7 +1900,7 @@ WITH vol AS (
 )
 UPDATE storage_volume
 SET    life_id = 2
-WHERE  life_id = 1 AND uuid IN vol
+WHERE  life_id = 1 AND uuid IN (SELECT v.storage_volume_uuid FROM vol AS v)
 `, vapUUID)
 	if err != nil {
 		return errors.Errorf(

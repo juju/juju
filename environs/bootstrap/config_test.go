@@ -74,6 +74,36 @@ func (*ConfigSuite) TestConfigValuesSpecified(c *tc.C) {
 	}
 }
 
+func (*ConfigSuite) TestKubernetesStorageAttributesAreBootstrapOnly(c *tc.C) {
+	// A Kubernetes cloud's recorded storage classes must be bootstrap
+	// attributes so they are routed out of model config, and must be
+	// accepted by NewConfig when a cloud definition supplies them.
+	for _, key := range []string{
+		bootstrap.WorkloadStorageKey,
+		bootstrap.OperatorStorageKey,
+	} {
+		c.Check(bootstrap.IsBootstrapAttribute(key), tc.IsTrue,
+			tc.Commentf("key %q should be a bootstrap attribute", key))
+	}
+
+	// The attributes are accepted when a cloud definition or the user
+	// supplies them: they are 3.x keys, routed out of model config so
+	// legacy cloud definitions stay loadable, and otherwise ignored.
+	cfg, err := bootstrap.NewConfig(map[string]any{
+		bootstrap.WorkloadStorageKey: "ceph-rbd",
+		bootstrap.OperatorStorageKey: "ceph-rbd",
+		"ca-cert":                    testing.CACert,
+		"ca-private-key":             testing.CAKey,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg.AdminSecret, tc.Not(tc.Equals), "")
+	c.Check(cfg.CACert, tc.Equals, testing.CACert)
+
+	// The workload storage class is documented in the bootstrap help.
+	_, ok := bootstrap.BootstrapConfigSchema()[bootstrap.WorkloadStorageKey]
+	c.Check(ok, tc.IsTrue)
+}
+
 func (s *ConfigSuite) addFiles(c *tc.C, files ...testhelpers.TestFile) {
 	for _, f := range files {
 		err := os.WriteFile(osenv.JujuXDGDataHomePath(f.Name), []byte(f.Data), 0666)
