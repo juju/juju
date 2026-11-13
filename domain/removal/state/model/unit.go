@@ -307,7 +307,7 @@ func (st *State) ensureUnitOwnedStorageInstancesNotAlive(
 
 	stmt, err := st.Prepare(`
 SELECT si.uuid AS &entityUUID.uuid
-FROM   storage_unit_owner so 
+FROM   storage_unit_owner so
 JOIN   storage_instance si ON so.storage_instance_uuid = si.uuid
 WHERE  so.unit_uuid = $entityUUID.uuid
 AND    si.life_id < 2`, entityUUID{})
@@ -708,6 +708,15 @@ WHERE unit_uuid = $entityAssociationCount.uuid
 		return errors.Capture(err)
 	}
 
+	storageAttachmentCountStmt, err := st.Prepare(`
+SELECT count(*) AS &entityAssociationCount.count
+FROM   storage_attachment
+WHERE  unit_uuid = $entityAssociationCount.uuid
+`, unitUUIDCount)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	unitUUIDRec := entityUUID{UUID: unitUUID}
 	deleteUnitStmt, err := st.Prepare(`
 DELETE FROM unit
@@ -739,6 +748,26 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 		return errors.Errorf("unit %q still has %d relation(s) in scope, waiting for relation removal",
 			unitUUID, numRelationUnits.Count).
 			Add(removalerrors.RemovalJobIncomplete)
+	}
+
+	// Ensure that the unit has no storage attachments. These are removed by
+	// their own removal jobs once the storage provisioner has detached the
+	// unit's filesystems and volumes, which it finds through the unit. Forced
+	// removal does not wait, and deletes them along with the unit.
+	if force {
+		if err := st.deleteUnitStorageAttachments(ctx, tx, unitUUID); err != nil {
+			return errors.Errorf("deleting storage attachments for unit %q: %w", unitUUID, err)
+		}
+	} else {
+		var numStorageAttachments entityAssociationCount
+		err = tx.Query(ctx, storageAttachmentCountStmt, unitUUIDCount).Get(&numStorageAttachments)
+		if err != nil {
+			return errors.Errorf("getting storage attachment count for unit %q: %w", unitUUID, err)
+		} else if numStorageAttachments.Count > 0 {
+			return errors.Errorf("unit %q still has %d storage attachment(s), waiting for storage removal",
+				unitUUID, numStorageAttachments.Count).
+				Add(removalerrors.RemovalJobIncomplete)
+		}
 	}
 
 	// Delete all tasks related to the unit, and eventually removes
@@ -789,6 +818,46 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 		return errors.Errorf("deleting unit for unit %q: %w", unitUUID, err)
 	}
 
+	return nil
+}
+
+// deleteUnitStorageAttachments deletes the unit's storage attachments, and its
+// ownership of the attached storage, as their removal jobs would. Filesystem
+// and volume attachments have their own removal jobs, scheduled when the unit
+// was made dying.
+func (st *State) deleteUnitStorageAttachments(
+	ctx context.Context, tx *sqlair.TX, uUUID string,
+) error {
+	unitUUIDRec := entityUUID{UUID: uUUID}
+
+	deleteOwnerStmt, err := st.Prepare(`
+WITH attached AS (
+    SELECT sa.storage_instance_uuid AS storage_instance_uuid
+    FROM   storage_attachment AS sa
+    WHERE  sa.unit_uuid = $entityUUID.uuid
+)
+DELETE FROM storage_unit_owner
+WHERE  unit_uuid = $entityUUID.uuid
+AND    storage_instance_uuid IN (
+    SELECT a.storage_instance_uuid FROM attached AS a
+)`, unitUUIDRec)
+	if err != nil {
+		return errors.Errorf("preparing unit storage owner deletion: %w", err)
+	}
+
+	deleteAttachmentStmt, err := st.Prepare(`
+DELETE FROM storage_attachment
+WHERE  unit_uuid = $entityUUID.uuid`, unitUUIDRec)
+	if err != nil {
+		return errors.Errorf("preparing unit storage attachment deletion: %w", err)
+	}
+
+	if err := tx.Query(ctx, deleteOwnerStmt, unitUUIDRec).Run(); err != nil {
+		return errors.Errorf("running unit storage owner deletion: %w", err)
+	}
+	if err := tx.Query(ctx, deleteAttachmentStmt, unitUUIDRec).Run(); err != nil {
+		return errors.Errorf("running unit storage attachment deletion: %w", err)
+	}
 	return nil
 }
 
