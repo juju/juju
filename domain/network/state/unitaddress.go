@@ -18,7 +18,9 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// GetUnitAndK8sServiceAddresses returns the addresses of the specified unit.
+// GetUnitAndK8sServiceAddresses returns the addresses of the specified unit,
+// together with the facts about their link-layer devices that are needed to
+// identify the default route source address.
 // The addresses are taken from the union the net node UUIDs of the cloud service
 // (if any) and the net node UUIDs of the unit, where each net node has an
 // associated address.
@@ -27,28 +29,42 @@ import (
 //
 // The following errors may be returned:
 // - [uniterrors.UnitNotFound] if the unit does not exist
-func (st *State) GetUnitAndK8sServiceAddresses(ctx context.Context, uuid coreunit.UUID) (corenetwork.SpaceAddresses, error) {
+func (st *State) GetUnitAndK8sServiceAddresses(
+	ctx context.Context, uuid coreunit.UUID,
+) ([]corenetwork.DeviceAddress, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var address []SpaceAddress
 	ident := entityUUID{UUID: uuid.String()}
 	queryUnitPublicAddressesStmt, err := st.Prepare(`
-SELECT &SpaceAddress.*
-FROM v_all_unit_address AS ua
-WHERE     ua.unit_uuid = $entityUUID.uuid
-`, SpaceAddress{}, entityUUID{})
+WITH unit_net_node AS (
+    SELECT ks.net_node_uuid AS net_node_uuid
+    FROM   unit AS u
+    JOIN   k8s_service AS ks ON u.application_uuid = ks.application_uuid
+    WHERE  u.uuid = $entityUUID.uuid
+    UNION
+    SELECT u.net_node_uuid AS net_node_uuid
+    FROM   unit AS u
+    WHERE  u.uuid = $entityUUID.uuid
+)
+SELECT    &deviceAddress.*
+FROM      unit_net_node AS unn
+JOIN      v_ip_address_with_names AS ipa ON unn.net_node_uuid = ipa.net_node_uuid
+JOIN      link_layer_device AS lld ON ipa.device_uuid = lld.uuid
+LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
+`, deviceAddress{}, entityUUID{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
+	var addresses []deviceAddress
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkUnitNotDead(ctx, tx, ident); err != nil {
 			return errors.Capture(err)
 		}
-		err := tx.Query(ctx, queryUnitPublicAddressesStmt, ident).GetAll(&address)
+		err := tx.Query(ctx, queryUnitPublicAddressesStmt, ident).GetAll(&addresses)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("querying addresses for unit %q (and it's services): %w", uuid, err)
 		}
@@ -57,7 +73,7 @@ WHERE     ua.unit_uuid = $entityUUID.uuid
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return encodeIPAddresses(address)
+	return encodeDeviceAddresses(addresses)
 }
 
 // GetControllerAPIAddresses returns address candidates which can be used as
@@ -317,6 +333,26 @@ func encodeIPAddresses(addresses []SpaceAddress) (corenetwork.SpaceAddresses, er
 			return nil, errors.Capture(err)
 		}
 		res[i] = encodedIP
+	}
+	return res, nil
+}
+
+// encodeDeviceAddresses converts the device address rows to core device
+// addresses, keeping the secondary flag on the embedded machine address.
+func encodeDeviceAddresses(addresses []deviceAddress) ([]corenetwork.DeviceAddress, error) {
+	res := make([]corenetwork.DeviceAddress, len(addresses))
+	for i, addr := range addresses {
+		encodedIP, err := encodeIPAddress(addr.SpaceAddress)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		encodedIP.IsSecondary = addr.IsSecondary
+		res[i] = corenetwork.DeviceAddress{
+			SpaceAddress:           encodedIP,
+			DeviceUUID:             addr.DeviceUUID,
+			IsDefaultGatewayDevice: addr.IsDefaultGateway,
+			GatewayAddress:         addr.GatewayAddress.String,
+		}
 	}
 	return res, nil
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/crossmodel"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	permission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
@@ -271,6 +272,32 @@ func (s *statusSuite) TestFetchOffers(c *tc.C) {
 		err:      nil,
 		charmURL: "ch:amd64/app-42",
 	})
+}
+
+// TestUnitPublicAddressUsesFirstMachineAddress checks that the public address
+// of a unit assigned to a machine is the first address of the machine, which
+// is the one the status service selected as the preferred address.
+func (s *statusSuite) TestUnitPublicAddressUsesFirstMachineAddress(c *tc.C) {
+	// Arrange
+	machineName := coremachine.Name("0")
+	statusCtx := &statusContext{
+		allMachines: map[coremachine.Name]statusservice.Machine{
+			machineName: {
+				Name:        machineName,
+				IPAddresses: []string{"10.0.0.20", "10.0.0.10"},
+			},
+		},
+	}
+	assigned := statusservice.Unit{MachineName: &machineName}
+	unassigned := statusservice.Unit{}
+
+	// Act
+	assignedAddress := statusCtx.unitPublicAddress(assigned)
+	unassignedAddress := statusCtx.unitPublicAddress(unassigned)
+
+	// Assert
+	c.Check(assignedAddress, tc.Equals, "10.0.0.20")
+	c.Check(unassignedAddress, tc.Equals, "")
 }
 
 func (s *statusSuite) setupMocks(c *tc.C) *gomock.Controller {

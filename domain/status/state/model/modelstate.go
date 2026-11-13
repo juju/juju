@@ -2231,6 +2231,10 @@ SELECT
 	ipa.type_name AS &machineSpaceAddress.type_name,
 	ipa.origin_name AS &machineSpaceAddress.origin_name,
 	ipa.scope_name AS &machineSpaceAddress.scope_name,
+	ipa.device_uuid AS &machineSpaceAddress.device_uuid,
+	ipa.is_secondary AS &machineSpaceAddress.is_secondary,
+	lld.is_default_gateway AS &machineSpaceAddress.is_default_gateway,
+	lld.gateway_address AS &machineSpaceAddress.gateway_address,
 	sn.space_uuid AS &machineSpaceAddress.space_uuid,
 	sn.cidr AS &machineSpaceAddress.cidr
 FROM machine AS m
@@ -2270,7 +2274,7 @@ LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
 		tags[t.MachineUUID] = append(tags[t.MachineUUID], t.Tag)
 	}
 
-	addresses := make(map[string]corenetwork.SpaceAddresses)
+	addresses := make(map[string][]corenetwork.DeviceAddress)
 	for _, a := range resAddr {
 		addr, err := encodeIPAddress(a)
 		if err != nil {
@@ -2315,7 +2319,11 @@ LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
 			s.ConstraintAllocatePublicIP, s.ConstraintImageID,
 		)
 
-		machineAddresses := addresses[s.UUID.String()]
+		// Mark the default route source before filtering, so that the
+		// helper sees all of the addresses on each device.
+		machineAddresses := corenetwork.MarkDefaultRouteSource(
+			addresses[s.UUID.String()],
+		)
 		matchedAddrs := make(corenetwork.SpaceAddresses, 0, len(machineAddresses))
 		for _, mAddr := range machineAddresses {
 			switch mAddr.Scope {
@@ -2631,7 +2639,7 @@ func (s *ModelState) NamespacesForWatchOfferStatus() (offer, application, unitAg
 	return "offer", "application_status", "custom_unit_agent_status", "custom_unit_workload_status", "custom_k8s_pod_status"
 }
 
-func encodeIPAddress(address machineSpaceAddress) (corenetwork.SpaceAddress, error) {
+func encodeIPAddress(address machineSpaceAddress) (corenetwork.DeviceAddress, error) {
 	spaceUUID := corenetwork.AlphaSpaceId
 	if address.SpaceUUID.Valid {
 		spaceUUID = corenetwork.SpaceUUID(address.SpaceUUID.String)
@@ -2650,15 +2658,21 @@ func encodeIPAddress(address machineSpaceAddress) (corenetwork.SpaceAddress, err
 	if address.SubnetCIDR.Valid {
 		cidr = address.SubnetCIDR.String
 	}
-	return corenetwork.SpaceAddress{
-		SpaceID: spaceUUID,
-		Origin:  corenetwork.Origin(address.Origin),
-		MachineAddress: corenetwork.MachineAddress{
-			Value:      ipAddr.String(),
-			CIDR:       cidr,
-			Type:       corenetwork.AddressType(address.Type),
-			Scope:      corenetwork.Scope(address.Scope),
-			ConfigType: corenetwork.AddressConfigType(address.ConfigType),
+	return corenetwork.DeviceAddress{
+		SpaceAddress: corenetwork.SpaceAddress{
+			SpaceID: spaceUUID,
+			Origin:  corenetwork.Origin(address.Origin),
+			MachineAddress: corenetwork.MachineAddress{
+				Value:       ipAddr.String(),
+				CIDR:        cidr,
+				Type:        corenetwork.AddressType(address.Type),
+				Scope:       corenetwork.Scope(address.Scope),
+				ConfigType:  corenetwork.AddressConfigType(address.ConfigType),
+				IsSecondary: address.IsSecondary,
+			},
 		},
+		DeviceUUID:             address.DeviceUUID,
+		IsDefaultGatewayDevice: address.IsDefaultGateway,
+		GatewayAddress:         address.GatewayAddress.String,
 	}, nil
 }

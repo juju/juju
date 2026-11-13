@@ -64,6 +64,8 @@ func (s *Service) GetMachinePrivateAddress(ctx context.Context, uuid machine.UUI
 	return addr, nil
 }
 
+// getMachineAddresses returns the addresses of the machine in the order they
+// were retrieved, with the default route source address marked.
 func (s *Service) getMachineAddresses(ctx context.Context, uuid machine.UUID) (network.SpaceAddresses, error) {
 	if err := uuid.Validate(); err != nil {
 		return nil, errors.Capture(err)
@@ -79,5 +81,5 @@ func (s *Service) getMachineAddresses(ctx context.Context, uuid machine.UUID) (n
 		return nil, errors.Errorf("retrieving addresses for net node %q: %w", netNodeUUID, err)
 	}
 
-	return addresses, nil
+	return network.MarkDefaultRouteSource(addresses), nil
 }

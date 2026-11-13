@@ -486,14 +486,18 @@ type instanceTag struct {
 }
 
 type machineSpaceAddress struct {
-	MachineUUID string         `db:"machine_uuid"`
-	Value       string         `db:"address_value"`
-	ConfigType  string         `db:"config_type_name"`
-	Type        string         `db:"type_name"`
-	Origin      string         `db:"origin_name"`
-	Scope       string         `db:"scope_name"`
-	SpaceUUID   sql.NullString `db:"space_uuid"`
-	SubnetCIDR  sql.NullString `db:"cidr"`
+	MachineUUID      string         `db:"machine_uuid"`
+	Value            string         `db:"address_value"`
+	ConfigType       string         `db:"config_type_name"`
+	Type             string         `db:"type_name"`
+	Origin           string         `db:"origin_name"`
+	Scope            string         `db:"scope_name"`
+	DeviceUUID       string         `db:"device_uuid"`
+	IsSecondary      bool           `db:"is_secondary"`
+	IsDefaultGateway bool           `db:"is_default_gateway"`
+	GatewayAddress   sql.NullString `db:"gateway_address"`
+	SpaceUUID        sql.NullString `db:"space_uuid"`
+	SubnetCIDR       sql.NullString `db:"cidr"`
 }
 
 type remoteApplicationStatus struct {
