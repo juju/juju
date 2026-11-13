@@ -191,24 +191,14 @@ func (s *controllerStateSuite) TestSetControllerVersionMultipleSetSafe(c *tc.C) 
 	c.Check(ver, tc.Equals, upgradeVersion)
 }
 
-// TestGetAllAgentStoreBinariesForStreamEmpty tests that when no agent binaries
-// exist for a given stream an empty slice is returned with no error.
-func (s *controllerStateSuite) TestGetAllAgentStoreBinariesForStreamEmpty(c *tc.C) {
+func (s *controllerStateSuite) TestGetAllAgentStoreBinariesEmpty(c *tc.C) {
 	st := NewControllerState(s.TxnRunnerFactory())
-	vals, err := st.GetAllAgentStoreBinariesForStream(
-		c.Context(), domainagentbinary.AgentStreamReleased,
-	)
+	vals, err := st.GetAllAgentStoreBinaries(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(vals, tc.HasLen, 0)
 }
 
-// TestGetAllAgentStoreBinariesForStream tests that when the controller storage
-// has agent binaries they are returned to the caller.
-//
-// NOTE (tlm): We currently don't have the agent stream against binaries in the
-// controller store. This needs to be done in a future patch. For the moment we
-// just return all binaries regardless of stream.
-func (s *controllerStateSuite) TestGetAllAgentStoreBinariesForStream(c *tc.C) {
+func (s *controllerStateSuite) TestGetAllAgentStoreBinaries(c *tc.C) {
 	version1, err := semversion.Parse("4.0.0")
 	c.Assert(err, tc.ErrorIsNil)
 	version2, err := semversion.Parse("4.1.0")
@@ -219,20 +209,28 @@ func (s *controllerStateSuite) TestGetAllAgentStoreBinariesForStream(c *tc.C) {
 	s.addAgentBinaryStore(c, version2, domainagentbinary.ARM64, storeUUID2)
 
 	st := NewControllerState(s.TxnRunnerFactory())
-	agentBinaries, err := st.GetAllAgentStoreBinariesForStream(
-		c.Context(), domainagentbinary.AgentStreamReleased,
-	)
+	agentBinaries, err := st.GetAllAgentStoreBinaries(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(agentBinaries, tc.SameContents, []domainagentbinary.AgentBinary{
+	c.Check(agentBinaries, tc.SameContents, []internal.AgentStoreBinary{
 		{
 			Architecture: domainagentbinary.ARM64,
-			Stream:       domainagentbinary.AgentStreamReleased,
 			Version:      version2,
 		},
 		{
 			Architecture: domainagentbinary.AMD64,
-			Stream:       domainagentbinary.AgentStreamReleased,
 			Version:      version1,
 		},
 	})
+}
+
+func (s *controllerStateSuite) TestGetAllAgentStoreBinariesInvalidVersion(c *tc.C) {
+	storeUUID := s.addObjectStore(c)
+	_, err := s.DB().ExecContext(c.Context(), `
+INSERT INTO agent_binary_store (version, architecture_id, object_store_uuid)
+VALUES (?, ?, ?)`, "invalid-version", int(domainagentbinary.AMD64), storeUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewControllerState(s.TxnRunnerFactory())
+	_, err = st.GetAllAgentStoreBinaries(c.Context())
+	c.Assert(err, tc.ErrorMatches, `.*parsing agent binary version "invalid-version".*`)
 }
