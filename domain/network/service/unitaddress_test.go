@@ -409,117 +409,131 @@ func (s *unitAddressSuite) TestGetPublicAddressesCloudLocal(c *tc.C) {
 	c.Check(addrs, tc.DeepEquals, unitAddresses[0:2])
 }
 
-// TestGetPublicAddressesCloudLocalPrefersDefaultRouteSource checks that, with
-// no public addresses, the cloud-local address on the device carrying the
-// default route is preferred over a cloud-local address with a lower value
-// on another device.
+// TestGetPublicAddressesCloudLocalPrefersDefaultRouteSource checks that
+// GetUnitPublicAddresses, with no public addresses, returns the cloud-local
+// address on the device carrying the default route before a cloud-local
+// address with a lower value on another device.
 func (s *unitAddressSuite) TestGetPublicAddressesCloudLocalPrefersDefaultRouteSource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
 	unitName := unit.Name("foo/0")
+	eth1Addr, eth0Addr := cloudLocalDefaultRouteAddresses()
 
-	eth1Addr := network.DeviceAddress{
-		SpaceAddress: network.SpaceAddress{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.123",
-				CIDR:       "10.0.0.0/24",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeCloudLocal,
-			},
-		},
-		DeviceUUID: "eth1-uuid",
-	}
-	eth0Addr := network.DeviceAddress{
-		SpaceAddress: network.SpaceAddress{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.1.0.123",
-				CIDR:       "10.1.0.0/24",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeCloudLocal,
-			},
-		},
-		DeviceUUID:             "eth0-uuid",
-		IsDefaultGatewayDevice: true,
-		GatewayAddress:         "10.1.0.1",
-	}
-
-	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil).Times(2)
+	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
 	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).
-		Return([]network.DeviceAddress{eth1Addr, eth0Addr}, nil).Times(2)
+		Return([]network.DeviceAddress{eth1Addr, eth0Addr}, nil)
 
 	// Act
 	addrs, err := s.service(c).GetUnitPublicAddresses(c.Context(), unitName)
-	c.Assert(err, tc.ErrorIsNil)
-	addr, err := s.service(c).GetUnitPublicAddress(c.Context(), unitName)
-	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert
+	c.Assert(err, tc.ErrorIsNil)
 	expectedDefault := eth0Addr.SpaceAddress
 	expectedDefault.IsDefaultRouteSource = true
 	c.Check(addrs, tc.DeepEquals, network.SpaceAddresses{
 		expectedDefault, eth1Addr.SpaceAddress,
 	})
+}
+
+// TestGetPublicAddressCloudLocalPrefersDefaultRouteSource checks that
+// GetUnitPublicAddress, with no public addresses, returns the cloud-local
+// address on the device carrying the default route rather than a cloud-local
+// address with a lower value on another device.
+func (s *unitAddressSuite) TestGetPublicAddressCloudLocalPrefersDefaultRouteSource(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	unitName := unit.Name("foo/0")
+	eth1Addr, eth0Addr := cloudLocalDefaultRouteAddresses()
+
+	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
+	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).
+		Return([]network.DeviceAddress{eth1Addr, eth0Addr}, nil)
+
+	// Act
+	addr, err := s.service(c).GetUnitPublicAddress(c.Context(), unitName)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	expectedDefault := eth0Addr.SpaceAddress
+	expectedDefault.IsDefaultRouteSource = true
 	c.Check(addr, tc.DeepEquals, expectedDefault)
 }
 
-// TestGetPublicAddressesPublicBeatsDefaultRouteSource checks that a public
-// address is returned in preference to the default route source address when
-// that is only cloud-local, and that the cloud-local address is not returned
-// alongside it. That is, marking the default route source does not change the
-// scope tier filter.
+// TestGetPublicAddressesPublicBeatsDefaultRouteSource checks that
+// GetUnitPublicAddresses returns only the public address when the default
+// route source is cloud-local. That is, marking the default route source does
+// not change the scope tier filter.
 func (s *unitAddressSuite) TestGetPublicAddressesPublicBeatsDefaultRouteSource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
 	unitName := unit.Name("foo/0")
+	publicAddr, cloudLocalAddr := publicAndCloudLocalDefaultRouteAddresses()
 
-	publicAddr := network.DeviceAddress{
-		SpaceAddress: network.SpaceAddress{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "203.0.113.10",
-				CIDR:       "203.0.113.0/24",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopePublic,
-			},
-		},
-		DeviceUUID: "eth1-uuid",
-	}
-	cloudLocalAddr := network.DeviceAddress{
-		SpaceAddress: network.SpaceAddress{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.1.0.123",
-				CIDR:       "10.1.0.0/24",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeCloudLocal,
-			},
-		},
-		DeviceUUID:             "eth0-uuid",
-		IsDefaultGatewayDevice: true,
-		GatewayAddress:         "10.1.0.1",
-	}
-
-	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil).Times(2)
+	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
 	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).
-		Return([]network.DeviceAddress{cloudLocalAddr, publicAddr}, nil).Times(2)
+		Return([]network.DeviceAddress{cloudLocalAddr, publicAddr}, nil)
 
 	// Act
 	addrs, err := s.service(c).GetUnitPublicAddresses(c.Context(), unitName)
-	c.Assert(err, tc.ErrorIsNil)
-	addr, err := s.service(c).GetUnitPublicAddress(c.Context(), unitName)
-	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(addrs, tc.DeepEquals, network.SpaceAddresses{publicAddr.SpaceAddress})
+}
+
+// TestGetPublicAddressPublicBeatsDefaultRouteSource checks that
+// GetUnitPublicAddress returns the public address, not the cloud-local
+// default route source. That is, marking the default route source does not
+// change the scope tier filter.
+func (s *unitAddressSuite) TestGetPublicAddressPublicBeatsDefaultRouteSource(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	unitName := unit.Name("foo/0")
+	publicAddr, cloudLocalAddr := publicAndCloudLocalDefaultRouteAddresses()
+
+	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
+	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).
+		Return([]network.DeviceAddress{cloudLocalAddr, publicAddr}, nil)
+
+	// Act
+	addr, err := s.service(c).GetUnitPublicAddress(c.Context(), unitName)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(addr, tc.DeepEquals, publicAddr.SpaceAddress)
+}
+
+// TestGetPublicAddressMarksBeforeScopeFilter checks that the default route
+// source is marked before the machine-local addresses are filtered out. The
+// only address in the gateway's subnet is machine-local, so it is marked and
+// then excluded, and the cloud-local address on the same device is not marked.
+// The lower-valued address on the other device is returned. If the marking
+// happened after the scope filter, nothing would match the gateway, the
+// fallback would mark the cloud-local address on the default route device, and
+// that would be returned instead.
+func (s *unitAddressSuite) TestGetPublicAddressMarksBeforeScopeFilter(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	unitName := unit.Name("foo/0")
+	eth0Addr, eth1MachineLocal, eth1CloudLocal := machineLocalDefaultRouteAddresses()
+
+	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
+	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).
+		Return([]network.DeviceAddress{
+			eth0Addr, eth1MachineLocal, eth1CloudLocal,
+		}, nil)
+
+	// Act
+	addr, err := s.service(c).GetUnitPublicAddress(c.Context(), unitName)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addr, tc.DeepEquals, eth0Addr.SpaceAddress)
 }
 
 func (s *unitAddressSuite) TestGetPublicAddressesNoAddresses(c *tc.C) {
@@ -846,4 +860,27 @@ func toDeviceAddresses(addrs network.SpaceAddresses) []network.DeviceAddress {
 		res[i] = network.DeviceAddress{SpaceAddress: addr}
 	}
 	return res
+}
+
+// cloudLocalDefaultRouteAddresses returns two cloud-local addresses: the
+// lower-valued address on eth1, which does not carry the default route, and
+// the higher-valued address on eth0, which does.
+func cloudLocalDefaultRouteAddresses() (eth1, eth0 network.DeviceAddress) {
+	eth1 = defaultRouteDeviceAddress("10.0.0.123", "10.0.0.0/24", "eth1-uuid")
+	eth1.IsDefaultGatewayDevice = false
+	eth1.GatewayAddress = ""
+	eth0 = defaultRouteDeviceAddress("10.1.0.123", "10.1.0.0/24", "eth0-uuid")
+	return eth1, eth0
+}
+
+// publicAndCloudLocalDefaultRouteAddresses returns a public address on eth1,
+// which does not carry the default route, and a cloud-local address on eth0,
+// which does.
+func publicAndCloudLocalDefaultRouteAddresses() (public, cloudLocal network.DeviceAddress) {
+	public = defaultRouteDeviceAddress("203.0.113.10", "203.0.113.0/24", "eth1-uuid")
+	public.Scope = network.ScopePublic
+	public.IsDefaultGatewayDevice = false
+	public.GatewayAddress = ""
+	cloudLocal = defaultRouteDeviceAddress("10.1.0.123", "10.1.0.0/24", "eth0-uuid")
+	return public, cloudLocal
 }

@@ -452,6 +452,37 @@ func (s *machineaddressSuite) TestGetMachinePublicAddressPrefersDefaultRouteSour
 	c.Check(address, tc.DeepEquals, expected)
 }
 
+// TestGetMachinePublicAddressMarksBeforeScopeFilter checks that the default
+// route source is marked before the machine-local addresses are filtered out.
+// The only address in the gateway's subnet is machine-local, so it is marked
+// and then excluded, and the cloud-local address on the same device is not
+// marked. The lower-valued address on the other device is returned. If the
+// marking happened after the scope filter, nothing would match the gateway,
+// the fallback would mark the cloud-local address on the default route
+// device, and that would be returned instead.
+func (s *machineaddressSuite) TestGetMachinePublicAddressMarksBeforeScopeFilter(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	machineUUID := machinetesting.GenUUID(c)
+	netNodeUUID := "net-node-456"
+	eth0Addr, eth1MachineLocal, eth1CloudLocal := machineLocalDefaultRouteAddresses()
+
+	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
+		Return(netNodeUUID, nil)
+	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
+		Return([]network.DeviceAddress{
+			eth0Addr, eth1MachineLocal, eth1CloudLocal,
+		}, nil)
+
+	// Act
+	address, err := NewService(s.st, nil).GetMachinePublicAddress(c.Context(), machineUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(address, tc.DeepEquals, eth0Addr.SpaceAddress)
+}
+
 // TestGetMachinePrivateAddressPrefersDefaultRouteSource checks that the
 // cloud-local address on the default route device is preferred over a
 // lower-valued cloud-local address on another device.
