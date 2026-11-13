@@ -5,10 +5,13 @@ description: "Perform a Juju merge-forward between two repository branches using
 
 # Merge Forward
 
-Follow the documented Juju merge-forward workflow.
-
-Reference:
-`https://documentation.ubuntu.com/juju/3.6/contributor/howto/merge-forward/`
+Juju has multiple versions in concurrent development, each on its own
+branch. Fixes target the lowest relevant version and are later merged
+forward into every later version: 4.0 into 4.1, 4.1 into main. The
+canonical procedure is: sync both branches, create a merge branch off
+the target tip, merge the source, resolve conflicts, push the merge
+branch, and open a PR listing the included patches and any conflicts
+encountered. This skill automates that procedure.
 
 Parse `SOURCE` and `TARGET` branch names from the request. If either is
 missing, stop and report the error.
@@ -77,9 +80,13 @@ git rev-parse --short upstream/TARGET
 Branch off the target tip, not the current `HEAD`.
 
 ```bash
-MERGE_BRANCH="merge/SOURCE-TARGET-$(date +%Y%m%d)"
+MERGE_BRANCH="merge/SOURCE-TARGET-$(date +%Y%m%d-%H%M%S)"
 git checkout -b "$MERGE_BRANCH" upstream/TARGET
 ```
+
+The timestamp makes the branch name unique per run, so a new PR can be
+opened the same day once the previous one is merged or closed. Never
+reuse an existing branch name.
 
 Confirm with the output:
 `Created branch $MERGE_BRANCH from upstream/TARGET (<sha>)`.
@@ -303,7 +310,37 @@ There is no user to hand off to. Publish the merge yourself:
    ```
 
 3. Assign up to 3 unique reviewers, chosen by their involvement in the
-   merge.
+   merge. Aim for at least 2 when enough eligible candidates exist, but
+   continue if fewer than 2 can be assigned.
+
+   GitHub may auto-request reviewers (e.g. from CODEOWNERS) when the PR
+   is created. Remove all of them first, so only the reviewers chosen
+   below remain:
+
+   ```bash
+   PR_NUMBER=$(gh pr view PR_URL --json number --jq .number)
+
+   AUTO_REVIEWERS=$(gh api \
+     "repos/juju/juju/pulls/$PR_NUMBER/requested_reviewers")
+   mapfile -t AUTO_USERS < <(
+     jq -r '.users[].login' <<< "$AUTO_REVIEWERS"
+   )
+   mapfile -t AUTO_TEAMS < <(
+     jq -r '.teams[].slug' <<< "$AUTO_REVIEWERS"
+   )
+
+   args=()
+   for login in ${AUTO_USERS[@]+"${AUTO_USERS[@]}"}; do
+     args+=(-f "reviewers[]=$login")
+   done
+   for slug in ${AUTO_TEAMS[@]+"${AUTO_TEAMS[@]}"}; do
+     args+=(-f "team_reviewers[]=$slug")
+   done
+   if ((${#args[@]})); then
+     gh api "repos/juju/juju/pulls/$PR_NUMBER/requested_reviewers" \
+       --method DELETE "${args[@]}"
+   fi
+   ```
 
    Build an ordered candidate list as follows:
 
@@ -346,7 +383,7 @@ There is no user to hand off to. Publish the merge yourself:
    ```
 
 Never push to SOURCE or TARGET directly. The only refs that may be pushed
-are `merge/SOURCE-TARGET-YYYYMMDD` branches. Do not commit or stage
+are `merge/SOURCE-TARGET-YYYYMMDD-HHMMSS` branches. Do not commit or stage
 anything unrelated to the merge.
 
 ## Feedback Loop
@@ -366,8 +403,14 @@ instead.
 
 ## Conventions
 
-- Merge branch name: `merge/SOURCE-TARGET-YYYYMMDD`
+- Merge branch name: `merge/SOURCE-TARGET-YYYYMMDD-HHMMSS` (unique per
+  run, so a new PR can be opened the same day once the previous one is
+  merged or closed)
 - Merge commit message: `chore: merge SOURCE into TARGET`
 - `upstream` remote: `github.com/juju/juju`
-- Reviewers: at most 3, chosen by merge involvement (authors of
-  conflict-causing PRs first, then authors of the largest changes)
+- Reviewers: up to 3, preferably at least 2 when enough eligible
+  candidates exist, chosen by merge involvement (authors of
+  conflict-causing PRs first, then authors of the largest changes);
+  reviewers auto-assigned by GitHub are removed first
+- The workflow deletes a pair's `merge/*` branches once all their PRs
+  are merged or closed, or when no PR exists

@@ -2,7 +2,9 @@ name: Merge forward
 
 # Runs the merge-forward skill (.agents/skills/merge-forward) for each
 # branch pair in the matrix below, daily. If a merge-forward PR for
-# a pair is already open, that pair's job logs it and exits.
+# a pair is already open, that pair's job logs it and exits. Merge
+# branch names are timestamped, so once that PR is merged or closed a
+# new PR can be opened the same day (e.g. via workflow_dispatch).
 #
 # Scheduled workflows only run from the default branch (main), so this file
 # must be merged there to take effect. It checks out the target branch and
@@ -44,7 +46,7 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
-          app-id: ${{ secrets.MERGE_FORWARD_APP_ID }}
+          client-id: ${{ secrets.MERGE_FORWARD_APP_CLIENT_ID }}
           private-key: ${{ secrets.MERGE_FORWARD_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
@@ -80,6 +82,27 @@ jobs:
           # main is fetched as well: the skill file is extracted from it below.
           git fetch upstream "${SOURCE_BRANCH}" "${TARGET_BRANCH}" main
 
+          # Prune this pair's old merge branches once all their PRs are
+          # closed, or when PR creation failed and no PR exists.
+          for ref in $(git branch -r \
+            --list "upstream/merge/${SOURCE_BRANCH}-${TARGET_BRANCH}-*" \
+            --format '%(refname:short)'); do
+            branch="${ref#upstream/}"
+            pr_state=$(gh pr list --state all --head "$branch" \
+              --json state \
+              --jq 'if length == 0 then "none" elif any(.[]; .state == "OPEN") then "open" else "closed" end' \
+              || echo "error")
+            if [ "$pr_state" = "error" ]; then
+              echo "Could not check PRs for $branch; leaving it untouched."
+              continue
+            fi
+            if [ "$pr_state" = "closed" ] || [ "$pr_state" = "none" ]; then
+              echo "Deleting stale merge branch $branch (PR state: $pr_state)."
+              git push upstream --delete "$branch" \
+                || echo "Could not delete $branch; continuing."
+            fi
+          done
+
           if git merge-base --is-ancestor \
             "upstream/${SOURCE_BRANCH}" "upstream/${TARGET_BRANCH}"; then
             echo "Nothing to merge: ${SOURCE_BRANCH} is already contained in ${TARGET_BRANCH}."
@@ -104,6 +127,9 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         run: |
           npm install --global @opencode/cli@2
+          # The agent formats touched Go files with gci (repo lint rules).
+          go install github.com/daixiang0/gci@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
           mkdir -p "$HOME/.config/opencode" "$HOME/.agents/skills/merge-forward"
           # The checked-out target branch does not contain the skill file,
           # so install it from main into the agent's global skills
