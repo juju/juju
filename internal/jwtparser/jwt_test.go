@@ -12,10 +12,17 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/google/uuid"
 	"github.com/juju/tc"
+	"github.com/lestrrat-go/httprc/v3"
 	"github.com/lestrrat-go/jwx/v3/jwa"
 	"github.com/lestrrat-go/jwx/v3/jwk"
 )
@@ -51,6 +58,78 @@ func (s *jwtParserSuite) TestCacheRegistration(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	err = authenticator.SetJWKSCache(c.Context(), s.url)
 	c.Assert(err, tc.ErrorIsNil)
+
+	resource, err := authenticator.cache.LookupResource(ctx, s.url)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(resource.MinInterval(), tc.Equals, 30*time.Second)
+	c.Check(resource.MaxInterval(), tc.Equals, httprc.DefaultMaxInterval)
+}
+
+func (s *jwtParserSuite) TestCacheRefreshIntervals(c *tc.C) {
+	tests := []struct {
+		name             string
+		statusCode       int
+		cacheControl     string
+		requestError     error
+		expectError      bool
+		expectedInterval time.Duration
+	}{
+		{
+			name:             "connection failure",
+			requestError:     fmt.Errorf("endpoint unavailable"),
+			expectError:      true,
+			expectedInterval: 30 * time.Second,
+		},
+		{
+			name:             "http failure",
+			statusCode:       http.StatusInternalServerError,
+			expectError:      true,
+			expectedInterval: 30 * time.Second,
+		},
+		{
+			name:             "success",
+			statusCode:       http.StatusOK,
+			cacheControl:     "max-age=600",
+			expectedInterval: 10 * time.Minute,
+		},
+	}
+	for _, test := range tests {
+		c.Logf("scenario: %s", test.name)
+		ctrl := gomock.NewController(c)
+		defer ctrl.Finish()
+		client := NewMockHTTPClient(ctrl)
+		client.EXPECT().Do(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+			if test.requestError != nil {
+				return nil, test.requestError
+			}
+			return &http.Response{
+				StatusCode: test.statusCode,
+				Header:     http.Header{"Cache-Control": []string{test.cacheControl}},
+				Body:       io.NopCloser(strings.NewReader(s.client.keys)),
+				Request:    req,
+			}, nil
+		}).MinTimes(1)
+		ctx, cancel := context.WithCancel(c.Context())
+		defer cancel()
+		parser, err := NewParserWithHTTPClient(ctx, client)
+		c.Assert(err, tc.ErrorIsNil)
+		err = parser.SetJWKSCache(ctx, s.url)
+		c.Assert(err, tc.ErrorIsNil)
+		resource, err := parser.cache.LookupResource(ctx, s.url)
+		c.Assert(err, tc.ErrorIsNil)
+		err = parser.cache.Shutdown(ctx)
+		c.Assert(err, tc.ErrorIsNil)
+
+		before := time.Now()
+		err = resource.Sync(c.Context())
+		if test.expectError {
+			c.Check(err, tc.NotNil)
+		} else {
+			c.Check(err, tc.ErrorIsNil)
+		}
+		c.Check(resource.Next().Before(before.Add(test.expectedInterval)), tc.IsFalse)
+		c.Check(resource.Next().After(time.Now().Add(test.expectedInterval)), tc.IsFalse)
+	}
 }
 
 func (s *jwtParserSuite) TestCacheRegistrationSucceedsWithBadURL(c *tc.C) {
