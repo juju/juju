@@ -235,35 +235,30 @@ func (s *ModelState) MatchesMachinePasswordHashWithNonce(
 		Nonce:        nonce,
 	}
 
-	var result machinePassword
 	passwordQuery := `
 SELECT
-    COUNT(m.uuid) AS &machinePassword.machine_count,
-    MAX(mci.instance_id) AS &machinePassword.instance_id
-FROM      machine m
-LEFT JOIN machine_cloud_instance mci ON mci.machine_uuid = m.uuid
+    mci.instance_id AS &machinePassword.instance_id
+FROM      machine AS m
+LEFT JOIN machine_cloud_instance AS mci ON mci.machine_uuid = m.uuid
 WHERE     m.uuid = $validatePasswordHashWithNonce.uuid
 AND       m.password_hash = $validatePasswordHashWithNonce.password_hash
 AND       m.nonce = $validatePasswordHashWithNonce.nonce;
 `
-	passwordStmt, err := s.Prepare(passwordQuery, args, result)
+	passwordStmt, err := s.Prepare(passwordQuery, args, machinePassword{})
 	if err != nil {
 		return false, errors.Errorf("preparing statement to set password hash: %w", err)
 	}
 
 	var valid bool
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, passwordStmt, args).Get(&result); err != nil {
+		valid = false
+		var result machinePassword
+		if err := tx.Query(ctx, passwordStmt, args).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
 			return errors.Errorf("checking password hash: %w", err)
 		}
 
-		// We've not found any rows, so the password does not match.
-		if result.MachineCount == 0 {
-			return nil
-		}
-
-		// If the machine count is greater than 0, then we can assume the
-		// password matches, but we also need to check the instance count.
 		// The machine can only login if it has been provisioned.
 		if !result.InstanceID.Valid || result.InstanceID.V == "" {
 			return machineerrors.NotProvisioned

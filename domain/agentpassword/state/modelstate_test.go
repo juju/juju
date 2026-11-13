@@ -392,6 +392,14 @@ func (s *modelStateSuite) TestMatchesMachinePasswordHashWithNonceNotProvisioned(
 	valid, err := st.MatchesMachinePasswordHashWithNonce(c.Context(), machineUUID, passwordHash, nonce)
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 	c.Check(valid, tc.IsFalse)
+
+	valid, err = st.MatchesMachinePasswordHashWithNonce(c.Context(), machineUUID, passwordHash+"1", nonce)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsFalse)
+
+	valid, err = st.MatchesMachinePasswordHashWithNonce(c.Context(), machineUUID, passwordHash, "wrong")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsFalse)
 }
 
 func (s *modelStateSuite) TestMatchesMachinePasswordHashWithNonceEmptyInstanceID(c *tc.C) {
