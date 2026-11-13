@@ -94,7 +94,7 @@ func (s *secretSuite) TestExecuteJobForUserSecretDelete(c *tc.C) {
 	}
 	s.controllerState.EXPECT().
 		GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).
-		Return("", sbCfg, nil)
+		Return(sbCfg, nil)
 	s.controllerState.EXPECT().RemoveSecretBackendReference(gomock.Any(), "rev-uuid-1").Return(nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
@@ -122,7 +122,7 @@ func (s *secretSuite) TestExecuteJobForCharmSecretDelete(c *tc.C) {
 	}
 	s.controllerState.EXPECT().
 		GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).
-		Return("", sbCfg, nil)
+		Return(sbCfg, nil)
 	s.controllerState.EXPECT().RemoveSecretBackendReference(gomock.Any(), "rev-uuid-1").Return(nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
@@ -253,7 +253,7 @@ func (s *secretSuite) prepareSecretBackendProvider() {
 	}
 	s.controllerState.EXPECT().
 		GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).
-		Return("", sbCfg, nil)
+		Return(sbCfg, nil)
 
 	s.secretBackendProvider.EXPECT().Initialise(sbCfg).Return(nil)
 	s.secretBackendProvider.EXPECT().NewBackend(sbCfg).Return(s.secretBackend, nil)

@@ -151,6 +151,13 @@ type SecretBackendConfig struct {
 	Content string `db:"content"`
 }
 
+// secretBackendIdentifier is used to identify a secret backend by either its
+// UUID or name, depending on the query it is used with.
+type secretBackendIdentifier struct {
+	// Identifier is the UUID or name of the secret backend.
+	Identifier string `db:"identifier"`
+}
+
 // SecretBackendRow represents a single joined result from secret_backend and
 // secret_backend_config tables.
 type SecretBackendRow struct {
