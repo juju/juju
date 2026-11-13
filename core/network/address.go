@@ -646,6 +646,27 @@ func NewSpaceAddress(value string, options ...func(mutator AddressMutator)) Spac
 	return SpaceAddress{MachineAddress: NewMachineAddress(value, options...)}
 }
 
+// DeviceAddress is a space address together with the facts about its
+// link-layer device that are needed to identify the default route source
+// address.
+type DeviceAddress struct {
+	SpaceAddress
+
+	// DeviceUUID identifies the link-layer device that holds the address.
+	DeviceUUID string
+
+	// IsSecondary is true if the address is not the primary address for
+	// its subnet on the device.
+	IsSecondary bool
+
+	// IsDefaultGatewayDevice is true if the device carries the machine's
+	// IPv4 default route.
+	IsDefaultGatewayDevice bool
+
+	// GatewayAddress is the device's gateway address, if known.
+	GatewayAddress string
+}
+
 // SpaceAddresses is a slice of SpaceAddress
 // supporting conversion to ProviderAddresses.
 type SpaceAddresses []SpaceAddress

@@ -81,5 +81,5 @@ func (s *Service) getMachineAddresses(ctx context.Context, uuid machine.UUID) (n
 		return nil, errors.Errorf("retrieving addresses for net node %q: %w", netNodeUUID, err)
 	}
 
-	return markDefaultRouteSource(addresses), nil
+	return network.MarkDefaultRouteSource(addresses), nil
 }

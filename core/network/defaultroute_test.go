@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package service
+package network_test
 
 import (
 	"testing"
@@ -9,7 +9,6 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
-	networkinternal "github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -26,13 +25,13 @@ func TestDefaultRouteSuite(t *testing.T) {
 // primary address in a different subnet on the same device.
 func (s *defaultRouteSuite) TestMarkDefaultRouteSourceGatewayInSubnet(c *tc.C) {
 	// Arrange
-	addrs := []networkinternal.UnitDeviceAddress{
+	addrs := []network.DeviceAddress{
 		defaultRouteDeviceAddress("192.168.0.5", "192.168.0.0/24", "eth0"),
 		defaultRouteDeviceAddress("10.1.0.123", "10.1.0.0/24", "eth0"),
 	}
 
 	// Act
-	result := markDefaultRouteSource(addrs)
+	result := network.MarkDefaultRouteSource(addrs)
 
 	// Assert
 	c.Check(addressValues(result), tc.DeepEquals, []string{
@@ -47,13 +46,13 @@ func (s *defaultRouteSuite) TestMarkDefaultRouteSourceSkipsSecondary(c *tc.C) {
 	// Arrange
 	secondary := defaultRouteDeviceAddress("10.1.0.100", "10.1.0.0/24", "eth0")
 	secondary.IsSecondary = true
-	addrs := []networkinternal.UnitDeviceAddress{
+	addrs := []network.DeviceAddress{
 		secondary,
 		defaultRouteDeviceAddress("10.1.0.123", "10.1.0.0/24", "eth0"),
 	}
 
 	// Act
-	result := markDefaultRouteSource(addrs)
+	result := network.MarkDefaultRouteSource(addrs)
 
 	// Assert
 	c.Check(markedValues(result), tc.DeepEquals, []string{"10.1.0.123"})
@@ -67,8 +66,8 @@ func (s *defaultRouteSuite) TestMarkDefaultRouteSourceOnlySecondary(c *tc.C) {
 	secondary.IsSecondary = true
 
 	// Act
-	result := markDefaultRouteSource(
-		[]networkinternal.UnitDeviceAddress{secondary})
+	result := network.MarkDefaultRouteSource(
+		[]network.DeviceAddress{secondary})
 
 	// Assert
 	c.Check(markedValues(result), tc.HasLen, 0)
@@ -84,10 +83,10 @@ func (s *defaultRouteSuite) TestMarkDefaultRouteSourceSkipsIPv6(c *tc.C) {
 	ipv6.GatewayAddress = ""
 	ipv4 := defaultRouteDeviceAddress("10.1.0.123", "10.1.0.0/24", "eth0")
 	ipv4.GatewayAddress = ""
-	addrs := []networkinternal.UnitDeviceAddress{ipv6, ipv4}
+	addrs := []network.DeviceAddress{ipv6, ipv4}
 
 	// Act
-	result := markDefaultRouteSource(addrs)
+	result := network.MarkDefaultRouteSource(addrs)
 
 	// Assert
 	c.Check(markedValues(result), tc.DeepEquals, []string{"10.1.0.123"})
@@ -103,8 +102,8 @@ func (s *defaultRouteSuite) TestMarkDefaultRouteSourceOnlyIPv6(c *tc.C) {
 	ipv6.GatewayAddress = ""
 
 	// Act
-	result := markDefaultRouteSource(
-		[]networkinternal.UnitDeviceAddress{ipv6})
+	result := network.MarkDefaultRouteSource(
+		[]network.DeviceAddress{ipv6})
 
 	// Assert
 	c.Check(markedValues(result), tc.HasLen, 0)
@@ -118,13 +117,13 @@ func (s *defaultRouteSuite) TestMarkDefaultRouteSourceIgnoresOtherDevices(c *tc.
 	other := defaultRouteDeviceAddress("10.1.0.200", "10.1.0.0/24", "eth1")
 	other.IsDefaultGatewayDevice = false
 	other.GatewayAddress = ""
-	addrs := []networkinternal.UnitDeviceAddress{
+	addrs := []network.DeviceAddress{
 		other,
 		defaultRouteDeviceAddress("10.1.0.123", "10.1.0.0/24", "eth0"),
 	}
 
 	// Act
-	result := markDefaultRouteSource(addrs)
+	result := network.MarkDefaultRouteSource(addrs)
 
 	// Assert
 	c.Check(markedValues(result), tc.DeepEquals, []string{"10.1.0.123"})
@@ -156,8 +155,8 @@ func (s *defaultRouteSuite) TestMarkDefaultRouteSourceGatewayFallback(c *tc.C) {
 		other.IsDefaultGatewayDevice = false
 
 		// Act
-		result := markDefaultRouteSource(
-			[]networkinternal.UnitDeviceAddress{first, second, other})
+		result := network.MarkDefaultRouteSource(
+			[]network.DeviceAddress{first, second, other})
 
 		// Assert
 		c.Check(markedValues(result), tc.DeepEquals,
@@ -174,10 +173,10 @@ func (s *defaultRouteSuite) TestMarkDefaultRouteSourceUnparsableCIDR(c *tc.C) {
 	match := defaultRouteDeviceAddress("10.1.0.124", "10.1.0.0/24", "eth0")
 
 	// Act
-	withMatch := markDefaultRouteSource(
-		[]networkinternal.UnitDeviceAddress{noMatch, match})
-	withoutMatch := markDefaultRouteSource(
-		[]networkinternal.UnitDeviceAddress{noMatch})
+	withMatch := network.MarkDefaultRouteSource(
+		[]network.DeviceAddress{noMatch, match})
+	withoutMatch := network.MarkDefaultRouteSource(
+		[]network.DeviceAddress{noMatch})
 
 	// Assert
 	c.Check(markedValues(withMatch), tc.DeepEquals, []string{"10.1.0.124"})
@@ -196,12 +195,12 @@ func (s *defaultRouteSuite) TestMarkDefaultRouteSourceMultipleDevices(c *tc.C) {
 	eth1Gateway.GatewayAddress = "10.2.0.1"
 	eth1Other := defaultRouteDeviceAddress("172.16.0.5", "172.16.0.0/24", "eth1")
 	eth1Other.GatewayAddress = "10.2.0.1"
-	addrs := []networkinternal.UnitDeviceAddress{
+	addrs := []network.DeviceAddress{
 		eth0Other, eth1Other, eth0Gateway, eth1Gateway,
 	}
 
 	// Act
-	result := markDefaultRouteSource(addrs)
+	result := network.MarkDefaultRouteSource(addrs)
 
 	// Assert
 	c.Check(markedValues(result), tc.DeepEquals, []string{
@@ -217,10 +216,10 @@ func (s *defaultRouteSuite) TestMarkDefaultRouteSourceOverlappingPrefixes(c *tc.
 	wide := defaultRouteDeviceAddress("10.0.0.5", "10.0.0.0/8", "eth0")
 	narrow := defaultRouteDeviceAddress("10.1.0.5", "10.1.0.0/24", "eth0")
 	other := defaultRouteDeviceAddress("192.168.0.5", "192.168.0.0/24", "eth0")
-	addrs := []networkinternal.UnitDeviceAddress{wide, other, narrow}
+	addrs := []network.DeviceAddress{wide, other, narrow}
 
 	// Act
-	result := markDefaultRouteSource(addrs)
+	result := network.MarkDefaultRouteSource(addrs)
 
 	// Assert
 	c.Check(markedValues(result), tc.DeepEquals, []string{
@@ -239,10 +238,10 @@ func (s *defaultRouteSuite) TestMarkDefaultRouteSourceNoDefaultRouteDevice(c *tc
 	second := defaultRouteDeviceAddress("10.0.0.123", "10.0.0.0/24", "eth1")
 	second.IsDefaultGatewayDevice = false
 	second.GatewayAddress = ""
-	addrs := []networkinternal.UnitDeviceAddress{first, second}
+	addrs := []network.DeviceAddress{first, second}
 
 	// Act
-	result := markDefaultRouteSource(addrs)
+	result := network.MarkDefaultRouteSource(addrs)
 
 	// Assert
 	c.Check(result, tc.DeepEquals, network.SpaceAddresses{
@@ -254,19 +253,19 @@ func (s *defaultRouteSuite) TestMarkDefaultRouteSourceNoDefaultRouteDevice(c *tc
 // an empty result.
 func (s *defaultRouteSuite) TestMarkDefaultRouteSourceNoAddresses(c *tc.C) {
 	// Act
-	result := markDefaultRouteSource(nil)
+	result := network.MarkDefaultRouteSource(nil)
 
 	// Assert
 	c.Check(result, tc.HasLen, 0)
 }
 
-// defaultRouteDeviceAddress returns a cloud-local IPv4 unit device address on
+// defaultRouteDeviceAddress returns a cloud-local IPv4 device address on
 // the input device. The device carries the default route, via the gateway
 // 10.1.0.1.
 func defaultRouteDeviceAddress(
 	value, cidr, deviceUUID string,
-) networkinternal.UnitDeviceAddress {
-	return networkinternal.UnitDeviceAddress{
+) network.DeviceAddress {
+	return network.DeviceAddress{
 		SpaceAddress: network.SpaceAddress{
 			SpaceID: network.AlphaSpaceId,
 			Origin:  network.OriginMachine,

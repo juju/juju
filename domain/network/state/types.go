@@ -657,9 +657,9 @@ type controllerAPIAddress struct {
 	DeviceType int `db:"device_type_id"`
 }
 
-// unitAddress represents a unit address joined with the facts about its
+// deviceAddress represents an IP address joined with the facts about its
 // link-layer device that are needed to identify the default route source.
-type unitAddress struct {
+type deviceAddress struct {
 	SpaceAddress
 	IsSecondary      bool           `db:"is_secondary"`
 	IsDefaultGateway bool           `db:"is_default_gateway"`

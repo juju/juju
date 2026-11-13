@@ -1,25 +1,21 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package service
+package network
 
 import (
 	"net"
 	"strings"
-
-	"github.com/juju/juju/core/network"
-	networkinternal "github.com/juju/juju/domain/network/internal"
 )
 
-// markDefaultRouteSource returns the space addresses for the input unit
-// addresses, with IsDefaultRouteSource set on the primary IPv4 address(es)
-// of the default route device whose subnet contains the gateway. If none
-// contains it, all primary IPv4 addresses on that device are marked.
-// The input order is preserved.
-func markDefaultRouteSource(
-	addrs []networkinternal.UnitDeviceAddress,
-) network.SpaceAddresses {
-	result := make(network.SpaceAddresses, len(addrs))
+// MarkDefaultRouteSource returns the space addresses for the input device
+// addresses, in the same order. For each device that carries the IPv4
+// default route, it sets IsDefaultRouteSource on the primary IPv4 addresses
+// whose CIDR contains the device's gateway. If the gateway is missing or
+// not a valid IPv4 address, or no CIDR contains it, all primary IPv4
+// addresses on that device are marked.
+func MarkDefaultRouteSource(addrs []DeviceAddress) SpaceAddresses {
+	result := make(SpaceAddresses, len(addrs))
 
 	// Indexes of the candidate addresses, grouped by device.
 	candidates := make(map[string][]int)
@@ -58,10 +54,10 @@ func markDefaultRouteSource(
 // isDefaultRouteCandidate returns true if the address can be the source of the
 // IPv4 default route. That is, it is a primary IPv4 address on a device that
 // carries the default route.
-func isDefaultRouteCandidate(addr networkinternal.UnitDeviceAddress) bool {
+func isDefaultRouteCandidate(addr DeviceAddress) bool {
 	return addr.IsDefaultGatewayDevice &&
 		!addr.IsSecondary &&
-		addr.Type == network.IPv4Address
+		addr.Type == IPv4Address
 }
 
 // parseGateway returns the IPv4 gateway address, or nil if the input is empty,

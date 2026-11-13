@@ -86,7 +86,7 @@ func (s *Service) GetUnitPublicAddresses(ctx context.Context, unitName unit.Name
 
 	// When there is no public address, the cloud-local addresses are used.
 	// Prefer the one used as the source of the default route.
-	addrs := markDefaultRouteSource(unitAddrs)
+	addrs := network.MarkDefaultRouteSource(unitAddrs)
 	matchedAddrs := addrs.AllMatchingScope(network.ScopeMatchPublic)
 	if len(matchedAddrs) == 0 {
 		return nil, network.NoAddressError(string(network.ScopePublic))

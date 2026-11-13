@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
-	networkinternal "github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -108,7 +107,7 @@ func (s *unitAddressSuite) TestGetPublicAddressNonMatchingAddresses(c *tc.C) {
 	}
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unit.Name("foo/0")).Return(unit.UUID("foo-uuid"), nil)
-	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo-uuid")).Return(toUnitDeviceAddresses(nonMatchingScopeAddrs), nil)
+	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo-uuid")).Return(toDeviceAddresses(nonMatchingScopeAddrs), nil)
 
 	_, err := s.service(c).GetUnitPublicAddress(c.Context(), unitName)
 	c.Assert(err, tc.ErrorMatches, "no public address.*")
@@ -150,7 +149,7 @@ func (s *unitAddressSuite) TestGetPublicAddressMatchingAddress(c *tc.C) {
 	}
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
-	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(toUnitDeviceAddresses(matchingScopeAddrs), nil)
+	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(toDeviceAddresses(matchingScopeAddrs), nil)
 
 	addr, err := s.service(c).GetUnitPublicAddress(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -198,7 +197,7 @@ func (s *unitAddressSuite) TestGetPublicAddressMatchingAddressSameOrigin(c *tc.C
 	}
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
-	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(toUnitDeviceAddresses(matchingScopeAddrs), nil)
+	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(toDeviceAddresses(matchingScopeAddrs), nil)
 
 	addr, err := s.service(c).GetUnitPublicAddress(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -246,7 +245,7 @@ func (s *unitAddressSuite) TestGetPublicAddressMatchingAddressOneProviderOnly(c 
 	}
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
-	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(toUnitDeviceAddresses(matchingScopeAddrs), nil)
+	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(toDeviceAddresses(matchingScopeAddrs), nil)
 
 	addr, err := s.service(c).GetUnitPublicAddress(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -294,7 +293,7 @@ func (s *unitAddressSuite) TestGetPublicAddressMatchingAddressOneProviderOtherUn
 	}
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
-	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(toUnitDeviceAddresses(matchingScopeAddrs), nil)
+	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(toDeviceAddresses(matchingScopeAddrs), nil)
 
 	addr, err := s.service(c).GetUnitPublicAddress(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -348,7 +347,7 @@ func (s *unitAddressSuite) TestGetPublicAddresses(c *tc.C) {
 	}
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
-	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(toUnitDeviceAddresses(unitAddresses), nil)
+	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(toDeviceAddresses(unitAddresses), nil)
 
 	addrs, err := s.service(c).GetUnitPublicAddresses(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -401,7 +400,7 @@ func (s *unitAddressSuite) TestGetPublicAddressesCloudLocal(c *tc.C) {
 	}
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
-	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(toUnitDeviceAddresses(unitAddresses), nil)
+	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(toDeviceAddresses(unitAddresses), nil)
 
 	addrs, err := s.service(c).GetUnitPublicAddresses(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -420,7 +419,7 @@ func (s *unitAddressSuite) TestGetPublicAddressesCloudLocalPrefersDefaultRouteSo
 	// Arrange
 	unitName := unit.Name("foo/0")
 
-	eth1Addr := networkinternal.UnitDeviceAddress{
+	eth1Addr := network.DeviceAddress{
 		SpaceAddress: network.SpaceAddress{
 			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
@@ -433,7 +432,7 @@ func (s *unitAddressSuite) TestGetPublicAddressesCloudLocalPrefersDefaultRouteSo
 		},
 		DeviceUUID: "eth1-uuid",
 	}
-	eth0Addr := networkinternal.UnitDeviceAddress{
+	eth0Addr := network.DeviceAddress{
 		SpaceAddress: network.SpaceAddress{
 			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
@@ -451,7 +450,7 @@ func (s *unitAddressSuite) TestGetPublicAddressesCloudLocalPrefersDefaultRouteSo
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil).Times(2)
 	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).
-		Return([]networkinternal.UnitDeviceAddress{eth1Addr, eth0Addr}, nil).Times(2)
+		Return([]network.DeviceAddress{eth1Addr, eth0Addr}, nil).Times(2)
 
 	// Act
 	addrs, err := s.service(c).GetUnitPublicAddresses(c.Context(), unitName)
@@ -479,7 +478,7 @@ func (s *unitAddressSuite) TestGetPublicAddressesPublicBeatsDefaultRouteSource(c
 	// Arrange
 	unitName := unit.Name("foo/0")
 
-	publicAddr := networkinternal.UnitDeviceAddress{
+	publicAddr := network.DeviceAddress{
 		SpaceAddress: network.SpaceAddress{
 			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
@@ -492,7 +491,7 @@ func (s *unitAddressSuite) TestGetPublicAddressesPublicBeatsDefaultRouteSource(c
 		},
 		DeviceUUID: "eth1-uuid",
 	}
-	cloudLocalAddr := networkinternal.UnitDeviceAddress{
+	cloudLocalAddr := network.DeviceAddress{
 		SpaceAddress: network.SpaceAddress{
 			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
@@ -510,7 +509,7 @@ func (s *unitAddressSuite) TestGetPublicAddressesPublicBeatsDefaultRouteSource(c
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil).Times(2)
 	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).
-		Return([]networkinternal.UnitDeviceAddress{cloudLocalAddr, publicAddr}, nil).Times(2)
+		Return([]network.DeviceAddress{cloudLocalAddr, publicAddr}, nil).Times(2)
 
 	// Act
 	addrs, err := s.service(c).GetUnitPublicAddresses(c.Context(), unitName)
@@ -529,7 +528,7 @@ func (s *unitAddressSuite) TestGetPublicAddressesNoAddresses(c *tc.C) {
 	unitName := unit.Name("foo/0")
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
-	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return([]networkinternal.UnitDeviceAddress{}, nil)
+	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return([]network.DeviceAddress{}, nil)
 
 	_, err := s.service(c).GetUnitPublicAddresses(c.Context(), unitName)
 	c.Assert(err, tc.Satisfies, network.IsNoAddressError)
@@ -839,12 +838,12 @@ func newControllerAPIAddress(
 	}
 }
 
-// toUnitDeviceAddresses wraps the input addresses as unit device addresses
-// for devices that do not carry the default route.
-func toUnitDeviceAddresses(addrs network.SpaceAddresses) []networkinternal.UnitDeviceAddress {
-	res := make([]networkinternal.UnitDeviceAddress, len(addrs))
+// toDeviceAddresses wraps the input addresses as device addresses for
+// devices that do not carry the default route.
+func toDeviceAddresses(addrs network.SpaceAddresses) []network.DeviceAddress {
+	res := make([]network.DeviceAddress, len(addrs))
 	for i, addr := range addrs {
-		res[i] = networkinternal.UnitDeviceAddress{SpaceAddress: addr}
+		res[i] = network.DeviceAddress{SpaceAddress: addr}
 	}
 	return res
 }

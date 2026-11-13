@@ -9,7 +9,6 @@ import (
 	"github.com/juju/tc"
 
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/domain/network/internal"
 )
 
 type addressSuite struct {
@@ -33,7 +32,7 @@ func (s *addressSuite) TestGetNetNodeAddresses(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(addr, tc.DeepEquals, []internal.UnitDeviceAddress{
+	c.Check(addr, tc.DeepEquals, []corenetwork.DeviceAddress{
 		{
 			SpaceAddress: corenetwork.SpaceAddress{
 				SpaceID: corenetwork.SpaceUUID(spaceUUID),
@@ -65,7 +64,7 @@ func (s *addressSuite) TestGetNetNodeAddressesNoAddresses(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(addr, tc.DeepEquals, []internal.UnitDeviceAddress{})
+	c.Assert(addr, tc.DeepEquals, []corenetwork.DeviceAddress{})
 }
 
 // TestGetNetNodeAddressesDefaultGateway checks that the device facts needed to
@@ -99,8 +98,8 @@ func (s *addressSuite) TestGetNetNodeAddressesDefaultGateway(c *tc.C) {
 		value, cidr, deviceUUID string,
 		isSecondary, isDefaultGatewayDevice bool,
 		gatewayAddress string,
-	) internal.UnitDeviceAddress {
-		return internal.UnitDeviceAddress{
+	) corenetwork.DeviceAddress {
+		return corenetwork.DeviceAddress{
 			SpaceAddress: corenetwork.SpaceAddress{
 				SpaceID: corenetwork.SpaceUUID(spaceUUID),
 				Origin:  corenetwork.OriginProvider,
@@ -118,7 +117,7 @@ func (s *addressSuite) TestGetNetNodeAddressesDefaultGateway(c *tc.C) {
 			GatewayAddress:         gatewayAddress,
 		}
 	}
-	c.Check(addrs, tc.SameContents, []internal.UnitDeviceAddress{
+	c.Check(addrs, tc.SameContents, []corenetwork.DeviceAddress{
 		expected("10.1.0.123", "10.1.0.0/24", eth0UUID, false, true, "10.1.0.1"),
 		expected("10.1.0.124", "10.1.0.0/24", eth0UUID, true, true, "10.1.0.1"),
 		expected("10.0.0.123", "10.0.0.0/24", eth1UUID, false, false, ""),

@@ -13,7 +13,6 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
-	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -49,7 +48,7 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesIncludingK8sService(
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(addr, tc.SameContents, []internal.UnitDeviceAddress{
+	c.Check(addr, tc.SameContents, []corenetwork.DeviceAddress{
 		{
 			SpaceAddress: corenetwork.SpaceAddress{
 				SpaceID: corenetwork.SpaceUUID(spaceUUID),
@@ -98,7 +97,7 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesWithoutK8sService(c 
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(addr, tc.DeepEquals, []internal.UnitDeviceAddress{
+	c.Check(addr, tc.DeepEquals, []corenetwork.DeviceAddress{
 		{
 			SpaceAddress: corenetwork.SpaceAddress{
 				SpaceID: corenetwork.SpaceUUID(spaceUUID),
@@ -132,7 +131,7 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesNoAddresses(c *tc.C)
 
 	//Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(addr, tc.DeepEquals, []internal.UnitDeviceAddress{})
+	c.Assert(addr, tc.DeepEquals, []corenetwork.DeviceAddress{})
 }
 
 // TestGetUnitAndK8sServiceAddressesDefaultGateway checks that the device
@@ -170,8 +169,8 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesDefaultGateway(c *tc
 		value, cidr, deviceUUID string,
 		isSecondary, isDefaultGatewayDevice bool,
 		gatewayAddress string,
-	) internal.UnitDeviceAddress {
-		return internal.UnitDeviceAddress{
+	) corenetwork.DeviceAddress {
+		return corenetwork.DeviceAddress{
 			SpaceAddress: corenetwork.SpaceAddress{
 				SpaceID: corenetwork.SpaceUUID(spaceUUID),
 				Origin:  corenetwork.OriginMachine,
@@ -189,7 +188,7 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesDefaultGateway(c *tc
 			GatewayAddress:         gatewayAddress,
 		}
 	}
-	c.Check(addrs, tc.SameContents, []internal.UnitDeviceAddress{
+	c.Check(addrs, tc.SameContents, []corenetwork.DeviceAddress{
 		expected("10.1.0.123", "10.1.0.0/24", eth0UUID, false, true, "10.1.0.1"),
 		expected("10.1.0.124", "10.1.0.0/24", eth0UUID, true, true, "10.1.0.1"),
 		expected("10.0.0.123", "10.0.0.0/24", eth1UUID, false, false, ""),
@@ -241,8 +240,8 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesExcludesOtherEntitie
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	expected := func(value, deviceUUID string) internal.UnitDeviceAddress {
-		return internal.UnitDeviceAddress{
+	expected := func(value, deviceUUID string) corenetwork.DeviceAddress {
+		return corenetwork.DeviceAddress{
 			SpaceAddress: corenetwork.SpaceAddress{
 				SpaceID: corenetwork.SpaceUUID(spaceUUID),
 				Origin:  corenetwork.OriginMachine,
@@ -257,7 +256,7 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesExcludesOtherEntitie
 			DeviceUUID: deviceUUID,
 		}
 	}
-	c.Check(addrs, tc.SameContents, []internal.UnitDeviceAddress{
+	c.Check(addrs, tc.SameContents, []corenetwork.DeviceAddress{
 		expected("10.0.0.11", unitDeviceUUID),
 		expected("10.0.0.12", svcDeviceUUID),
 	})

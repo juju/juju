@@ -126,7 +126,7 @@ type NetConfigState interface {
 	// - [uniterrors.UnitNotFound] if the unit does not exist.
 	GetUnitAndK8sServiceAddresses(
 		ctx context.Context, uuid coreunit.UUID,
-	) ([]networkinternal.UnitDeviceAddress, error)
+	) ([]network.DeviceAddress, error)
 
 	// GetControllerAPIAddresses returns controller API address candidates for
 	// the specified unit, including the supplying device type.
@@ -147,7 +147,7 @@ type NetConfigState interface {
 	// Returns an error if failed.
 	GetNetNodeAddresses(
 		ctx context.Context, netNodeUUID string,
-	) ([]networkinternal.UnitDeviceAddress, error)
+	) ([]network.DeviceAddress, error)
 
 	// GetControllerUnitUUIDByName returns the UUID for the named unit if it
 	// is a unit of the controller application.

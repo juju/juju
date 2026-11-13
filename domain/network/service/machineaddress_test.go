@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
-	networkinternal "github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -103,7 +102,7 @@ func (s *machineaddressSuite) TestGetMachineAddressesSuccess(c *tc.C) {
 
 	// Expect a call to GetNetNodeAddresses and return the addresses
 	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
-		Return(toUnitDeviceAddresses(expectedAddresses), nil)
+		Return(toDeviceAddresses(expectedAddresses), nil)
 
 	// Call the function and check the result
 	addresses, err := NewService(s.st, nil).GetMachineAddresses(c.Context(), machineUUID)
@@ -131,7 +130,7 @@ func (s *machineaddressSuite) TestGetMachineAddressesMarksDefaultRouteSource(c *
 	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
 		Return(netNodeUUID, nil)
 	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
-		Return([]networkinternal.UnitDeviceAddress{
+		Return([]network.DeviceAddress{
 			eth1Addr, eth0Addr, eth0Secondary,
 		}, nil)
 
@@ -215,7 +214,7 @@ func (s *machineaddressSuite) TestGetMachinePublicAddressNoPublicAddress(c *tc.C
 
 	// Expect a call to GetNetNodeAddresses and return the addresses
 	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
-		Return(toUnitDeviceAddresses(addresses), nil)
+		Return(toDeviceAddresses(addresses), nil)
 
 	// Call the function and check the error
 	_, err := NewService(s.st, nil).GetMachinePublicAddress(c.Context(), machineUUID)
@@ -242,7 +241,7 @@ func (s *machineaddressSuite) TestGetMachinePublicAddressSuccess(c *tc.C) {
 
 	// Expect a call to GetNetNodeAddresses and return the addresses
 	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
-		Return(toUnitDeviceAddresses(addresses), nil)
+		Return(toDeviceAddresses(addresses), nil)
 
 	// Call the function and check the result
 	address, err := NewService(s.st, nil).GetMachinePublicAddress(c.Context(), machineUUID)
@@ -316,7 +315,7 @@ func (s *machineaddressSuite) TestGetMachinePrivateAddressNoPrivateAddress(c *tc
 
 	// Expect a call to GetNetNodeAddresses and return the addresses
 	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
-		Return(toUnitDeviceAddresses(addresses), nil)
+		Return(toDeviceAddresses(addresses), nil)
 
 	// Call the function and check the error
 	_, err := NewService(s.st, nil).GetMachinePrivateAddress(c.Context(), machineUUID)
@@ -343,7 +342,7 @@ func (s *machineaddressSuite) TestGetMachinePrivateAddressSuccess(c *tc.C) {
 
 	// Expect a call to GetNetNodeAddresses and return the addresses
 	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
-		Return(toUnitDeviceAddresses(addresses), nil)
+		Return(toDeviceAddresses(addresses), nil)
 
 	// Call the function and check the result
 	address, err := NewService(s.st, nil).GetMachinePrivateAddress(c.Context(), machineUUID)
@@ -365,7 +364,7 @@ func (s *machineaddressSuite) TestGetMachinePrivateAddressSortsMatches(c *tc.C) 
 	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
 		Return(netNodeUUID, nil)
 	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
-		Return(toUnitDeviceAddresses(addresses), nil)
+		Return(toDeviceAddresses(addresses), nil)
 
 	address, err := NewService(s.st, nil).GetMachinePrivateAddress(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -391,7 +390,7 @@ func (s *machineaddressSuite) TestGetMachinePublicAddressSortsMatches(c *tc.C) {
 	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
 		Return(netNodeUUID, nil)
 	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
-		Return(toUnitDeviceAddresses(addresses), nil)
+		Return(toDeviceAddresses(addresses), nil)
 
 	address, err := NewService(s.st, nil).GetMachinePublicAddress(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -415,7 +414,7 @@ func (s *machineaddressSuite) TestGetMachinePublicAddressPrioritizeScope(c *tc.C
 	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
 		Return(netNodeUUID, nil)
 	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
-		Return(toUnitDeviceAddresses(addresses), nil)
+		Return(toDeviceAddresses(addresses), nil)
 
 	address, err := NewService(s.st, nil).GetMachinePublicAddress(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -441,7 +440,7 @@ func (s *machineaddressSuite) TestGetMachinePublicAddressPrefersDefaultRouteSour
 	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
 		Return(netNodeUUID, nil)
 	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
-		Return([]networkinternal.UnitDeviceAddress{eth1Addr, eth0Addr}, nil)
+		Return([]network.DeviceAddress{eth1Addr, eth0Addr}, nil)
 
 	// Act
 	address, err := NewService(s.st, nil).GetMachinePublicAddress(c.Context(), machineUUID)
@@ -471,7 +470,7 @@ func (s *machineaddressSuite) TestGetMachinePrivateAddressPrefersDefaultRouteSou
 	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
 		Return(netNodeUUID, nil)
 	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
-		Return([]networkinternal.UnitDeviceAddress{eth1Addr, eth0Addr}, nil)
+		Return([]network.DeviceAddress{eth1Addr, eth0Addr}, nil)
 
 	// Act
 	address, err := NewService(s.st, nil).GetMachinePrivateAddress(c.Context(), machineUUID)
