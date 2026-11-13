@@ -185,7 +185,7 @@ WITH referenced AS (
     SELECT nnfa.address_uuid AS uuid FROM net_node_fqdn_address AS nnfa
 )
 DELETE FROM fqdn_address AS fa
-WHERE fa.uuid IN ($uuids[:]) AND fa.uuid NOT IN referenced`, addressUUIDs)
+WHERE fa.uuid IN ($uuids[:]) AND fa.uuid NOT IN (SELECT r.uuid FROM referenced AS r)`, addressUUIDs)
 	if err != nil {
 		return errors.Capture(err)
 	}
