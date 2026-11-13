@@ -557,6 +557,11 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 		}
 		ops = append(ops, relOps...)
 	}
+	// When forced, each relation to the same dying remote application
+	// queues its cleanup, so only the first is kept.
+	if op.Force {
+		ops = uniqueRemoteApplicationCleanupOps(ops)
+	}
 	op.PostDestroyAppLife = Dying
 	if !op.Force && failedRels {
 		return nil, op.LastError()

@@ -299,6 +299,10 @@ type DestroyRemoteApplicationOperation struct {
 
 	// app holds the remote application to destroy.
 	app *RemoteApplication
+
+	// skipRelations holds the keys of relations that a forced offer removal
+	// destroys in the same transaction.
+	skipRelations set.Strings
 }
 
 // Build is part of the ModelOperation interface.
@@ -334,10 +338,7 @@ func (op *DestroyRemoteApplicationOperation) Done(err error) error {
 	// NOTE(tsm): if you change the business logic here, check
 	//            that RemoveOfferOperation is modified to suit
 	if err != nil {
-		if !op.Force {
-			return errors.Annotatef(err, "cannot destroy saas application %q", op.app)
-		}
-		op.AddError(errors.Errorf("force destroy of saas application %v failed but proceeded despite encountering ERROR %v", op.app, err))
+		return errors.Annotatef(err, "cannot destroy saas application %q", op.app)
 	}
 	if err := op.eraseHistory(); err != nil {
 		if !op.Force {
@@ -370,8 +371,8 @@ func (op *DestroyRemoteApplicationOperation) deleteSecretReferences() error {
 }
 
 // DestroyWithForce in addition to doing what Destroy() does,
-// when force is passed in as 'true', forces th destruction of remote application,
-// ignoring errors.
+// when force is passed in as 'true', forces the destruction of the remote
+// application. It also returns all non-fatal operational errors encountered.
 func (a *RemoteApplication) DestroyWithForce(force bool, maxWait time.Duration) (opErrs []error, err error) {
 	defer func() {
 		if err == nil {
@@ -437,9 +438,12 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 	if haveRels {
 		failRels := false
 		for _, rel := range rels {
+			if op.skipRelations.Contains(rel.doc.Key) {
+				continue
+			}
 			// If the remote app has been terminated, we may have been offline
 			// and not noticed so need to clean up any exiting relation units.
-			destroyRelUnitOps, err := destroyCrossModelRelationUnitsOps(&op.ForcedOperation, op.app, rel, true)
+			destroyRelUnitOps, _, err := destroyCrossModelRelationUnitsOps(&op.ForcedOperation, op.app, rel, true)
 			if err != nil && err != jujutxn.ErrNoOperations {
 				return nil, errors.Trace(err)
 			}
@@ -634,7 +638,7 @@ func (op *terminateRemoteApplicationOperation) Build(attempt int) ([]txn.Op, err
 	// relations on the consuming side.
 	// Destroying each relation also forces remote units to leave scope.
 	for _, rel := range rels {
-		relOps, err := destroyCrossModelRelationUnitsOps(&ForcedOperation{Force: true}, op.app, rel, false)
+		relOps, _, err := destroyCrossModelRelationUnitsOps(&ForcedOperation{Force: true}, op.app, rel, false)
 		if err != nil && err != jujutxn.ErrNoOperations {
 			return nil, errors.Annotatef(err, "removing relation %q", rel)
 		}
