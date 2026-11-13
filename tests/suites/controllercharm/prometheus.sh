@@ -49,6 +49,11 @@ run_prometheus_multiple_units() {
 	retry 'check_prometheus_targets p1 1' 30
 
 	juju remove-unit p1 --num-units 1
+	# Scaling down removes the lowest unit ordinals, so the surviving unit is
+	# not p1/0. Wait for the removal to finish, then look the survivor up.
+	wait_for_unit_count "p1" 1
+	p1_unit=$(juju status --format json | yq -r '.applications.p1.units | keys | .[0]')
+	p1_unit_number=${p1_unit##*/}
 	# Wait until the application p1 settles before health checks
 	wait_for "p1" "$(active_condition "p1" 0)"
 
@@ -69,7 +74,7 @@ run_prometheus_multiple_units() {
 	juju remove-relation p1 controller
 
 	# Check Juju controller is removed from Prometheus targets
-	retry 'check_prometheus_no_target p1 0' 30
+	retry "check_prometheus_no_target p1 ${p1_unit_number}" 30
 	# Check no errors in controller charm or Prometheus
 	retry 'check_controller_charm_active' 10
 	# Ensure p1 is still healty
@@ -166,7 +171,7 @@ check_controller_charm_active() {
 		yq -r "$(active_condition "controller")" | check "controller" || {
 		echo "==> controller charm not active"
 		juju status -m controller --format yaml || true
-		juju debug-log -m controller --lines 100 --no-tail || true
+		juju debug-log -m controller --limit 100 || true
 		return 1
 	}
 }
