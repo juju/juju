@@ -154,6 +154,7 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
           # Provider API key for OPENCODE_MODEL. Change both together.
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           # Audit trail for the generated PR description.
