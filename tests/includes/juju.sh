@@ -517,8 +517,19 @@ post_add_model() {
 # usage: add_client_ssh_key_to_juju_model <model_name>
 add_client_ssh_key_to_juju_model() {
 	local model_name="$1"
-	local ssh_key_file="${JUJU_DATA:-${HOME}/.local/share/juju}/ssh/juju_id_ed25519.pub"
-	local output exit_code
+	local ssh_dir="${JUJU_DATA:-${HOME}/.local/share/juju}/ssh"
+	local ssh_key_file="${ssh_dir}/juju_id_ed25519.pub"
+	local candidate output exit_code
+
+	# The client only generates its own key when the directory holds none.
+	# An older client, such as the 3.6 one the migration suite runs first,
+	# leaves a key of another type (juju_id_rsa) that this client then uses.
+	for candidate in "${ssh_dir}"/juju_id_*.pub; do
+		if [[ -f ${candidate} ]]; then
+			ssh_key_file="${candidate}"
+			break
+		fi
+	done
 
 	# Check if model name is provided
 	if [[ -z $model_name ]]; then
