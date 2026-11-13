@@ -402,7 +402,9 @@ func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressMultipleCIDRs(c
 func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressSortedOrder(c *tc.C) {
 	// Arrange
 	relationUUID := s.createTestRelation(c)
-	cidrs := []string{"203.0.113.0/24", "192.0.2.0/24", "198.51.100.0/24"}
+	cidrs := []string{
+		"2001:db8::/32", "10.2.0.0/16", "192.0.2.0/24", "10.10.0.0/16",
+	}
 
 	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidrs)
 	c.Assert(err, tc.ErrorIsNil)
@@ -412,7 +414,9 @@ func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressSortedOrder(c *
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	expectedSorted := []string{"192.0.2.0/24", "198.51.100.0/24", "203.0.113.0/24"}
+	expectedSorted := []string{
+		"10.10.0.0/16", "10.2.0.0/16", "192.0.2.0/24", "2001:db8::/32",
+	}
 	c.Check(obtainedCIDRs, tc.DeepEquals, expectedSorted)
 }
 
