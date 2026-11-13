@@ -118,7 +118,7 @@ CREATE TABLE unit_state_charm (
 -- Local relation state stored upon hook commit with uniter state.
 CREATE TABLE unit_state_relation (
     unit_uuid TEXT NOT NULL,
-    "key" TEXT NOT NULL,
+    "key" INT NOT NULL,
     value TEXT NOT NULL,
     PRIMARY KEY (unit_uuid, "key"),
     CONSTRAINT fk_unit_state_relation_unit
