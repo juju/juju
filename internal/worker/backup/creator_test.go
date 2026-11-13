@@ -18,12 +18,13 @@ import (
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"gopkg.in/yaml.v3"
 
 	corebackups "github.com/juju/juju/core/backups"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
@@ -53,6 +54,7 @@ type backupsSuite struct {
 	controllerNodes  *MockControllerNodeLister
 	modelServices    *MockModelExportDomainServices
 	modelExport      *MockModelExportService
+	machineService   *MockMachineService
 
 	// Object stores the creator streams referenced objects from. The
 	// default empty stores satisfy models whose exports reference no
@@ -97,6 +99,13 @@ func (s *backupsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.controllerNodes = NewMockControllerNodeLister(ctrl)
 	s.modelServices = NewMockModelExportDomainServices(ctrl)
 	s.modelExport = NewMockModelExportService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
+
+	// The controller machine's base resolves through the model services.
+	// Failure-path tests may not reach metadata assembly, so allow zero
+	// calls here; the success-path tests assert the recorded base.
+	s.modelServices.EXPECT().Machine().Return(s.machineService).AnyTimes()
+	s.machineService.EXPECT().GetMachineBase(gomock.Any(), machine.Name("0")).Return(corebase.MustParseBaseFromString("ubuntu@24.04"), nil).AnyTimes()
 
 	c.Cleanup(func() {
 		s.controllerExport = nil
@@ -105,16 +114,17 @@ func (s *backupsSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.controllerNodes = nil
 		s.modelServices = nil
 		s.modelExport = nil
+		s.machineService = nil
 	})
 
 	return ctrl
 }
 
-// newCreator returns a Creator wired to the suite's mocked dependencies
-// and the given model services resolver.
-func (s *backupsSuite) newCreator(c *tc.C, modelServicesFor ModelServicesForFunc) *Creator {
-	creator, err := NewCreator(CreatorConfig{
-		MachineTag:            names.NewMachineTag("0"),
+// newCreatorConfig returns a CreatorConfig wired to the suite's mocked
+// dependencies and the given model services resolver.
+func (s *backupsSuite) newCreatorConfig(c *tc.C, modelServicesFor ModelServicesForFunc) CreatorConfig {
+	return CreatorConfig{
+		ControllerID:          "0",
 		ControllerUUID:        s.controllerUUID,
 		ControllerModelUUID:   s.controllerModelUUID,
 		DataDir:               s.dataDirPath,
@@ -130,7 +140,35 @@ func (s *backupsSuite) newCreator(c *tc.C, modelServicesFor ModelServicesForFunc
 		}),
 		Clock:  clock.WallClock,
 		Logger: loggertesting.WrapCheckLog(c),
-	})
+	}
+}
+
+// newMachineCreator returns a machine archive creator wired to the
+// suite's mocked dependencies and the given model services resolver.
+func (s *backupsSuite) newMachineCreator(c *tc.C, modelServicesFor ModelServicesForFunc) corebackups.BackupCreator {
+	return s.newMachineCreatorFromConfig(c, s.newCreatorConfig(c, modelServicesFor))
+}
+
+// newK8sCreator returns a Kubernetes archive creator wired to the given
+// provisioning read and config.
+func (s *backupsSuite) newK8sCreator(
+	c *tc.C,
+	read func(context.Context) (*corebackups.InstanceMetadata, error),
+	cfg CreatorConfig,
+) corebackups.BackupCreator {
+	cfg.RecordSource = k8sSourceRecorder(read)
+	creator, err := newCreator(cfg)
+	c.Assert(err, tc.ErrorIsNil)
+	return creator
+}
+
+// newMachineCreatorFromConfig returns a machine archive creator wired
+// to the given config. The machine source recorder is bound from the
+// config's model services resolver and controller identity.
+func (s *backupsSuite) newMachineCreatorFromConfig(c *tc.C, cfg CreatorConfig) corebackups.BackupCreator {
+	cfg.RecordSource = machineSourceRecorder(
+		cfg.ModelServicesFor, cfg.ControllerModelUUID, cfg.ControllerID)
+	creator, err := newCreator(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	return creator
 }
@@ -139,7 +177,7 @@ func (s *backupsSuite) TestCreatorConfigValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config := CreatorConfig{
-		MachineTag:            names.NewMachineTag("0"),
+		ControllerID:          "0",
 		ControllerUUID:        s.controllerUUID,
 		ControllerModelUUID:   s.controllerModelUUID,
 		DataDir:               s.dataDirPath,
@@ -153,14 +191,15 @@ func (s *backupsSuite) TestCreatorConfigValidate(c *tc.C) {
 		ObjectStoreForModel: ObjectStoreForModelFunc(func(context.Context, string) (ReadObjectStore, error) {
 			return s.modelStore, nil
 		}),
-		Clock:  clock.WallClock,
-		Logger: loggertesting.WrapCheckLog(c),
+		RecordSource: func(context.Context, *corebackups.Metadata) error { return nil },
+		Clock:        clock.WallClock,
+		Logger:       loggertesting.WrapCheckLog(c),
 	}
 	tests := []struct {
 		change  func(*CreatorConfig)
 		message string
 	}{
-		{func(c *CreatorConfig) { c.MachineTag = nil }, "nil MachineTag not valid"},
+		{func(c *CreatorConfig) { c.ControllerID = "" }, "empty ControllerID not valid"},
 		{func(c *CreatorConfig) { c.ControllerUUID = "" }, "empty ControllerUUID not valid"},
 		{func(c *CreatorConfig) { c.ControllerModelUUID = "bad" }, "controller model UUID: .*"},
 		{func(c *CreatorConfig) { c.DataDir = "" }, "empty DataDir not valid"},
@@ -172,6 +211,7 @@ func (s *backupsSuite) TestCreatorConfigValidate(c *tc.C) {
 		{func(c *CreatorConfig) { c.ControllerNodes = nil }, "nil ControllerNodes not valid"},
 		{func(c *CreatorConfig) { c.ControllerObjectStore = nil }, "nil ControllerObjectStore not valid"},
 		{func(c *CreatorConfig) { c.ObjectStoreForModel = nil }, "nil ObjectStoreForModel not valid"},
+		{func(c *CreatorConfig) { c.RecordSource = nil }, "nil RecordSource not valid"},
 		{func(c *CreatorConfig) { c.Clock = nil }, "nil Clock not valid"},
 		{func(c *CreatorConfig) { c.Logger = nil }, "nil Logger not valid"},
 	}
@@ -212,6 +252,20 @@ func (s *backupsSuite) expectControllerExport() {
 	s.controllerExport.EXPECT().Export(gomock.Any()).Return(&domainexport.ControllerExport{
 		Version: domainexport.LatestControllerExportVersion(),
 		Payload: &ctrlv4_1_0.ControllerExport{},
+	}, nil)
+}
+
+// expectCreateDependencies primes the mocks needed to reach metadata
+// assembly for a single-model controller.
+func (s *backupsSuite) expectCreateDependencies(c *tc.C, backupDir string) {
+	s.expectFilesToBackUp(c, backupDir)
+	s.expectModelConfig(c, backupDir)
+	s.expectControllerExport()
+	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{s.modelUUID}, nil)
+	s.modelServices.EXPECT().Export().Return(s.modelExport)
+	s.modelExport.EXPECT().Export(gomock.Any()).Return(&domainexport.ModelExport{
+		Version: domainexport.LatestSupportedPayloadVersion(),
+		Payload: &modelv4_1_0.ModelExport{},
 	}, nil)
 }
 
@@ -273,6 +327,11 @@ func (s *backupsSuite) TestCreate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	backupDir := c.MkDir()
+	dqliteDir := filepath.Join(s.dataDirPath, dqliteDataDir)
+	c.Assert(os.MkdirAll(filepath.Join(dqliteDir, "nested"), 0o755), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(filepath.Join(dqliteDir, "segment"), make([]byte, 42), 0o600), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(filepath.Join(dqliteDir, "nested", "segment"), make([]byte, 8), 0o600), tc.ErrorIsNil)
+
 	files := s.expectFilesToBackUp(c, backupDir)
 	s.expectArchiveCreation(c, backupDir)
 	s.expectModelConfig(c, backupDir)
@@ -284,7 +343,7 @@ func (s *backupsSuite) TestCreate(c *tc.C) {
 		Payload: &modelv4_1_0.ModelExport{},
 	}, nil)
 
-	meta, archivePath, cleanup, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "test")
+	meta, archivePath, cleanup, err := s.newMachineCreator(c, s.modelServicesFor()).Create(c.Context(), "test")
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(meta.Notes, tc.Equals, "test")
@@ -301,8 +360,12 @@ func (s *backupsSuite) TestCreate(c *tc.C) {
 	c.Check(s.createdMeta.Notes, tc.Equals, "test")
 	c.Check(s.createdMeta.Origin.Model, tc.Equals, s.controllerModelUUID.String())
 	c.Check(s.createdMeta.Origin.Machine, tc.Equals, "0")
+	// The base records its default stable channel.
+	c.Check(s.createdMeta.Origin.Base, tc.Equals, "ubuntu@24.04/stable")
+	c.Check(s.createdMeta.DatabaseSizeBytes, tc.Equals, int64(50))
+	c.Check(s.createdMeta.Instance.AgentImage, tc.Equals, "")
+	c.Check(s.createdMeta.Instance.MachineID, tc.Equals, "0")
 	c.Check(s.createdMeta.Controller.UUID, tc.Equals, s.controllerUUID)
-	c.Check(s.createdMeta.Controller.MachineID, tc.Equals, "0")
 	c.Check(s.createdMeta.Controller.HANodes, tc.Equals, int64(2))
 
 	// The archive is created with the collected files and one dump per
@@ -384,7 +447,7 @@ func (s *backupsSuite) TestCreateWithObjects(c *tc.C) {
 		},
 	}, nil)
 
-	_, _, cleanup, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
+	_, _, cleanup, err := s.newMachineCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIsNil)
 	defer cleanup()
 
@@ -439,7 +502,7 @@ func (s *backupsSuite) TestCreateGetFilesFailure(c *tc.C) {
 		return nil, boom
 	})
 
-	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
+	_, _, _, err := s.newMachineCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
@@ -461,7 +524,7 @@ func (s *backupsSuite) TestCreateModelServicesFailure(c *tc.C) {
 	s.expectControllerExport()
 	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{s.modelUUID}, nil)
 
-	_, _, _, err := s.newCreator(c, modelServicesFor).Create(c.Context(), "")
+	_, _, _, err := s.newMachineCreator(c, modelServicesFor).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
@@ -480,7 +543,7 @@ func (s *backupsSuite) TestCreateModelNamespacesFailure(c *tc.C) {
 	s.expectControllerExport()
 	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return(nil, boom)
 
-	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
+	_, _, _, err := s.newMachineCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
@@ -501,7 +564,7 @@ func (s *backupsSuite) TestCreateModelExportFailure(c *tc.C) {
 	s.modelServices.EXPECT().Export().Return(s.modelExport)
 	s.modelExport.EXPECT().Export(gomock.Any()).Return(nil, boom)
 
-	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
+	_, _, _, err := s.newMachineCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
@@ -521,7 +584,7 @@ func (s *backupsSuite) TestCreateContextCancelled(c *tc.C) {
 	s.expectControllerExport()
 	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{s.modelUUID}, nil)
 
-	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(ctx, "")
+	_, _, _, err := s.newMachineCreator(c, s.modelServicesFor()).Create(ctx, "")
 	c.Assert(err, tc.ErrorIs, context.Canceled)
 
 	// No model export runs after cancellation.
@@ -550,7 +613,7 @@ func (s *backupsSuite) TestCreateStageDumpsFailure(c *tc.C) {
 		return "", errors.New("archive must not be created")
 	})
 
-	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
+	_, _, _, err := s.newMachineCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorMatches, ".*not a directory")
 }
 
@@ -583,7 +646,7 @@ func (s *backupsSuite) TestCreateOversizedDumpCleansUpStaging(c *tc.C) {
 		return staging, nil
 	})
 
-	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
+	_, _, _, err := s.newMachineCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Check(err, tc.ErrorMatches, `database dump "controller.yaml" is .* bytes, exceeding .* recovery limit:.*`)
 	s.assertNoArchive(c, backupDir)
 }
@@ -601,7 +664,7 @@ func (s *backupsSuite) TestCreateNoModels(c *tc.C) {
 	s.expectControllerExport()
 	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{}, nil)
 
-	_, archivePath, cleanup, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
+	_, archivePath, cleanup, err := s.newMachineCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.createdArgs.DumpEntries, tc.HasLen, 1)
@@ -626,7 +689,7 @@ func (s *backupsSuite) TestCreateControllerExportFailure(c *tc.C) {
 	s.controllerNodes.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"0"}, nil)
 	s.controllerExport.EXPECT().Export(gomock.Any()).Return(nil, boom)
 
-	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
+	_, _, _, err := s.newMachineCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
@@ -642,7 +705,7 @@ func (s *backupsSuite) TestCreateModelConfigFailure(c *tc.C) {
 
 	s.modelConfig.EXPECT().ModelConfig(gomock.Any()).Return(nil, boom)
 
-	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
+	_, _, _, err := s.newMachineCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
@@ -659,7 +722,7 @@ func (s *backupsSuite) TestCreateControllerNodesFailure(c *tc.C) {
 	s.expectModelConfig(c, backupDir)
 	s.controllerNodes.EXPECT().GetControllerIDs(gomock.Any()).Return(nil, controllernodeerrors.EmptyControllerIDs)
 
-	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
+	_, _, _, err := s.newMachineCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, controllernodeerrors.EmptyControllerIDs)
 
 	s.assertNoArchive(c, backupDir)
@@ -681,7 +744,7 @@ func (s *backupsSuite) TestCreateNoSpaceFailure(c *tc.C) {
 		return boom
 	})
 
-	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
+	_, _, _, err := s.newMachineCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
@@ -702,7 +765,7 @@ func (s *backupsSuite) TestCreateMissingBackupFile(c *tc.C) {
 		return []string{filepath.Join(c.MkDir(), "vanished")}, nil
 	})
 
-	_, archivePath, cleanup, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
+	_, archivePath, cleanup, err := s.newMachineCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIsNil)
 	staged, err := os.ReadFile(archivePath)
 	c.Assert(err, tc.ErrorIsNil)
@@ -730,7 +793,7 @@ func (s *backupsSuite) TestCreateArchiveFailure(c *tc.C) {
 	s.PatchValue(&corebackups.Create, func(context.Context, *corebackups.Metadata, corebackups.CreateArgs) (string, error) {
 		return "", boom
 	})
-	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
+	_, _, _, err := s.newMachineCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
@@ -754,4 +817,171 @@ func (s *stubObjectStore) GetBySHA256Prefix(_ context.Context, sha256 string) (i
 		SHA384: hex.EncodeToString(sha384sum[:]),
 		Size:   int64(len(content)),
 	}, nil
+}
+
+// TestCreateMachineBaseFailure verifies that a failure resolving the
+// controller machine's base aborts Create before an archive is published.
+func (s *backupsSuite) TestCreateMachineBaseFailure(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	s.expectCreateDependencies(c, backupDir)
+
+	// The controller model resolves to services whose machine base lookup
+	// fails; the workload model export is unaffected.
+	ctrl := gomock.NewController(c)
+	failing := NewMockMachineService(ctrl)
+	failing.EXPECT().GetMachineBase(gomock.Any(), machine.Name("0")).Return(corebase.Base{}, errors.New("base unavailable"))
+	failingServices := NewMockModelExportDomainServices(ctrl)
+	failingServices.EXPECT().Machine().Return(failing)
+	modelServicesFor := ModelServicesForFunc(func(_ context.Context, modelUUID coremodel.UUID) (ModelExportDomainServices, error) {
+		if modelUUID == s.controllerModelUUID {
+			return failingServices, nil
+		}
+		return s.modelServices, nil
+	})
+
+	_, _, cleanup, err := s.newMachineCreator(c, modelServicesFor).Create(c.Context(), "")
+	c.Check(err, tc.ErrorMatches, "recording controller base for recovery: base unavailable")
+	c.Check(cleanup, tc.IsNil)
+	s.assertNoArchive(c, backupDir)
+}
+
+// TestCreateEmptyMachineBase verifies that an empty controller machine
+// base aborts Create before an archive is published.
+func (s *backupsSuite) TestCreateEmptyMachineBase(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	s.expectCreateDependencies(c, backupDir)
+
+	// The controller model resolves to a machine service that reports an
+	// empty base; the workload model export is unaffected.
+	ctrl := gomock.NewController(c)
+	empty := NewMockMachineService(ctrl)
+	empty.EXPECT().GetMachineBase(gomock.Any(), machine.Name("0")).Return(corebase.Base{}, nil)
+	emptyServices := NewMockModelExportDomainServices(ctrl)
+	emptyServices.EXPECT().Machine().Return(empty)
+	modelServicesFor := ModelServicesForFunc(func(_ context.Context, modelUUID coremodel.UUID) (ModelExportDomainServices, error) {
+		if modelUUID == s.controllerModelUUID {
+			return emptyServices, nil
+		}
+		return s.modelServices, nil
+	})
+
+	_, _, cleanup, err := s.newMachineCreator(c, modelServicesFor).Create(c.Context(), "")
+	c.Check(err, tc.ErrorMatches, "recording controller base for recovery: controller machine base is empty")
+	c.Check(cleanup, tc.IsNil)
+	s.assertNoArchive(c, backupDir)
+}
+
+// TestCreateDatabaseSizeFailure verifies that a failure observing the
+// source database size aborts Create before an archive is published.
+func (s *backupsSuite) TestCreateDatabaseSizeFailure(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	dataDir := filepath.Join(c.MkDir(), "data")
+	c.Assert(os.WriteFile(dataDir, nil, 0o600), tc.ErrorIsNil)
+
+	// The data directory is a regular file, so the dqlite directory cannot
+	// be walked. The file collection is patched to avoid reading it.
+	s.PatchValue(&corebackups.GetFilesToBackUp, func(string, *corebackups.Paths) ([]string, error) {
+		return nil, nil
+	})
+	s.expectModelConfig(c, backupDir)
+	s.expectControllerExport()
+	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{s.modelUUID}, nil)
+	s.modelServices.EXPECT().Export().Return(s.modelExport)
+	s.modelExport.EXPECT().Export(gomock.Any()).Return(&domainexport.ModelExport{
+		Version: domainexport.LatestSupportedPayloadVersion(),
+		Payload: &modelv4_1_0.ModelExport{},
+	}, nil)
+
+	cfg := s.newCreatorConfig(c, s.modelServicesFor())
+	cfg.DataDir = dataDir
+
+	_, _, cleanup, err := s.newMachineCreatorFromConfig(c, cfg).Create(c.Context(), "")
+	c.Check(err, tc.ErrorMatches, "recording source database capacity: .*")
+	c.Check(cleanup, tc.IsNil)
+	s.assertNoArchive(c, backupDir)
+}
+
+// TestCreateK8sControllerMetadata verifies that a Kubernetes controller
+// records the provider's provisioning facts in the archive metadata.
+func (s *backupsSuite) TestCreateK8sControllerMetadata(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	s.expectCreateDependencies(c, backupDir)
+	s.expectArchiveCreation(c, backupDir)
+
+	provisioning := &corebackups.InstanceMetadata{
+		AgentImage:         "example.com/juju/agent:latest",
+		CharmImage:         "example.com/juju/charm:latest",
+		Architecture:       "arm64",
+		StorageClass:       "fast",
+		StorageCapacityMiB: 1024,
+		ServiceType:        "loadbalancer",
+	}
+	calls := 0
+	creator := s.newK8sCreator(c, func(context.Context) (*corebackups.InstanceMetadata, error) {
+		calls++
+		return provisioning, nil
+	}, s.newCreatorConfig(c, s.modelServicesFor()))
+
+	meta, archivePath, cleanup, err := creator.Create(c.Context(), "test")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Cleanup(cleanup)
+
+	c.Check(calls, tc.Equals, 1)
+	c.Check(meta.Instance.AgentImage, tc.Equals, "example.com/juju/agent:latest")
+	c.Check(meta.Instance.CharmImage, tc.Equals, "example.com/juju/charm:latest")
+	c.Check(meta.Instance.Architecture, tc.Equals, "arm64")
+	c.Check(meta.Instance.StorageClass, tc.Equals, "fast")
+	c.Check(meta.Instance.StorageCapacityMiB, tc.Equals, uint64(1024))
+	c.Check(meta.Instance.ServiceType, tc.Equals, "loadbalancer")
+	c.Check(meta.Instance.MachineID, tc.Equals, "0")
+	c.Check(meta.Instance.MachineInstanceID, tc.Equals, corebackups.UnknownString)
+	// Kubernetes controllers have no machine base to record.
+	c.Check(meta.Origin.Base, tc.Equals, "")
+	_, err = os.Stat(archivePath)
+	c.Check(err, tc.ErrorIsNil)
+}
+
+// TestCreateK8sControllerMetadataFailure verifies that a provisioning
+// read failure aborts the backup before an archive is published.
+func (s *backupsSuite) TestCreateK8sControllerMetadataFailure(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	s.expectCreateDependencies(c, backupDir)
+
+	creator := s.newK8sCreator(c, func(context.Context) (*corebackups.InstanceMetadata, error) {
+		return nil, errors.New("provisioning unavailable")
+	}, s.newCreatorConfig(c, s.modelServicesFor()))
+
+	_, _, cleanup, err := creator.Create(c.Context(), "")
+	c.Check(err, tc.ErrorMatches, "recording Kubernetes provisioning: provisioning unavailable")
+	c.Check(cleanup, tc.IsNil)
+	s.assertNoArchive(c, backupDir)
+}
+
+// TestCreateK8sControllerMetadataEmpty verifies that a Kubernetes
+// controller whose provisioning read reports no facts aborts the backup
+// before an archive is published.
+func (s *backupsSuite) TestCreateK8sControllerMetadataEmpty(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	s.expectCreateDependencies(c, backupDir)
+
+	creator := s.newK8sCreator(c, func(context.Context) (*corebackups.InstanceMetadata, error) {
+		return nil, nil
+	}, s.newCreatorConfig(c, s.modelServicesFor()))
+
+	_, _, cleanup, err := creator.Create(c.Context(), "")
+	c.Check(err, tc.ErrorMatches, "recording Kubernetes provisioning: no provisioning facts recorded")
+	c.Check(cleanup, tc.IsNil)
+	s.assertNoArchive(c, backupDir)
 }

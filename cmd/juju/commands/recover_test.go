@@ -315,8 +315,7 @@ func recoveryArchive(c *tc.C) []byte {
 		`"Version":"4.1.0",` +
 		`"ControllerUUID":"` + controllerUUID + `",` +
 		`"HANodes":1,` +
-		`"ControllerMachineID":"0",` +
-		`"ControllerMachineInstanceID":"inst-10101010"` +
+		`"Instance":{"MachineID":"0","MachineInstanceID":"inst-10101010"}` +
 		`}` + "\n"
 	controllerDump := `version: 4.1.0
 payload:

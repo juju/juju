@@ -7,6 +7,9 @@ import (
 	"context"
 	"io"
 
+	corebackups "github.com/juju/juju/core/backups"
+	"github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	domainexport "github.com/juju/juju/domain/export"
@@ -25,10 +28,20 @@ type ModelExportService interface {
 	Export(ctx context.Context) (*domainexport.ModelExport, error)
 }
 
-// ModelExportDomainServices provides access to the model export service.
+// MachineService provides the machine base lookup used to record the
+// controller machine's base in the archive metadata.
+type MachineService interface {
+	// GetMachineBase returns the base for the given machine.
+	GetMachineBase(ctx context.Context, mName machine.Name) (base.Base, error)
+}
+
+// ModelExportDomainServices provides access to the model export and
+// machine services.
 type ModelExportDomainServices interface {
 	// Export returns the model export service.
 	Export() ModelExportService
+	// Machine returns the machine service.
+	Machine() MachineService
 }
 
 // ModelServicesForFunc returns the export services for a given model UUID.
@@ -68,3 +81,20 @@ type ReadObjectStore interface {
 // ObjectStoreForModelFunc returns the object store for a given model
 // UUID.
 type ObjectStoreForModelFunc func(ctx context.Context, modelUUID string) (ReadObjectStore, error)
+
+// ControllerProvisioningReader reads the running controller's provisioning
+// facts without modifying provider resources. A backup fails when a required
+// image or storage identity cannot be established.
+type ControllerProvisioningReader interface {
+	// ReadControllerProvisioning returns the running controller's
+	// provisioning facts for the archive metadata. It returns an error
+	// when a required image, architecture or storage identity cannot be
+	// established.
+	ReadControllerProvisioning(ctx context.Context, controllerID string) (*corebackups.InstanceMetadata, error)
+}
+
+// RecordSourceFunc records the substrate-specific source facts in the
+// archive metadata: the controller machine's base on machine controllers,
+// the controller's provisioning facts on Kubernetes controllers. The
+// substrate manifolds inject the recorder for the running substrate.
+type RecordSourceFunc func(context.Context, *corebackups.Metadata) error

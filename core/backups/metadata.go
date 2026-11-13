@@ -89,13 +89,21 @@ func UnknownOrigin() Origin {
 	}
 }
 
-// UnknownController returns a new backups origin with unknown values.
+// UnknownController returns a new backups controller metadata with
+// unknown values.
 func UnknownController() ControllerMetadata {
 	return ControllerMetadata{
-		UUID:              UnknownString,
+		UUID:    UnknownString,
+		HANodes: UnknownInt64,
+	}
+}
+
+// UnknownInstance returns a new backups instance metadata with unknown
+// values.
+func UnknownInstance() InstanceMetadata {
+	return InstanceMetadata{
 		MachineID:         UnknownString,
 		MachineInstanceID: UnknownString,
-		HANodes:           UnknownInt64,
 	}
 }
 
@@ -120,18 +128,19 @@ type Metadata struct {
 
 	// Controller contains metadata about the controller where the backup was taken.
 	Controller ControllerMetadata
+
+	// Instance contains metadata about the controller instance on which
+	// the backup was taken.
+	Instance InstanceMetadata
+
+	// DatabaseSizeBytes is the observed source database size in bytes.
+	DatabaseSizeBytes int64
 }
 
 // ControllerMetadata contains controller specific metadata.
 type ControllerMetadata struct {
 	// UUID contains the controller UUID.
 	UUID string
-
-	// MachineID contains controller machine id from which this backup is taken.
-	MachineID string
-
-	// MachineInstanceID contains controller machine's instance id from which this backup is taken.
-	MachineInstanceID string
 
 	// HANodes contains the number of nodes in this controller's HA configuration.
 	HANodes int64
@@ -172,9 +181,11 @@ func (m *Metadata) MarkComplete(size int64, checksum string, finished time.Time)
 }
 
 // flatMetadata contains the latest format of the backup.
-// NOTE If any changes need to be made here, rename this struct to
-// reflect version 1, for example flatMetadataV1 and construct
-// new flatMetadata with desired modifications.
+//
+// Additive optional fields do not require a format-version bump: older
+// readers ignore unknown JSON fields and newer readers treat missing fields
+// as their zero value. Removing a field or changing its meaning requires a
+// new format version.
 type flatMetadata struct {
 	ID            string
 	FormatVersion int64
@@ -185,35 +196,35 @@ type flatMetadata struct {
 
 	// backup
 
-	Started                     time.Time
-	Finished                    time.Time
-	Notes                       string
-	ModelUUID                   string
-	Machine                     string
-	Hostname                    string
-	Version                     semversion.Number
-	Base                        string
-	ControllerUUID              string
-	HANodes                     int64
-	ControllerMachineID         string
-	ControllerMachineInstanceID string
+	Started           time.Time
+	Finished          time.Time
+	Notes             string
+	ModelUUID         string
+	Machine           string
+	Hostname          string
+	Version           semversion.Number
+	Base              string
+	ControllerUUID    string
+	HANodes           int64
+	Instance          InstanceMetadata
+	DatabaseSizeBytes int64 `json:",omitempty"`
 }
 
 func (m *Metadata) flat() flatMetadata {
 	flat := flatMetadata{
-		ID:                          m.ID(),
-		Started:                     m.Started,
-		Notes:                       m.Notes,
-		ModelUUID:                   m.Origin.Model,
-		Machine:                     m.Origin.Machine,
-		Hostname:                    m.Origin.Hostname,
-		Version:                     m.Origin.Version,
-		Base:                        m.Origin.Base,
-		FormatVersion:               m.FormatVersion,
-		ControllerUUID:              m.Controller.UUID,
-		ControllerMachineID:         m.Controller.MachineID,
-		ControllerMachineInstanceID: m.Controller.MachineInstanceID,
-		HANodes:                     m.Controller.HANodes,
+		ID:                m.ID(),
+		Started:           m.Started,
+		Notes:             m.Notes,
+		ModelUUID:         m.Origin.Model,
+		Machine:           m.Origin.Machine,
+		Hostname:          m.Origin.Hostname,
+		Version:           m.Origin.Version,
+		Base:              m.Origin.Base,
+		FormatVersion:     m.FormatVersion,
+		ControllerUUID:    m.Controller.UUID,
+		HANodes:           m.Controller.HANodes,
+		Instance:          m.Instance,
+		DatabaseSizeBytes: m.DatabaseSizeBytes,
 	}
 	stored := m.Stored()
 	if stored != nil {
@@ -239,6 +250,8 @@ func (flat *flatMetadata) inflate() (*Metadata, error) {
 		meta.Finished = &flat.Finished
 	}
 	meta.Notes = flat.Notes
+	meta.Instance = flat.Instance
+	meta.DatabaseSizeBytes = flat.DatabaseSizeBytes
 	meta.Origin = Origin{
 		Model:    flat.ModelUUID,
 		Machine:  flat.Machine,
@@ -248,10 +261,8 @@ func (flat *flatMetadata) inflate() (*Metadata, error) {
 	}
 
 	meta.Controller = ControllerMetadata{
-		UUID:              flat.ControllerUUID,
-		MachineID:         flat.ControllerMachineID,
-		MachineInstanceID: flat.ControllerMachineInstanceID,
-		HANodes:           flat.HANodes,
+		UUID:    flat.ControllerUUID,
+		HANodes: flat.HANodes,
 	}
 	return meta, nil
 }
@@ -328,6 +339,7 @@ func BuildMetadata(file *os.File) (*Metadata, error) {
 	meta.Origin = UnknownOrigin()
 	meta.FormatVersion = UnknownInt64
 	meta.Controller = UnknownController()
+	meta.Instance = UnknownInstance()
 	if err := meta.MarkComplete(size, checksum, timestamp); err != nil {
 		return nil, errors.Capture(err)
 	}

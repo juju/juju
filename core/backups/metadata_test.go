@@ -26,8 +26,6 @@ func TestMetadataSuite(t *stdtesting.T) {
 	tc.Run(t, &metadataSuite{})
 }
 
-// Register the suite.
-
 func (s *metadataSuite) TestAsJSONBuffer(c *tc.C) {
 	meta := s.createTestMetadata(c)
 	meta.FormatVersion = 0
@@ -45,8 +43,7 @@ func (s *metadataSuite) TestAsJSONBuffer(c *tc.C) {
 		`"Base":"ubuntu@22.04",`+
 		`"ControllerUUID":"",`+
 		`"HANodes":0,`+
-		`"ControllerMachineID":"",`+
-		`"ControllerMachineInstanceID":""`+
+		`"Instance":{"MachineID":"","MachineInstanceID":"","AgentImage":"","CharmImage":"","Architecture":"","StorageClass":"","StorageCapacityMiB":0,"ServiceType":"","ExternalName":"","ExternalIPs":null,"LoadBalancerIP":"","ServiceAnnotations":null}`+
 		`}`+"\n")
 }
 
@@ -80,9 +77,11 @@ func (s *metadataSuite) TestAsJSONBufferV2NonHA(c *tc.C) {
 	meta := s.createTestMetadata(c)
 	meta.FormatVersion = 2
 	meta.Controller = backups.ControllerMetadata{
-		UUID:              "controller-uuid",
-		MachineInstanceID: "inst-10101010",
+		UUID: "controller-uuid",
+	}
+	meta.Instance = backups.InstanceMetadata{
 		MachineID:         "10",
+		MachineInstanceID: "inst-10101010",
 	}
 	s.assertMetadata(c, meta, `{`+
 		`"ID":"20140909-115934.asdf-zxcv-qwe",`+
@@ -98,8 +97,7 @@ func (s *metadataSuite) TestAsJSONBufferV2NonHA(c *tc.C) {
 		`"Base":"ubuntu@22.04",`+
 		`"ControllerUUID":"controller-uuid",`+
 		`"HANodes":0,`+
-		`"ControllerMachineID":"10",`+
-		`"ControllerMachineInstanceID":"inst-10101010"`+
+		`"Instance":{"MachineID":"10","MachineInstanceID":"inst-10101010","AgentImage":"","CharmImage":"","Architecture":"","StorageClass":"","StorageCapacityMiB":0,"ServiceType":"","ExternalName":"","ExternalIPs":null,"LoadBalancerIP":"","ServiceAnnotations":null}`+
 		`}`+"\n")
 }
 
@@ -107,10 +105,12 @@ func (s *metadataSuite) TestAsJSONBufferV2HA(c *tc.C) {
 	meta := s.createTestMetadata(c)
 	meta.FormatVersion = 2
 	meta.Controller = backups.ControllerMetadata{
-		UUID:              "controller-uuid",
-		MachineInstanceID: "inst-10101010",
+		UUID:    "controller-uuid",
+		HANodes: 3,
+	}
+	meta.Instance = backups.InstanceMetadata{
 		MachineID:         "10",
-		HANodes:           3,
+		MachineInstanceID: "inst-10101010",
 	}
 
 	s.assertMetadata(c, meta, `{`+
@@ -127,8 +127,7 @@ func (s *metadataSuite) TestAsJSONBufferV2HA(c *tc.C) {
 		`"Base":"ubuntu@22.04",`+
 		`"ControllerUUID":"controller-uuid",`+
 		`"HANodes":3,`+
-		`"ControllerMachineID":"10",`+
-		`"ControllerMachineInstanceID":"inst-10101010"`+
+		`"Instance":{"MachineID":"10","MachineInstanceID":"inst-10101010","AgentImage":"","CharmImage":"","Architecture":"","StorageClass":"","StorageCapacityMiB":0,"ServiceType":"","ExternalName":"","ExternalIPs":null,"LoadBalancerIP":"","ServiceAnnotations":null}`+
 		`}`+"\n")
 }
 
@@ -146,8 +145,7 @@ func (s *metadataSuite) TestNewMetadataJSONReaderV2(c *tc.C) {
 		`"Version":"1.21-alpha3",` +
 		`"ControllerUUID":"controller-uuid",` +
 		`"HANodes":3,` +
-		`"ControllerMachineID":"10",` +
-		`"ControllerMachineInstanceID":"inst-10101010"` +
+		`"Instance":{"MachineID":"10","MachineInstanceID":"inst-10101010"}` +
 		`}` + "\n")
 	meta, err := backups.NewMetadataJSONReader(file)
 	c.Assert(err, tc.ErrorIsNil)
@@ -165,10 +163,11 @@ func (s *metadataSuite) TestNewMetadataJSONReaderV2(c *tc.C) {
 	c.Check(meta.Origin.Hostname, tc.Equals, "myhost")
 	c.Check(meta.Origin.Version.String(), tc.Equals, "1.21-alpha3")
 	c.Check(meta.FormatVersion, tc.Equals, int64(2))
+	c.Check(meta.DatabaseSizeBytes, tc.Equals, int64(0))
 	c.Check(meta.Controller.UUID, tc.Equals, "controller-uuid")
 	c.Check(meta.Controller.HANodes, tc.Equals, int64(3))
-	c.Check(meta.Controller.MachineInstanceID, tc.Equals, "inst-10101010")
-	c.Check(meta.Controller.MachineID, tc.Equals, "10")
+	c.Check(meta.Instance.MachineID, tc.Equals, "10")
+	c.Check(meta.Instance.MachineInstanceID, tc.Equals, "inst-10101010")
 }
 
 func (s *metadataSuite) TestNewMetadataJSONReaderUnsupported(c *tc.C) {
@@ -188,8 +187,7 @@ func (s *metadataSuite) TestNewMetadataJSONReaderUnsupported(c *tc.C) {
 		`"Version":"1.21-alpha3",` +
 		`"ControllerUUID":"controller-uuid",` +
 		`"HANodes":3,` +
-		`"ControllerMachineID":"10",` +
-		`"ControllerMachineInstanceID":"inst-10101010"` +
+		`"Instance":{"MachineID":"10","MachineInstanceID":"inst-10101010"}` +
 		`}` + "\n")
 	meta, err := backups.NewMetadataJSONReader(file)
 	c.Assert(meta, tc.IsNil)
@@ -223,7 +221,28 @@ func (s *metadataSuite) TestBuildMetadata(c *tc.C) {
 	c.Check(meta.Origin.Version.String(), tc.Equals, backups.UnknownVersion.String())
 	c.Check(meta.FormatVersion, tc.Equals, backups.UnknownInt64)
 	c.Check(meta.Controller.UUID, tc.Equals, backups.UnknownString)
-	c.Check(meta.Controller.MachineInstanceID, tc.Equals, backups.UnknownString)
-	c.Check(meta.Controller.MachineID, tc.Equals, backups.UnknownString)
 	c.Check(meta.Controller.HANodes, tc.Equals, backups.UnknownInt64)
+	c.Check(meta.Instance.MachineID, tc.Equals, backups.UnknownString)
+	c.Check(meta.Instance.MachineInstanceID, tc.Equals, backups.UnknownString)
+}
+
+// TestInstanceMetadataRoundTrip verifies that the instance metadata and
+// the database size survive a serialise and decode cycle in the archive
+// metadata.
+func (s *metadataSuite) TestInstanceMetadataRoundTrip(c *tc.C) {
+	meta := s.createTestMetadata(c)
+	meta.DatabaseSizeBytes = 1 << 40
+	meta.Instance = backups.InstanceMetadata{
+		AgentImage: "example.com/agent@sha256:source", CharmImage: "example.com/charm@sha256:source",
+		Architecture: "arm64", StorageClass: "source", StorageCapacityMiB: 65536,
+		ServiceType: "LoadBalancer", ExternalIPs: []string{"192.0.2.1"},
+		ServiceAnnotations: map[string]string{"source": "value"},
+	}
+	reader, err := meta.AsJSONBuffer()
+	c.Assert(err, tc.ErrorIsNil)
+	decoded, err := backups.NewMetadataJSONReader(reader)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(decoded.FormatVersion, tc.Equals, int64(2))
+	c.Check(decoded.Instance, tc.DeepEquals, meta.Instance)
+	c.Check(decoded.DatabaseSizeBytes, tc.Equals, meta.DatabaseSizeBytes)
 }

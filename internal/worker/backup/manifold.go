@@ -8,17 +8,20 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
 	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/providertracker"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // LocalValues contains the current controller filesystem paths.
@@ -28,21 +31,36 @@ type LocalValues struct{ DataDir, LogDir string }
 type LocalConfigReader interface{ BackupLocalValues() (LocalValues, error) }
 
 // ManifoldConfig configures the archive creator and its lease service.
+// The archive generator wired through NewArchiveGenerator follows the
+// controller's substrate: machine controllers record the controller
+// machine's base in the archive metadata, Kubernetes controllers the
+// controller's provisioning facts.
 type ManifoldConfig struct {
-	LeaseManagerName    string
-	DomainServicesName  string
-	ObjectStoreName     string
+	LeaseManagerName   string
+	DomainServicesName string
+	ObjectStoreName    string
+
+	// ProviderTrackerName supplies the provider factory the Kubernetes
+	// source recorder resolves the running controller's provisioning
+	// facts from. Only the Kubernetes wiring reads it; machine agents
+	// leave it unset.
+	ProviderTrackerName string
 	ControllerUUID      string
 	ControllerModelUUID string
 	ControllerNodeID    string
-	ControllerTag       names.Tag
 	LocalConfigReader   LocalConfigReader
 	Clock               clock.Clock
 	Logger              logger.Logger
 	NewWorker           func(Config) (worker.Worker, error)
+
+	// NewArchiveGenerator returns the archive generator for the
+	// controller's substrate from the configuration and the resources
+	// the manifold resolves at start. Machine agents wire
+	// MachineArchiveGenerator and Kubernetes agents K8sArchiveGenerator.
+	NewArchiveGenerator func(ArchiveGeneratorArgs) (corebackups.BackupCreator, error)
 }
 
-// Validate checks dependencies before the manifold starts.
+// Validate checks the dependencies before the manifold starts.
 func (c ManifoldConfig) Validate() error {
 	if c.LeaseManagerName == "" {
 		return errors.NotValidf("empty LeaseManagerName")
@@ -53,11 +71,11 @@ func (c ManifoldConfig) Validate() error {
 	if c.ObjectStoreName == "" {
 		return errors.NotValidf("empty ObjectStoreName")
 	}
-	if c.ControllerTag == nil {
-		return errors.NotValidf("nil ControllerTag")
-	}
 	if c.ControllerNodeID == "" {
 		return errors.NotValidf("empty ControllerNodeID")
+	}
+	if _, err := uuid.UUIDFromString(c.ControllerUUID); err != nil {
+		return errors.Annotate(err, "parsing controller UUID")
 	}
 	if c.LocalConfigReader == nil {
 		return errors.NotValidf("nil LocalConfigReader")
@@ -71,17 +89,26 @@ func (c ManifoldConfig) Validate() error {
 	if c.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
+	if c.NewArchiveGenerator == nil {
+		return errors.NotValidf("nil NewArchiveGenerator")
+	}
 	return nil
 }
 
-// Manifold outputs the creation function consumed by the API server.
+// Manifold outputs the creation function consumed by the API server. The
+// archive generator follows the controller's substrate through the
+// generator constructor wired in the configuration: machine controllers
+// record their machine base, Kubernetes controllers their provisioning
+// facts from the provider tracker.
 func Manifold(c ManifoldConfig) dependency.Manifold {
+	// Only the Kubernetes source recorder reads the provider tracker, so
+	// the manifold inputs it when the configuration names one.
+	inputs := []string{c.LeaseManagerName, c.DomainServicesName, c.ObjectStoreName}
+	if c.ProviderTrackerName != "" {
+		inputs = append(inputs, c.ProviderTrackerName)
+	}
 	return dependency.Manifold{
-		Inputs: []string{
-			c.LeaseManagerName,
-			c.DomainServicesName,
-			c.ObjectStoreName,
-		},
+		Inputs: inputs,
 		Start: func(_ context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := c.Validate(); err != nil {
 				return nil, err
@@ -106,19 +133,44 @@ func Manifold(c ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 
+			// The controller UUID is parsed once at start; the provider
+			// config takes its typed form.
+			controllerUUID, err := uuid.UUIDFromString(c.ControllerUUID)
+			if err != nil {
+				return nil, errors.Annotate(err, "parsing controller UUID")
+			}
+			// The export services resolver is built once at start: the
+			// archive generator resolves model services through it on
+			// each use.
+			modelServicesFor := ModelServicesForFunc(func(
+				ctx context.Context, modelUUID coremodel.UUID,
+			) (ModelExportDomainServices, error) {
+				modelServices, err := domainServices.ServicesForModel(ctx, modelUUID)
+				if err != nil {
+					return nil, err
+				}
+				return modelExportDomainServices{modelServices}, nil
+			})
+			generator, err := c.NewArchiveGenerator(ArchiveGeneratorArgs{
+				Config:           c,
+				Paths:            paths,
+				Getter:           getter,
+				DomainServices:   domainServices,
+				ObjectStores:     objectStores,
+				ControllerUUID:   controllerUUID,
+				ModelServicesFor: modelServicesFor,
+			})
+			if err != nil {
+				return nil, err
+			}
 			return c.NewWorker(Config{
 				LeaseManager:        leaseManager,
 				ControllerUUID:      c.ControllerUUID,
 				ControllerModelUUID: c.ControllerModelUUID,
 				ControllerNodeID:    c.ControllerNodeID,
-				CreateArchive: archiveGenerator{
-					config:         c,
-					paths:          paths,
-					domainServices: domainServices,
-					objectStores:   objectStores,
-				},
-				Clock:  c.Clock,
-				Logger: c.Logger,
+				CreateArchive:       generator,
+				Clock:               c.Clock,
+				Logger:              c.Logger,
 			})
 		},
 		Output: output,
@@ -138,30 +190,90 @@ func output(in worker.Worker, out any) error {
 	return nil
 }
 
-// archiveGenerator resolves request-scoped services after acquiring the lease.
-// This keeps worker startup independent of model and object-store readiness.
-type archiveGenerator struct {
-	config         ManifoldConfig
-	paths          LocalValues
-	domainServices services.DomainServicesGetter
-	objectStores   objectstore.ObjectStoreGetter
+// ArchiveGeneratorArgs supplies an archive generator constructor with
+// the manifold configuration and the resources the manifold resolved at
+// start.
+type ArchiveGeneratorArgs struct {
+	// Config is the configuration the manifold started with.
+	Config ManifoldConfig
+	// Paths are the local backup paths read at start.
+	Paths LocalValues
+	// Getter resolves the manifold dependencies.
+	Getter dependency.Getter
+	// DomainServices resolves the controller's domain services.
+	DomainServices services.DomainServicesGetter
+	// ObjectStores resolves the object stores of the controller and the
+	// models.
+	ObjectStores objectstore.ObjectStoreGetter
+	// ControllerUUID is the parsed controller UUID.
+	ControllerUUID uuid.UUID
+	// ModelServicesFor resolves the export services of a model.
+	ModelServicesFor ModelServicesForFunc
 }
 
-// Create creates a backup archive and returns its metadata, its path, and a
-// cleanup that removes it.
-func (g archiveGenerator) Create(ctx context.Context, notes string) (*corebackups.Metadata, string, func(), error) {
+// MachineArchiveGenerator returns the archive generator for a machine
+// controller: it records the controller machine's base in the archive
+// metadata, which machine recovery requires.
+func MachineArchiveGenerator(args ArchiveGeneratorArgs) (corebackups.BackupCreator, error) {
+	return machineArchiveGenerator{newArchiveGenerator(args)}, nil
+}
+
+// K8sArchiveGenerator returns the archive generator for a Kubernetes
+// controller: it records the controller's provisioning facts in the
+// archive metadata, which Kubernetes recovery requires. The facts are
+// read through the provider factory resolved from the provider tracker,
+// so the configuration must name one.
+func K8sArchiveGenerator(args ArchiveGeneratorArgs) (corebackups.BackupCreator, error) {
+	if args.Config.ProviderTrackerName == "" {
+		return nil, errors.NotValidf("empty ProviderTrackerName")
+	}
+	var providerFactory providertracker.ProviderFactory
+	if err := args.Getter.Get(args.Config.ProviderTrackerName, &providerFactory); err != nil {
+		return nil, err
+	}
+	return k8sArchiveGenerator{
+		archiveGenerator: newArchiveGenerator(args),
+		providerFactory:  providerFactory,
+		controllerUUID:   args.ControllerUUID,
+	}, nil
+}
+
+// archiveGenerator supplies the dependencies shared by the substrate
+// generators: the manifold configuration, the local paths and the
+// resources the manifold resolved at start. Its generators resolve
+// request-scoped services after acquiring the lease, keeping worker
+// startup independent of model and object-store readiness.
+type archiveGenerator struct {
+	config           ManifoldConfig
+	paths            LocalValues
+	domainServices   services.DomainServicesGetter
+	objectStores     objectstore.ObjectStoreGetter
+	modelServicesFor ModelServicesForFunc
+}
+
+// newArchiveGenerator returns the substrate-independent part of an
+// archive generator wired to the manifold's resolved resources.
+func newArchiveGenerator(args ArchiveGeneratorArgs) archiveGenerator {
+	return archiveGenerator{
+		config:           args.Config,
+		paths:            args.Paths,
+		domainServices:   args.DomainServices,
+		objectStores:     args.ObjectStores,
+		modelServicesFor: args.ModelServicesFor,
+	}
+}
+
+// create resolves the request-scoped services and object stores, builds the
+// creator with the given source recorder, and generates the archive.
+func (g archiveGenerator) create(
+	ctx context.Context,
+	notes string,
+	recordSource RecordSourceFunc,
+) (*corebackups.Metadata, string, func(), error) {
 	controllerServices, err := g.domainServices.ServicesForModel(ctx, coremodel.UUID(g.config.ControllerModelUUID))
 	if err != nil {
 		return nil, "", nil, err
 	}
-
-	modelServicesFor := ModelServicesForFunc(func(ctx context.Context, modelUUID coremodel.UUID) (ModelExportDomainServices, error) {
-		modelServices, err := g.domainServices.ServicesForModel(ctx, modelUUID)
-		if err != nil {
-			return nil, err
-		}
-		return modelExportDomainServices{modelServices}, nil
-	})
 
 	controllerStore, err := g.objectStores.GetObjectStore(ctx, database.ControllerNS)
 	if err != nil {
@@ -172,19 +284,20 @@ func (g archiveGenerator) Create(ctx context.Context, notes string) (*corebackup
 		return g.objectStores.GetObjectStore(ctx, modelUUID)
 	})
 
-	creator, err := NewCreator(CreatorConfig{
-		MachineTag:            g.config.ControllerTag,
+	creator, err := newCreator(CreatorConfig{
 		ControllerUUID:        g.config.ControllerUUID,
 		ControllerModelUUID:   coremodel.UUID(g.config.ControllerModelUUID),
+		ControllerID:          g.config.ControllerNodeID,
 		DataDir:               g.paths.DataDir,
 		LogDir:                g.paths.LogDir,
 		ControllerExport:      controllerServices.ControllerExport(),
-		ModelServicesFor:      modelServicesFor,
+		ModelServicesFor:      g.modelServicesFor,
 		ModelConfig:           controllerServices.Config(),
 		Controller:            controllerServices.Controller(),
 		ControllerNodes:       controllerServices.ControllerNode(),
 		ControllerObjectStore: controllerStore,
 		ObjectStoreForModel:   modelObjectStoreFor,
+		RecordSource:          recordSource,
 		Clock:                 g.config.Clock,
 		Logger:                g.config.Logger,
 	})
@@ -194,7 +307,75 @@ func (g archiveGenerator) Create(ctx context.Context, notes string) (*corebackup
 	return creator.Create(ctx, notes)
 }
 
+// machineArchiveGenerator generates backup archives on a machine
+// controller.
+type machineArchiveGenerator struct {
+	archiveGenerator
+}
+
+// Create creates a backup archive and returns its metadata, its path, and a
+// cleanup that removes it. It records the controller machine's base in the
+// archive metadata, which machine recovery requires.
+func (g machineArchiveGenerator) Create(
+	ctx context.Context, notes string,
+) (*corebackups.Metadata, string, func(), error) {
+	return g.create(ctx, notes, machineSourceRecorder(
+		g.modelServicesFor,
+		coremodel.UUID(g.config.ControllerModelUUID),
+		g.config.ControllerNodeID,
+	))
+}
+
+// k8sArchiveGenerator generates backup archives on a Kubernetes
+// controller.
+type k8sArchiveGenerator struct {
+	archiveGenerator
+	providerFactory providertracker.ProviderFactory
+	controllerUUID  uuid.UUID
+}
+
+// Create creates a backup archive and returns its metadata, its path,
+// and a cleanup that removes it. It records the controller's
+// provisioning facts in the archive metadata, which Kubernetes recovery
+// requires; the facts are read through the provider factory resolved
+// from the provider tracker.
+func (g k8sArchiveGenerator) Create(ctx context.Context, notes string) (*corebackups.Metadata, string, func(), error) {
+	return g.create(ctx, notes, k8sSourceRecorder(g.readProvisioningData))
+}
+
+// readProvisioningData reads the running controller's provisioning facts
+// from the provider. The controller model's cloud spec and config are
+// resolved on each read, so creation stays independent of model
+// readiness until a backup is actually taken.
+func (g k8sArchiveGenerator) readProvisioningData(ctx context.Context) (*corebackups.InstanceMetadata, error) {
+	controllerServices, err := g.domainServices.ServicesForModel(ctx, coremodel.UUID(g.config.ControllerModelUUID))
+	if err != nil {
+		return nil, err
+	}
+	spec, err := controllerServices.ModelProvider().GetCloudSpec(ctx)
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := controllerServices.Config().ModelConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	provider, err := g.providerFactory.EphemeralProviderFromConfig(ctx, providertracker.EphemeralProviderConfig{
+		ModelType: coremodel.CAAS, ModelConfig: cfg, CloudSpec: spec, ControllerUUID: g.controllerUUID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	reader, ok := provider.(ControllerProvisioningReader)
+	if !ok {
+		return nil, internalerrors.New("provider cannot read controller provisioning").Add(coreerrors.NotSupported)
+	}
+	return reader.ReadControllerProvisioning(ctx, g.config.ControllerNodeID)
+}
+
 // modelExportDomainServices narrows the model services factory for the creator.
 type modelExportDomainServices struct{ domainServices services.DomainServices }
 
 func (s modelExportDomainServices) Export() ModelExportService { return s.domainServices.Export() }
+
+func (s modelExportDomainServices) Machine() MachineService { return s.domainServices.Machine() }

@@ -1,0 +1,379 @@
+// Copyright 2026 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package kubernetes
+
+import (
+	"fmt"
+	"strings"
+	"testing"
+
+	"github.com/juju/tc"
+	apps "k8s.io/api/apps/v1"
+	core "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
+	ktesting "k8s.io/client-go/testing"
+
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	coretesting "github.com/juju/juju/internal/testing"
+)
+
+type backupProvisioningSuite struct {
+	coretesting.BaseSuite
+}
+
+func TestBackupProvisioningSuite(t *testing.T) { tc.Run(t, &backupProvisioningSuite{}) }
+
+func backupSourceClient(agent, charm string) *fake.Clientset {
+	class := "original-class"
+	return fake.NewClientset(
+		&apps.StatefulSet{ObjectMeta: metav1.ObjectMeta{Name: constants.JujuControllerStackName, Namespace: "controller-source"},
+			Spec: apps.StatefulSetSpec{Template: core.PodTemplateSpec{Spec: core.PodSpec{Containers: []core.Container{
+				{Name: apiServerContainerName, Image: "example.com/replacement:latest"},
+				{Name: constants.ApplicationCharmContainer, Image: "example.com/replacement-charm:latest"},
+			}}}}},
+		&core.Pod{ObjectMeta: metav1.ObjectMeta{Name: getBootstrapResourceName(constants.JujuControllerStackName, "1"), Namespace: "controller-source"},
+			Spec: core.PodSpec{NodeName: "worker", Containers: []core.Container{
+				{Name: apiServerContainerName, Image: agent},
+				{Name: constants.ApplicationCharmContainer, Image: charm},
+				// A third container carrying an invalid image pins the
+				// skip branch: sidecars that are neither the API server
+				// nor the charm are skipped, not validated.
+				{Name: "juju-sidebar", Image: "invalid image"},
+			}, Volumes: []core.Volume{
+				// A differently-named claim-backed volume, whose claim
+				// carries no storage class, pins the storage filter: only
+				// the controller's storage volume contributes facts.
+				{Name: "other-data", VolumeSource: core.VolumeSource{PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{ClaimName: "unrelated-claim"}}},
+				{Name: storageName,
+					VolumeSource: core.VolumeSource{PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{ClaimName: "controller-storage"}},
+				},
+			}}, Status: core.PodStatus{ContainerStatuses: []core.ContainerStatus{
+				{Name: apiServerContainerName, State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
+				{Name: constants.ApplicationCharmContainer, State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
+			}}},
+		&core.Node{ObjectMeta: metav1.ObjectMeta{Name: "worker"}, Status: core.NodeStatus{NodeInfo: core.NodeSystemInfo{Architecture: "arm64"}}},
+		&core.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "controller-storage", Namespace: "controller-source"},
+			Spec:   core.PersistentVolumeClaimSpec{StorageClassName: &class},
+			Status: core.PersistentVolumeClaimStatus{Capacity: core.ResourceList{core.ResourceStorage: resource.MustParse("64Gi")}}},
+		&core.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "unrelated-claim", Namespace: "controller-source"}},
+		&core.Service{ObjectMeta: metav1.ObjectMeta{Name: constants.ControllerServiceName, Namespace: "controller-source", Annotations: map[string]string{"source": "retained"}},
+			Spec: core.ServiceSpec{Type: core.ServiceTypeLoadBalancer, LoadBalancerIP: "192.0.2.1", ExternalIPs: []string{"192.0.2.2"}}},
+	)
+}
+
+// TestSourceImagesAndActualVolume verifies that the images come from the
+// running pod rather than its stateful set template, for both tagged and
+// digest-addressed references, together with the volume and service facts.
+func (s *backupProvisioningSuite) TestSourceImagesAndActualVolume(c *tc.C) {
+	digest := "sha256:" + strings.Repeat("a", 64)
+	for _, images := range []struct{ agent, charm string }{
+		{"example.com/juju/agent:unpublished", "example.com/juju/charm:local"},
+		{"example.com/juju/agent@" + digest, "example.com/juju/charm@" + digest},
+	} {
+		client := backupSourceClient(images.agent, images.charm)
+		broker := &kubernetesClient{clientUnlocked: client, namespace: "controller-source"}
+		result, err := broker.ReadControllerProvisioning(c.Context(), "1")
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(result.AgentImage, tc.Equals, images.agent)
+		c.Check(result.CharmImage, tc.Equals, images.charm)
+		c.Check(result.Architecture, tc.Equals, "arm64")
+		c.Check(result.StorageCapacityMiB, tc.Equals, uint64(64*1024))
+		c.Check(result.StorageClass, tc.Equals, "original-class")
+		c.Check(result.ServiceType, tc.Equals, "loadbalancer")
+		c.Check(result.ExternalName, tc.Equals, "")
+		c.Check(result.LoadBalancerIP, tc.Equals, "192.0.2.1")
+		c.Check(result.ExternalIPs, tc.DeepEquals, []string{"192.0.2.2"})
+		c.Check(result.ServiceAnnotations["source"], tc.Equals, "retained")
+	}
+}
+
+// TestContainerStatusNotRequired verifies that images are read from the pod
+// spec even when container status has not been populated.
+func (s *backupProvisioningSuite) TestContainerStatusNotRequired(c *tc.C) {
+	client := backupSourceClient("example.com/agent:tag", "example.com/charm:tag")
+	pod := getBackupPod(c, client)
+	pod.Status.ContainerStatuses = nil
+	updateBackupPod(c, client, pod)
+
+	broker := &kubernetesClient{clientUnlocked: client, namespace: "controller-source"}
+	result, err := broker.ReadControllerProvisioning(c.Context(), "1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.AgentImage, tc.Equals, "example.com/agent:tag")
+	c.Check(result.CharmImage, tc.Equals, "example.com/charm:tag")
+}
+
+// TestInvalidSourceImages verifies that a missing, empty or malformed source
+// image is rejected with a diagnosis naming the offending fact or container.
+func (s *backupProvisioningSuite) TestInvalidSourceImages(c *tc.C) {
+	for _, test := range []struct {
+		name    string
+		mutate  func(*core.Pod)
+		wantErr string
+	}{
+		{"missing agent", func(p *core.Pod) { p.Spec.Containers = p.Spec.Containers[1:] },
+			"source controller pod has no agent image"},
+		{"missing charm", func(p *core.Pod) { p.Spec.Containers = p.Spec.Containers[:1] },
+			"source controller pod has no charm image"},
+		{"empty agent", func(p *core.Pod) { p.Spec.Containers[0].Image = "" },
+			`source container "api-server": docker image path "" not valid`},
+		{"empty charm", func(p *core.Pod) { p.Spec.Containers[1].Image = "" },
+			`source container "charm": docker image path "" not valid`},
+		{"invalid agent", func(p *core.Pod) { p.Spec.Containers[0].Image = "invalid image" },
+			`source container "api-server": docker image path "invalid image" not valid`},
+		{"invalid charm", func(p *core.Pod) { p.Spec.Containers[1].Image = "invalid image" },
+			`source container "charm": docker image path "invalid image" not valid`},
+	} {
+		c.Logf("case: %s", test.name)
+		client := backupSourceClient("example.com/agent:tag", "example.com/charm:tag")
+		pod := getBackupPod(c, client)
+		test.mutate(pod)
+		updateBackupPod(c, client, pod)
+		broker := &kubernetesClient{clientUnlocked: client, namespace: "controller-source"}
+		_, err := broker.ReadControllerProvisioning(c.Context(), "1")
+		c.Check(err, tc.ErrorMatches, test.wantErr)
+	}
+}
+
+// TestSourceErrors verifies that each failed API read is reported with its
+// cause, and that an empty controller ID is rejected up front.
+func (s *backupProvisioningSuite) TestSourceErrors(c *tc.C) {
+	client := backupSourceClient("example.com/agent:tag", "example.com/charm:tag")
+	broker := &kubernetesClient{clientUnlocked: client, namespace: "controller-source"}
+	_, err := broker.ReadControllerProvisioning(c.Context(), "")
+	c.Check(err, tc.ErrorMatches, "source controller ID is required")
+	_, err = broker.ReadControllerProvisioning(c.Context(), "0")
+	c.Check(err, tc.ErrorMatches, ".*controller-0.*not found")
+	for _, kind := range []string{"pods", "nodes", "persistentvolumeclaims", "services"} {
+		client := backupSourceClient("example.com/agent:tag", "example.com/charm:tag")
+		client.PrependReactor("get", kind, func(ktesting.Action) (bool, runtime.Object, error) {
+			return true, nil, fmt.Errorf("failure reading %s", kind)
+		})
+		broker := &kubernetesClient{clientUnlocked: client, namespace: "controller-source"}
+		_, err := broker.ReadControllerProvisioning(c.Context(), "1")
+		c.Check(err, tc.ErrorMatches, "failure reading "+kind)
+	}
+}
+
+// TestStorageAndService verifies the volume capacity fallback and rounding,
+// the storage and service guard messages, and the recorded exposure facts for
+// each supported service type.
+func (s *backupProvisioningSuite) TestStorageAndService(c *tc.C) {
+	tests := []struct {
+		name               string
+		mutate             func(*tc.C, *fake.Clientset)
+		wantStorageMiB     uint64
+		wantServiceType    string
+		wantExternalName   string
+		wantLoadBalancerIP string
+		wantExternalIPs    []string
+		wantAnnotations    map[string]string
+		wantErr            string
+	}{
+		{
+			name: "request capacity fallback rounds up",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				claim := getBackupClaim(c, client)
+				claim.Status.Capacity = nil
+				claim.Spec.Resources.Requests = core.ResourceList{
+					core.ResourceStorage: resource.MustParse("1500Ki"),
+				}
+				updateBackupClaim(c, client, claim)
+			},
+			wantStorageMiB:     2,
+			wantServiceType:    string(caas.ServiceLoadBalancer),
+			wantLoadBalancerIP: "192.0.2.1",
+			wantExternalIPs:    []string{"192.0.2.2"},
+			wantAnnotations:    map[string]string{"source": "retained"},
+		},
+		{
+			name: "missing storage class",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				claim := getBackupClaim(c, client)
+				claim.Spec.StorageClassName = nil
+				updateBackupClaim(c, client, claim)
+			},
+			wantErr: "controller volume has no storage class",
+		},
+		{
+			name: "zero capacity",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				claim := getBackupClaim(c, client)
+				claim.Status.Capacity = nil
+				claim.Spec.Resources.Requests = nil
+				updateBackupClaim(c, client, claim)
+			},
+			wantErr: "controller volume has no capacity",
+		},
+		{
+			name: "no node architecture",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				node := getBackupNode(c, client)
+				node.Status.NodeInfo.Architecture = ""
+				updateBackupNode(c, client, node)
+			},
+			wantErr: "source controller node has no architecture",
+		},
+		{
+			name: "missing storage volume",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				pod := getBackupPod(c, client)
+				pod.Spec.Volumes = nil
+				updateBackupPod(c, client, pod)
+			},
+			wantErr: "source controller data volume is missing",
+		},
+		{
+			name: "non-pvc storage volume",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				pod := getBackupPod(c, client)
+				pod.Spec.Volumes = []core.Volume{{Name: storageName,
+					VolumeSource: core.VolumeSource{
+						HostPath: &core.HostPathVolumeSource{Path: "/data"},
+					}}}
+				updateBackupPod(c, client, pod)
+			},
+			wantErr: "source controller data volume is missing",
+		},
+		{
+			name: "missing PVC",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				err := client.CoreV1().PersistentVolumeClaims("controller-source").Delete(
+					c.Context(), "controller-storage", metav1.DeleteOptions{})
+				c.Assert(err, tc.ErrorIsNil)
+			},
+			wantErr: ".*controller-storage.*not found.*",
+		},
+		{
+			name: "unscheduled pod",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				pod := getBackupPod(c, client)
+				pod.Spec.NodeName = ""
+				updateBackupPod(c, client, pod)
+			},
+			wantErr: ".*not found.*",
+		},
+		{
+			name: "cluster IP service",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				service := getBackupService(c, client)
+				service.Spec.Type = core.ServiceTypeClusterIP
+				updateBackupService(c, client, service)
+			},
+			wantStorageMiB:     64 * 1024,
+			wantServiceType:    string(caas.ServiceCluster),
+			wantLoadBalancerIP: "192.0.2.1",
+			wantExternalIPs:    []string{"192.0.2.2"},
+			wantAnnotations:    map[string]string{"source": "retained"},
+		},
+		{
+			name: "external name service",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				service := getBackupService(c, client)
+				service.Spec.Type = core.ServiceTypeExternalName
+				service.Spec.ExternalName = "example.com"
+				updateBackupService(c, client, service)
+			},
+			wantStorageMiB:     64 * 1024,
+			wantServiceType:    string(caas.ServiceExternal),
+			wantExternalName:   "example.com",
+			wantLoadBalancerIP: "192.0.2.1",
+			wantExternalIPs:    []string{"192.0.2.2"},
+			wantAnnotations:    map[string]string{"source": "retained"},
+		},
+		{
+			name: "no annotations",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				service := getBackupService(c, client)
+				service.Annotations = nil
+				updateBackupService(c, client, service)
+			},
+			wantStorageMiB:     64 * 1024,
+			wantServiceType:    string(caas.ServiceLoadBalancer),
+			wantLoadBalancerIP: "192.0.2.1",
+			wantExternalIPs:    []string{"192.0.2.2"},
+			wantAnnotations:    nil,
+		},
+		{
+			name: "unsupported service type",
+			mutate: func(c *tc.C, client *fake.Clientset) {
+				service := getBackupService(c, client)
+				service.Spec.Type = core.ServiceTypeNodePort
+				updateBackupService(c, client, service)
+			},
+			wantErr: `unsupported source controller service type "NodePort"`,
+		},
+	}
+	for _, test := range tests {
+		c.Logf("case: %s", test.name)
+		client := backupSourceClient("example.com/agent:tag", "example.com/charm:tag")
+		test.mutate(c, client)
+		broker := &kubernetesClient{clientUnlocked: client, namespace: "controller-source"}
+		result, err := broker.ReadControllerProvisioning(c.Context(), "1")
+		if test.wantErr != "" {
+			c.Check(err, tc.ErrorMatches, test.wantErr)
+			continue
+		}
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(result.StorageCapacityMiB, tc.Equals, test.wantStorageMiB)
+		c.Check(result.ServiceType, tc.Equals, test.wantServiceType)
+		c.Check(result.ExternalName, tc.Equals, test.wantExternalName)
+		c.Check(result.LoadBalancerIP, tc.Equals, test.wantLoadBalancerIP)
+		c.Check(result.ExternalIPs, tc.DeepEquals, test.wantExternalIPs)
+		c.Check(result.ServiceAnnotations, tc.DeepEquals, test.wantAnnotations)
+	}
+}
+
+func getBackupPod(c *tc.C, client *fake.Clientset) *core.Pod {
+	pod, err := client.CoreV1().Pods("controller-source").Get(
+		c.Context(), getBootstrapResourceName(constants.JujuControllerStackName, "1"), metav1.GetOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	return pod
+}
+
+func getBackupNode(c *tc.C, client *fake.Clientset) *core.Node {
+	node, err := client.CoreV1().Nodes().Get(
+		c.Context(), "worker", metav1.GetOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	return node
+}
+
+func updateBackupNode(c *tc.C, client *fake.Clientset, node *core.Node) {
+	_, err := client.CoreV1().Nodes().Update(c.Context(), node, metav1.UpdateOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func updateBackupPod(c *tc.C, client *fake.Clientset, pod *core.Pod) {
+	_, err := client.CoreV1().Pods("controller-source").Update(c.Context(), pod, metav1.UpdateOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func getBackupClaim(c *tc.C, client *fake.Clientset) *core.PersistentVolumeClaim {
+	claim, err := client.CoreV1().PersistentVolumeClaims("controller-source").Get(
+		c.Context(), "controller-storage", metav1.GetOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	return claim
+}
+
+func updateBackupClaim(c *tc.C, client *fake.Clientset, claim *core.PersistentVolumeClaim) {
+	_, err := client.CoreV1().PersistentVolumeClaims("controller-source").Update(
+		c.Context(), claim, metav1.UpdateOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func getBackupService(c *tc.C, client *fake.Clientset) *core.Service {
+	service, err := client.CoreV1().Services("controller-source").Get(
+		c.Context(), constants.ControllerServiceName, metav1.GetOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	return service
+}
+
+func updateBackupService(c *tc.C, client *fake.Clientset, service *core.Service) {
+	_, err := client.CoreV1().Services("controller-source").Update(
+		c.Context(), service, metav1.UpdateOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+}

@@ -11,11 +11,11 @@ import (
 
 	"github.com/juju/clock"
 	jujuerrors "github.com/juju/errors"
-	"github.com/juju/names/v6"
 
 	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	coreversion "github.com/juju/juju/core/version"
 	domainexport "github.com/juju/juju/domain/export"
@@ -26,10 +26,13 @@ import (
 // Creator creates backup archives on demand. It is used by the
 // controller's backups HTTP endpoint, which streams the archive to the
 // client in the same request.
+//
+// The substrate-specific source facts are recorded through recordSource,
+// which the manifold injects for the running controller's substrate.
 type Creator struct {
 	controllerUUID      string
 	controllerModelUUID coremodel.UUID
-	machineID           string
+	controllerID        string
 	dataDir             string
 	logDir              string
 
@@ -42,15 +45,24 @@ type Creator struct {
 	controllerObjectStore ReadObjectStore
 	objectStoreForModel   ObjectStoreForModelFunc
 
+	// recordSource records the substrate-specific source facts in the
+	// archive metadata. The manifold injects the recorder for the
+	// running controller's substrate; the creator holds no other
+	// substrate-specific state.
+	recordSource RecordSourceFunc
+
 	clock  clock.Clock
 	logger corelogger.Logger
 }
 
-// CreatorConfig supplies the dependencies needed to create backup archives.
+// CreatorConfig supplies the dependencies needed to create backup
+// archives. The substrate manifolds inject the source recorder for the
+// running controller's substrate through RecordSource; the remaining
+// dependencies are shared by both substrates.
 type CreatorConfig struct {
-	MachineTag            names.Tag
 	ControllerUUID        string
 	ControllerModelUUID   coremodel.UUID
+	ControllerID          string
 	DataDir               string
 	LogDir                string
 	ControllerExport      ControllerExportService
@@ -60,20 +72,26 @@ type CreatorConfig struct {
 	ControllerNodes       ControllerNodeLister
 	ControllerObjectStore ReadObjectStore
 	ObjectStoreForModel   ObjectStoreForModelFunc
-	Clock                 clock.Clock
-	Logger                corelogger.Logger
+	// RecordSource records the substrate-specific source facts in the
+	// archive metadata: the controller machine's base on machine
+	// controllers, the controller's provisioning facts on Kubernetes
+	// controllers.
+	RecordSource RecordSourceFunc
+	Clock        clock.Clock
+	Logger       corelogger.Logger
 }
 
-// Validate checks that archive creation dependencies are complete.
+// Validate checks that the substrate-independent archive creation
+// dependencies are complete.
 func (c CreatorConfig) Validate() error {
-	if c.MachineTag == nil {
-		return jujuerrors.NotValidf("nil MachineTag")
-	}
 	if c.ControllerUUID == "" {
 		return jujuerrors.NotValidf("empty ControllerUUID")
 	}
 	if err := c.ControllerModelUUID.Validate(); err != nil {
 		return jujuerrors.Annotate(err, "controller model UUID")
+	}
+	if c.ControllerID == "" {
+		return jujuerrors.NotValidf("empty ControllerID")
 	}
 	if c.DataDir == "" {
 		return jujuerrors.NotValidf("empty DataDir")
@@ -102,6 +120,9 @@ func (c CreatorConfig) Validate() error {
 	if c.ObjectStoreForModel == nil {
 		return jujuerrors.NotValidf("nil ObjectStoreForModel")
 	}
+	if c.RecordSource == nil {
+		return jujuerrors.NotValidf("nil RecordSource")
+	}
 	if c.Clock == nil {
 		return jujuerrors.NotValidf("nil Clock")
 	}
@@ -111,15 +132,17 @@ func (c CreatorConfig) Validate() error {
 	return nil
 }
 
-// NewCreator creates a new backup archive creator.
-func NewCreator(cfg CreatorConfig) (*Creator, error) {
+// newCreator returns the archive creator for a creation request, bound
+// to the source recorder the manifold injected for the controller's
+// substrate.
+func newCreator(cfg CreatorConfig) (*Creator, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 	return &Creator{
 		controllerUUID:        cfg.ControllerUUID,
 		controllerModelUUID:   cfg.ControllerModelUUID,
-		machineID:             cfg.MachineTag.Id(),
+		controllerID:          cfg.ControllerID,
 		dataDir:               cfg.DataDir,
 		logDir:                cfg.LogDir,
 		controllerExport:      cfg.ControllerExport,
@@ -129,6 +152,7 @@ func NewCreator(cfg CreatorConfig) (*Creator, error) {
 		controllerNodes:       cfg.ControllerNodes,
 		controllerObjectStore: cfg.ControllerObjectStore,
 		objectStoreForModel:   cfg.ObjectStoreForModel,
+		recordSource:          cfg.RecordSource,
 		clock:                 cfg.Clock,
 		logger:                cfg.Logger,
 	}, nil
@@ -327,18 +351,24 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 	meta.Notes = notes
 	meta.Origin = corebackups.Origin{
 		Model:    c.controllerModelUUID.String(),
-		Machine:  c.machineID,
+		Machine:  c.controllerID,
 		Hostname: hostname,
 		Version:  coreversion.Current,
-		// TODO(backups): resolve the controller machine's base when a cheap,
-		// verified lookup path is available to this worker.
-		Base: "",
 	}
 	meta.Controller = corebackups.ControllerMetadata{
-		UUID:              c.controllerUUID,
-		MachineID:         c.machineID,
+		UUID:    c.controllerUUID,
+		HANodes: int64(len(controllerIDs)),
+	}
+	meta.Instance = corebackups.InstanceMetadata{
+		MachineID:         c.controllerID,
 		MachineInstanceID: corebackups.UnknownString,
-		HANodes:           int64(len(controllerIDs)),
+	}
+	if err := c.recordSource(ctx, meta); err != nil {
+		return nil, "", nil, errors.Capture(err)
+	}
+	meta.DatabaseSizeBytes, err = databaseSize(ctx, c.dataDir)
+	if err != nil {
+		return nil, "", nil, errors.Errorf("recording source database capacity: %w", err)
 	}
 
 	// The archive is written into a per-request temporary directory
@@ -371,4 +401,64 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 	completed = true
 	cleanup := func() { _ = os.RemoveAll(tmpDir) }
 	return meta, filename, cleanup, nil
+}
+
+// machineSourceRecorder returns the source recorder for a machine
+// controller: it records the controller machine's base in the archive
+// metadata, which machine recovery requires. Kubernetes controllers have
+// no machine and take their base from the archived controller charm. The
+// base resolves through the controller model's services; the values are
+// bound here rather than held by the creator.
+func machineSourceRecorder(
+	modelServicesFor ModelServicesForFunc,
+	controllerModelUUID coremodel.UUID,
+	controllerID string,
+) RecordSourceFunc {
+	return func(ctx context.Context, meta *corebackups.Metadata) error {
+		services, err := modelServicesFor(ctx, controllerModelUUID)
+		if err != nil {
+			return errors.Errorf("recording controller base for recovery: %w", errors.Capture(err))
+		}
+		machineBase, err := services.Machine().GetMachineBase(ctx, machine.Name(controllerID))
+		if err != nil {
+			return errors.Errorf("recording controller base for recovery: %w", errors.Capture(err))
+		}
+		if machineBase.Empty() {
+			return errors.New("recording controller base for recovery: controller machine base is empty")
+		}
+		meta.Origin.Base = machineBase.String()
+		return nil
+	}
+}
+
+// k8sSourceRecorder returns the source recorder for a Kubernetes
+// controller: it overlays the running controller's provisioning facts
+// onto the archive instance metadata. Kubernetes recovery requires them,
+// so a reader that reports no facts fails the backup; the machine
+// identifiers already recorded are preserved. The read is the only
+// Kubernetes-specific dependency, so it is bound here rather than held
+// by the creator.
+func k8sSourceRecorder(
+	read func(context.Context) (*corebackups.InstanceMetadata, error),
+) RecordSourceFunc {
+	return func(ctx context.Context, meta *corebackups.Metadata) error {
+		instance, err := read(ctx)
+		if err == nil && instance == nil {
+			err = errors.New("no provisioning facts recorded")
+		}
+		if err != nil {
+			return errors.Errorf("recording Kubernetes provisioning: %w", err)
+		}
+		meta.Instance.AgentImage = instance.AgentImage
+		meta.Instance.CharmImage = instance.CharmImage
+		meta.Instance.Architecture = instance.Architecture
+		meta.Instance.StorageClass = instance.StorageClass
+		meta.Instance.StorageCapacityMiB = instance.StorageCapacityMiB
+		meta.Instance.ServiceType = instance.ServiceType
+		meta.Instance.ExternalName = instance.ExternalName
+		meta.Instance.ExternalIPs = instance.ExternalIPs
+		meta.Instance.LoadBalancerIP = instance.LoadBalancerIP
+		meta.Instance.ServiceAnnotations = instance.ServiceAnnotations
+		return nil
+	}
 }
