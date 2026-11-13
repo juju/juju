@@ -2691,6 +2691,46 @@ func (s *modelStateSuite) TestGetMachineFullStatuses(c *tc.C) {
 	})
 }
 
+// TestGetMachineFullStatusesPrefersDefaultRouteSource checks that, with two
+// cloud-local addresses of the same origin, the dns name and the first of the
+// ip addresses are those of the default route device, even though the other
+// address has the lower value.
+func (s *modelStateSuite) TestGetMachineFullStatusesPrefersDefaultRouteSource(c *tc.C) {
+	// Arrange
+	uuid, name := s.createMachine(c)
+	s.setTwoDeviceNetConfig(c, uuid, true)
+
+	// Act
+	statuses, err := s.state.GetMachineFullStatuses(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(statuses, tc.HasLen, 1)
+	c.Check(statuses[name].DNSName, tc.Equals, "10.0.0.20")
+	c.Check(statuses[name].IPAddresses, tc.DeepEquals, []string{
+		"10.0.0.20", "10.0.0.10",
+	})
+}
+
+// TestGetMachineFullStatusesNoDefaultRouteSource checks that, when no device
+// carries the default route, the addresses are ordered by value as before.
+func (s *modelStateSuite) TestGetMachineFullStatusesNoDefaultRouteSource(c *tc.C) {
+	// Arrange
+	uuid, name := s.createMachine(c)
+	s.setTwoDeviceNetConfig(c, uuid, false)
+
+	// Act
+	statuses, err := s.state.GetMachineFullStatuses(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(statuses, tc.HasLen, 1)
+	c.Check(statuses[name].DNSName, tc.Equals, "10.0.0.10")
+	c.Check(statuses[name].IPAddresses, tc.DeepEquals, []string{
+		"10.0.0.10", "10.0.0.20",
+	})
+}
+
 func (s *modelStateSuite) TestGetMachineFullStatusesEmptyModel(c *tc.C) {
 	statuses, err := s.state.GetMachineFullStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -2983,6 +3023,55 @@ WHERE rst.name = ?
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) Failed to insert relation status %s, status %s, message %q",
 		relationUUID, status, message))
+}
+
+// setTwoDeviceNetConfig sets the net config of the machine to two devices
+// with a cloud-local address of the same origin in the same subnet. The
+// device with the higher address, eth1, carries the default route if
+// hasDefaultRoute is true. Otherwise, neither device does.
+func (s *modelStateSuite) setTwoDeviceNetConfig(
+	c *tc.C, machineUUID coremachine.UUID, hasDefaultRoute bool,
+) {
+	netService := networkservice.NewService(
+		networkstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c)),
+		loggertesting.WrapCheckLog(c),
+	)
+
+	var gateway *string
+	if hasDefaultRoute {
+		gateway = new("10.0.0.1")
+	}
+	newInterface := func(
+		name, mac, address string, isDefaultGateway bool,
+	) domainnetwork.NetInterface {
+		iface := domainnetwork.NetInterface{
+			Name:        name,
+			Type:        corenetwork.EthernetDevice,
+			MACAddress:  new(mac),
+			IsAutoStart: true,
+			IsEnabled:   true,
+			Addrs: []domainnetwork.NetAddr{{
+				InterfaceName: name,
+				AddressValue:  address,
+				AddressType:   corenetwork.IPv4Address,
+				ConfigType:    corenetwork.ConfigDHCP,
+				Origin:        corenetwork.OriginMachine,
+				Scope:         corenetwork.ScopeCloudLocal,
+			}},
+		}
+		if isDefaultGateway {
+			iface.IsDefaultGateway = true
+			iface.GatewayAddress = gateway
+		}
+		return iface
+	}
+
+	err := netService.SetMachineNetConfig(c.Context(), machineUUID,
+		[]domainnetwork.NetInterface{
+			newInterface("eth0", "00:11:22:33:44:55", "10.0.0.10/24", false),
+			newInterface("eth1", "00:11:22:33:44:66", "10.0.0.20/24", hasDefaultRoute),
+		})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *modelStateSuite) createMachine(c *tc.C) (coremachine.UUID, coremachine.Name) {
