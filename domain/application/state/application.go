@@ -2488,17 +2488,20 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 			return errors.Errorf("deleting config: %w", err)
 		}
 
-		if !removeTrust {
-			return nil
+		if removeTrust {
+			if err := tx.Query(ctx, settingsStmt, setApplicationSettings{
+				ApplicationUUID: ident.UUID,
+				Trust:           false,
+			}).Run(); err != nil {
+				return errors.Errorf("deleting setting: %w", err)
+			}
 		}
 
-		if err := tx.Query(ctx, settingsStmt, setApplicationSettings{
-			ApplicationUUID: ident.UUID,
-			Trust:           false,
-		}).Run(); err != nil {
-			return errors.Errorf("deleting setting: %w", err)
+		// The config hash is what the uniter watches to run config-changed,
+		// so it must follow the removal.
+		if err := st.updateConfigHash(ctx, tx, ident); err != nil {
+			return errors.Errorf("refreshing config hash: %w", err)
 		}
-
 		return nil
 	})
 	if err != nil {

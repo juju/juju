@@ -121,7 +121,7 @@ func (s *updateCAASSuite) SetUpTest(c *tc.C) {
 	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{
 		CallMocker: testhelpers.NewCallMocker(logger),
 	}
-	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(defaultClusterMetadata, nil)
+	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata", "").Returns(defaultClusterMetadata, nil)
 
 	clouds, err := cloud.ParseCloudMetadata([]byte(cloudYaml))
 	c.Assert(err, tc.ErrorIsNil)
@@ -306,12 +306,12 @@ func (s *updateCAASSuite) TestBuiltinToController(c *tc.C) {
 	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{
 		CallMocker: testhelpers.NewCallMocker(logger),
 	}
-	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(microk8sClusterMetadata, nil)
+	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata", "").Returns(microk8sClusterMetadata, nil)
 
 	command := s.makeCommand()
 	_, err := s.runCommand(c, command, "microk8s", "-c", "foo")
 	c.Assert(err, tc.ErrorIsNil)
-	s.fakeK8sClusterMetadataChecker.CheckCall(c, 0, "GetClusterMetadata")
+	s.fakeK8sClusterMetadataChecker.CheckCall(c, 0, "GetClusterMetadata", "")
 	expectedCloudToUpdate := cloud.Cloud{
 		Name:            "microk8s",
 		Endpoint:        "http://10.1.0.0:666",
@@ -341,7 +341,7 @@ func (s *updateCAASSuite) TestAffectedModels(c *tc.C) {
 	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{
 		CallMocker: testhelpers.NewCallMocker(logger),
 	}
-	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(microk8sClusterMetadata, nil)
+	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata", "").Returns(microk8sClusterMetadata, nil)
 
 	command := s.makeCommand()
 	ctx, err := s.runCommand(c, command, "microk8s", "-c", "foo")
@@ -371,7 +371,7 @@ func (s *updateCAASSuite) TestUpdateCredentialError(c *tc.C) {
 	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{
 		CallMocker: testhelpers.NewCallMocker(logger),
 	}
-	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(microk8sClusterMetadata, nil)
+	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata", "").Returns(microk8sClusterMetadata, nil)
 
 	command := s.makeCommand()
 	ctx, err := s.runCommand(c, command, "microk8s", "-c", "foo")
