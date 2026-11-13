@@ -823,6 +823,33 @@ func (s *baseSuite) checkCharmsCount(c *tc.C, expectedCount int) {
 	c.Check(count, tc.Equals, expectedCount)
 }
 
+// createBareCharm inserts a charm row directly with the input availability
+// and creation time, bypassing the application service.
+func (s *baseSuite) createBareCharm(c *tc.C, available bool, createdAt time.Time) string {
+	charmUUID := uuid.MustNewUUID().String()
+	_, err := s.DB().ExecContext(c.Context(), `
+INSERT INTO charm (uuid, reference_name, available, create_time)
+VALUES (?, ?, ?, ?)`, charmUUID, "test-charm-"+charmUUID, available, createdAt)
+	c.Assert(err, tc.ErrorIsNil)
+	return charmUUID
+}
+
+// createBareResource inserts a charm resource definition and a resource row
+// for it directly, with no application, pending application, or unit
+// references.
+func (s *baseSuite) createBareResource(c *tc.C, charmUUID, name string, createdAt time.Time) string {
+	resourceUUID := uuid.MustNewUUID().String()
+	_, err := s.DB().ExecContext(c.Context(), `
+INSERT INTO charm_resource (charm_uuid, name, kind_id)
+VALUES (?, ?, 0)`, charmUUID, name)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), `
+INSERT INTO resource (uuid, charm_uuid, charm_resource_name, revision, origin_type_id, state_id, created_at)
+VALUES (?, ?, ?, 1, 0, 0, ?)`, resourceUUID, charmUUID, name, createdAt)
+	c.Assert(err, tc.ErrorIsNil)
+	return resourceUUID
+}
+
 func (s *baseSuite) advanceApplicationLife(c *tc.C, appUUID coreapplication.UUID, newLife life.Life) {
 	_, err := s.DB().Exec("UPDATE application SET life_id = ? WHERE uuid = ?", newLife, appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)

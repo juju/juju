@@ -1,4 +1,10 @@
 #!/usr/bin/env -S bash -e
+
+# Minimum controller resources for public-cloud integration tests. These match
+# small 2-vCPU/8-GiB instances and Azure's minimum 30-GiB OS disk. Set to a
+# different value (or empty, to disable) to change the default for a whole run.
+PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS="${PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS:-cores=2 mem=8G root-disk=30G}"
+
 # juju_version will return only the version and not the architecture/substrate
 # of the juju version. If JUJU_VERSION is defined in CI this value will be used
 # otherwise we interrogate the juju binary on path.
@@ -312,6 +318,17 @@ pre_bootstrap() {
 	# ensure BOOTSTRAP_ADDITIONAL_ARGS is defined, even if not necessary.
 	export BOOTSTRAP_ADDITIONAL_ARGS=${BOOTSTRAP_ADDITIONAL_ARGS:-}
 	case "${BOOTSTRAP_PROVIDER:-}" in
+	"ec2" | "gce" | "azure")
+		# --bootstrap-constraints accumulates and repeated constraint keys
+		# fail to parse, so the default sizing is skipped when the caller
+		# already passes their own --bootstrap-constraints; that value wins.
+		# Setting PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS to an empty value
+		# disables the default sizing entirely.
+		if [[ -n ${PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS} &&
+			${BOOTSTRAP_ADDITIONAL_ARGS} != *--bootstrap-constraints* ]]; then
+			export BOOTSTRAP_ADDITIONAL_ARGS="--bootstrap-constraints='${PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS}' ${BOOTSTRAP_ADDITIONAL_ARGS}"
+		fi
+		;;
 	"vsphere")
 		echo "====> Creating image simplestream metadata for juju ($(green "${version}:${cloud}"))"
 
@@ -450,34 +467,36 @@ post_add_model() {
 add_client_ssh_key_to_juju_model() {
 	local model_name="$1"
 	local ssh_key_file="${JUJU_DATA:-${HOME}/.local/share/juju}/ssh/juju_id_ed25519.pub"
+	local output exit_code
 
 	# Check if model name is provided
 	if [[ -z $model_name ]]; then
-		echo "Error: Invalid usage. The function signature should be: add_client_ssh_key_to_juju_model <model_name>"
-		return
+		echo "Error: Invalid usage. The function signature should be: add_client_ssh_key_to_juju_model <model_name>" >&2
+		return 1
 	fi
 
 	# Check if the SSH key file exists
 	if [[ ! -f $ssh_key_file ]]; then
-		echo "Error: SSH key file '$ssh_key_file' not found."
-		return
+		echo "Error: SSH key file '$ssh_key_file' not found." >&2
+		return 1
 	fi
 
 	# Validate SSH key
 	if ssh-keygen -l -f "${ssh_key_file}" >/dev/null 2>&1; then
-		output=$(juju add-ssh-key -m "${model_name}" "$(cat "${ssh_key_file}")" 2>&1)
-		exit_code=$?
-		if [[ $exit_code -ne 0 ]]; then
-			echo "Error adding SSH key to model '${model_name}': $output"
-			return
+		# Avoid errexit here; ! would replace the original exit status.
+		if output=$(juju add-ssh-key --show-log -m "${model_name}" "$(cat "${ssh_key_file}")" 2>&1); then
+			:
+		else
+			exit_code=$?
+			echo "Error adding SSH key to model '${model_name}': $output" >&2
+			return "${exit_code}"
 		fi
 	else
-		echo "Error: The file '${ssh_key_file}' does not contain a valid SSH public key."
-		return
+		echo "Error: The file '${ssh_key_file}' does not contain a valid SSH public key." >&2
+		return 1
 	fi
 
 	echo "SSH key added successfully to model '${model_name}'."
-	return
 }
 
 # destroy_model takes a model name and destroys a model. It first checks if the

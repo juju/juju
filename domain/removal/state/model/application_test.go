@@ -195,6 +195,39 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNormalSuccessWith
 	s.checkMachineDyingState(c, aliveMachineUUIDs)
 }
 
+func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeReturnsDedupedCharmUUIDs(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app",
+		applicationservice.AddIAASUnitArg{},
+		applicationservice.AddIAASUnitArg{},
+		applicationservice.AddIAASUnitArg{},
+	)
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(unitUUIDs, tc.HasLen, 3)
+	currentCharmUUID := s.getCharmUUIDForApplication(c, appUUID.String())
+	oldCharmUUID := s.createBareCharm(c, true, s.now.Add(-time.Hour))
+
+	// Model an application upgrade where some units still use the old charm.
+	_, err := s.DB().ExecContext(c.Context(), `
+UPDATE unit SET charm_uuid = ? WHERE uuid IN (?, ?)`,
+		oldCharmUUID, unitUUIDs[0].String(), unitUUIDs[1].String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	firstArtifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(firstArtifacts.CharmUUIDs, tc.HasLen, 2)
+	c.Check(firstArtifacts.CharmUUIDs, tc.SameContents, []string{currentCharmUUID, oldCharmUUID})
+
+	// Every dying unit returns its charm on a retry. The application result
+	// must still contain each charm only once.
+	secondArtifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(secondArtifacts.CharmUUIDs, tc.HasLen, 2)
+	c.Check(secondArtifacts.CharmUUIDs, tc.DeepEquals, firstArtifacts.CharmUUIDs)
+}
+
 func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNormalSuccessWithAliveAndDyingUnitsWithLastMachine(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app",
@@ -1013,7 +1046,10 @@ func (s *applicationSuite) TestDeleteApplicationNotWipingDeviceConstraints(c *tc
 	devices, err := svc.GetDeviceConstraints(c.Context(), "app2")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(devices, tc.HasLen, 1)
-	c.Assert(devices["bitcoinminer"].Count, tc.Equals, 20)
+	c.Check(devices["bitcoinminer"].Count, tc.Equals, 20)
+	c.Check(devices["bitcoinminer"].Attributes, tc.DeepEquals, map[string]string{
+		"model": "tesla",
+	})
 }
 
 func (s *applicationSuite) TestDeleteApplicationWithObjectstoreResource(c *tc.C) {
@@ -1236,6 +1272,33 @@ func (s *applicationSuite) TestDeleteCharmReturnConstraintError(c *tc.C) {
 
 	// Assert: delete charm should return a ConstraintError.
 	c.Assert(err, tc.ErrorMatches, ".*FOREIGN KEY constraint failed.*")
+}
+
+func (s *applicationSuite) TestDeleteCharmIfUnusedWithAnnotation(c *tc.C) {
+	// Arrange: One application with a charm that has an annotation.
+	appSvc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, appSvc, "some-app")
+	s.advanceApplicationLife(c, appUUID, life.Dead)
+	charmUUID := s.getCharmUUIDForApplication(c, appUUID.String())
+	_, err := s.DB().Exec(`
+INSERT INTO annotation_charm (uuid, key, value) VALUES (?, ?, ?)`,
+		charmUUID, "key", "value")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: Delete the application and delete the charm.
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.DeleteCharmIfUnused(c.Context(), charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert: The charm and its annotation are deleted.
+	s.checkNoCharmsExist(c)
+	row := s.DB().QueryRow("SELECT COUNT(*) FROM annotation_charm WHERE uuid = ?", charmUUID)
+	var count int
+	err = row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
 }
 
 func (s *applicationSuite) TestGetApplicationName(c *tc.C) {

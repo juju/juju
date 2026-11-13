@@ -3149,6 +3149,58 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeys(c *tc.C) {
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
 }
 
+func (s *applicationStateSuite) TestUnsetApplicationConfigKeysUpdatesHash(c *tc.C) {
+	id := s.createIAASApplication(c, "foo", life.Alive)
+
+	initialHash, err := s.state.GetApplicationConfigHash(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.UpdateApplicationConfigAndSettings(c.Context(), id, map[string]application.AddApplicationConfig{
+		"a": {
+			Type:  charm.OptionString,
+			Value: "b",
+		},
+	}, application.UpdateApplicationSettingsArg{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	setHash, err := s.state.GetApplicationConfigHash(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(setHash, tc.Not(tc.Equals), initialHash)
+
+	// Removing the key must take the hash back to the one for no config,
+	// otherwise the units are never told that the config changed.
+	err = s.state.UnsetApplicationConfigKeys(c.Context(), id, []string{"a"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	unsetHash, err := s.state.GetApplicationConfigHash(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(unsetHash, tc.Equals, initialHash)
+}
+
+func (s *applicationStateSuite) TestUnsetApplicationConfigKeysTrustUpdatesHash(c *tc.C) {
+	id := s.createIAASApplication(c, "foo", life.Alive)
+
+	initialHash, err := s.state.GetApplicationConfigHash(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.UpdateApplicationConfigAndSettings(c.Context(), id,
+		map[string]application.AddApplicationConfig{},
+		application.UpdateApplicationSettingsArg{Trust: new(true)},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	trustHash, err := s.state.GetApplicationConfigHash(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(trustHash, tc.Not(tc.Equals), initialHash)
+
+	err = s.state.UnsetApplicationConfigKeys(c.Context(), id, []string{"trust"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	unsetHash, err := s.state.GetApplicationConfigHash(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(unsetHash, tc.Equals, initialHash)
+}
+
 func (s *applicationStateSuite) TestUnsetApplicationConfigKeysApplicationNotFound(c *tc.C) {
 	// If the application is not found, it should return application not found.
 	id := tc.Must(c, coreapplication.NewUUID)

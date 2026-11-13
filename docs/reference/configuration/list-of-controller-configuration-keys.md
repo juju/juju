@@ -1,13 +1,6 @@
 (list-of-controller-configuration-keys)=
 # List of controller configuration keys
 
-```{toctree}
-:hidden:
-
-controller-config-audit-log-exclude-methods
-controller-config-juju-mgmt-space
-```
-
 This document gives a list of all the configuration keys that can be applied to a Juju controller.
 (controller-config-agent-logfile-max-backups)=
 ## `agent-logfile-max-backups`
@@ -121,7 +114,12 @@ contain the arguments passed to API methods.
 aren't interesting for audit logging purposes. A conversation
 with only calls to these will be excluded from the
 log. (They'll still appear in conversations that have other
-interesting calls though.).
+interesting calls though.) A conversation is one client API
+connection, typically a single top-level CLI command. Names are
+given as a comma-separated list, for example
+"ReadOnlyMethods,Pinger.Ping". The default, "ReadOnlyMethods",
+stands for the fixed set of read-only methods listed in
+apiserver/observer/auditfilter.go.
 
 **Type:** string
 
@@ -205,8 +203,8 @@ testing is
 (controller-config-caas-image-repo)=
 ## `caas-image-repo`
 
-`caas-image-repo` sets the docker repo to use
-for the jujud operator and mongo images.
+`caas-image-repo` sets the docker repo to use for the Juju operator
+(jujud-operator) and charm-base images.
 Note: the repository itself is read-only after bootstrap; only
 authentication credentials (for a private registry) can be updated.
 
@@ -354,7 +352,12 @@ created locally on the controller.
 ## `juju-mgmt-space`
 
 `juju-mgmt-space` is the network space that agents should use to
-communicate with controllers.
+communicate with controllers. Controller API addresses are filtered
+to those in the space; if the space is unknown, or the filter would
+remove every address, the unfiltered addresses are used so that
+agents never lose contact with the controller. At bootstrap, the
+space is also added to the spaces constraint of the controller
+machine.
 
 **Type:** string
 
@@ -392,9 +395,10 @@ permissions model.
 ## `max-agent-state-size`
 
 `max-agent-state-size` is the maximum allowed size of internal state
-data that agents can store to the controller in bytes. A value of 0
-disables the quota checks although in principle, mongo imposes a
-hard (but configurable) limit of 16M.
+data that agents can store to the controller in bytes.
+NOTE: In Juju 4.1 this limit is not currently implemented, so
+setting this key has no effect: It was not carried over when unit
+state moved to the controller's Dqlite database.
 
 **Type:** integer
 
@@ -408,8 +412,10 @@ hard (but configurable) limit of 16M.
 
 `max-charm-state-size` is the maximum allowed size of charm-specific
 per-unit state data that charms can store to the controller in
-bytes. A value of 0 disables the quota checks although in
-principle, mongo imposes a hard (but configurable) limit of 16M.
+bytes.
+NOTE: In Juju 4.1 this limit is not currently implemented, so
+setting this key has no effect: It was not carried over when unit
+state moved to the controller's Dqlite database.
 
 **Type:** integer
 
