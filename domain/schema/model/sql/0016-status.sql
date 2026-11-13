@@ -1,6 +1,6 @@
 -- Status values for unit and application workloads.
 CREATE TABLE workload_status_value (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     status TEXT NOT NULL
 );
 

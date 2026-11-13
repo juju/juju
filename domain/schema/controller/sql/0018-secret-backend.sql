@@ -1,7 +1,7 @@
 -- Controller database tables for secret backends.
 
 CREATE TABLE secret_backend_type (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     type TEXT NOT NULL,
     description TEXT,
     CONSTRAINT chk_empty_type

@@ -296,11 +296,10 @@ func (d deltas) SshConnectionRequest(_ context.Context, _ *v4_0_12.ModelExport) 
 // SshKeyAlgorithmType synthesises the static lookup table introduced in
 // 4.1.0. The table is schema-owned data, so it is produced unconditionally.
 func (d deltas) SshKeyAlgorithmType(_ context.Context, _ *v4_0_12.ModelExport) ([]v4_1_0.SshKeyAlgorithmType, error) {
-	rsa, ecdsa, ed25519 := int64(0), int64(1), int64(2)
 	return []v4_1_0.SshKeyAlgorithmType{
-		{ID: &rsa, Type: "ssh-rsa"},
-		{ID: &ecdsa, Type: "ecdsa-sha2-nistp256"},
-		{ID: &ed25519, Type: "ssh-ed25519"},
+		{ID: 0, Type: "ssh-rsa"},
+		{ID: 1, Type: "ecdsa-sha2-nistp256"},
+		{ID: 2, Type: "ssh-ed25519"},
 	}, nil
 }
 

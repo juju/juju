@@ -1,5 +1,5 @@
 CREATE TABLE permission_access_type (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     type TEXT NOT NULL
 );
 
@@ -17,7 +17,7 @@ INSERT INTO permission_access_type VALUES
 (6, 'superuser');
 
 CREATE TABLE permission_object_type (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     type TEXT NOT NULL
 );
 
@@ -32,7 +32,7 @@ INSERT INTO permission_object_type VALUES
 (3, 'offer');
 
 CREATE TABLE permission_object_access (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     access_type_id INT NOT NULL,
     object_type_id INT NOT NULL,
     CONSTRAINT fk_permission_access_type

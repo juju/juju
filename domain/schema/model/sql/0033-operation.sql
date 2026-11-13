@@ -125,7 +125,7 @@ CREATE TABLE operation_task_status (
 
 -- operation_task_status_value holds the possible status values for a task.
 CREATE TABLE operation_task_status_value (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     status TEXT NOT NULL
 );
 

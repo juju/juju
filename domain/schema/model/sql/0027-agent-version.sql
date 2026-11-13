@@ -1,7 +1,7 @@
 -- agent_stream defines the recognised streams available in the model for
 -- fetching agent binaries.
 CREATE TABLE agent_stream (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL
 );
 
