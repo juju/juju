@@ -1653,6 +1653,22 @@ func (s *storageSuite) TestExecuteJobForStorageAttachmentDyingChildren(c *tc.C) 
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// TestExecuteJobForStorageAttachmentDyingChildrenError verifies that an error
+// checking for dying children is returned, and that neither the storage
+// attachment nor the job is deleted.
+func (s *storageSuite) TestExecuteJobForStorageAttachmentDyingChildrenError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newStorageAttachmentJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetStorageAttachmentLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
+	exp.CheckStorageAttachmentHasNoDyingChildren(gomock.Any(), j.EntityUUID).Return(false, errors.New("boom"))
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorMatches, ".*boom")
+}
+
 func newStorageAttachmentJob(c *tc.C) removal.Job {
 	jUUID, err := removal.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
