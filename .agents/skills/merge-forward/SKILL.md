@@ -296,11 +296,63 @@ Then open a pull request from $MERGE_BRANCH → TARGET on GitHub.
 
 There is no user to hand off to. Publish the merge yourself:
 
-1. Push only the merge branch:
+1. Publish the merge with GitHub's signature. Do not stop at `git push`:
+   pushed commits are unsigned, and branch protection rejects unsigned
+   commits.
+
+   `git push` already uploads every local object; only the commit
+   objects it creates are unsigned. GitHub signs commits it creates
+   itself when the request is authenticated as the App and no `author`,
+   `committer` or `signature` is supplied. So push first, then recreate
+   the pushed history through the commits API on the same trees, and
+   move the branch to the signed result. Run this as one shell
+   invocation:
 
    ```bash
+   set -euo pipefail
+   REPO=${GH_REPO:-juju/juju}
    git push upstream "$MERGE_BRANCH"
+   # After the push, any failure must delete the pushed branch rather
+   # than leave unsigned history on the remote.
+   cleanup() {
+     local status=$?
+     if [ $status -ne 0 ]; then
+       gh api --method DELETE "repos/$REPO/git/refs/heads/$MERGE_BRANCH" \
+         >/dev/null 2>&1 || true
+     fi
+     exit $status
+   }
+   trap cleanup EXIT
+   PARENT=$(git rev-parse upstream/TARGET)
+   FIRST=""
+   for COMMIT in $(git rev-list --first-parent --reverse "$PARENT..HEAD"); do
+     if [ -z "$FIRST" ]; then
+       FIRST=$COMMIT
+       # The first recreated commit must sit on the exact target tip.
+       if [ "$(git rev-parse "$COMMIT^")" != "$PARENT" ]; then
+         echo "First commit $COMMIT is not based on upstream/TARGET ($PARENT)" >&2
+         exit 1
+       fi
+     fi
+     ARGS=(-f "message=$(git log -1 --format=%B "$COMMIT")"
+           -f "tree=$(git rev-parse "$COMMIT^{tree}")"
+           -f "parents[]=$PARENT")
+     # Keep any extra parents, e.g. the source branch of the merge commit.
+     for P in $(git rev-parse "$COMMIT^@" | tail -n +2); do
+       ARGS+=(-f "parents[]=$P")
+     done
+     PARENT=$(gh api --method POST "repos/$REPO/git/commits" "${ARGS[@]}" \
+       --jq 'if .verification.verified then .sha else error("unsigned") end')
+   done
+   # Move the pushed branch to the signed history.
+   gh api --method PATCH "repos/$REPO/git/refs/heads/$MERGE_BRANCH" \
+     -f sha="$PARENT" -F force=true
+   trap - EXIT
    ```
+
+   If any command fails, the trap deletes the pushed `merge/*` branch and
+   reports the error. Never leave the branch pointing at an unsigned
+   commit.
 
 2. Open the pull request, using the PR description above as the body:
 
@@ -382,9 +434,11 @@ There is no user to hand off to. Publish the merge yourself:
      --jq '.reviewRequests[].login'
    ```
 
-Never push to SOURCE or TARGET directly. The only refs that may be pushed
+Never update SOURCE or TARGET directly. The only refs that may be created
 are `merge/SOURCE-TARGET-YYYYMMDD-HHMMSS` branches. Do not commit or stage
-anything unrelated to the merge.
+anything unrelated to the merge. When using the GitHub commits API, never
+supply custom `author`, `committer`, or `signature` fields; doing so prevents
+GitHub from signing the App's commits automatically.
 
 ## Feedback Loop
 
