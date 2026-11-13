@@ -1559,6 +1559,67 @@ func (s *ProvisionerTaskSuite) TestMachineAndDeadNotProvisionedMachineAreRemoved
 	s.waitForRemovalMark(c, m1)
 }
 
+// TestStopInstanceFailureDoesNotBlockOtherMachines ensures that a dead machine
+// whose instance cannot be stopped does not prevent the removal of another
+// dead machine whose instance was stopped.
+func (s *ProvisionerTaskSuite) TestStopInstanceFailureDoesNotBlockOtherMachines(c *tc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+
+	inst0 := &testInstance{id: "0"}
+	m0 := &testMachine{c: c, id: "0", life: life.Dead, instance: inst0}
+	inst1 := &testInstance{id: "1"}
+	m1 := &testMachine{c: c, id: "1", life: life.Dead, instance: inst1}
+
+	broker := environmocks.NewMockEnviron(ctrl)
+	exp := broker.EXPECT()
+	exp.AllRunningInstances(gomock.Any()).Return([]instances.Instance{inst0, inst1}, nil).MinTimes(1)
+	exp.StopInstances(gomock.Any(), []instance.Id{"0", "1"}).Return(
+		&environs.StopInstancesError{Failed: []instance.Id{"0"}})
+	s.expectMachines(m0, m1)
+
+	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
+	defer workertest.DirtyKill(c, task)
+
+	s.sendModelMachinesChange(c, "0", "1")
+
+	// The failure is still reported, so that the stop is retried.
+	err := workertest.CheckKilled(c, task)
+	c.Assert(err, tc.ErrorMatches, `.*stopping instances: failed to stop instances: 0`)
+
+	c.Check(m1.GetMarkForRemoval(), tc.IsTrue)
+	c.Check(m0.GetMarkForRemoval(), tc.IsFalse)
+}
+
+// TestUntypedStopInstancesFailureBlocksAllMachines ensures that when the broker
+// does not say which instances failed to stop, no machine is removed.
+func (s *ProvisionerTaskSuite) TestUntypedStopInstancesFailureBlocksAllMachines(c *tc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+
+	inst0 := &testInstance{id: "0"}
+	m0 := &testMachine{c: c, id: "0", life: life.Dead, instance: inst0}
+	inst1 := &testInstance{id: "1"}
+	m1 := &testMachine{c: c, id: "1", life: life.Dead, instance: inst1}
+
+	broker := environmocks.NewMockEnviron(ctrl)
+	exp := broker.EXPECT()
+	exp.AllRunningInstances(gomock.Any()).Return([]instances.Instance{inst0, inst1}, nil).MinTimes(1)
+	exp.StopInstances(gomock.Any(), []instance.Id{"0", "1"}).Return(errors.New("boom"))
+	s.expectMachines(m0, m1)
+
+	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
+	defer workertest.DirtyKill(c, task)
+
+	s.sendModelMachinesChange(c, "0", "1")
+
+	err := workertest.CheckKilled(c, task)
+	c.Assert(err, tc.ErrorMatches, `.*stopping instances: boom`)
+
+	c.Check(m0.GetMarkForRemoval(), tc.IsFalse)
+	c.Check(m1.GetMarkForRemoval(), tc.IsFalse)
+}
+
 // TestDeadMachineWithNotFoundInstanceIDIsIgnored ensures that a dead machine
 // with an instance ID lookup that returns NotFound is ignored.
 func (s *ProvisionerTaskSuite) TestDeadMachineWithNotFoundInstanceIDIsIgnored(c *tc.C) {
