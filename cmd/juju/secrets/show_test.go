@@ -5,6 +5,7 @@ package secrets_test
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/juju/cmd/v3/cmdtesting"
 	jujutesting "github.com/juju/testing"
@@ -52,6 +53,8 @@ func (s *ShowSuite) TestInit(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "specify either --revisions or --revision but not both")
 	_, err = cmdtesting.RunCommand(c, secrets.NewShowCommandForTest(s.store, s.secretsAPI), uri.ID, "--revisions", "--revision", "-1")
 	c.Assert(err, gc.ErrorMatches, "revision must be a positive integer")
+	_, err = cmdtesting.RunCommand(c, secrets.NewShowCommandForTest(s.store, s.secretsAPI), "")
+	c.Assert(err, gc.ErrorMatches, "secret ID or name is required")
 }
 
 func ptr[T any](v T) *T {
@@ -143,6 +146,76 @@ func (s *ShowSuite) TestShowByName(c *gc.C) {
   created: 0001-01-01T00:00:00Z
   updated: 0001-01-01T00:00:00Z
 `[1:], uri.ID))
+}
+
+func (s *ShowSuite) TestShowByLabelMultipleMatches(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	uri1 := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+	s.secretsAPI.EXPECT().ListSecrets(false, coresecrets.Filter{
+		Label: ptr("my-secret"),
+	}).Return(
+		[]apisecrets.SecretDetails{{
+			Metadata: coresecrets.SecretMetadata{
+				URI: uri1, Version: 1, LatestRevision: 1,
+				OwnerTag: "unit-mongodb/0",
+				Label:    "my-secret",
+			},
+		}, {
+			Metadata: coresecrets.SecretMetadata{
+				URI: uri2, Version: 1, LatestRevision: 1,
+				OwnerTag: "unit-mongodb/1",
+				Label:    "my-secret",
+			},
+		}}, nil)
+	s.secretsAPI.EXPECT().Close().Return(nil)
+
+	ctx, err := cmdtesting.RunCommand(c, secrets.NewShowCommandForTest(s.store, s.secretsAPI), "my-secret")
+	ids := []string{uri1.ID, uri2.ID}
+	slices.Sort(ids)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
+		`secret label "my-secret" matches multiple secrets \(%s, %s\); use a secret ID instead`,
+		ids[0], ids[1],
+	))
+	// The ambiguity must be rejected before anything is rendered.
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+}
+
+func (s *ShowSuite) TestShowByLabelMultipleMatchesReveal(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	uri1 := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+	s.secretsAPI.EXPECT().ListSecrets(true, coresecrets.Filter{
+		Label: ptr("my-secret"),
+	}).Return(
+		[]apisecrets.SecretDetails{{
+			Metadata: coresecrets.SecretMetadata{
+				URI: uri1, Version: 1, LatestRevision: 1,
+				OwnerTag: "unit-mongodb/0",
+				Label:    "my-secret",
+			},
+			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
+		}, {
+			Metadata: coresecrets.SecretMetadata{
+				URI: uri2, Version: 1, LatestRevision: 1,
+				OwnerTag: "unit-mongodb/1",
+				Label:    "my-secret",
+			},
+			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmF6"}),
+		}}, nil)
+	s.secretsAPI.EXPECT().Close().Return(nil)
+
+	ctx, err := cmdtesting.RunCommand(c, secrets.NewShowCommandForTest(s.store, s.secretsAPI), "my-secret", "--reveal")
+	ids := []string{uri1.ID, uri2.ID}
+	slices.Sort(ids)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
+		`secret label "my-secret" matches multiple secrets \(%s, %s\); use a secret ID instead`,
+		ids[0], ids[1],
+	))
+	// The ambiguity must be rejected before any secret value is rendered.
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
 
 func (s *ShowSuite) TestShowReveal(c *gc.C) {
