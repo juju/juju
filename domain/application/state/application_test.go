@@ -3149,6 +3149,32 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeys(c *tc.C) {
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
 }
 
+func (s *applicationStateSuite) TestUnsetApplicationConfigKeysUpdatesHash(c *tc.C) {
+	id := s.createIAASApplication(c, "foo", life.Alive)
+
+	err := s.state.UpdateApplicationConfigAndSettings(c.Context(), id, map[string]application.AddApplicationConfig{
+		"a": {
+			Type:  charm.OptionString,
+			Value: "b",
+		},
+	}, application.UpdateApplicationSettingsArg{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	hashBefore, err := s.state.GetApplicationConfigHash(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.UnsetApplicationConfigKeys(c.Context(), id, []string{"a"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	hashAfter, err := s.state.GetApplicationConfigHash(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The hash must change on a reset, the same way it does on a set,
+	// otherwise units watching this application's config are never
+	// notified and config-changed does not fire.
+	c.Check(hashAfter, tc.Not(tc.Equals), hashBefore)
+}
+
 func (s *applicationStateSuite) TestUnsetApplicationConfigKeysApplicationNotFound(c *tc.C) {
 	// If the application is not found, it should return application not found.
 	id := tc.Must(c, coreapplication.NewUUID)

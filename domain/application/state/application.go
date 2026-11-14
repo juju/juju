@@ -2488,15 +2488,22 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 			return errors.Errorf("deleting config: %w", err)
 		}
 
-		if !removeTrust {
-			return nil
+		if removeTrust {
+			if err := tx.Query(ctx, settingsStmt, setApplicationSettings{
+				ApplicationUUID: ident.UUID,
+				Trust:           false,
+			}).Run(); err != nil {
+				return errors.Errorf("deleting setting: %w", err)
+			}
 		}
 
-		if err := tx.Query(ctx, settingsStmt, setApplicationSettings{
-			ApplicationUUID: ident.UUID,
-			Trust:           false,
-		}).Run(); err != nil {
-			return errors.Errorf("deleting setting: %w", err)
+		// Refresh the config hash so that units watching this
+		// application's config are notified of the reset, the same way
+		// UpdateApplicationConfigAndSettings does for a set. Without
+		// this, config-changed never fires after a reset even though
+		// the config has changed.
+		if err := st.updateConfigHash(ctx, tx, ident); err != nil {
+			return errors.Errorf("refreshing config hash: %w", err)
 		}
 
 		return nil
