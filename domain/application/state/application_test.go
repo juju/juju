@@ -3149,6 +3149,57 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeys(c *tc.C) {
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
 }
 
+func (s *applicationStateSuite) TestUnsetApplicationConfigKeysUpdatesHash(c *tc.C) {
+	id := s.createIAASApplication(c, "foo", life.Alive)
+
+	err := s.state.UpdateApplicationConfigAndSettings(c.Context(), id, map[string]application.AddApplicationConfig{
+		"a": {
+			Type:  charm.OptionString,
+			Value: "b",
+		},
+	}, application.UpdateApplicationSettingsArg{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	hashBefore, err := s.state.GetApplicationConfigHash(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.UnsetApplicationConfigKeys(c.Context(), id, []string{"a"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	hashAfter, err := s.state.GetApplicationConfigHash(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The hash must change on a reset, the same way it does on a set,
+	// otherwise units watching this application's config are never
+	// notified and config-changed does not fire.
+	c.Check(hashAfter, tc.Not(tc.Equals), hashBefore)
+}
+
+func (s *applicationStateSuite) TestUnsetApplicationConfigKeysOverQuotaStillSucceeds(c *tc.C) {
+	// A reset only ever shrinks config, so it must succeed even when the
+	// application's config was already over the quota limit before this
+	// call, for example from a model populated by a direct import that
+	// bypassed the quota check applied to a set.
+	id := s.createIAASApplication(c, "foo", life.Alive)
+
+	bigValue := strings.Repeat("x", 17*1024*1024)
+	_, err := s.DB().ExecContext(c.Context(), `
+INSERT INTO application_config (application_uuid, key, value, type_id)
+VALUES (?, 'big', ?, 0), (?, 'small', 'keep-me', 0)
+`, id.String(), bigValue, id.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.UnsetApplicationConfigKeys(c.Context(), id, []string{"small"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	config, _, err := s.state.GetApplicationConfigAndSettings(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	_, hasSmall := config["small"]
+	c.Check(hasSmall, tc.IsFalse)
+	_, hasBig := config["big"]
+	c.Check(hasBig, tc.IsTrue)
+}
+
 func (s *applicationStateSuite) TestUnsetApplicationConfigKeysApplicationNotFound(c *tc.C) {
 	// If the application is not found, it should return application not found.
 	id := tc.Must(c, coreapplication.NewUUID)

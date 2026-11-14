@@ -361,7 +361,7 @@ func (st *State) insertApplication(
 	if err := st.insertApplicationSettings(ctx, tx, appDetails.UUID, args.Settings); err != nil {
 		return errors.Errorf("inserting settings for application %q: %w", name, err)
 	}
-	if err := st.updateConfigHash(ctx, tx, entityUUID{UUID: appUUID}); err != nil {
+	if err := st.updateConfigHash(ctx, tx, entityUUID{UUID: appUUID}, true); err != nil {
 		return errors.Errorf("refreshing config hash for application %q: %w", name, err)
 	}
 	if err := st.insertApplicationStatus(ctx, tx, appDetails.UUID, args.Status); err != nil {
@@ -2412,7 +2412,7 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 			}
 		}
 
-		if err := st.updateConfigHash(ctx, tx, ident); err != nil {
+		if err := st.updateConfigHash(ctx, tx, ident, true); err != nil {
 			return errors.Errorf("refreshing config hash: %w", err)
 		}
 		return nil
@@ -2488,15 +2488,22 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 			return errors.Errorf("deleting config: %w", err)
 		}
 
-		if !removeTrust {
-			return nil
+		if removeTrust {
+			if err := tx.Query(ctx, settingsStmt, setApplicationSettings{
+				ApplicationUUID: ident.UUID,
+				Trust:           false,
+			}).Run(); err != nil {
+				return errors.Errorf("deleting setting: %w", err)
+			}
 		}
 
-		if err := tx.Query(ctx, settingsStmt, setApplicationSettings{
-			ApplicationUUID: ident.UUID,
-			Trust:           false,
-		}).Run(); err != nil {
-			return errors.Errorf("deleting setting: %w", err)
+		// Refresh the config hash so that units watching this
+		// application's config are notified of the reset, the same way
+		// UpdateApplicationConfigAndSettings does for a set. Without
+		// this, config-changed never fires after a reset even though
+		// the config has changed.
+		if err := st.updateConfigHash(ctx, tx, ident, false); err != nil {
+			return errors.Errorf("refreshing config hash: %w", err)
 		}
 
 		return nil
@@ -3524,7 +3531,15 @@ INSERT INTO application_status (*) VALUES ($applicationStatus.*);
 	return nil
 }
 
-func (st *State) updateConfigHash(ctx context.Context, tx *sqlair.TX, appID entityUUID) error {
+// updateConfigHash recomputes and persists the application's config hash,
+// which watchers use to detect a config change. checkQuota must be true for
+// any write that can grow the config (a set), so an over-quota write is
+// rejected. It must be false for a write that can only shrink or leave the
+// config unchanged (a reset), so refreshing the hash after deleting keys
+// can never itself be rejected by the quota check, including for a model
+// whose config was already over quota before this reset, for example one
+// populated by a direct import that bypassed the check.
+func (st *State) updateConfigHash(ctx context.Context, tx *sqlair.TX, appID entityUUID, checkQuota bool) error {
 	setHashQuery := `
 INSERT INTO application_config_hash (*)
 VALUES ($applicationConfigHash.*)
@@ -3540,9 +3555,11 @@ ON CONFLICT (application_uuid) DO UPDATE SET
 	if err != nil {
 		return errors.Errorf("getting application config: %w", err)
 	}
-	kv := transform.Slice(config, func(c applicationConfig) quota.KeyValue { return c })
-	if err := quota.CheckApplicationConfigSize(kv); err != nil {
-		return errors.Errorf("checking application config size: %w", err)
+	if checkQuota {
+		kv := transform.Slice(config, func(c applicationConfig) quota.KeyValue { return c })
+		if err := quota.CheckApplicationConfigSize(kv); err != nil {
+			return errors.Errorf("checking application config size: %w", err)
+		}
 	}
 
 	settings, err := st.getApplicationSettings(ctx, tx, appID)
@@ -3777,7 +3794,7 @@ WHERE  application_uuid = $entityUUID.uuid;
 		return errors.Errorf("inserting application config: %w", err)
 	}
 
-	if err := st.updateConfigHash(ctx, tx, appIdent); err != nil {
+	if err := st.updateConfigHash(ctx, tx, appIdent, true); err != nil {
 		return errors.Errorf("refreshing config hash: %w", err)
 	}
 
