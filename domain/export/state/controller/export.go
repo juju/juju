@@ -15,6 +15,30 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+type nullableCloudCredential struct {
+	RevokedIsNull bool `db:"revoked_is_null"`
+	InvalidIsNull bool `db:"invalid_is_null"`
+}
+type nullableControllerApiAddress struct {
+	IsAgentIsNull bool `db:"is_agent_is_null"`
+}
+type nullableFlag struct {
+	ValueIsNull bool `db:"value_is_null"`
+}
+type nullableLease struct {
+	StartIsNull  bool `db:"start_is_null"`
+	ExpiryIsNull bool `db:"expiry_is_null"`
+}
+type nullableLoggingLokiConfig struct {
+	InsecureSkipVerifyIsNull bool `db:"insecure_skip_verify_is_null"`
+}
+type nullableModelMigrationRedirect struct {
+	CompletedAtIsNull bool `db:"completed_at_is_null"`
+}
+type nullableUpgradeInfoControllerNode struct {
+	NodeUpgradeCompletedAtIsNull bool `db:"node_upgrade_completed_at_is_null"`
+}
+
 // Export exports all controller data for version 4.1.0.
 func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 	var controllerExport v4_1_0.ControllerExport
@@ -77,7 +101,10 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing CloudCaCert statement: %w", err)
 	}
-	stmtCloudCredential, err := sqlair.Prepare(`SELECT &CloudCredential.* FROM "cloud_credential"`, v4_1_0.CloudCredential{})
+	stmtCloudCredential, err := sqlair.Prepare(`SELECT &CloudCredential.*,
+       t."revoked" IS NULL AS &nullableCloudCredential.revoked_is_null,
+       t."invalid" IS NULL AS &nullableCloudCredential.invalid_is_null
+FROM   "cloud_credential" AS t`, v4_1_0.CloudCredential{}, nullableCloudCredential{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CloudCredential statement: %w", err)
 	}
@@ -113,7 +140,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing ControllerAgentAddress statement: %w", err)
 	}
-	stmtControllerApiAddress, err := sqlair.Prepare(`SELECT &ControllerApiAddress.* FROM "controller_api_address"`, v4_1_0.ControllerApiAddress{})
+	stmtControllerApiAddress, err := sqlair.Prepare(`SELECT &ControllerApiAddress.*,
+       t."is_agent" IS NULL AS &nullableControllerApiAddress.is_agent_is_null
+FROM   "controller_api_address" AS t`, v4_1_0.ControllerApiAddress{}, nullableControllerApiAddress{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ControllerApiAddress statement: %w", err)
 	}
@@ -165,11 +194,16 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing ExternalModel statement: %w", err)
 	}
-	stmtFlag, err := sqlair.Prepare(`SELECT &Flag.* FROM "flag"`, v4_1_0.Flag{})
+	stmtFlag, err := sqlair.Prepare(`SELECT &Flag.*,
+       t."value" IS NULL AS &nullableFlag.value_is_null
+FROM   "flag" AS t`, v4_1_0.Flag{}, nullableFlag{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Flag statement: %w", err)
 	}
-	stmtLease, err := sqlair.Prepare(`SELECT &Lease.* FROM "lease"`, v4_1_0.Lease{})
+	stmtLease, err := sqlair.Prepare(`SELECT &Lease.*,
+       t."start" IS NULL AS &nullableLease.start_is_null,
+       t."expiry" IS NULL AS &nullableLease.expiry_is_null
+FROM   "lease" AS t`, v4_1_0.Lease{}, nullableLease{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Lease statement: %w", err)
 	}
@@ -185,7 +219,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing Life statement: %w", err)
 	}
-	stmtLoggingLokiConfig, err := sqlair.Prepare(`SELECT &LoggingLokiConfig.* FROM "logging_loki_config"`, v4_1_0.LoggingLokiConfig{})
+	stmtLoggingLokiConfig, err := sqlair.Prepare(`SELECT &LoggingLokiConfig.*,
+       t."insecure_skip_verify" IS NULL AS &nullableLoggingLokiConfig.insecure_skip_verify_is_null
+FROM   "logging_loki_config" AS t`, v4_1_0.LoggingLokiConfig{}, nullableLoggingLokiConfig{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing LoggingLokiConfig statement: %w", err)
 	}
@@ -253,7 +289,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing ModelMigrationPhase statement: %w", err)
 	}
-	stmtModelMigrationRedirect, err := sqlair.Prepare(`SELECT &ModelMigrationRedirect.* FROM "model_migration_redirect"`, v4_1_0.ModelMigrationRedirect{})
+	stmtModelMigrationRedirect, err := sqlair.Prepare(`SELECT &ModelMigrationRedirect.*,
+       t."completed_at" IS NULL AS &nullableModelMigrationRedirect.completed_at_is_null
+FROM   "model_migration_redirect" AS t`, v4_1_0.ModelMigrationRedirect{}, nullableModelMigrationRedirect{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ModelMigrationRedirect statement: %w", err)
 	}
@@ -369,7 +407,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing UpgradeInfo statement: %w", err)
 	}
-	stmtUpgradeInfoControllerNode, err := sqlair.Prepare(`SELECT &UpgradeInfoControllerNode.* FROM "upgrade_info_controller_node"`, v4_1_0.UpgradeInfoControllerNode{})
+	stmtUpgradeInfoControllerNode, err := sqlair.Prepare(`SELECT &UpgradeInfoControllerNode.*,
+       t."node_upgrade_completed_at" IS NULL AS &nullableUpgradeInfoControllerNode.node_upgrade_completed_at_is_null
+FROM   "upgrade_info_controller_node" AS t`, v4_1_0.UpgradeInfoControllerNode{}, nullableUpgradeInfoControllerNode{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing UpgradeInfoControllerNode statement: %w", err)
 	}
@@ -408,6 +448,8 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// The transaction can be retried, so discard rows from prior attempts.
+		controllerExport = v4_1_0.ControllerExport{}
 		if err := tx.Query(ctx, stmtAgentBinaryStore).GetAll(&controllerExport.AgentBinaryStore); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying AgentBinaryStore (table agent_binary_store): %w", err)
 		}
@@ -450,8 +492,17 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 		if err := tx.Query(ctx, stmtCloudCaCert).GetAll(&controllerExport.CloudCaCert); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying CloudCaCert (table cloud_ca_cert): %w", err)
 		}
-		if err := tx.Query(ctx, stmtCloudCredential).GetAll(&controllerExport.CloudCredential); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableCloudCredentialRows []nullableCloudCredential
+		if err := tx.Query(ctx, stmtCloudCredential).GetAll(&controllerExport.CloudCredential, &nullableCloudCredentialRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying CloudCredential (table cloud_credential): %w", err)
+		}
+		for i, nulls := range nullableCloudCredentialRows {
+			if nulls.RevokedIsNull {
+				controllerExport.CloudCredential[i].Revoked = nil
+			}
+			if nulls.InvalidIsNull {
+				controllerExport.CloudCredential[i].Invalid = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtCloudCredentialAttribute).GetAll(&controllerExport.CloudCredentialAttribute); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying CloudCredentialAttribute (table cloud_credential_attribute): %w", err)
@@ -477,8 +528,14 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 		if err := tx.Query(ctx, stmtControllerAgentAddress).GetAll(&controllerExport.ControllerAgentAddress); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ControllerAgentAddress (table controller_agent_address): %w", err)
 		}
-		if err := tx.Query(ctx, stmtControllerApiAddress).GetAll(&controllerExport.ControllerApiAddress); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableControllerApiAddressRows []nullableControllerApiAddress
+		if err := tx.Query(ctx, stmtControllerApiAddress).GetAll(&controllerExport.ControllerApiAddress, &nullableControllerApiAddressRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ControllerApiAddress (table controller_api_address): %w", err)
+		}
+		for i, nulls := range nullableControllerApiAddressRows {
+			if nulls.IsAgentIsNull {
+				controllerExport.ControllerApiAddress[i].IsAgent = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtControllerClientAddress).GetAll(&controllerExport.ControllerClientAddress); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ControllerClientAddress (table controller_client_address): %w", err)
@@ -516,11 +573,26 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 		if err := tx.Query(ctx, stmtExternalModel).GetAll(&controllerExport.ExternalModel); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ExternalModel (table external_model): %w", err)
 		}
-		if err := tx.Query(ctx, stmtFlag).GetAll(&controllerExport.Flag); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableFlagRows []nullableFlag
+		if err := tx.Query(ctx, stmtFlag).GetAll(&controllerExport.Flag, &nullableFlagRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying Flag (table flag): %w", err)
 		}
-		if err := tx.Query(ctx, stmtLease).GetAll(&controllerExport.Lease); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		for i, nulls := range nullableFlagRows {
+			if nulls.ValueIsNull {
+				controllerExport.Flag[i].Value = nil
+			}
+		}
+		var nullableLeaseRows []nullableLease
+		if err := tx.Query(ctx, stmtLease).GetAll(&controllerExport.Lease, &nullableLeaseRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying Lease (table lease): %w", err)
+		}
+		for i, nulls := range nullableLeaseRows {
+			if nulls.StartIsNull {
+				controllerExport.Lease[i].Start = nil
+			}
+			if nulls.ExpiryIsNull {
+				controllerExport.Lease[i].Expiry = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtLeasePin).GetAll(&controllerExport.LeasePin); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying LeasePin (table lease_pin): %w", err)
@@ -531,8 +603,14 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 		if err := tx.Query(ctx, stmtLife).GetAll(&controllerExport.Life); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying Life (table life): %w", err)
 		}
-		if err := tx.Query(ctx, stmtLoggingLokiConfig).GetAll(&controllerExport.LoggingLokiConfig); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableLoggingLokiConfigRows []nullableLoggingLokiConfig
+		if err := tx.Query(ctx, stmtLoggingLokiConfig).GetAll(&controllerExport.LoggingLokiConfig, &nullableLoggingLokiConfigRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying LoggingLokiConfig (table logging_loki_config): %w", err)
+		}
+		for i, nulls := range nullableLoggingLokiConfigRows {
+			if nulls.InsecureSkipVerifyIsNull {
+				controllerExport.LoggingLokiConfig[i].InsecureSkipVerify = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtMacaroonRootKey).GetAll(&controllerExport.MacaroonRootKey); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying MacaroonRootKey (table macaroon_root_key): %w", err)
@@ -582,8 +660,14 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 		if err := tx.Query(ctx, stmtModelMigrationPhase).GetAll(&controllerExport.ModelMigrationPhase); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ModelMigrationPhase (table model_migration_phase): %w", err)
 		}
-		if err := tx.Query(ctx, stmtModelMigrationRedirect).GetAll(&controllerExport.ModelMigrationRedirect); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableModelMigrationRedirectRows []nullableModelMigrationRedirect
+		if err := tx.Query(ctx, stmtModelMigrationRedirect).GetAll(&controllerExport.ModelMigrationRedirect, &nullableModelMigrationRedirectRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ModelMigrationRedirect (table model_migration_redirect): %w", err)
+		}
+		for i, nulls := range nullableModelMigrationRedirectRows {
+			if nulls.CompletedAtIsNull {
+				controllerExport.ModelMigrationRedirect[i].CompletedAt = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtModelMigrationRedirectUser).GetAll(&controllerExport.ModelMigrationRedirectUser); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ModelMigrationRedirectUser (table model_migration_redirect_user): %w", err)
@@ -669,8 +753,14 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 		if err := tx.Query(ctx, stmtUpgradeInfo).GetAll(&controllerExport.UpgradeInfo); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying UpgradeInfo (table upgrade_info): %w", err)
 		}
-		if err := tx.Query(ctx, stmtUpgradeInfoControllerNode).GetAll(&controllerExport.UpgradeInfoControllerNode); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableUpgradeInfoControllerNodeRows []nullableUpgradeInfoControllerNode
+		if err := tx.Query(ctx, stmtUpgradeInfoControllerNode).GetAll(&controllerExport.UpgradeInfoControllerNode, &nullableUpgradeInfoControllerNodeRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying UpgradeInfoControllerNode (table upgrade_info_controller_node): %w", err)
+		}
+		for i, nulls := range nullableUpgradeInfoControllerNodeRows {
+			if nulls.NodeUpgradeCompletedAtIsNull {
+				controllerExport.UpgradeInfoControllerNode[i].NodeUpgradeCompletedAt = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtUpgradeStateType).GetAll(&controllerExport.UpgradeStateType); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying UpgradeStateType (table upgrade_state_type): %w", err)
