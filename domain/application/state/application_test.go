@@ -3175,6 +3175,31 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeysUpdatesHash(c *tc.
 	c.Check(hashAfter, tc.Not(tc.Equals), hashBefore)
 }
 
+func (s *applicationStateSuite) TestUnsetApplicationConfigKeysOverQuotaStillSucceeds(c *tc.C) {
+	// A reset only ever shrinks config, so it must succeed even when the
+	// application's config was already over the quota limit before this
+	// call, for example from a model populated by a direct import that
+	// bypassed the quota check applied to a set.
+	id := s.createIAASApplication(c, "foo", life.Alive)
+
+	bigValue := strings.Repeat("x", 17*1024*1024)
+	_, err := s.DB().ExecContext(c.Context(), `
+INSERT INTO application_config (application_uuid, key, value, type_id)
+VALUES (?, 'big', ?, 0), (?, 'small', 'keep-me', 0)
+`, id.String(), bigValue, id.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.UnsetApplicationConfigKeys(c.Context(), id, []string{"small"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	config, _, err := s.state.GetApplicationConfigAndSettings(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	_, hasSmall := config["small"]
+	c.Check(hasSmall, tc.IsFalse)
+	_, hasBig := config["big"]
+	c.Check(hasBig, tc.IsTrue)
+}
+
 func (s *applicationStateSuite) TestUnsetApplicationConfigKeysApplicationNotFound(c *tc.C) {
 	// If the application is not found, it should return application not found.
 	id := tc.Must(c, coreapplication.NewUUID)
