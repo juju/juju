@@ -1212,7 +1212,7 @@ var statusTests = []testCase{
 		addApplication{name: "mysql", charm: "mysql"},
 		addAliveUnit{"mysql", "1"},
 
-		relateApplications{"wordpress", "mysql", ""},
+		relateApplications{"wordpress", "mysql", "", ""},
 
 		setAgentStatus{"wordpress/0", status.Error,
 			"hook failed: some-relation-changed",
@@ -1307,6 +1307,15 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"relations": L{
+					M{
+						"provider":  "mysql:server",
+						"requirer":  "wordpress:db",
+						"interface": "mysql",
+						"type":      "regular",
+						"status":    "joined",
+					},
+				},
 				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
@@ -1335,7 +1344,7 @@ var statusTests = []testCase{
 		addApplication{name: "mysql", charm: "mysql"},
 		addAliveUnit{"mysql", "1"},
 
-		relateApplications{"wordpress", "mysql", ""},
+		relateApplications{"wordpress", "mysql", "", ""},
 
 		setAgentStatus{"wordpress/0", status.Error,
 			"hook failed: some-relation-changed",
@@ -1429,6 +1438,15 @@ var statusTests = []testCase{
 							"metrics-client": network.AlphaSpaceName,
 						},
 					}),
+				},
+				"relations": L{
+					M{
+						"provider":  "mysql:server",
+						"requirer":  "wordpress:db",
+						"interface": "mysql",
+						"type":      "regular",
+						"status":    "joined",
+					},
 				},
 				"storage": M{},
 				"controller": M{
@@ -1610,9 +1628,9 @@ var statusTests = []testCase{
 		setMachineStatus{"4", status.Started, ""},
 		addAliveUnit{"private", "4"},
 
-		relateApplications{"project", "mysql", ""},
-		relateApplications{"project", "varnish", ""},
-		relateApplications{"private", "mysql", ""},
+		relateApplications{"project", "mysql", "", ""},
+		relateApplications{"project", "varnish", "", ""},
+		relateApplications{"private", "mysql", "", ""},
 
 		expect{
 			what: "multiples applications with relations between some of them",
@@ -1801,6 +1819,167 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"relations": L{
+					M{
+						"provider":  "mysql:server",
+						"requirer":  "private:db",
+						"interface": "mysql",
+						"type":      "regular",
+						"status":    "joined",
+					},
+					M{
+						"provider":  "mysql:server",
+						"requirer":  "project:db",
+						"interface": "mysql",
+						"type":      "regular",
+						"status":    "joined",
+					},
+					M{
+						"provider":  "varnish:webcache",
+						"requirer":  "project:cache",
+						"interface": "varnish",
+						"type":      "regular",
+						"status":    "joined",
+					},
+				},
+				"storage": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
+			},
+		},
+	),
+	test( // 9a
+		"suspended relation with info message",
+		addMachine{machineId: "0", job: coremodel.JobManageModel},
+		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
+		startAliveMachine{"0", ""},
+		setMachineStatus{"0", status.Started, ""},
+		addCharmHubCharm{"wordpress"},
+		addCharmHubCharm{"mysql"},
+
+		addApplication{name: "wordpress", charm: "wordpress"},
+		setApplicationExposed{"wordpress", true},
+		addMachine{machineId: "1", job: coremodel.JobHostUnits},
+		recordAgentStartInformation{machineId: "1", hostname: "eldritch-octopii"},
+		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
+		startAliveMachine{"1", ""},
+		setMachineStatus{"1", status.Started, ""},
+		addAliveUnit{"wordpress", "1"},
+		setAgentStatus{"wordpress/0", status.Idle, "", nil},
+		setUnitStatus{"wordpress/0", status.Active, "", nil},
+
+		addApplication{name: "mysql", charm: "mysql"},
+		setApplicationExposed{"mysql", true},
+		addMachine{machineId: "2", job: coremodel.JobHostUnits},
+		recordAgentStartInformation{machineId: "2", hostname: "titanium-shoelace"},
+		setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")},
+		startAliveMachine{"2", ""},
+		setMachineStatus{"2", status.Started, ""},
+		addAliveUnit{"mysql", "2"},
+		setAgentStatus{"mysql/0", status.Idle, "", nil},
+		setUnitStatus{"mysql/0", status.Active, "", nil},
+
+		relateApplications{"wordpress", "mysql", "suspended", "user suspended the relation"},
+
+		expect{
+			what: "suspended relation with non-empty message appears in structured output",
+			output: M{
+				"model": model,
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+					"2": machine2,
+				},
+				"applications": M{
+					"wordpress": wordpressCharm(M{
+						"exposed": true,
+						"application-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"units": M{
+							"wordpress/0": M{
+								"machine": "1",
+								"workload-status": M{
+									"current": "active",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"juju-status": M{
+									"current": "idle",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"public-address": "10.0.1.1",
+							},
+						},
+						"endpoint-bindings": M{
+							"":                network.AlphaSpaceName,
+							"db":              network.AlphaSpaceName,
+							"db-client":       network.AlphaSpaceName,
+							"foo-bar":         network.AlphaSpaceName,
+							"logging-dir":     network.AlphaSpaceName,
+							"monitoring-port": network.AlphaSpaceName,
+							"url":             network.AlphaSpaceName,
+							"admin-api":       network.AlphaSpaceName,
+							"cache":           network.AlphaSpaceName,
+						},
+						"relations": M{
+							"db": L{
+								M{
+									"interface":           "mysql",
+									"related-application": "mysql",
+									"scope":               "global",
+								},
+							},
+						},
+					}),
+					"mysql": mysqlCharm(M{
+						"exposed": true,
+						"application-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"units": M{
+							"mysql/0": M{
+								"machine": "2",
+								"workload-status": M{
+									"current": "active",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"juju-status": M{
+									"current": "idle",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"public-address": "10.0.2.1",
+							},
+						},
+						"endpoint-bindings": M{
+							"":               network.AlphaSpaceName,
+							"server":         network.AlphaSpaceName,
+							"server-admin":   network.AlphaSpaceName,
+							"metrics-client": network.AlphaSpaceName,
+						},
+						"relations": M{
+							"server": L{
+								M{
+									"interface":           "mysql",
+									"related-application": "wordpress",
+									"scope":               "global",
+								},
+							},
+						},
+					}),
+				},
+				"relations": L{
+					M{
+						"provider":  "mysql:server",
+						"requirer":  "wordpress:db",
+						"interface": "mysql",
+						"type":      "regular",
+						"status":    "suspended",
+						"message":   "user suspended the relation",
+					},
+				},
 				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
@@ -1925,6 +2104,15 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"relations": L{
+					M{
+						"provider":  "riak:ring",
+						"requirer":  "riak:ring",
+						"interface": "riak",
+						"type":      "peer",
+						"status":    "joined",
+					},
+				},
 				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
@@ -1968,9 +2156,9 @@ var statusTests = []testCase{
 		addApplication{name: "logging", charm: "logging"},
 		setApplicationExposed{"logging", true},
 
-		relateApplications{"wordpress", "mysql", ""},
-		relateApplications{"wordpress", "logging", ""},
-		relateApplications{"mysql", "logging", ""},
+		relateApplications{"wordpress", "mysql", "", ""},
+		relateApplications{"wordpress", "logging", "", ""},
+		relateApplications{"mysql", "logging", "", ""},
 
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
@@ -2115,6 +2303,29 @@ var statusTests = []testCase{
 						},
 					}),
 					"logging": loggingCharm,
+				},
+				"relations": L{
+					M{
+						"provider":  "mysql:juju-info",
+						"requirer":  "logging:info",
+						"interface": "juju-info",
+						"type":      "subordinate",
+						"status":    "joined",
+					},
+					M{
+						"provider":  "mysql:server",
+						"requirer":  "wordpress:db",
+						"interface": "mysql",
+						"type":      "regular",
+						"status":    "joined",
+					},
+					M{
+						"provider":  "wordpress:logging-dir",
+						"requirer":  "logging:logging-directory",
+						"interface": "logging",
+						"type":      "subordinate",
+						"status":    "joined",
+					},
 				},
 				"storage": M{},
 				"controller": M{
@@ -2758,7 +2969,7 @@ var statusTests = []testCase{
 
 		addCharmHubCharm{"mysql"},
 		addRemoteApplication{name: "hosted-mysql", url: "me/model.mysql", charm: "mysql", endpoints: []string{"server"}},
-		relateApplications{"wordpress", "hosted-mysql", ""},
+		relateApplications{"wordpress", "hosted-mysql", "", ""},
 
 		expect{
 			what: "a remote application",
@@ -2829,6 +3040,15 @@ var statusTests = []testCase{
 							"logging-dir":     network.AlphaSpaceName,
 						},
 					}),
+				},
+				"relations": L{
+					M{
+						"provider":  "hosted-mysql:server",
+						"requirer":  "wordpress:db",
+						"interface": "mysql",
+						"type":      "regular",
+						"status":    "joined",
+					},
 				},
 				"storage": M{},
 				"controller": M{
@@ -4092,6 +4312,7 @@ done:
 type relateApplications struct {
 	app1, app2 string
 	status     string
+	info       string
 }
 
 func (rs relateApplications) step(c *tc.C, ctx *ctx) {
@@ -4112,6 +4333,7 @@ func (rs relateApplications) step(c *tc.C, ctx *ctx) {
 		Endpoints: endpoints,
 		Status: params.DetailedStatus{
 			Status: rs.status,
+			Info:   rs.info,
 		},
 	}
 	if !strings.HasPrefix(rs.app1, "remote-") && !strings.HasPrefix(rs.app2, "remote-") {
@@ -4400,9 +4622,9 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *tc.C) {
 		setUnitStatus{"mysql/0", status.Active, "", nil},
 		addApplication{name: "logging", charm: "logging"},
 		setApplicationExposed{"logging", true},
-		relateApplications{"wordpress", "mysql", ""},
-		relateApplications{"wordpress", "logging", ""},
-		relateApplications{"mysql", "logging", ""},
+		relateApplications{"wordpress", "mysql", "", ""},
+		relateApplications{"wordpress", "logging", "", ""},
+		relateApplications{"mysql", "logging", "", ""},
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
 		setAgentStatus{"logging/0", status.Idle, "", nil},
@@ -4471,9 +4693,9 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *tc.C) {
 		addApplication{name: "logging", charm: "logging"},
 		setApplicationExposed{"logging", true},
 
-		relateApplications{"wordpress", "mysql", ""},
-		relateApplications{"wordpress", "logging", ""},
-		relateApplications{"mysql", "logging", ""},
+		relateApplications{"wordpress", "mysql", "", ""},
+		relateApplications{"wordpress", "logging", "", ""},
+		relateApplications{"mysql", "logging", "", ""},
 
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
@@ -4559,9 +4781,9 @@ func (s *StatusSuite) prepareTabularData(c *tc.C) *ctx {
 		setUnitTools{"mysql/0", semversion.MustParseBinary("1.2.3-ubuntu-ppc")},
 		addApplication{name: "logging", charm: "logging"},
 		setApplicationExposed{"logging", true},
-		relateApplications{"wordpress", "mysql", "suspended"},
-		relateApplications{"wordpress", "logging", ""},
-		relateApplications{"mysql", "logging", ""},
+		relateApplications{"wordpress", "mysql", "suspended", "user suspended the relation"},
+		relateApplications{"wordpress", "logging", "", ""},
+		relateApplications{"mysql", "logging", "", ""},
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
 		setAgentStatus{"logging/0", status.Idle, "", nil},
@@ -4581,7 +4803,7 @@ func (s *StatusSuite) prepareTabularData(c *tc.C) *ctx {
 
 		addApplicationOffer{name: "hosted-mysql", applicationName: "mysql", qualifier: "admin", endpoints: []string{"server"}},
 		addRemoteApplication{name: "remote-wordpress", charm: "wordpress", endpoints: []string{"db"}, isConsumerProxy: true},
-		relateApplications{"remote-wordpress", "mysql", ""},
+		relateApplications{"remote-wordpress", "mysql", "", ""},
 		addOfferConnection{sourceModelUUID: coretesting.ModelTag.Id(), name: "hosted-mysql", username: "fred", relationKey: "remote-wordpress:db mysql:server"},
 
 		// test modification status
@@ -4629,7 +4851,7 @@ hosted-mysql  mysql        mysql  1    1/1        server    mysql      provider
 
 Relation provider      Requirer                   Interface  Type         Message
 mysql:juju-info        logging:info               juju-info  subordinate  
-mysql:server           wordpress:db               mysql      regular      suspended  
+mysql:server           wordpress:db               mysql      regular      suspended  user suspended the relation
 wordpress:logging-dir  logging:logging-directory  logging    subordinate  
 `[1:]
 
@@ -5168,11 +5390,11 @@ func (s *StatusSuite) setupModel(c *tc.C) *ctx {
 		// And the application is exposed
 		setApplicationExposed{"logging", true},
 		// And the "wordpress" application is related to the "mysql" application
-		relateApplications{"wordpress", "mysql", ""},
+		relateApplications{"wordpress", "mysql", "", ""},
 		// And the "wordpress" application is related to the "logging" application
-		relateApplications{"wordpress", "logging", ""},
+		relateApplications{"wordpress", "logging", "", ""},
 		// And the "mysql" application is related to the "logging" application
-		relateApplications{"mysql", "logging", ""},
+		relateApplications{"mysql", "logging", "", ""},
 		// And the "logging" application is a subordinate to unit 0 of the "wordpress" application
 		addSubordinate{"wordpress/0", "logging"},
 		setAgentStatus{"logging/0", status.Idle, "", nil},
