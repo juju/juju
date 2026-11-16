@@ -187,6 +187,13 @@ bootstrap() {
 		export BOOTSTRAPPED_CLOUD_REGION
 	else
 		local cloud_region
+		# "auto" is a sentinel that only a region-probing suite (cloud_gce)
+		# may resolve into a concrete region; everywhere else it must fail
+		# loudly instead of reaching juju bootstrap as an invalid region.
+		if [[ ${BOOTSTRAP_REGION:-} == "auto" ]]; then
+			echo "BOOTSTRAP_REGION=auto must be resolved by a region-probing suite (cloud_gce); unset it or set a concrete region" >&2
+			exit 1
+		fi
 		if [[ -n ${BOOTSTRAP_REGION:-} ]]; then
 			cloud_region="${cloud}/${BOOTSTRAP_REGION}"
 		else

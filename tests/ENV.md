@@ -16,12 +16,18 @@ to a different value, or empty to disable it, for an entire run.
 | `BOOTSTRAP_ARCH`              | Architecture to bootstrap on - passed to `--bootstrap-constraints`.                |
 | `BOOTSTRAP_CLOUD`             | The cloud to use when bootstrapping (i.e. the first argument to `juju bootstrap`). |
 | `BOOTSTRAP_PROVIDER`          | The provider to use when bootstrapping (see the `provider` package).               |
+| `BOOTSTRAP_REGION`            | The region to bootstrap in (i.e. `juju bootstrap <cloud>/<region>`). For the `cloud_gce` suite, `auto` (or unset) probes `GCE_REGION_CANDIDATES` and picks a usable region at runtime. |
 | `BOOTSTRAP_REUSE`             | Reuse an existing controller when asked to bootstrap (true/false).                 |
 | `BOOTSTRAP_REUSE_LOCAL`       | The name of a local controller to reuse for testing. Set using the `-l` flag.      |
 | `BOOTSTRAP_SERIES`            | Series to use for the controller. Set using the `-S` flag.                         |
 | `CONTROLLER_CHARM_CHANNEL`    | The channel to pull the controller charm from (CaaS only).                         |
 | `CONTROLLER_CHARM_PATH_CAAS`  | The Charmhub charm name to pull the controller charm from (CaaS only).             |
 | `CONTROLLER_CHARM_PATH_IAAS`  | Path to a locally built controller charm to use (IaaS only).                       |
+| `GCE_REGION_CANDIDATES`       | `cloud_gce` suite: ordered, space separated regions to probe when `BOOTSTRAP_REGION` is `auto`/unset. US first, EU fallback by default. |
+| `GCE_REQUIRED_MACHINE_TYPES`  | `cloud_gce` suite: machine types (e.g. `g2-standard-4`) that must be offered in at least one zone of a candidate region. |
+| `GCE_REQUIRED_QUOTAS`         | `cloud_gce` suite: space separated `<METRIC>>=<needed>` pairs (e.g. `NVIDIA_L4_GPUS>=1`) checked against each candidate region's live limit/usage. |
+| `GCE_EXCLUDED_REGIONS`        | `cloud_gce` suite: regions to skip when probing; the region fallback loop appends regions that failed for GCE infrastructure reasons. |
+| `GCE_MAX_ATTEMPTS`            | `cloud_gce` suite: maximum number of regions the fallback loop tries before failing fast (default 3). |
 | `KILL_CONTROLLER`             | If `'true'`, controllers will be forcibly killed during teardown.                  |
 | `MODEL_ARCH`                  | Will be set as a model constraint on newly added models.                           |
 | `JUJU_MIGRATION_36_BIN`       | Path to a custom juju 3.6 client for the `migration` suite's source controllers. When unset, the suite pins the regular `juju` snap to `3.6/edge` and uses `/snap/bin/juju`; afterwards the snap is refreshed back to its previously tracked channel, or removed again when it was not installed before the run. |
