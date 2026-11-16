@@ -10,6 +10,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/unitless"
 	unitlessinternal "github.com/juju/juju/domain/unitless/internal"
@@ -49,7 +50,18 @@ func (s *stateSuite) TestGetScriptletApplication(c *tc.C) {
 func (s *stateSuite) TestGetScriptletApplicationNotFound(c *tc.C) {
 	st := unitlessstate.NewState(s.TxnRunnerFactory())
 	scriptlet, err := st.GetScriptletApplication(c.Context(), tc.Must(c, coreapplication.NewUUID).String())
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Check(scriptlet, tc.DeepEquals, unitlessinternal.ScriptletApplication{})
+}
+
+func (s *stateSuite) TestGetScriptletApplicationWithoutScriptlets(c *tc.C) {
+	charmID := tc.Must(c, corecharm.NewID)
+	applicationID := tc.Must(c, coreapplication.NewUUID)
+	s.insertApplication(c, charmID.String(), applicationID.String(), false)
+
+	st := unitlessstate.NewState(s.TxnRunnerFactory())
+	scriptlet, err := st.GetScriptletApplication(c.Context(), applicationID.String())
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 	c.Check(scriptlet, tc.DeepEquals, unitlessinternal.ScriptletApplication{})
 }
 

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/unitless"
 	unitlessinternal "github.com/juju/juju/domain/unitless/internal"
@@ -45,7 +46,8 @@ func NewState(factory database.TxnRunnerFactory) *State {
 }
 
 // GetScriptletApplication returns the scriptlet application associated with an
-// application.
+// application. If the application does not exist or its charm has no scriptlets,
+// it returns [applicationerrors.ApplicationNotFound].
 func (st *State) GetScriptletApplication(
 	ctx context.Context,
 	applicationID string,
@@ -82,7 +84,7 @@ ORDER BY cs.path;
 		return unitlessinternal.ScriptletApplication{}, errors.Errorf("getting scriptlet application: %w", err)
 	}
 	if len(rows) == 0 {
-		return unitlessinternal.ScriptletApplication{}, nil
+		return unitlessinternal.ScriptletApplication{}, errors.New("getting scriptlet application").Add(applicationerrors.ApplicationNotFound)
 	}
 
 	return unitlessinternal.ScriptletApplication{
