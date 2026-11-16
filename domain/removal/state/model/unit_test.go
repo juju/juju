@@ -522,6 +522,93 @@ func (s *unitSuite) TestUnitScheduleRemovalReturnsExistingJob(c *tc.C) {
 	c.Check(count, tc.Equals, 2)
 }
 
+func (s *unitSuite) TestUnitScheduleRemovalKeepsEarliestDeadline(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(unitUUIDs, tc.HasLen, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	now := time.Date(2026, time.November, 16, 12, 0, 0, 0, time.UTC)
+	for _, force := range []bool{false, true} {
+		jobUUID := fmt.Sprintf("removal-uuid-%t", force)
+		scheduledUUID, err := st.UnitScheduleRemoval(
+			c.Context(), jobUUID, unitUUIDs[0].String(), force, now.Add(5*time.Minute),
+		)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(scheduledUUID, tc.Equals, jobUUID)
+
+		for i, test := range []struct {
+			wait     time.Duration
+			deadline time.Duration
+		}{
+			{wait: time.Minute, deadline: time.Minute},
+			{wait: 0, deadline: 0},
+			{wait: 0, deadline: 0},
+			{wait: 10 * time.Minute, deadline: 0},
+		} {
+			scheduledUUID, err := st.UnitScheduleRemoval(
+				c.Context(), fmt.Sprintf("duplicate-uuid-%t-%d", force, i),
+				unitUUIDs[0].String(), force, now.Add(test.wait),
+			)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(scheduledUUID, tc.Equals, jobUUID)
+
+			var scheduledFor time.Time
+			err = s.DB().QueryRowContext(c.Context(),
+				"SELECT scheduled_for FROM removal WHERE uuid = ?", jobUUID,
+			).Scan(&scheduledFor)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(scheduledFor, tc.Equals, now.Add(test.deadline),
+				tc.Commentf("force %t, requested wait %s", force, test.wait))
+		}
+	}
+
+	jobs, err := st.GetAllJobs(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(jobs, tc.HasLen, 2)
+}
+
+func (s *unitSuite) TestUnitScheduleRemovalConcurrentDeadlines(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	now := time.Date(2026, time.November, 16, 12, 0, 0, 0, time.UTC)
+	jobUUID, err := st.UnitScheduleRemoval(
+		c.Context(), "first-removal-uuid", "unit-uuid", true, now.Add(5*time.Minute),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	type result struct {
+		jobUUID string
+		err     error
+	}
+	start := make(chan struct{})
+	waits := []time.Duration{time.Minute, 0, 10 * time.Minute}
+	results := make(chan result, len(waits))
+	ctx := c.Context()
+	for i, wait := range waits {
+		go func() {
+			<-start
+			uuid, err := st.UnitScheduleRemoval(
+				ctx, fmt.Sprintf("concurrent-removal-uuid-%d", i),
+				"unit-uuid", true, now.Add(wait),
+			)
+			results <- result{jobUUID: uuid, err: err}
+		}()
+	}
+	close(start)
+	for range waits {
+		result := <-results
+		c.Assert(result.err, tc.ErrorIsNil)
+		c.Check(result.jobUUID, tc.Equals, jobUUID)
+	}
+
+	jobs, err := st.GetAllJobs(ctx)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobs, tc.HasLen, 1)
+	c.Check(jobs[0].UUID.String(), tc.Equals, jobUUID)
+	c.Check(jobs[0].ScheduledFor, tc.Equals, now)
+}
+
 func (s *unitSuite) TestGetRelationUnitsForUnit(c *tc.C) {
 	// Arrange:
 	// - Add a charm and application with three endpoints.

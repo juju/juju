@@ -470,7 +470,8 @@ func (st *State) GetRelationUnitsForUnit(ctx context.Context, unitUUID string) (
 }
 
 // UnitScheduleRemoval schedules a removal job for the unit with the
-// input UUID, qualified with the input force boolean.
+// input UUID, qualified with the input force boolean. An existing matching job
+// is reused, with its deadline advanced if the requested time is earlier.
 // We don't care if the unit does not exist at this point because:
 // - it should have been validated prior to calling this method,
 // - the removal job executor will handle that fact.
@@ -495,15 +496,24 @@ func (st *State) UnitScheduleRemoval(
 		return "", errors.Errorf("preparing unit removal: %w", err)
 	}
 	getExistingStmt, err := st.Prepare(`
-SELECT uuid AS &entityUUID.uuid
-FROM removal
-WHERE removal_type_id = $removalJob.removal_type_id
-  AND entity_uuid = $removalJob.entity_uuid
-  AND force = $removalJob.force
+SELECT r.uuid AS &entityUUID.uuid
+FROM removal AS r
+WHERE r.removal_type_id = $removalJob.removal_type_id
+  AND r.entity_uuid = $removalJob.entity_uuid
+  AND r.force = $removalJob.force
 LIMIT 1
 `, removalRec, entityUUID{})
 	if err != nil {
 		return "", errors.Errorf("preparing existing unit removal query: %w", err)
+	}
+	updateDeadlineStmt, err := st.Prepare(`
+UPDATE removal AS r
+SET scheduled_for = $removalJob.scheduled_for
+WHERE r.uuid = $entityUUID.uuid
+  AND r.scheduled_for > $removalJob.scheduled_for
+`, removalRec, entityUUID{})
+	if err != nil {
+		return "", errors.Errorf("preparing unit removal deadline update: %w", err)
 	}
 
 	scheduledRemovalUUID := removalUUID
@@ -511,6 +521,9 @@ LIMIT 1
 		var existing entityUUID
 		err := tx.Query(ctx, getExistingStmt, removalRec).Get(&existing)
 		if err == nil {
+			if err := tx.Query(ctx, updateDeadlineStmt, removalRec, existing).Run(); err != nil {
+				return errors.Errorf("updating unit removal deadline: %w", err)
+			}
 			scheduledRemovalUUID = existing.UUID
 			return nil
 		}
@@ -521,6 +534,7 @@ LIMIT 1
 		if err := tx.Query(ctx, stmt, removalRec).Run(); err != nil {
 			return errors.Errorf("scheduling unit removal: %w", err)
 		}
+		scheduledRemovalUUID = removalUUID
 		return nil
 	})
 	return scheduledRemovalUUID, errors.Capture(err)

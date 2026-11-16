@@ -45,7 +45,8 @@ type UnitState interface {
 
 	// UnitScheduleRemoval schedules a removal job for the unit with the
 	// input unit UUID, qualified with the input force boolean. It returns the
-	// UUID of the scheduled job, which can be an existing matching job.
+	// UUID of the scheduled job, which can be an existing matching job. A
+	// matching job's deadline is advanced if the requested time is earlier.
 	UnitScheduleRemoval(ctx context.Context, removalUUID, unitUUID string, force bool, when time.Time) (string, error)
 
 	// GetUnitLife returns the life of the unit with the input UUID.
