@@ -1101,20 +1101,7 @@ AND    current_phase_id NOT IN (
 // addressesMatch reports whether the persisted addresses equal the supplied
 // addresses, ignoring order.
 func addressesMatch(existing []addressValue, supplied []modelmigrationinternal.ExternalControllerAddress) bool {
-	if len(existing) != len(supplied) {
-		return false
-	}
-	have := make(map[string]int, len(existing))
-	for _, a := range existing {
-		have[a.Address]++
-	}
-	for _, a := range supplied {
-		if have[a.Address] == 0 {
-			return false
-		}
-		have[a.Address]--
-	}
-	return true
+	return len(existing) == len(supplied) && addressesInclude(existing, supplied)
 }
 
 // addressesInclude reports whether the supplied addresses include every
