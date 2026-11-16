@@ -16,13 +16,18 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	corebackups "github.com/juju/juju/core/backups"
+	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/core/version"
+	"github.com/juju/juju/domain/recovery"
+	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/internal/errors"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -92,7 +97,16 @@ func (s *recoverySuite) TestRun(c *tc.C) {
 	const (
 		archiveName   = "backup.tar.gz"
 		assertionName = "backup.assert"
+		terminalError = "controller recovery initialisation is not available in this build; " +
+			"provisioned replacement instance test-instance"
 	)
+	newProvisionedCommand := func() cmd.Command {
+		return newRecoveryCommandWithProvisioner(func(
+			_ *cmd.Context, _ jujuclient.ClientStore, _ *recovery.ArchiveInfo,
+		) error {
+			return errors.New(terminalError)
+		})
+	}
 
 	for i, test := range []struct {
 		summary        string
@@ -190,14 +204,14 @@ func (s *recoverySuite) TestRun(c *tc.C) {
 		assertion: &assertionYAML,
 		archive:   true,
 		expect: func(_, _ string) string {
-			return `controller recovery provisioning is not available in this build`
+			return terminalError
 		},
 	}, {
 		summary:   "assertion records the checksum in uppercase hex",
 		assertion: &uppercaseAssertion,
 		archive:   true,
 		expect: func(_, _ string) string {
-			return `controller recovery provisioning is not available in this build`
+			return terminalError
 		},
 	}} {
 		c.Logf("test %d: %s", i, test.summary)
@@ -225,7 +239,7 @@ func (s *recoverySuite) TestRun(c *tc.C) {
 			c.Assert(err, tc.ErrorIsNil)
 		}
 
-		newCmd := newRecoveryCommand
+		newCmd := newProvisionedCommand
 		if test.newCommand != nil {
 			newCmd = test.newCommand
 		}
@@ -260,6 +274,85 @@ func (s *recoverySuite) TestRun(c *tc.C) {
 		sort.Strings(names)
 		sort.Strings(want)
 		c.Check(names, tc.DeepEquals, want)
+	}
+}
+
+func (s *recoverySuite) TestRunPassesArchiveInfoToProvisioner(c *tc.C) {
+	archive := recoveryArchive(c)
+	sum := sha256.Sum256(archive)
+	checksum := corebackups.ChecksumSHA256(hex.EncodeToString(sum[:]))
+	assertion := "checksum: " + checksum +
+		"\nchecksum-format: " + corebackups.ChecksumFormatSHA256 + "\n"
+
+	dir := c.MkDir()
+	c.Assert(os.WriteFile(filepath.Join(dir, "backup.tar.gz"), archive, 0o600), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(filepath.Join(dir, "backup.assert"), []byte(assertion), 0o600), tc.ErrorIsNil)
+
+	terminalErr := errors.New("recovery stopped after allocation")
+	var got *recovery.ArchiveInfo
+	command := newRecoveryCommandWithProvisioner(func(
+		_ *cmd.Context, _ jujuclient.ClientStore, info *recovery.ArchiveInfo,
+	) error {
+		got = info
+		return terminalErr
+	})
+	_, err := cmdtesting.RunCommandInDir(
+		c, command, []string{"backup.tar.gz", "backup.assert"}, dir,
+	)
+	c.Assert(err, tc.ErrorIs, terminalErr)
+	c.Assert(got, tc.NotNil)
+	c.Check(got.ControllerUUID, tc.Equals, "c0ffee00-1111-2222-3333-444455556666")
+	c.Check(got.ControllerName, tc.Equals, "source-ctrl")
+	c.Check(got.ControllerModelUUID, tc.Equals, "c0ffee00-aaaa-2222-3333-444455556666")
+	c.Check(got.CACert, tc.Equals, "source-ca-cert")
+	c.Check(got.AgentVersion.String(), tc.Equals, "4.1.0")
+	c.Check(got.SourceBase, tc.Equals, "ubuntu@24.04")
+	c.Check(got.MachineName, tc.Equals, "0")
+	c.Check(got.CloudName, tc.Equals, "lxd")
+	c.Check(got.CloudType, tc.Equals, "lxd")
+}
+
+// TestRecoveryConfigs checks that the replacement controller and
+// controller-model configuration are built from the archived identity,
+// CA material and agent version, with the controller model named after
+// the bootstrap controller model.
+func (s *recoverySuite) TestRecoveryConfigs(c *tc.C) {
+	info := &recovery.ArchiveInfo{
+		ControllerUUID:      "c0ffee00-1111-2222-3333-444455556666",
+		ControllerName:      "source-ctrl",
+		ControllerModelUUID: "c0ffee00-aaaa-2222-3333-444455556666",
+		CACert:              coretesting.CACert,
+		AgentVersion:        semversion.MustParse("4.1.0"),
+		CloudType:           "lxd",
+	}
+	controllerConfig, modelConfig, err := recoveryConfigs(info)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(controllerConfig.ControllerUUID(), tc.Equals, info.ControllerUUID)
+	caCert, ok := controllerConfig.CACert()
+	c.Check(ok, tc.IsTrue)
+	c.Check(caCert, tc.Equals, coretesting.CACert)
+	c.Check(controllerConfig.ControllerName(), tc.Equals, info.ControllerName)
+
+	c.Check(modelConfig.Name(), tc.Equals, bootstrap.ControllerModelName)
+	c.Check(modelConfig.Type(), tc.Equals, info.CloudType)
+	c.Check(modelConfig.UUID(), tc.Equals, info.ControllerModelUUID)
+	agentVersion, ok := modelConfig.AgentVersion()
+	c.Check(ok, tc.IsTrue)
+	c.Check(agentVersion, tc.Equals, info.AgentVersion)
+}
+
+// TestProvisionRecoveryRequiresSourceBase checks that a machine archive
+// which does not record a usable controller base is rejected before any
+// cloud access.
+func (s *recoverySuite) TestProvisionRecoveryRequiresSourceBase(c *tc.C) {
+	for _, sourceBase := range []string{"", "not-a-base"} {
+		err := provisionRecovery(cmdtesting.Context(c), nil, &recovery.ArchiveInfo{
+			CloudType:    "lxd",
+			AgentVersion: version.Current,
+			SourceBase:   sourceBase,
+		})
+		c.Check(err, tc.ErrorMatches, "archive does not record a usable controller base.*")
 	}
 }
 
@@ -311,6 +404,7 @@ func recoveryArchive(c *tc.C) []byte {
 		`"Notes":"",` +
 		`"ModelUUID":"` + controllerModelUUID + `",` +
 		`"Machine":"0",` +
+		`"Base":"ubuntu@24.04",` +
 		`"Hostname":"myhost",` +
 		`"Version":"4.1.0",` +
 		`"ControllerUUID":"` + controllerUUID + `",` +

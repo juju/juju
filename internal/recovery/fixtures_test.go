@@ -49,6 +49,7 @@ func metadataJSON(agentVersion string) string {
 		`"Notes":"",` +
 		`"ModelUUID":"` + testControllerModelUUID + `",` +
 		`"Machine":"0",` +
+		`"Base":"ubuntu@24.04",` +
 		`"Hostname":"myhost",` +
 		`"Version":"` + agentVersion + `",` +
 		`"ControllerUUID":"` + testControllerUUID + `",` +

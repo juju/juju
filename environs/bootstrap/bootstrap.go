@@ -302,12 +302,26 @@ func bootstrapCAAS(
 	return nil
 }
 
-func bootstrapIAAS(
+// iaasPreparation holds the shared discovery and constraint results needed to
+// allocate a controller instance, produced by prepareIAASBootstrap.
+type iaasPreparation struct {
+	base                corebase.Base
+	arch                string
+	ss                  *simplestreams.Simplestreams
+	customImageMetadata []*imagemetadata.ImageMetadata
+	validator           constraints.Validator
+}
+
+// prepareIAASBootstrap performs the shared setup for allocating a controller
+// instance: simplestreams and image metadata setup, base and architecture
+// selection, and constraint merging and defaulting. It is used by both fresh
+// bootstrap and recovery allocation.
+func prepareIAASBootstrap(
 	ctx environs.BootstrapContext,
 	environ environs.BootstrapEnviron,
 	args BootstrapParams,
-	bootstrapParams environs.BootstrapParams,
-) error {
+	bootstrapParams *environs.BootstrapParams,
+) (iaasPreparation, error) {
 	cfg := environ.Config()
 
 	_, supportsNetworking := environs.SupportsNetworking(environ)
@@ -321,7 +335,7 @@ func bootstrapIAAS(
 	} else if s, ok := value.(*simplestreams.Simplestreams); ok {
 		ss = s
 	} else {
-		return errors.Errorf("expected a valid simple streams type")
+		return iaasPreparation{}, errors.Errorf("expected a valid simple streams type")
 	}
 
 	// Set default tools metadata source, add image metadata source,
@@ -332,7 +346,7 @@ func bootstrapIAAS(
 		var err error
 		customImageMetadata, err = setPrivateMetadataSources(ctx, ss, args.MetadataDir)
 		if err != nil {
-			return errors.Trace(err)
+			return iaasPreparation{}, errors.Trace(err)
 		}
 	}
 
@@ -342,11 +356,11 @@ func bootstrapIAAS(
 	if detector, supported := environ.(environs.HardwareCharacteristicsDetector); supported {
 		detectedBase, err := detector.DetectBase()
 		if err != nil {
-			return errors.Trace(err)
+			return iaasPreparation{}, errors.Trace(err)
 		}
 		detectedHW, err := detector.DetectHardware()
 		if err != nil {
-			return errors.Trace(err)
+			return iaasPreparation{}, errors.Trace(err)
 		}
 
 		if args.BootstrapBase.Empty() && !detectedBase.Empty() {
@@ -375,9 +389,9 @@ func bootstrapIAAS(
 		// If the base isn't valid (i.e. non-ubuntu) then don't prompt users to use
 		// the --force flag.
 		if requestedBootstrapBase.OS != corebase.UbuntuOS {
-			return errors.NotValidf("non-ubuntu bootstrap base %q", requestedBootstrapBase.String())
+			return iaasPreparation{}, errors.NotValidf("non-ubuntu bootstrap base %q", requestedBootstrapBase.String())
 		}
-		return errors.Annotatef(err, "use --force to override")
+		return iaasPreparation{}, errors.Annotatef(err, "use --force to override")
 	}
 	bootstrapBase := requestedBootstrapBase
 
@@ -399,7 +413,7 @@ func bootstrapIAAS(
 		&customImageMetadata,
 	)
 	if err != nil {
-		return errors.Trace(err)
+		return iaasPreparation{}, errors.Trace(err)
 	}
 
 	// We want to determine a list of valid architectures for which to pick tools and images.
@@ -419,7 +433,7 @@ func bootstrapIAAS(
 
 	constraintsValidator, err := environ.ConstraintsValidator(ctx)
 	if err != nil {
-		return err
+		return iaasPreparation{}, err
 	}
 	constraintsValidator.UpdateVocabulary(constraints.Arch, architectures.SortedValues())
 
@@ -427,7 +441,7 @@ func bootstrapIAAS(
 		args.ModelConstraints, args.BootstrapConstraints,
 	)
 	if err != nil {
-		return errors.Trace(err)
+		return iaasPreparation{}, errors.Trace(err)
 	}
 	// The follow is used to determine if we should apply the default
 	// constraints when we bootstrap. Generally speaking this should always be
@@ -447,8 +461,28 @@ func bootstrapIAAS(
 		bootstrapArch = localToolsArch()
 	}
 
+	return iaasPreparation{
+		base:                bootstrapBase,
+		arch:                bootstrapArch,
+		ss:                  ss,
+		customImageMetadata: customImageMetadata,
+		validator:           constraintsValidator,
+	}, nil
+}
+
+// discoverBootstrapTools finds or builds the agent binaries for a fresh
+// bootstrap, and returns them along with the agent version to use. When a
+// local agent was built, the returned BuiltAgent is non-nil and the caller
+// must clean up its directory once the tools have been uploaded.
+func discoverBootstrapTools(
+	ctx environs.BootstrapContext,
+	environ environs.BootstrapEnviron,
+	prep iaasPreparation,
+	args BootstrapParams,
+) (coretools.List, semversion.Number, *sync.BuiltAgent, error) {
 	agentVersion := jujuversion.Current
 	var availableTools coretools.List
+	var err error
 	if !args.BuildAgent {
 		latestPatchTxt := ""
 		versionTxt := fmt.Sprintf("%v", args.AgentVersion)
@@ -456,11 +490,11 @@ func bootstrapIAAS(
 			latestPatchTxt = "latest patch of "
 			versionTxt = fmt.Sprintf("%v.%v", agentVersion.Major, agentVersion.Minor)
 		}
-		ctx.Infof("Looking for %vpackaged Juju agent version %s for %s", latestPatchTxt, versionTxt, bootstrapArch)
+		ctx.Infof("Looking for %vpackaged Juju agent version %s for %s", latestPatchTxt, versionTxt, prep.arch)
 
-		availableTools, err = findPackagedTools(ctx, environ, ss, args.AgentVersion, &bootstrapArch, &bootstrapBase)
+		availableTools, err = findPackagedTools(ctx, environ, prep.ss, args.AgentVersion, &prep.arch, &prep.base)
 		if err != nil && !errors.Is(err, errors.NotFound) {
-			return err
+			return nil, agentVersion, nil, err
 		}
 		if len(availableTools) != 0 {
 			if args.AgentVersion == nil {
@@ -478,29 +512,28 @@ func bootstrapIAAS(
 	var builtTools *sync.BuiltAgent
 	if len(availableTools) == 0 && (args.AgentVersion == nil || isCompatibleVersion(*args.AgentVersion, jujuversion.Current)) {
 		if args.BuildAgentTarball == nil {
-			return errors.New("cannot build agent binary to upload")
+			return nil, agentVersion, nil, errors.New("cannot build agent binary to upload")
 		}
-		if err = validateUploadAllowed(environ, &bootstrapArch, &bootstrapBase, constraintsValidator); err != nil {
-			return err
+		if err = validateUploadAllowed(environ, &prep.arch, &prep.base, prep.validator); err != nil {
+			return nil, agentVersion, nil, err
 		}
 		if args.BuildAgent {
-			ctx.Infof("Building local Juju agent binary version %s for %s", args.AgentVersion, bootstrapArch)
+			ctx.Infof("Building local Juju agent binary version %s for %s", args.AgentVersion, prep.arch)
 		} else {
 			ctx.Infof("No packaged binary found, preparing local Juju agent binary")
 		}
 		var forceVersion semversion.Number
 		availableTools, forceVersion, err = locallyBuildableTools()
 		if err != nil {
-			return errors.Annotate(err, "cannot package bootstrap agent binary")
+			return nil, agentVersion, nil, errors.Annotate(err, "cannot package bootstrap agent binary")
 		}
 		builtTools, err = args.BuildAgentTarball(
 			args.BuildAgent, "bootstrap",
 			func(semversion.Number) semversion.Number { return forceVersion },
 		)
 		if err != nil {
-			return errors.Annotate(err, "cannot package bootstrap agent binary")
+			return nil, agentVersion, nil, errors.Annotate(err, "cannot package bootstrap agent binary")
 		}
-		defer os.RemoveAll(builtTools.Dir)
 		// Combine the built agent information with the list of
 		// available tools.
 		for i, tool := range availableTools {
@@ -527,28 +560,30 @@ func bootstrapIAAS(
 		}
 	}
 	if len(availableTools) == 0 {
-		return errors.New(noToolsMessage)
+		return nil, agentVersion, nil, errors.New(noToolsMessage)
 	}
-	bootstrapParams.AvailableTools = availableTools
 
-	// TODO (anastasiamac 2018-02-02) By this stage, we will have a list
-	// of available tools (agent binaries) but they should all be the same
-	// version. Need to do check here, otherwise the provider.Bootstrap call
-	// may fail. This also means that compatibility check, currently done
-	// after provider.Bootstrap call in getBootstrapToolsVersion,
-	// should be done here.
-
-	// If we're uploading, we must override agent-version;
-	// if we're not uploading, we want to ensure we have an
-	// agent-version set anyway, to appease FinishInstanceConfig.
-	// In the latter case, setBootstrapTools will later set
-	// agent-version to the correct thing.
 	if args.AgentVersion != nil {
 		agentVersion = *args.AgentVersion
 	}
-	if cfg, err = cfg.Apply(map[string]any{
+	return availableTools, agentVersion, builtTools, nil
+}
+
+// prepareProviderBootstrap applies the selected agent version to the model
+// configuration and resolves any instance role, before the provider call.
+// It is used by both fresh bootstrap and recovery allocation.
+func prepareProviderBootstrap(
+	ctx environs.BootstrapContext,
+	environ environs.BootstrapEnviron,
+	args BootstrapParams,
+	bootstrapParams *environs.BootstrapParams,
+	agentVersion semversion.Number,
+) error {
+	cfg := environ.Config()
+	cfg, err := cfg.Apply(map[string]any{
 		"agent-version": agentVersion.String(),
-	}); err != nil {
+	})
+	if err != nil {
 		return errors.Trace(err)
 	}
 	if err = environ.SetConfig(ctx, cfg); err != nil {
@@ -572,10 +607,37 @@ func bootstrapIAAS(
 			return errors.NewNotSupported(nil, "instance role constraint for provider")
 		}
 
-		bootstrapParams, err = finaliseInstanceRole(ctx, instanceRoleEnviron, bootstrapParams)
+		*bootstrapParams, err = finaliseInstanceRole(ctx, instanceRoleEnviron, *bootstrapParams)
 		if err != nil {
 			return errors.Annotate(err, "finalising instance role for provider")
 		}
+	}
+	return nil
+}
+
+// bootstrapIAAS performs a fresh IAAS controller bootstrap.
+func bootstrapIAAS(
+	ctx environs.BootstrapContext,
+	environ environs.BootstrapEnviron,
+	args BootstrapParams,
+	bootstrapParams environs.BootstrapParams,
+) error {
+	prep, err := prepareIAASBootstrap(ctx, environ, args, &bootstrapParams)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	availableTools, agentVersion, builtTools, err := discoverBootstrapTools(ctx, environ, prep, args)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if builtTools != nil {
+		defer os.RemoveAll(builtTools.Dir)
+	}
+	bootstrapParams.AvailableTools = availableTools
+
+	if err := prepareProviderBootstrap(ctx, environ, args, &bootstrapParams, agentVersion); err != nil {
+		return errors.Trace(err)
 	}
 
 	ctx.Verbosef("Starting new instance for initial controller")
@@ -655,7 +717,7 @@ func bootstrapIAAS(
 	// Make sure we have the most recent environ config as the specified
 	// tools version has been updated there.
 	if err := finalizeInstanceBootstrapConfig(
-		ctx, instanceConfig, args, environ.Config(), environVersion, customImageMetadata,
+		ctx, instanceConfig, args, environ.Config(), environVersion, prep.customImageMetadata,
 	); err != nil {
 		return errors.Annotate(err, "finalizing bootstrap instance config")
 	}
@@ -679,19 +741,10 @@ func finaliseInstanceRole(
 	return args, err
 }
 
-// Bootstrap bootstraps the given environment. The supplied constraints are
-// used to provision the instance, and are also set within the bootstrapped
-// environment.
-func Bootstrap(
-	ctx environs.BootstrapContext,
-	environ environs.BootstrapEnviron,
-	args BootstrapParams,
-) error {
-	if err := args.Validate(); err != nil {
-		return errors.Annotate(err, "validating bootstrap parameters")
-	}
-
-	bootstrapParams := environs.BootstrapParams{
+// providerBootstrapParams translates BootstrapParams into the provider's
+// bootstrap parameters, shared by fresh bootstrap and recovery allocation.
+func providerBootstrapParams(args BootstrapParams) environs.BootstrapParams {
+	return environs.BootstrapParams{
 		AuthorizedKeys:             args.BootstrapSSHAuthorizedKeys,
 		CloudName:                  args.Cloud.Name,
 		CloudRegion:                args.CloudRegion,
@@ -704,6 +757,22 @@ func Bootstrap(
 		Force:                      args.Force,
 		ExtraAgentValuesForTesting: args.ExtraAgentValuesForTesting,
 	}
+}
+
+// Bootstrap bootstraps the given environment. The supplied constraints are
+// used to provision the instance, and are also set within the bootstrapped
+// environment. It always performs a fresh controller bootstrap; allocating a
+// replacement controller from a recovery archive is done by Recover.
+func Bootstrap(
+	ctx environs.BootstrapContext,
+	environ environs.BootstrapEnviron,
+	args BootstrapParams,
+) error {
+	if err := args.Validate(); err != nil {
+		return errors.Annotate(err, "validating bootstrap parameters")
+	}
+
+	bootstrapParams := providerBootstrapParams(args)
 	doBootstrap := bootstrapIAAS
 	if cloud.CloudIsCAAS(args.Cloud) {
 		doBootstrap = bootstrapCAAS

@@ -64,6 +64,11 @@ type ModelInfo struct {
 // It is produced before anything is provisioned and drives the recovery
 // preflight checks.
 type ArchiveInfo struct {
+	// SourceBase is the operating system base recorded in metadata.json.
+	SourceBase string
+	// MachineName is the source agent identity recorded in metadata.json.
+	MachineName string
+
 	// AgentVersion is the exact agent version of the source controller,
 	// read from the archive metadata (the manifest).
 	AgentVersion semversion.Number

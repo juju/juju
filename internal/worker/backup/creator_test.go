@@ -23,6 +23,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	corebackups "github.com/juju/juju/core/backups"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
@@ -107,6 +108,7 @@ func (s *backupsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	// reach metadata assembly, so allow zero calls here.
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return(machine.UUID("controller-machine-uuid"), nil).AnyTimes()
 	s.machineService.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("controller-machine-uuid")).Return(instance.Id("inst-controller-0"), nil).AnyTimes()
+	s.machineService.EXPECT().GetMachineBase(gomock.Any(), machine.Name("0")).Return(corebase.MustParseBaseFromString("ubuntu@24.04"), nil).AnyTimes()
 
 	c.Cleanup(func() {
 		s.controllerExport = nil
@@ -131,6 +133,7 @@ func (s *backupsSuite) newCreatorConfig(c *tc.C, modelServicesFor ModelServicesG
 		DataDir:                       s.dataDirPath,
 		LogDir:                        s.logDirPath,
 		MachineInstanceIDGetter:       MachineInstanceID,
+		MachineBaseGetter:             MachineBase,
 		ControllerExport:              s.controllerExport,
 		ModelServicesGetter:           modelServicesFor,
 		ControllerModelMachineService: s.machineService,
@@ -169,6 +172,7 @@ func (s *backupsSuite) TestCreatorConfigValidate(c *tc.C) {
 		DataDir:                       s.dataDirPath,
 		LogDir:                        s.logDirPath,
 		MachineInstanceIDGetter:       MachineInstanceID,
+		MachineBaseGetter:             MachineBase,
 		ControllerExport:              s.controllerExport,
 		ModelServicesGetter:           s.modelServicesFor(),
 		ControllerModelMachineService: s.machineService,
@@ -192,6 +196,7 @@ func (s *backupsSuite) TestCreatorConfigValidate(c *tc.C) {
 		{func(c *CreatorConfig) { c.DataDir = "" }, "empty DataDir not valid"},
 		{func(c *CreatorConfig) { c.LogDir = "" }, "empty LogDir not valid"},
 		{func(c *CreatorConfig) { c.MachineInstanceIDGetter = nil }, "nil MachineInstanceIDGetter not valid"},
+		{func(c *CreatorConfig) { c.MachineBaseGetter = nil }, "nil MachineBaseGetter not valid"},
 		{func(c *CreatorConfig) { c.ControllerExport = nil }, "nil ControllerExport not valid"},
 		{func(c *CreatorConfig) { c.ModelServicesGetter = nil }, "nil ModelServicesGetter not valid"},
 		{func(c *CreatorConfig) { c.ControllerModelMachineService = nil }, "nil ControllerModelMachineService not valid"},
@@ -333,6 +338,7 @@ func (s *backupsSuite) TestCreate(c *tc.C) {
 	c.Check(s.createdMeta.Notes, tc.Equals, "test")
 	c.Check(s.createdMeta.Origin.Model, tc.Equals, s.controllerModelUUID.String())
 	c.Check(s.createdMeta.Origin.Machine, tc.Equals, "0")
+	c.Check(s.createdMeta.Origin.Base, tc.Equals, "ubuntu@24.04/stable")
 	c.Check(s.createdMeta.Controller.UUID, tc.Equals, s.controllerUUID)
 	c.Check(s.createdMeta.Controller.MachineID, tc.Equals, "0")
 	c.Check(s.createdMeta.Controller.MachineInstanceID, tc.Equals, "inst-controller-0")
@@ -841,10 +847,35 @@ func (s *backupsSuite) TestCreateEmptyMachineInstanceID(c *tc.C) {
 	s.assertNoArchive(c, backupDir)
 }
 
-// TestCreateNoMachineInstanceIDRecordsEmpty verifies that the machineless
-// implementation injected by the Kubernetes manifold wiring records no
-// instance ID and never queries machine metadata.
-func (s *backupsSuite) TestCreateNoMachineInstanceIDRecordsEmpty(c *tc.C) {
+// TestCreateEmptyMachineBase verifies that an empty controller machine base
+// aborts Create before an archive is published.
+func (s *backupsSuite) TestCreateEmptyMachineBase(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	s.expectFilesToBackUp(c, backupDir)
+	s.expectModelConfig(c, backupDir)
+	s.expectControllerExport()
+	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{}, nil)
+
+	ctrl := gomock.NewController(c)
+	empty := NewMockMachineService(ctrl)
+	empty.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return(machine.UUID("controller-machine-uuid"), nil)
+	empty.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("controller-machine-uuid")).Return(instance.Id("inst-controller-0"), nil)
+	empty.EXPECT().GetMachineBase(gomock.Any(), machine.Name("0")).Return(corebase.Base{}, nil)
+
+	cfg := s.newCreatorConfig(c, s.modelServicesFor())
+	cfg.ControllerModelMachineService = empty
+	_, _, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "")
+	c.Check(err, tc.ErrorMatches, "recording controller machine base: controller machine base is empty")
+	c.Check(cleanup, tc.IsNil)
+	s.assertNoArchive(c, backupDir)
+}
+
+// TestCreateNoMachineMetadataRecordsEmpty verifies that the machineless
+// implementations injected by the Kubernetes manifold wiring record no
+// instance ID or base and never query machine metadata.
+func (s *backupsSuite) TestCreateNoMachineMetadataRecordsEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	backupDir := c.MkDir()
@@ -854,13 +885,14 @@ func (s *backupsSuite) TestCreateNoMachineInstanceIDRecordsEmpty(c *tc.C) {
 	s.expectControllerExport()
 	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{}, nil)
 
-	// The machineless implementation must not query the machine service:
+	// The machineless implementations must not query the machine service:
 	// a machine metadata query would fail the request. A fresh mock with
 	// no expectations fails the test on any call.
 	ctrl := gomock.NewController(c)
 	cfg := s.newCreatorConfig(c, s.modelServicesFor())
 	cfg.MachineTag = names.NewControllerAgentTag("0")
 	cfg.MachineInstanceIDGetter = NoMachineInstanceID
+	cfg.MachineBaseGetter = NoMachineBase
 	cfg.ControllerModelMachineService = NewMockMachineService(ctrl)
 	meta, _, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIsNil)
@@ -868,6 +900,7 @@ func (s *backupsSuite) TestCreateNoMachineInstanceIDRecordsEmpty(c *tc.C) {
 
 	c.Check(meta.Controller.MachineID, tc.Equals, "0")
 	c.Check(meta.Controller.MachineInstanceID, tc.Equals, "")
+	c.Check(meta.Origin.Base, tc.Equals, "")
 }
 
 // TestCreateNonZeroControllerMachine verifies that metadata resolution
@@ -889,6 +922,7 @@ func (s *backupsSuite) TestCreateNonZeroControllerMachine(c *tc.C) {
 	// hardcoded or first controller machine.
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("3")).Return(machine.UUID("machine-3-uuid"), nil)
 	s.machineService.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("machine-3-uuid")).Return(instance.Id("inst-controller-3"), nil)
+	s.machineService.EXPECT().GetMachineBase(gomock.Any(), machine.Name("3")).Return(corebase.MustParseBaseFromString("ubuntu@24.04"), nil)
 
 	cfg := s.newCreatorConfig(c, s.modelServicesFor())
 	cfg.MachineTag = names.NewMachineTag("3")

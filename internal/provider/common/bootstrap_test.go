@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/ssh"
 	cryptossh "golang.org/x/crypto/ssh"
@@ -37,6 +36,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/provider/common"
 	corestorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
@@ -212,6 +212,28 @@ func (s *BootstrapSuite) TestBootstrapBase(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Arch, tc.Equals, "ppc64el") // based on hardware characteristics
 	c.Check(result.Base.String(), tc.Equals, jujuversion.DefaultSupportedLTSBase().String())
+}
+
+func (s *BootstrapSuite) TestBootstrapInstanceStarted(c *tc.C) {
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+
+	env := &mockEnviron{
+		startInstance: fakeStartInstance,
+		config:        fakeMinimalConfig(c),
+	}
+	ctx := envtesting.BootstrapTestContext(c)
+
+	var started []instance.Id
+	result, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
+		InstanceStarted:         func(id instance.Id) { started = append(started, id) },
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		BootstrapBase:           jujuversion.DefaultSupportedLTSBase(),
+		AvailableTools:          fakeAvailableTools(),
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Arch, tc.Equals, "ppc64el")
+	c.Check(started, tc.DeepEquals, []instance.Id{"i-success"})
 }
 
 func (s *BootstrapSuite) TestBootstrapFallbackBase(c *tc.C) {

@@ -428,6 +428,222 @@ func (s *bootstrapSuite) assertFinalizePodBootstrapConfig(c *tc.C, serviceType, 
 	c.Assert(podConfig.AgentEnvironment, tc.DeepEquals, map[string]string{"foo": "bar"})
 }
 
+// recoveryIAASTools returns the exact archived agent tools used by the
+// IAAS recovery tests.
+func recoveryIAASTools(archivedVersion semversion.Number, toolArch string) tools.List {
+	return tools.List{{
+		Version: semversion.Binary{
+			Number:  archivedVersion,
+			Release: "ubuntu",
+			Arch:    toolArch,
+		},
+		URL: "file:///tmp/juju-agent.tgz",
+	}}
+}
+
+// failingDataSourceFactory fails the test when used, proving that no
+// simplestreams data source is fetched.
+type failingDataSourceFactory struct {
+	c *tc.C
+}
+
+func (f failingDataSourceFactory) NewDataSource(simplestreams.Config) simplestreams.DataSource {
+	f.c.Fatalf("packaged tool discovery ran during recovery")
+	return nil
+}
+
+func (s *bootstrapSuite) TestBootstrapRecoveryIAAS(c *tc.C) {
+	s.PatchValue(&arch.HostArch, func() string {
+		return arch.AMD64
+	})
+	env := &recoveryBootstrapEnviron{
+		bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+		instanceID:       "test-instance",
+	}
+	env.result = &environs.BootstrapResult{
+		Arch: arch.AMD64,
+		Base: jammyBootstrapBase,
+		CloudBootstrapFinalizer: func(
+			environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts,
+		) error {
+			env.finalizerCount++
+			return nil
+		},
+	}
+
+	archivedVersion := coretesting.FakeVersionNumber
+	agentTools := recoveryIAASTools(archivedVersion, arch.AMD64)
+
+	// Packaged tool discovery must not run in recovery mode.
+	ss := simplestreams.NewSimpleStreams(failingDataSourceFactory{c})
+	ctx := envtesting.BootstrapContext(
+		context.WithValue(c.Context(), bootstrap.SimplestreamsFetcherContextKey, ss), c)
+
+	var startedID instance.Id
+	err := bootstrap.Recover(ctx, env, bootstrap.RecoveryParams{
+		BootstrapParams: bootstrap.BootstrapParams{
+			AdminSecret:             "fake-moon-landing",
+			CAPrivateKey:            coretesting.CAKey,
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			SupportedBootstrapBases: supportedJujuBases,
+			BootstrapBase:           jammyBootstrapBase,
+			BootstrapConstraints:    constraints.MustParse("arch=amd64"),
+			AgentVersion:            &archivedVersion,
+			BuildAgentTarball: func(
+				bool, string, func(semversion.Number) semversion.Number,
+			) (*sync.BuiltAgent, error) {
+				c.Fatalf("local agent build ran during recovery")
+				return nil, errors.New("agent build attempted")
+			},
+		},
+		AvailableTools: agentTools,
+		InstanceStarted: func(id instance.Id) {
+			startedID = id
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(startedID, tc.Equals, instance.Id("test-instance"))
+
+	// The provider received the exact archived tools and the pinned
+	// base and architecture.
+	c.Check(env.bootstrapCount, tc.Equals, 1)
+	c.Check(env.args.AvailableTools, tc.DeepEquals, agentTools)
+	c.Check(env.args.BootstrapBase, tc.Equals, jammyBootstrapBase)
+	c.Assert(env.args.BootstrapConstraints.Arch, tc.NotNil)
+	c.Check(*env.args.BootstrapConstraints.Arch, tc.Equals, arch.AMD64)
+	agentVersion, ok := env.cfg.AgentVersion()
+	c.Assert(ok, tc.IsTrue)
+	c.Check(agentVersion, tc.Equals, archivedVersion)
+
+	// Allocation stops before the agent is installed.
+	c.Check(env.finalizerCount, tc.Equals, 0)
+}
+
+func (s *bootstrapSuite) TestBootstrapRecoveryIAASResultChecks(c *tc.C) {
+	s.PatchValue(&arch.HostArch, func() string {
+		return arch.AMD64
+	})
+	archivedVersion := coretesting.FakeVersionNumber
+	agentTools := recoveryIAASTools(archivedVersion, arch.AMD64)
+
+	tests := []struct {
+		name       string
+		instanceID instance.Id
+		result     *environs.BootstrapResult
+		err        string
+	}{{
+		name:       "no replacement instance reported",
+		instanceID: "",
+		err:        "recovery provisioning returned no replacement instance",
+	}, {
+		name:       "nil bootstrap result",
+		instanceID: "test-instance",
+		result:     nil,
+		err:        "provider returned no replacement instance details",
+	}, {
+		name:       "wrong base",
+		instanceID: "test-instance",
+		result: &environs.BootstrapResult{
+			Arch: arch.AMD64,
+			Base: focalBootstrapBase,
+		},
+		err: "replacement base differs from archived controller",
+	}, {
+		name:       "wrong arch",
+		instanceID: "test-instance",
+		result: &environs.BootstrapResult{
+			Arch: arch.ARM64,
+			Base: jammyBootstrapBase,
+		},
+		err: "replacement architecture differs from archived agent",
+	}}
+
+	for i, test := range tests {
+		c.Logf("test %d: %s", i, test.name)
+		env := &recoveryBootstrapEnviron{
+			bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+			instanceID:       test.instanceID,
+			result:           test.result,
+		}
+		err := bootstrap.Recover(envtesting.BootstrapTestContext(c), env, bootstrap.RecoveryParams{
+			BootstrapParams: bootstrap.BootstrapParams{
+				AdminSecret:             "fake-moon-landing",
+				CAPrivateKey:            coretesting.CAKey,
+				ControllerConfig:        coretesting.FakeControllerConfig(),
+				SupportedBootstrapBases: supportedJujuBases,
+				BootstrapBase:           jammyBootstrapBase,
+				BootstrapConstraints:    constraints.MustParse("arch=amd64"),
+				AgentVersion:            &archivedVersion,
+			},
+			AvailableTools: agentTools,
+		})
+		c.Check(err, tc.ErrorMatches, test.err)
+	}
+}
+
+func (s *bootstrapSuite) TestBootstrapRecoveryIAASInvalidParams(c *tc.C) {
+	archivedVersion := coretesting.FakeVersionNumber
+	otherVersion := archivedVersion
+	otherVersion.Patch++
+	valid := func() bootstrap.RecoveryParams {
+		return bootstrap.RecoveryParams{
+			BootstrapParams: bootstrap.BootstrapParams{
+				AdminSecret:             "fake-moon-landing",
+				CAPrivateKey:            coretesting.CAKey,
+				ControllerConfig:        coretesting.FakeControllerConfig(),
+				SupportedBootstrapBases: supportedJujuBases,
+				BootstrapBase:           jammyBootstrapBase,
+				BootstrapConstraints:    constraints.MustParse("arch=amd64"),
+				AgentVersion:            &archivedVersion,
+			},
+			AvailableTools: recoveryIAASTools(archivedVersion, arch.AMD64),
+		}
+	}
+	tests := []struct {
+		name   string
+		mutate func(*bootstrap.RecoveryParams)
+		err    string
+	}{{
+		name:   "no agent version",
+		mutate: func(p *bootstrap.RecoveryParams) { p.AgentVersion = nil },
+		err:    ".*recovery without an agent version not valid",
+	}, {
+		name:   "agent building",
+		mutate: func(p *bootstrap.RecoveryParams) { p.BuildAgent = true },
+		err:    ".*recovery with agent building enabled not valid",
+	}, {
+		name:   "no base",
+		mutate: func(p *bootstrap.RecoveryParams) { p.BootstrapBase = corebase.Base{} },
+		err:    ".*recovery without a bootstrap base not valid",
+	}, {
+		name:   "no arch",
+		mutate: func(p *bootstrap.RecoveryParams) { p.BootstrapConstraints = constraints.Value{} },
+		err:    ".*recovery without a bootstrap architecture not valid",
+	}, {
+		name:   "no tools",
+		mutate: func(p *bootstrap.RecoveryParams) { p.AvailableTools = nil },
+		err:    ".*recovery without any agent tools not valid",
+	}, {
+		name: "tools for another version",
+		mutate: func(p *bootstrap.RecoveryParams) {
+			p.AvailableTools = recoveryIAASTools(otherVersion, arch.AMD64)
+		},
+		err: `.*recovery tool version .* not matching agent version .* not valid`,
+	}}
+	for i, test := range tests {
+		c.Logf("test %d: %s", i, test.name)
+		env := &recoveryBootstrapEnviron{
+			bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+			instanceID:       "test-instance",
+		}
+		params := valid()
+		test.mutate(&params)
+		err := bootstrap.Recover(envtesting.BootstrapTestContext(c), env, params)
+		c.Check(err, tc.ErrorMatches, test.err)
+		c.Check(env.bootstrapCount, tc.Equals, 0)
+	}
+}
+
 func (s *bootstrapSuite) TestBootstrapImage(c *tc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
@@ -1633,6 +1849,28 @@ type bootstrapEnvironProvider struct {
 
 func (p bootstrapEnvironProvider) Version() int {
 	return 123
+}
+
+// recoveryBootstrapEnviron extends bootstrapEnviron for IAAS recovery
+// tests. Bootstrap reports a fixed instance ID through the params'
+// callback and returns a configurable result.
+type recoveryBootstrapEnviron struct {
+	*bootstrapEnviron
+
+	instanceID instance.Id
+	result     *environs.BootstrapResult
+}
+
+func (e *recoveryBootstrapEnviron) Bootstrap(
+	ctx environs.BootstrapContext,
+	args environs.BootstrapParams,
+) (*environs.BootstrapResult, error) {
+	e.bootstrapCount++
+	e.args = args
+	if args.InstanceStarted != nil && e.instanceID != "" {
+		args.InstanceStarted(e.instanceID)
+	}
+	return e.result, nil
 }
 
 type bootstrapEnvironWithRegion struct {

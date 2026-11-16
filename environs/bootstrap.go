@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
@@ -21,6 +22,10 @@ import (
 
 // BootstrapParams holds the parameters for bootstrapping an environment.
 type BootstrapParams struct {
+	// InstanceStarted records the newly created instance before subsequent
+	// configuration can fail. Callers can use it for instance-scoped cleanup.
+	InstanceStarted func(instance.Id)
+
 	// AuthorizedKeys is the set of authorized keys to be allowed to ssh to the
 	// bootstrap instance during bootstrap. This may not be the same set of keys
 	// that are allowed after the controller takes over management of the

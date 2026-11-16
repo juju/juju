@@ -39,6 +39,8 @@ func (s *validateSuite) TestValidateArchive(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(info.AgentVersion, tc.Equals, semversion.MustParse("4.1.0"))
+	c.Check(info.SourceBase, tc.Equals, "ubuntu@24.04")
+	c.Check(info.MachineName, tc.Equals, "0")
 	c.Check(info.ControllerUUID, tc.Equals, testControllerUUID)
 	c.Check(info.ControllerName, tc.Equals, "source-ctrl")
 	c.Check(info.ControllerModelUUID, tc.Equals, testControllerModelUUID)

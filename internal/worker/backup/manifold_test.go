@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
@@ -19,6 +18,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	machineservice "github.com/juju/juju/domain/machine/service"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
 )
 
@@ -34,6 +34,7 @@ func manifoldConfig(c *tc.C) ManifoldConfig {
 		ControllerNodeID:        worker.ControllerNodeID,
 		ControllerTag:           names.NewControllerAgentTag("0"),
 		MachineInstanceIDGetter: NoMachineInstanceID,
+		MachineBaseGetter:       NoMachineBase,
 		LocalConfigReader:       localConfigStub{values: LocalValues{DataDir: "/data", LogDir: "/logs"}},
 		Clock:                   worker.Clock, Logger: worker.Logger,
 		NewWorker: NewWorker,
@@ -124,6 +125,7 @@ func (s *manifoldSuite) TestInvalidConfiguration(c *tc.C) {
 		{func(c *ManifoldConfig) { c.ObjectStoreName = "" }, "empty ObjectStoreName not valid"},
 		{func(c *ManifoldConfig) { c.ControllerTag = nil }, "nil ControllerTag not valid"},
 		{func(c *ManifoldConfig) { c.MachineInstanceIDGetter = nil }, "nil MachineInstanceIDGetter not valid"},
+		{func(c *ManifoldConfig) { c.MachineBaseGetter = nil }, "nil MachineBaseGetter not valid"},
 		{func(c *ManifoldConfig) { c.ControllerNodeID = "" }, "empty ControllerNodeID not valid"},
 		{func(c *ManifoldConfig) { c.LocalConfigReader = nil }, "nil LocalConfigReader not valid"},
 		{func(c *ManifoldConfig) { c.Clock = nil }, "nil Clock not valid"},

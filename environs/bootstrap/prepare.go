@@ -76,30 +76,54 @@ func (p PrepareParams) Validate() error {
 	return nil
 }
 
-// PrepareController prepares a new controller based on the provided configuration.
-// It is an error to prepare a controller if there already exists an
-// entry in the client store with the same name.
-//
-// Upon success, Prepare will update the ClientStore with the details of
-// the controller, admin account, and admin model.
-func PrepareController(
+// ControllerPreparation holds a controller environ opened for
+// bootstrapping, along with the details needed to record it in a
+// client store.
+type ControllerPreparation struct {
+	// Environ is the opened bootstrap environ for the controller.
+	Environ environs.BootstrapEnviron
+
+	details   prepareDetails
+	modelName string
+}
+
+// RegisterController records the prepared controller in the given
+// client store with the details of the controller, admin account,
+// and admin model.
+func (p *ControllerPreparation) RegisterController(
+	store jujuclient.ClientStore,
+	controllerName string,
+) error {
+	if err := decorateAndWriteInfo(
+		store, p.details, controllerName, p.modelName,
+	); err != nil {
+		return errors.Annotatef(err, "cannot create controller %q info", controllerName)
+	}
+	return nil
+}
+
+// OpenController validates the given parameters and opens the
+// controller environ, but does not prepare it for bootstrapping and
+// does not record anything in the client store.
+func OpenController(
 	isCAASController bool,
 	ctx environs.BootstrapContext,
-	store jujuclient.ClientStore,
 	args PrepareParams,
-) (environs.BootstrapEnviron, error) {
-
+) (*ControllerPreparation, error) {
 	if err := args.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	return openController(isCAASController, ctx, args)
+}
 
-	_, err := store.ControllerByName(args.ControllerName)
-	if err == nil {
-		return nil, errors.AlreadyExistsf("controller %q", args.ControllerName)
-	} else if !errors.Is(err, errors.NotFound) {
-		return nil, errors.Annotatef(err, "error reading controller %q info", args.ControllerName)
-	}
-
+// openController opens the controller environ for the given validated
+// parameters. It does not prepare the environ for bootstrapping and
+// does not record anything in the client store.
+func openController(
+	isCAASController bool,
+	ctx environs.BootstrapContext,
+	args PrepareParams,
+) (*ControllerPreparation, error) {
 	cloudType, ok := args.ModelConfig["type"].(string)
 	if !ok {
 		return nil, errors.NotFoundf("cloud type in base configuration")
@@ -113,15 +137,6 @@ func PrepareController(
 	cfg, details, err := prepare(ctx, p, args)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	do := func() error {
-		if err := decorateAndWriteInfo(
-			store, details, args.ControllerName, cfg.Name(),
-		); err != nil {
-			return errors.Annotatef(err, "cannot create controller %q info", args.ControllerName)
-		}
-		return nil
 	}
 
 	var env environs.BootstrapEnviron
@@ -140,13 +155,47 @@ func PrepareController(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := env.PrepareForBootstrap(ctx, args.ControllerName); err != nil {
+	return &ControllerPreparation{
+		Environ:   env,
+		details:   details,
+		modelName: cfg.Name(),
+	}, nil
+}
+
+// PrepareController prepares a new controller based on the provided configuration.
+// It is an error to prepare a controller if there already exists an
+// entry in the client store with the same name.
+//
+// Upon success, Prepare will update the ClientStore with the details of
+// the controller, admin account, and admin model.
+func PrepareController(
+	isCAASController bool,
+	ctx environs.BootstrapContext,
+	store jujuclient.ClientStore,
+	args PrepareParams,
+) (environs.BootstrapEnviron, error) {
+	if err := args.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := do(); err != nil {
+
+	_, err := store.ControllerByName(args.ControllerName)
+	if err == nil {
+		return nil, errors.AlreadyExistsf("controller %q", args.ControllerName)
+	} else if !errors.Is(err, errors.NotFound) {
+		return nil, errors.Annotatef(err, "error reading controller %q info", args.ControllerName)
+	}
+
+	preparation, err := openController(isCAASController, ctx, args)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return env, nil
+	if err := preparation.Environ.PrepareForBootstrap(ctx, args.ControllerName); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := preparation.RegisterController(store, args.ControllerName); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return preparation.Environ, nil
 }
 
 // decorateAndWriteInfo decorates the info struct with information
@@ -215,12 +264,6 @@ func prepare(
 	// These do not include the CACert or UUID since they will be replaced with new
 	// values when/if we need to use this configuration.
 	details.ControllerConfig = make(controller.Config)
-	for k, v := range args.ControllerConfig {
-		if k == controller.CACertKey || k == controller.ControllerUUIDKey {
-			continue
-		}
-		details.ControllerConfig[k] = v
-	}
 	for k, v := range args.ControllerConfig {
 		if k == controller.CACertKey || k == controller.ControllerUUIDKey {
 			continue

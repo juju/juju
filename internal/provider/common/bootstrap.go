@@ -290,6 +290,9 @@ func BootstrapInstance(
 		}
 		return nil, nil, nil, errors.Annotatef(err, "cannot start bootstrap instance in availability zone %q", zone)
 	}
+	if args.InstanceStarted != nil {
+		args.InstanceStarted(result.Instance.Id())
+	}
 	modelFw, ok := env.(models.ModelFirewaller)
 	if ok {
 		envIPV6CIDRSupport := false

@@ -148,6 +148,8 @@ func buildArchiveInfo(ctx context.Context, logger corelogger.Logger, meta *coreb
 	}
 
 	info := &domainrecovery.ArchiveInfo{
+		SourceBase:          meta.Origin.Base,
+		MachineName:         meta.Origin.Machine,
 		AgentVersion:        meta.Origin.Version,
 		ControllerUUID:      meta.Controller.UUID,
 		ControllerModelUUID: meta.Origin.Model,
