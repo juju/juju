@@ -28,7 +28,7 @@ type ModelRelationNetworkState interface {
 	GetRelationNetworkIngress(ctx context.Context, relationUUID string) ([]string, error)
 
 	// GetRelationNetworkEgress retrieves all egress network CIDRs for the
-	// specified relation.
+	// specified relation in lexical order.
 	GetRelationNetworkEgress(ctx context.Context, relationUUID string) ([]string, error)
 
 	// NamespaceForRelationIngressNetworksWatcher returns the namespace of the

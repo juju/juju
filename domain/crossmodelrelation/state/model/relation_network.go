@@ -149,7 +149,7 @@ ORDER BY rni.cidr
 }
 
 // GetRelationNetworkEgress retrieves all egress network CIDRs for the
-// specified relation.
+// specified relation in lexical order.
 //
 // It returns a [relationerrors.RelationNotFound] if the provided relation does
 // not exist.
@@ -161,8 +161,9 @@ func (st *State) GetRelationNetworkEgress(ctx context.Context, relationUUID stri
 
 	selectStmt, err := st.Prepare(`
 SELECT &cidr.*
-FROM   relation_network_egress
-WHERE  relation_uuid = $uuid.uuid
+FROM   relation_network_egress AS rne
+WHERE  rne.relation_uuid = $uuid.uuid
+ORDER BY rne.cidr
 `, cidr{}, uuid{})
 	if err != nil {
 		return nil, errors.Errorf("preparing select relation network egress query: %w", err)
@@ -484,6 +485,7 @@ WHERE  key = $modelConfigKey.key
 
 // getRelationLife retrieves the life value for the specified relation.
 // It returns a [relationerrors.RelationNotFound] if the relation does not
+// exist.
 func (st *State) getRelationLife(ctx context.Context, tx *sqlair.TX, relationUUID string) (life.Value, error) {
 	ident := uuid{
 		UUID: relationUUID,

@@ -399,7 +399,7 @@ func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressMultipleCIDRs(c
 	c.Check(obtainedCIDRs, tc.SameContents, cidrs)
 }
 
-func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressSortedOrder(c *tc.C) {
+func (s *relationNetworkStateSuite) TestGetRelationNetworkIngressLexicalOrder(c *tc.C) {
 	// Arrange
 	relationUUID := s.createTestRelation(c)
 	cidrs := []string{
@@ -633,6 +633,25 @@ func (s *relationNetworkStateSuite) TestGetRelationNetworkEgressMultipleCIDRs(c 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedCIDRs, tc.SameContents, cidrs)
+}
+
+func (s *relationNetworkStateSuite) TestGetRelationNetworkEgressLexicalOrder(c *tc.C) {
+	relationUUID := s.createTestRelationWithNames(c, "app1", "app2")
+	otherRelationUUID := s.createTestRelationWithNames(c, "app3", "app4")
+	cidrs := []string{
+		"2001:db8::/32", "10.2.0.0/16", "192.0.2.0/24", "10.10.0.0/16",
+	}
+
+	err := s.state.AddRelationNetworkEgress(c.Context(), relationUUID.String(), cidrs)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.AddRelationNetworkEgress(c.Context(), otherRelationUUID.String(), []string{"10.1.0.0/16"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	obtainedCIDRs, err := s.state.GetRelationNetworkEgress(c.Context(), relationUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedCIDRs, tc.DeepEquals, []string{
+		"10.10.0.0/16", "10.2.0.0/16", "192.0.2.0/24", "2001:db8::/32",
+	})
 }
 
 func (s *relationNetworkStateSuite) TestGetRelationNetworkEgressMultipleRelations(c *tc.C) {
