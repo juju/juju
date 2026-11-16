@@ -138,8 +138,8 @@ func (s *unitSuite) TestRemoveUnitForceWaitSchedulesCharmRemovalOnce(c *tc.C) {
 		CharmUUID: &charmUUID,
 	}, nil)
 	gomock.InOrder(
-		exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), false, when.UTC()).Return(nil),
-		exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), true, when.UTC().Add(time.Minute)).Return(nil),
+		exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), false, when.UTC()).Return(uUUID.String(), nil),
+		exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), true, when.UTC().Add(time.Minute)).Return(uUUID.String(), nil),
 		exp.CharmScheduleRemoval(gomock.Any(), tc.Bind(tc.IsNonZeroUUID), charmUUID, when.UTC()).Return(nil),
 	)
 

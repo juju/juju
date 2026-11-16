@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -85,9 +86,10 @@ func (s *watcherSuite) TestWatchRemovals(c *tc.C) {
 
 	log := loggertesting.WrapCheckLog(c)
 
+	modelState := statemodel.NewState(func(ctx context.Context) (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, log)
 	svc := service.NewWatchableService(
 		statecontroller.NewState(func(ctx context.Context) (database.TxnRunner, error) { return s.NoopTxnRunner(), nil }, log),
-		statemodel.NewState(func(ctx context.Context) (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, log),
+		modelState,
 		domain.NewWatcherFactory(factory, log),
 		nil,
 		nil,
@@ -116,6 +118,36 @@ func (s *watcherSuite) TestWatchRemovals(c *tc.C) {
 
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.StringSliceAssert("job-uuid-1", "job-uuid-2"))
+	})
+
+	now := time.Now().UTC()
+	harness.AddTest(c, func(c *tc.C) {
+		jobUUID, err := modelState.UnitScheduleRemoval(
+			c.Context(), "unit-job-uuid", "unit-uuid", true, now.Add(5*time.Minute),
+		)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(jobUUID, tc.Equals, "unit-job-uuid")
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.StringSliceAssert("unit-job-uuid"))
+	})
+
+	harness.AddTest(c, func(c *tc.C) {
+		jobUUID, err := modelState.UnitScheduleRemoval(
+			c.Context(), "duplicate-unit-job-uuid", "unit-uuid", true, now,
+		)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(jobUUID, tc.Equals, "unit-job-uuid")
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.StringSliceAssert("unit-job-uuid"))
+	})
+
+	harness.AddTest(c, func(c *tc.C) {
+		_, err := modelState.UnitScheduleRemoval(
+			c.Context(), "later-unit-job-uuid", "unit-uuid", true, now.Add(time.Minute),
+		)
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
 	})
 
 	harness.Run(c, []string(nil))
