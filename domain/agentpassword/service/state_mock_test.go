@@ -421,8 +421,10 @@ type MockMigrationStateMockRecorder struct {
 	mock                               *MockMigrationState
 	getAllMachinePasswordHashesExpects []*gomock.Call1_2[context.Context, agentpassword.MachinePasswordHashes, error]
 	getAllUnitPasswordHashesExpects    []*gomock.Call1_2[context.Context, agentpassword.UnitPasswordHashes, error]
+	getApplicationUUIDByNameExpects    []*gomock.Call2_2[context.Context, string, application.UUID, error]
 	getMachineUUIDExpects              []*gomock.Call2_2[context.Context, machine.Name, machine.UUID, error]
 	getUnitUUIDExpects                 []*gomock.Call2_2[context.Context, unit.Name, unit.UUID, error]
+	setApplicationPasswordHashExpects  []*gomock.Call3_1[context.Context, application.UUID, agentpassword.PasswordHash, error]
 	setMachinePasswordHashExpects      []*gomock.Call3_1[context.Context, machine.UUID, agentpassword.PasswordHash, error]
 	setUnitPasswordHashExpects         []*gomock.Call3_1[context.Context, unit.UUID, agentpassword.PasswordHash, error]
 }
@@ -475,6 +477,24 @@ func (mr *MockMigrationStateMockRecorder) GetAllUnitPasswordHashes(arg0 any) *Mo
 // MockMigrationStateGetAllUnitPasswordHashesCall is the typed call wrapper for GetAllUnitPasswordHashes.
 type MockMigrationStateGetAllUnitPasswordHashesCall = gomock.Call1_2[context.Context, agentpassword.UnitPasswordHashes, error]
 
+// GetApplicationUUIDByName mocks base method.
+func (m *MockMigrationState) GetApplicationUUIDByName(arg0 context.Context, arg1 string) (application.UUID, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getApplicationUUIDByNameExpects, m.ctrl, m, "GetApplicationUUIDByName", arg0, arg1)
+}
+
+// GetApplicationUUIDByName indicates an expected call of GetApplicationUUIDByName.
+func (mr *MockMigrationStateMockRecorder) GetApplicationUUIDByName(arg0, arg1 any) *MockMigrationStateGetApplicationUUIDByNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, application.UUID, error](mr.mock.ctrl.T, mr.mock, "GetApplicationUUIDByName", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.getApplicationUUIDByNameExpects = append(mr.getApplicationUUIDByNameExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockMigrationStateGetApplicationUUIDByNameCall is the typed call wrapper for GetApplicationUUIDByName.
+type MockMigrationStateGetApplicationUUIDByNameCall = gomock.Call2_2[context.Context, string, application.UUID, error]
+
 // GetMachineUUID mocks base method.
 func (m *MockMigrationState) GetMachineUUID(arg0 context.Context, arg1 machine.Name) (machine.UUID, error) {
 	m.ctrl.T.Helper()
@@ -510,6 +530,24 @@ func (mr *MockMigrationStateMockRecorder) GetUnitUUID(arg0, arg1 any) *MockMigra
 
 // MockMigrationStateGetUnitUUIDCall is the typed call wrapper for GetUnitUUID.
 type MockMigrationStateGetUnitUUIDCall = gomock.Call2_2[context.Context, unit.Name, unit.UUID, error]
+
+// SetApplicationPasswordHash mocks base method.
+func (m *MockMigrationState) SetApplicationPasswordHash(arg0 context.Context, arg1 application.UUID, arg2 agentpassword.PasswordHash) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.setApplicationPasswordHashExpects, m.ctrl, m, "SetApplicationPasswordHash", arg0, arg1, arg2)
+}
+
+// SetApplicationPasswordHash indicates an expected call of SetApplicationPasswordHash.
+func (mr *MockMigrationStateMockRecorder) SetApplicationPasswordHash(arg0, arg1, arg2 any) *MockMigrationStateSetApplicationPasswordHashCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[context.Context, application.UUID, agentpassword.PasswordHash, error](mr.mock.ctrl.T, mr.mock, "SetApplicationPasswordHash", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
+	mr.setApplicationPasswordHashExpects = append(mr.setApplicationPasswordHashExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockMigrationStateSetApplicationPasswordHashCall is the typed call wrapper for SetApplicationPasswordHash.
+type MockMigrationStateSetApplicationPasswordHashCall = gomock.Call3_1[context.Context, application.UUID, agentpassword.PasswordHash, error]
 
 // SetMachinePasswordHash mocks base method.
 func (m *MockMigrationState) SetMachinePasswordHash(arg0 context.Context, arg1 machine.UUID, arg2 agentpassword.PasswordHash) error {

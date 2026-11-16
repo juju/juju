@@ -27,9 +27,10 @@ type MockImportService struct {
 
 // MockImportServiceMockRecorder is the mock recorder for MockImportService.
 type MockImportServiceMockRecorder struct {
-	mock                          *MockImportService
-	setMachinePasswordHashExpects []*gomock.Call3_1[context.Context, machine.Name, agentpassword.PasswordHash, error]
-	setUnitPasswordHashExpects    []*gomock.Call3_1[context.Context, unit.Name, agentpassword.PasswordHash, error]
+	mock                              *MockImportService
+	setApplicationPasswordHashExpects []*gomock.Call3_1[context.Context, string, agentpassword.PasswordHash, error]
+	setMachinePasswordHashExpects     []*gomock.Call3_1[context.Context, machine.Name, agentpassword.PasswordHash, error]
+	setUnitPasswordHashExpects        []*gomock.Call3_1[context.Context, unit.Name, agentpassword.PasswordHash, error]
 }
 
 // NewMockImportService creates a new mock instance.
@@ -43,6 +44,24 @@ func NewMockImportService(ctrl *gomock.Controller) *MockImportService {
 func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 	return m.recorder
 }
+
+// SetApplicationPasswordHash mocks base method.
+func (m *MockImportService) SetApplicationPasswordHash(ctx context.Context, applicationName string, passwordHash agentpassword.PasswordHash) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.setApplicationPasswordHashExpects, m.ctrl, m, "SetApplicationPasswordHash", ctx, applicationName, passwordHash)
+}
+
+// SetApplicationPasswordHash indicates an expected call of SetApplicationPasswordHash.
+func (mr *MockImportServiceMockRecorder) SetApplicationPasswordHash(ctx, applicationName, passwordHash any) *MockImportServiceSetApplicationPasswordHashCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[context.Context, string, agentpassword.PasswordHash, error](mr.mock.ctrl.T, mr.mock, "SetApplicationPasswordHash", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(applicationName), gomock.EnsureMatcher(passwordHash))
+	mr.setApplicationPasswordHashExpects = append(mr.setApplicationPasswordHashExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockImportServiceSetApplicationPasswordHashCall is the typed call wrapper for SetApplicationPasswordHash.
+type MockImportServiceSetApplicationPasswordHashCall = gomock.Call3_1[context.Context, string, agentpassword.PasswordHash, error]
 
 // SetMachinePasswordHash mocks base method.
 func (m *MockImportService) SetMachinePasswordHash(ctx context.Context, machineName machine.Name, passwordHash agentpassword.PasswordHash) error {

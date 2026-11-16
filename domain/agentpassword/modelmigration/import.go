@@ -43,6 +43,9 @@ type ImportService interface {
 	SetUnitPasswordHash(ctx context.Context, unitName coreunit.Name, passwordHash agentpassword.PasswordHash) error
 	// SetMachinePasswordHash sets the password hash for the given machine.
 	SetMachinePasswordHash(ctx context.Context, machineName coremachine.Name, passwordHash agentpassword.PasswordHash) error
+	// SetApplicationPasswordHash sets the password hash for the given
+	// application.
+	SetApplicationPasswordHash(ctx context.Context, applicationName string, passwordHash agentpassword.PasswordHash) error
 }
 
 // Name returns the name of this operation.
@@ -61,6 +64,12 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 // Execute the import, adding the password hashes to the model.
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
 	for _, app := range model.Applications() {
+		if passwordHash := app.PasswordHash(); passwordHash != "" {
+			if err := i.service.SetApplicationPasswordHash(ctx, app.Name(), agentpassword.PasswordHash(passwordHash)); err != nil {
+				return errors.Errorf("setting password hash for application %q: %w", app.Name(), err)
+			}
+		}
+
 		for _, unit := range app.Units() {
 			passwordHash := unit.PasswordHash()
 			if passwordHash == "" {
