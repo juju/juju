@@ -61,7 +61,7 @@ func (s *jwtParserSuite) TestCacheRegistration(c *tc.C) {
 
 	resource, err := authenticator.cache.LookupResource(ctx, s.url)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(resource.MinInterval(), tc.Equals, 30*time.Second)
+	c.Check(resource.MinInterval(), tc.Equals, jwtRetryInterval)
 	c.Check(resource.MaxInterval(), tc.Equals, httprc.DefaultMaxInterval)
 }
 
@@ -78,13 +78,13 @@ func (s *jwtParserSuite) TestCacheRefreshIntervals(c *tc.C) {
 			name:             "connection failure",
 			requestError:     fmt.Errorf("endpoint unavailable"),
 			expectError:      true,
-			expectedInterval: 30 * time.Second,
+			expectedInterval: jwtRetryInterval,
 		},
 		{
 			name:             "http failure",
 			statusCode:       http.StatusInternalServerError,
 			expectError:      true,
-			expectedInterval: 30 * time.Second,
+			expectedInterval: jwtRetryInterval,
 		},
 		{
 			name:             "success",
