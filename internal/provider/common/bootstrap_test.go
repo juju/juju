@@ -6,10 +6,13 @@ package common_test
 import (
 	"context"
 	"crypto"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -30,6 +33,7 @@ import (
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
@@ -38,6 +42,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/provider/common"
+	internalrecovery "github.com/juju/juju/internal/recovery"
 	corestorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -803,6 +808,419 @@ func (s *BootstrapSuite) TestSuccess(c *tc.C) {
 		computedKnownHosts.String(),
 	)
 	c.Assert(strings.Split(hostKeyAlgos, ","), tc.SameContents, computedHostKeyAlgos)
+}
+
+// fakeSSHScript returns a bash script that stands in for the ssh
+// executable when testing the recovery archive upload. It simulates
+// the remote end faithfully: the command words following the host are
+// joined and executed as one line, the way the remote shell runs them,
+// and scripts piped in on stdin are executed after relocating /tmp to
+// root and dropping sudo. Staging, checksums, installation and cleanup
+// therefore all act on real files.
+//
+// Every invocation appends a tag to log, so tests can assert the order
+// the remote end saw them in. The mode alters the remote behaviour:
+//
+//   - "":              normal operation.
+//   - "fail-stream":   the archive streaming command reports
+//     diagnostics on stderr and fails.
+//   - "slow-stream":   the archive streaming command stalls before
+//     consuming stdin, so the bootstrap has to kill it.
+//   - "corrupt-stream": the staged archive is appended to after
+//     streaming, so the remote checksum diverges from the expected one.
+//   - "slow-cleanup":  the staging-directory removal stalls, so the
+//     bounded cleanup has to kill it.
+func fakeSSHScript(root, log, mode string) string {
+	return fmt.Sprintf(`#!/bin/bash --norc
+set -euo pipefail
+cmd=()
+found=0
+for arg in "$@"; do
+	if [[ $found -eq 0 ]]; then
+		if [[ "$arg" == ubuntu@* ]]; then
+			found=1
+		fi
+	else
+		cmd+=("$arg")
+	fi
+done
+if [[ ${#cmd[@]} -eq 0 || ( ${#cmd[@]} -eq 1 && "${cmd[0]}" == "/bin/bash" ) ]]; then
+	# The remote runs /bin/bash with the script piped in on stdin.
+	script="$(cat)"
+	case "$script" in
+	mktemp\ -d*)
+		echo mktemp >> %q
+		script="${script//\/tmp\//%q/}"
+		eval "$script"
+		;;
+	sha256sum*)
+		echo checksum >> %q
+		eval "$script"
+		;;
+	sudo\ install*)
+		echo install >> %q
+		eval "${script//sudo /}"
+		;;
+	rm\ -rf*)
+		echo cleanup >> %q
+		if [[ %q == slow-cleanup ]]; then
+			# exec so the stall is this very process: killing the
+			# ssh command kills the stall too.
+			exec sleep 30
+		fi
+		eval "$script"
+		;;
+	*)
+		echo "unexpected script: $script" >&2
+		exit 1
+		;;
+	esac
+else
+	echo stream >> %q
+	if [[ %q == fail-stream ]]; then
+		echo "cat: remote write error: no space left on device" >&2
+		exit 3
+	fi
+	if [[ %q == slow-stream ]]; then
+		# exec so the stall is this very process: killing the
+		# ssh command kills the stall too.
+		exec sleep 30
+	fi
+	eval "${cmd[*]}"
+	if [[ %q == corrupt-stream ]]; then
+		staged="${cmd[2]//\'/}"
+		echo CORRUPTION >> "$staged"
+	fi
+fi
+`, log, root, log, log, log, mode, log, mode, mode, mode)
+}
+
+// readInvocationLog returns the tags logged by the fake ssh executable,
+// in the order the remote end saw the invocations.
+func readInvocationLog(c *tc.C, path string) []string {
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	c.Assert(err, tc.ErrorIsNil)
+	log := strings.TrimSpace(string(data))
+	if log == "" {
+		return nil
+	}
+	return strings.Split(log, "\n")
+}
+
+// waitForLogTag blocks until the fake ssh log contains the given tag,
+// so tests can trigger events such as a cancellation at a known point
+// of the upload.
+func waitForLogTag(c *tc.C, path, tag string) {
+	deadline := time.Now().Add(coretesting.LongWait)
+	for !slices.Contains(readInvocationLog(c, path), tag) {
+		c.Assert(time.Now().Before(deadline), tc.IsTrue,
+			tc.Commentf("log never contained %q: %v", tag, readInvocationLog(c, path)))
+		time.Sleep(coretesting.ShortWait)
+	}
+}
+
+// readDirNames returns the names of the entries of dir.
+func readDirNames(c *tc.C, dir string) []string {
+	entries, err := os.ReadDir(dir)
+	c.Assert(err, tc.ErrorIsNil)
+	names := make([]string, len(entries))
+	for i, entry := range entries {
+		names[i] = entry.Name()
+	}
+	return names
+}
+
+// archiveDigest returns the SHA-256 digest of the file at path,
+// formatted the way the remote sha256sum reports it.
+func archiveDigest(c *tc.C, path string) string {
+	data, err := os.ReadFile(path)
+	c.Assert(err, tc.ErrorIsNil)
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
+}
+
+// makeRecoveryInstanceConfig returns an instance config describing a
+// recovery allocation whose archive is expected at archivePath.
+func makeRecoveryInstanceConfig(dataDir, archivePath, digest string) *instancecfg.InstanceConfig {
+	return &instancecfg.InstanceConfig{
+		DataDir: dataDir,
+		Bootstrap: &instancecfg.BootstrapConfig{
+			StateInitializationParams: instancecfg.StateInitializationParams{
+				RecoveryMode:          true,
+				RecoveryArchivePath:   archivePath,
+				RecoveryArchiveSHA256: digest,
+			},
+		},
+	}
+}
+
+func (s *BootstrapSuite) TestUploadRecoveryArchiveStreamsStagedBytes(c *tc.C) {
+	localArchive := filepath.Join(c.MkDir(), "backup.tar.gz")
+	payload := []byte("recovery archive payload")
+	c.Assert(os.WriteFile(localArchive, payload, 0o600), tc.ErrorIsNil)
+	digest := archiveDigest(c, localArchive)
+
+	remoteRoot := c.MkDir()
+	logPath := filepath.Join(c.MkDir(), "ssh.log")
+	testhelpers.PatchExecutable(c, s, "ssh", fakeSSHScript(remoteRoot, logPath, ""))
+	// The upload must stream over ssh stdin rather than fall back on
+	// scp, whose [user@]host:path operands cannot carry IPv6 literals;
+	// fail loudly if scp is ever invoked.
+	testhelpers.PatchExecutable(c, s, "scp",
+		"#!/bin/sh\necho scp must not be used >&2\nexit 1\n")
+
+	client, err := ssh.NewOpenSSHClient()
+	c.Assert(err, tc.ErrorIsNil)
+	dataDir := filepath.Join(remoteRoot, "var", "lib", "juju")
+	icfg := makeRecoveryInstanceConfig(dataDir, localArchive, "sha256-"+digest)
+	ctx := envtesting.BootstrapTestContext(c)
+
+	// An IPv6 host exercises the operand-free addressing: scp would
+	// misparse the colons in ubuntu@[IPv6]:path.
+	err = common.UploadRecoveryArchive(ctx, client, "2001:db8::1", icfg, &ssh.Options{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The installed archive must be the very bytes that were streamed.
+	installed, err := os.ReadFile(
+		filepath.Join(dataDir, internalrecovery.ArchiveFile))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(installed, tc.DeepEquals, payload)
+
+	// The staging area must not outlive the upload.
+	for _, entry := range readDirNames(c, remoteRoot) {
+		c.Check(strings.HasPrefix(entry, "juju-recovery"), tc.IsFalse)
+	}
+	c.Check(readInvocationLog(c, logPath), tc.DeepEquals,
+		[]string{"mktemp", "stream", "checksum", "install", "cleanup"})
+}
+
+func (s *BootstrapSuite) TestUploadRecoveryArchiveSkippedWithoutRecoveryConfig(c *tc.C) {
+	logPath := filepath.Join(c.MkDir(), "ssh.log")
+	remoteRoot := c.MkDir()
+	testhelpers.PatchExecutable(c, s, "ssh", fakeSSHScript(remoteRoot, logPath, ""))
+	client, err := ssh.NewOpenSSHClient()
+	c.Assert(err, tc.ErrorIsNil)
+	ctx := envtesting.BootstrapTestContext(c)
+
+	// No bootstrap config at all.
+	icfg := &instancecfg.InstanceConfig{DataDir: filepath.Join(c.MkDir(), "var", "lib", "juju")}
+	err = common.UploadRecoveryArchiveIfRequired(ctx, client, "10.134.1.133", icfg, &ssh.Options{})
+	c.Check(err, tc.ErrorIsNil)
+
+	// Recovery mode unset: an archive path alone must not trigger an upload.
+	icfg.Bootstrap = &instancecfg.BootstrapConfig{
+		StateInitializationParams: instancecfg.StateInitializationParams{
+			RecoveryArchivePath: filepath.Join(c.MkDir(), "backup.tar.gz"),
+		},
+	}
+	err = common.UploadRecoveryArchiveIfRequired(ctx, client, "10.134.1.133", icfg, &ssh.Options{})
+	c.Check(err, tc.ErrorIsNil)
+
+	// Recovery mode set but no archive to upload.
+	icfg.Bootstrap.RecoveryMode = true
+	icfg.Bootstrap.RecoveryArchivePath = ""
+	err = common.UploadRecoveryArchiveIfRequired(ctx, client, "10.134.1.133", icfg, &ssh.Options{})
+	c.Check(err, tc.ErrorIsNil)
+
+	c.Check(readInvocationLog(c, logPath), tc.HasLen, 0)
+}
+
+func (s *BootstrapSuite) TestUploadRecoveryArchiveRejectsCorruptedArchive(c *tc.C) {
+	localArchive := filepath.Join(c.MkDir(), "backup.tar.gz")
+	payload := []byte("recovery archive payload")
+	c.Assert(os.WriteFile(localArchive, payload, 0o600), tc.ErrorIsNil)
+	digest := archiveDigest(c, localArchive)
+	// The fake appends CORRUPTION plus a newline to the staged archive,
+	// so the remote checksum diverges from the sent bytes.
+	corrupted := sha256.Sum256(append(append([]byte{}, payload...), []byte("CORRUPTION\n")...))
+	corruptedDigest := hex.EncodeToString(corrupted[:])
+
+	remoteRoot := c.MkDir()
+	logPath := filepath.Join(c.MkDir(), "ssh.log")
+	testhelpers.PatchExecutable(c, s, "ssh", fakeSSHScript(remoteRoot, logPath, "corrupt-stream"))
+	client, err := ssh.NewOpenSSHClient()
+	c.Assert(err, tc.ErrorIsNil)
+	dataDir := filepath.Join(remoteRoot, "var", "lib", "juju")
+	icfg := makeRecoveryInstanceConfig(dataDir, localArchive, "sha256-"+digest)
+	ctx := envtesting.BootstrapTestContext(c)
+
+	err = common.UploadRecoveryArchive(ctx, client, "10.134.1.133", icfg, &ssh.Options{})
+	c.Check(err, tc.ErrorMatches,
+		fmt.Sprintf(`recovery archive checksum %q does not match expected %q`, corruptedDigest, digest))
+
+	// Nothing may be installed from a corrupted staging.
+	_, statErr := os.Stat(filepath.Join(dataDir, internalrecovery.ArchiveFile))
+	c.Check(os.IsNotExist(statErr), tc.IsTrue)
+	// The staging area is still cleaned up after the rejection.
+	c.Check(readInvocationLog(c, logPath), tc.DeepEquals,
+		[]string{"mktemp", "stream", "checksum", "cleanup"})
+}
+
+func (s *BootstrapSuite) TestUploadRecoveryArchiveReportsStreamDiagnostics(c *tc.C) {
+	localArchive := filepath.Join(c.MkDir(), "backup.tar.gz")
+	payload := []byte("recovery archive payload")
+	c.Assert(os.WriteFile(localArchive, payload, 0o600), tc.ErrorIsNil)
+
+	remoteRoot := c.MkDir()
+	logPath := filepath.Join(c.MkDir(), "ssh.log")
+	testhelpers.PatchExecutable(c, s, "ssh", fakeSSHScript(remoteRoot, logPath, "fail-stream"))
+	client, err := ssh.NewOpenSSHClient()
+	c.Assert(err, tc.ErrorIsNil)
+	dataDir := filepath.Join(remoteRoot, "var", "lib", "juju")
+	icfg := makeRecoveryInstanceConfig(dataDir, localArchive, "sha256-"+archiveDigest(c, localArchive))
+	ctx := envtesting.BootstrapTestContext(c)
+
+	err = common.UploadRecoveryArchive(ctx, client, "10.134.1.133", icfg, &ssh.Options{})
+	// The remote diagnostics kept on stderr must surface in the error,
+	// separate from the checksum stream.
+	c.Check(err, tc.ErrorMatches,
+		"streaming recovery archive: cat: remote write error: no space left on device.*")
+
+	_, statErr := os.Stat(filepath.Join(dataDir, internalrecovery.ArchiveFile))
+	c.Check(os.IsNotExist(statErr), tc.IsTrue)
+	c.Check(readInvocationLog(c, logPath), tc.DeepEquals,
+		[]string{"mktemp", "stream", "cleanup"})
+}
+
+func (s *BootstrapSuite) TestUploadRecoveryArchiveCancelReapsAndSkipsInstall(c *tc.C) {
+	localArchive := filepath.Join(c.MkDir(), "backup.tar.gz")
+	payload := []byte("recovery archive payload")
+	c.Assert(os.WriteFile(localArchive, payload, 0o600), tc.ErrorIsNil)
+	digest := archiveDigest(c, localArchive)
+
+	remoteRoot := c.MkDir()
+	logPath := filepath.Join(c.MkDir(), "ssh.log")
+	testhelpers.PatchExecutable(c, s, "ssh", fakeSSHScript(remoteRoot, logPath, "slow-stream"))
+	client, err := ssh.NewOpenSSHClient()
+	c.Assert(err, tc.ErrorIsNil)
+	dataDir := filepath.Join(remoteRoot, "var", "lib", "juju")
+	icfg := makeRecoveryInstanceConfig(dataDir, localArchive, "sha256-"+digest)
+
+	innerCtx, cancel := context.WithCancel(c.Context())
+	ctx := envtesting.BootstrapContext(innerCtx, c)
+
+	uploadDone := make(chan error, 1)
+	go func() {
+		uploadDone <- common.UploadRecoveryArchive(ctx, client, "10.134.1.133", icfg, &ssh.Options{})
+	}()
+
+	// Wait until the upload is stalled inside the streaming command,
+	// then interrupt the bootstrap.
+	waitForLogTag(c, logPath, "stream")
+	cancel()
+
+	select {
+	case err := <-uploadDone:
+		// The cancellation must be reported through the bootstrap's
+		// cancellation sentinel, and the killed ssh process must have
+		// been reaped on the way out.
+		c.Check(errors.Is(err, bootstrap.Cancelled()), tc.IsTrue)
+		// Neither the checksum nor the install may run after the
+		// interruption: a cancelled upload leaves nothing behind for
+		// the setup to pick up.
+		_, statErr := os.Stat(filepath.Join(dataDir, internalrecovery.ArchiveFile))
+		c.Check(os.IsNotExist(statErr), tc.IsTrue)
+		// The staging cleanup still runs, independently of the
+		// cancelled context.
+		c.Check(readInvocationLog(c, logPath), tc.DeepEquals,
+			[]string{"mktemp", "stream", "cleanup"})
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("upload did not return after cancellation")
+	}
+}
+
+func (s *BootstrapSuite) TestUploadRecoveryArchiveCleanupIsBounded(c *tc.C) {
+	localArchive := filepath.Join(c.MkDir(), "backup.tar.gz")
+	payload := []byte("recovery archive payload")
+	c.Assert(os.WriteFile(localArchive, payload, 0o600), tc.ErrorIsNil)
+	digest := archiveDigest(c, localArchive)
+
+	remoteRoot := c.MkDir()
+	logPath := filepath.Join(c.MkDir(), "ssh.log")
+	testhelpers.PatchExecutable(c, s, "ssh", fakeSSHScript(remoteRoot, logPath, "slow-cleanup"))
+	// The bound must be long enough for the cleanup command to reach its
+	// stall under load, yet far below the stall itself.
+	s.PatchValue(common.RecoveryCleanupTimeout, 2*time.Second)
+	client, err := ssh.NewOpenSSHClient()
+	c.Assert(err, tc.ErrorIsNil)
+	dataDir := filepath.Join(remoteRoot, "var", "lib", "juju")
+	icfg := makeRecoveryInstanceConfig(dataDir, localArchive, "sha256-"+digest)
+	ctx := envtesting.BootstrapTestContext(c)
+
+	uploadDone := make(chan error, 1)
+	go func() {
+		uploadDone <- common.UploadRecoveryArchive(ctx, client, "10.134.1.133", icfg, &ssh.Options{})
+	}()
+
+	select {
+	case err := <-uploadDone:
+		// The upload itself succeeds; the stalled cleanup is killed
+		// once it overruns its bound and only reported verbosely.
+		c.Check(err, tc.ErrorIsNil)
+		installed, err := os.ReadFile(
+			filepath.Join(dataDir, internalrecovery.ArchiveFile))
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(installed, tc.DeepEquals, payload)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("upload did not return while cleanup was stalled")
+	}
+	c.Check(readInvocationLog(c, logPath), tc.DeepEquals,
+		[]string{"mktemp", "stream", "checksum", "install", "cleanup"})
+}
+
+func (s *BootstrapSuite) TestConfigureMachineUploadsRecoveryArchiveBeforeSetup(c *tc.C) {
+	localArchive := filepath.Join(c.MkDir(), "backup.tar.gz")
+	payload := []byte("recovery archive payload")
+	c.Assert(os.WriteFile(localArchive, payload, 0o600), tc.ErrorIsNil)
+	digest := archiveDigest(c, localArchive)
+
+	remoteRoot := c.MkDir()
+	logPath := filepath.Join(c.MkDir(), "ssh.log")
+	testhelpers.PatchExecutable(c, s, "ssh", fakeSSHScript(remoteRoot, logPath, ""))
+	client, err := ssh.NewOpenSSHClient()
+	c.Assert(err, tc.ErrorIsNil)
+	dataDir := filepath.Join(remoteRoot, "var", "lib", "juju")
+	icfg := makeRecoveryInstanceConfig(dataDir, localArchive, "sha256-"+digest)
+	icfg.Base = corebase.Base{OS: corebase.UbuntuOS}
+	ctx := envtesting.BootstrapTestContext(c)
+
+	// ConfigureMachine is the shared provisioning boundary: provider
+	// allocated and unmanaged machines both pass through it. The
+	// skeletal instance config cannot pass machine validation, but the
+	// archive must already have been uploaded by then.
+	err = common.ConfigureMachine(ctx, client, "10.134.1.133", icfg, &ssh.Options{})
+	c.Check(err, tc.ErrorMatches, "invalid machine configuration: .*")
+	c.Check(readInvocationLog(c, logPath), tc.DeepEquals,
+		[]string{"mktemp", "stream", "checksum", "install", "cleanup"})
+}
+
+func (s *BootstrapSuite) TestConfigureMachineSkipsSetupWhenCancelled(c *tc.C) {
+	localArchive := filepath.Join(c.MkDir(), "backup.tar.gz")
+	payload := []byte("recovery archive payload")
+	c.Assert(os.WriteFile(localArchive, payload, 0o600), tc.ErrorIsNil)
+	digest := archiveDigest(c, localArchive)
+
+	remoteRoot := c.MkDir()
+	logPath := filepath.Join(c.MkDir(), "ssh.log")
+	testhelpers.PatchExecutable(c, s, "ssh", fakeSSHScript(remoteRoot, logPath, ""))
+	client, err := ssh.NewOpenSSHClient()
+	c.Assert(err, tc.ErrorIsNil)
+	dataDir := filepath.Join(remoteRoot, "var", "lib", "juju")
+	icfg := makeRecoveryInstanceConfig(dataDir, localArchive, "sha256-"+digest)
+	icfg.Base = corebase.Base{OS: corebase.UbuntuOS}
+
+	innerCtx, cancel := context.WithCancel(c.Context())
+	cancel()
+	ctx := envtesting.BootstrapContext(innerCtx, c)
+
+	// An interrupted bootstrap must not upload, install or configure
+	// anything on the machine.
+	err = common.ConfigureMachine(ctx, client, "10.134.1.133", icfg, &ssh.Options{})
+	c.Check(errors.Is(err, bootstrap.Cancelled()), tc.IsTrue)
+	c.Check(readInvocationLog(c, logPath), tc.HasLen, 0)
 }
 
 func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *tc.C) {

@@ -59,6 +59,7 @@ const (
 func provisionRecovery(
 	ctx *cmd.Context,
 	store jujuclient.ClientStore,
+	archivePath string,
 	info *recovery.ArchiveInfo,
 ) error {
 	// The replacement runs this client's own agent binary when no packaged
@@ -70,14 +71,15 @@ func provisionRecovery(
 	if jujucloud.CloudTypeIsCAAS(info.CloudType) {
 		return provisionK8sRecovery(ctx, store, info)
 	}
-	return provisionMachineRecovery(ctx, store, info)
+	return provisionMachineRecovery(ctx, store, archivePath, info)
 }
 
-// provisionMachineRecovery prepares and starts a replacement controller
-// machine from the recovery archive.
+// provisionMachineRecovery starts a replacement controller machine, uploads
+// the archive and initialises the replacement Dqlite database.
 func provisionMachineRecovery(
 	ctx *cmd.Context,
 	store jujuclient.ClientStore,
+	archivePath string,
 	info *recovery.ArchiveInfo,
 ) error {
 	params, err := recoveryParamsFromArchive(info)
@@ -123,13 +125,16 @@ func provisionMachineRecovery(
 		RetryDelay:     recoveryDialRetryDelay,
 		AddressesDelay: recoveryDialAddressesDelay,
 	}
+	params.ArchivePath = archivePath
+	params.ArchiveSHA256 = info.Checksum
+	params.SystemIdentity = info.SystemIdentity
 	params.BuildAgentTarball = sync.BuildAgentTarball
 
 	started, err := bootstrap.RecoverMachine(allocation.ctx, allocation.environ, params)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	return recoveryImportUnavailable("on instance " + string(started))
+	return recoveryImportUnavailable("initialised replacement database on instance " + string(started))
 }
 
 // provisionK8sRecovery prepares and starts a replacement controller pod in
@@ -165,16 +170,12 @@ func provisionK8sRecovery(
 	if err != nil {
 		return errors.Capture(err)
 	}
-	return recoveryImportUnavailable("in namespace " + namespace)
+	return recoveryImportUnavailable("started replacement agent in namespace " + namespace)
 }
 
-// recoveryImportUnavailable reports the started replacement agent and that
-// state import is left to a later recovery stage.
-func recoveryImportUnavailable(target string) error {
-	return errors.Errorf(
-		"controller recovery database import is not available in this build; started replacement agent %s",
-		target,
-	)
+// recoveryImportUnavailable reports how far the replacement got before import.
+func recoveryImportUnavailable(progress string) error {
+	return errors.Errorf("controller recovery database import is not available in this build; %s", progress)
 }
 
 // recoveryAllocation is the replacement environment opened for allocation,

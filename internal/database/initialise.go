@@ -21,8 +21,8 @@ type initialisationApp interface {
 	// cancelled.
 	Ready(context.Context) error
 
-	// Open opens the named database. The caller owns the returned handle and
-	// must close it before closing the application.
+	// Open opens the named database. The session owns the returned handle
+	// and closes it before closing the application.
 	Open(context.Context, string) (*sql.DB, error)
 
 	// ID returns the physical Dqlite node ID of the application.

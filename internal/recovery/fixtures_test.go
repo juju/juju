@@ -76,6 +76,7 @@ func controllerDump(models ...[3]string) string {
 		"    api_port: \"17070\"\n" +
 		"    ca_cert: source-ca-cert\n" +
 		"    ca_private_key: source-ca-key\n" +
+		"    system_identity: source-system-identity\n" +
 		"  cloud:\n" +
 		"  - uuid: cloud-lxd\n    name: lxd\n    cloud_type_id: 1\n    endpoint: ''\n    skip_tls_verify: false\n" +
 		"  - uuid: cloud-k8s\n    name: myk8s\n    cloud_type_id: 2\n    endpoint: ''\n    skip_tls_verify: false\n" +
@@ -172,7 +173,8 @@ func validControllerRow() string {
 	return "  - uuid: " + testControllerUUID + "\n" +
 		"    model_uuid: " + testControllerModelUUID + "\n" +
 		"    ca_cert: source-ca-cert\n" +
-		"    ca_private_key: source-ca-key\n"
+		"    ca_private_key: source-ca-key\n" +
+		"    system_identity: source-system-identity\n"
 }
 
 // validCloudRows renders the standard cloud table: lxd and kubernetes.
@@ -330,6 +332,7 @@ func provisioningControllerDump() string {
 		"    api_port: \"17171\"\n" +
 		"    ca_cert: source-ca-cert\n" +
 		"    ca_private_key: source-ca-key\n" +
+		"    system_identity: source-system-identity\n" +
 		"  controller_ssh_server_port:\n" +
 		"  - port: 17172\n" +
 		"  cloud:\n" +

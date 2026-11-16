@@ -255,6 +255,15 @@ func buildArchiveInfo(ctx context.Context, logger corelogger.Logger, meta *coreb
 	info.ModelConstraints = controllerModel.ModelConstraints
 	info.ControllerConstraints = controllerModel.ControllerConstraints
 	info.StoragePools = controllerModel.StoragePools
+	// Kubernetes agents do not necessarily have a machine SSH identity;
+	// every supported machine-controller backup does.
+	if info.CloudType != "kubernetes" &&
+		(controllerRow.SystemIdentity == nil || *controllerRow.SystemIdentity == "") {
+		return nil, errors.Errorf("%s records no controller SSH identity", controllerDumpPath)
+	}
+	if controllerRow.SystemIdentity != nil {
+		info.SystemIdentity = *controllerRow.SystemIdentity
+	}
 	return info, nil
 }
 

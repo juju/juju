@@ -51,6 +51,7 @@ func (s *validateSuite) TestValidateArchive(c *tc.C) {
 	c.Check(info.HANodes, tc.Equals, int64(3))
 	c.Check(info.CACert, tc.Equals, "source-ca-cert")
 	c.Check(info.CAPrivateKey, tc.Equals, "source-ca-key")
+	c.Check(info.SystemIdentity, tc.Equals, "source-system-identity")
 	c.Check(info.CloudName, tc.Equals, "lxd")
 	c.Check(info.CloudType, tc.Equals, "lxd")
 	c.Check(info.Checksum, tc.Equals, sum)
@@ -465,6 +466,38 @@ func (s *validateSuite) TestValidateArchiveMissingCAMaterial(c *tc.C) {
 	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorMatches,
 		"juju-backup/dump/controller.yaml records no controller CA material")
+}
+
+func (s *validateSuite) TestValidateArchiveMissingSystemIdentity(c *tc.C) {
+	for _, replacement := range []string{"", `    system_identity: ""` + "\n"} {
+		files := validFiles()
+		files["juju-backup/dump/controller.yaml"] = []byte(strings.Replace(
+			controllerDump(
+				modelRow(testControllerModelUUID, "controller", "cloud-lxd"),
+				modelRow(testModelAUUID, "workload-a", "cloud-lxd"),
+				modelRow(testModelBUUID, "workload-b", "cloud-lxd"),
+			),
+			"    system_identity: source-system-identity\n", replacement, 1))
+		path, sum := writeArchive(c, files)
+
+		_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
+		c.Check(err, tc.ErrorMatches,
+			"juju-backup/dump/controller.yaml records no controller SSH identity")
+	}
+}
+
+func (s *validateSuite) TestValidateArchiveAllowsMissingKubernetesSystemIdentity(c *tc.C) {
+	files := k8sFiles("payload: {}\n")
+	controller := strings.Replace(
+		string(files["juju-backup/dump/controller.yaml"]),
+		"uuid: "+testControllerModelUUID+"\n    name: controller\n    cloud_uuid: cloud-lxd\n    model_type_id: 0",
+		"uuid: "+testControllerModelUUID+"\n    name: controller\n    cloud_uuid: cloud-k8s\n    model_type_id: 1", 1)
+	files["juju-backup/dump/controller.yaml"] = []byte(strings.Replace(
+		controller, "    system_identity: source-system-identity\n", "", 1))
+	path, sum := writeArchive(c, files)
+
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *validateSuite) TestValidateArchiveControllerModelUUIDMismatch(c *tc.C) {

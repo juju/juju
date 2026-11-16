@@ -69,6 +69,9 @@ var (
 	supportedJujuBases = append(coretesting.FakeSupportedJujuBases,
 		corebase.MustParseBaseFromString("ubuntu@18.04"),
 	)
+	recoveryArchivePath    = "/tmp/recovery.tar.gz"
+	recoveryArchiveSHA256  = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	recoverySystemIdentity = "source-system-identity"
 )
 
 type bootstrapSuite struct {
@@ -446,6 +449,9 @@ func validMachineRecoveryParams(archivedVersion semversion.Number) bootstrap.Mac
 		MachineID:                  "7",
 		CAPrivateKey:               coretesting.CAKey,
 		AdminSecret:                "fake-moon-landing",
+		ArchivePath:                recoveryArchivePath,
+		ArchiveSHA256:              recoveryArchiveSHA256,
+		SystemIdentity:             recoverySystemIdentity,
 		AvailableTools:             recoveryTools(archivedVersion, arch.AMD64),
 		BootstrapSSHAuthorizedKeys: []string{"ssh-ed25519 AAAA"},
 	}
@@ -503,6 +509,12 @@ func (s *bootstrapSuite) TestBootstrapRecoveryMachine(c *tc.C) {
 	params := validMachineRecoveryParams(archivedVersion)
 	params.Arch = arch.ARM64
 	params.AvailableTools = recoveryTools(archivedVersion, arch.ARM64)
+	params.BuildAgentTarball = func(
+		bool, string, func(semversion.Number) semversion.Number,
+	) (*sync.BuiltAgent, error) {
+		c.Fatalf("local agent build ran during recovery")
+		return nil, errors.New("agent build attempted")
+	}
 	env.result.Arch = arch.ARM64
 	id, err := bootstrap.RecoverMachine(ctx, env, params)
 	c.Assert(err, tc.ErrorIsNil)
@@ -532,6 +544,9 @@ func (s *bootstrapSuite) TestBootstrapRecoveryMachine(c *tc.C) {
 	c.Check(env.instanceConfig.Bootstrap.StateInitializationParams.AgentVersion,
 		tc.Equals, archivedVersion)
 	c.Check(env.instanceConfig.Bootstrap.StateInitializationParams.RecoveryMode, tc.IsTrue)
+	c.Check(env.instanceConfig.Bootstrap.ControllerAgentInfo.SystemIdentity, tc.Equals, recoverySystemIdentity)
+	c.Check(env.instanceConfig.Bootstrap.RecoveryArchivePath, tc.Equals, recoveryArchivePath)
+	c.Check(env.instanceConfig.Bootstrap.RecoveryArchiveSHA256, tc.Equals, recoveryArchiveSHA256)
 }
 
 // TestBootstrapRecoveryMachineDiscoversPackagedTools checks that when
@@ -1015,6 +1030,14 @@ func (s *bootstrapSuite) TestBootstrapRecoveryMachineInvalidParams(c *tc.C) {
 		name:   "no agent version",
 		mutate: func(p *bootstrap.MachineRecoveryParams) { p.AgentVersion = semversion.Number{} },
 		err:    ".*recovery without an agent version not valid",
+	}, {
+		name:   "no archive path",
+		mutate: func(p *bootstrap.MachineRecoveryParams) { p.ArchivePath = "" },
+		err:    ".*recovery without an archive path not valid",
+	}, {
+		name:   "no archive checksum",
+		mutate: func(p *bootstrap.MachineRecoveryParams) { p.ArchiveSHA256 = "" },
+		err:    ".*recovery without an archive checksum not valid",
 	}, {
 		name:   "no base",
 		mutate: func(p *bootstrap.MachineRecoveryParams) { p.BootstrapBase = corebase.Base{} },

@@ -402,8 +402,18 @@ type StateInitializationParams struct {
 
 	// RecoveryMode marks a controller allocated from a recovery archive. Agent
 	// setup then runs recover-state and writes the recovery marker instead of
-	// running a fresh bootstrap.
+	// running a fresh bootstrap. It initialises Dqlite but does not import state.
 	RecoveryMode bool
+
+	// RecoveryArchivePath is the local path of the verified recovery
+	// archive, uploaded to the replacement instance before its setup runs.
+	// It is transient and never serialised.
+	RecoveryArchivePath string
+
+	// RecoveryArchiveSHA256 is the expected SHA-256 digest of the recovery
+	// archive, verified again on the replacement instance. It is transient
+	// and never serialised.
+	RecoveryArchiveSHA256 string
 }
 
 type stateInitializationParamsInternal struct {

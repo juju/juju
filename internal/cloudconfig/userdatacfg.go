@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
+	internalrecovery "github.com/juju/juju/internal/recovery"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 )
@@ -504,12 +505,23 @@ func (w *userdataConfig) configureBootstrap() error {
 	}
 	if w.icfg.Bootstrap.RecoveryMode {
 		// The marker must exist before jujuagentd machine starts so its
-		// dependency engine waits for the recovery import. The archived
-		// machine identity only applies to recovery too: bootstrap-state
-		// defines no --machine-id flag.
-		agentStartOptions.MachineID = w.icfg.MachineId
-		w.conf.AddRunCmd(RecoveryMarkerCommand(
-			shquote(path.Join(w.icfg.DataDir, agent.RecoveryParamsFile))))
+		// dependency engine waits for the recovery import.
+		paramsPath := path.Join(w.icfg.DataDir, agent.RecoveryParamsFile)
+		if w.icfg.Bootstrap.RecoveryArchivePath == "" {
+			w.conf.AddRunCmd(RecoveryMarkerCommand(shquote(paramsPath)))
+		} else {
+			paramsData, err := internalrecovery.Params{
+				ArchivePath:  path.Join(w.icfg.DataDir, internalrecovery.ArchiveFile),
+				SHA256:       w.icfg.Bootstrap.RecoveryArchiveSHA256,
+				AgentVersion: w.icfg.Bootstrap.AgentVersion,
+				MachineName:  w.icfg.MachineId,
+				Node:         w.icfg.Bootstrap.StateInitializationParams,
+			}.Marshal()
+			if err != nil {
+				return errors.Annotate(err, "marshalling recovery params")
+			}
+			w.conf.AddRunTextFile(paramsPath, string(paramsData), 0600)
+		}
 	}
 	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Installing Juju machine agent"))
 	w.conf.AddScripts(AgentStartCommand(agentStartOptions))

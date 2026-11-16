@@ -97,6 +97,11 @@ type ArchiveInfo struct {
 	CACert       string
 	CAPrivateKey string
 
+	// SystemIdentity is the source controller agent's private SSH identity,
+	// preserved so the replacement can reach surviving agents with the same
+	// identity the archive recorded.
+	SystemIdentity string
+
 	// HANodes is the number of controller nodes the source had. Recovery
 	// always produces a single-node replacement; values above one mean
 	// the remaining controller machines load as dead rows.

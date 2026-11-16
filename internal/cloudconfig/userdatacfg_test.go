@@ -833,6 +833,26 @@ postruncmd:
 	c.Assert(err, tc.ErrorMatches, `invalid postruncmd: .* got list containing float64`)
 }
 
+func (s *cloudinitSuite) TestCloudInitConfigureRecoveryBootstrapWithArchive(c *tc.C) {
+	const checksum = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	envConfig := minimalModelConfig(c)
+	instConfig := makeBootstrapConfig(jammy, 0).maybeSetModelConfig(envConfig)
+	instConfig.Bootstrap.RecoveryMode = true
+	instConfig.Bootstrap.RecoveryArchivePath = "/tmp/archive.tar.gz"
+	instConfig.Bootstrap.RecoveryArchiveSHA256 = checksum
+	instConfig.setMachineID("7")
+	instConfig.APIInfo.Tag = nil
+
+	scripts := bootstrapConfigScriptsForConfig(c, instConfig)
+	params := getStateInitializationParams(c, scripts)
+	c.Check(params.RecoveryMode, tc.IsTrue)
+	assertScriptMatch(c, scripts, "archive-path: /var/lib/juju/recovery/archive.tar.gz", false)
+	assertScriptMatch(c, scripts, "sha256: "+checksum, false)
+	assertScriptMatch(c, scripts, `machine-name: "7"`, false)
+	assertScriptMatch(c, scripts, `node-config: .*recovery-mode: true`, false)
+	assertScriptMatch(c, scripts, `jujuagentd recover-state .* --show-log$`, false)
+}
+
 func (s *cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *tc.C) {
 	scripts := s.bootstrapConfigScripts(c)
 	expected := "jujuagentd bootstrap-state .* --show-log"
@@ -866,9 +886,9 @@ func (s *cloudinitSuite) TestCloudInitConfigureRecoveryBootstrap(c *tc.C) {
 	// agent service starts only after it. bootstrap-state must never run:
 	// it would initialise fresh state on the replacement.
 	assertScriptMatch(c, scripts, `install -D -m 600 /dev/null '/var/lib/juju/recovery/params'
-jujuagentd recover-state --data-dir '/var/lib/juju' --show-log --machine-id 7$
+jujuagentd recover-state --data-dir '/var/lib/juju' --show-log$
 jujuagentd-machine-7`, false)
-	// recover-state performs no timed work, so it gets no --timeout flag.
+	// Recovery does not inherit the fresh bootstrap timeout.
 	c.Check(strings.Contains(strings.Join(scripts, "\n"), "--timeout"), tc.IsFalse)
 	c.Check(strings.Contains(strings.Join(scripts, "\n"), "bootstrap-state"), tc.IsFalse)
 	c.Check(scripts, tc.Not(tc.Contains),

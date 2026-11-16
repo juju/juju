@@ -4,7 +4,13 @@
 package unmanaged
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"io"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/juju/errors"
@@ -16,6 +22,8 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
+	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
@@ -270,4 +278,131 @@ func (s *controllerInstancesSuite) TestControllerInstancesInternal(c *tc.C) {
 	instances, err := s.env.ControllerInstances(c.Context(), "not-used")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(instances, tc.DeepEquals, []instance.Id{BootstrapInstanceId})
+}
+
+// fakeSSHScript returns a bash script standing in for the ssh
+// executable. It simulates the remote end the way the recovery archive
+// upload exercises it: command words following the host are joined and
+// executed as one line, the way the remote shell runs them, and scripts
+// piped in on stdin are executed after relocating /tmp to root and
+// dropping sudo. Every invocation appends a tag to log, in order.
+func fakeSSHScript(root, log string) string {
+	return fmt.Sprintf(`#!/bin/bash --norc
+set -euo pipefail
+cmd=()
+found=0
+for arg in "$@"; do
+	if [[ $found -eq 0 ]]; then
+		if [[ "$arg" == ubuntu@* ]]; then
+			found=1
+		fi
+	else
+		cmd+=("$arg")
+	fi
+done
+if [[ ${#cmd[@]} -eq 0 || ( ${#cmd[@]} -eq 1 && "${cmd[0]}" == "/bin/bash" ) ]]; then
+	# The remote runs /bin/bash with the script piped in on stdin.
+	script="$(cat)"
+	case "$script" in
+	mktemp\ -d*)
+		echo mktemp >> %q
+		script="${script//\/tmp\//%q/}"
+		eval "$script"
+		;;
+	sha256sum*)
+		echo checksum >> %q
+		eval "$script"
+		;;
+	sudo\ install*)
+		echo install >> %q
+		eval "${script//sudo /}"
+		;;
+	rm\ -rf*)
+		echo cleanup >> %q
+		eval "$script"
+		;;
+	*)
+		echo "unexpected script: $script" >&2
+		exit 1
+		;;
+	esac
+else
+	echo stream >> %q
+	eval "${cmd[*]}"
+fi
+`, log, root, log, log, log, log)
+}
+
+// readInvocationLog returns the tags logged by the fake ssh executable,
+// in the order the remote end saw the invocations.
+func readInvocationLog(c *tc.C, path string) []string {
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	c.Assert(err, tc.ErrorIsNil)
+	log := strings.TrimSpace(string(data))
+	if log == "" {
+		return nil
+	}
+	return strings.Split(log, "\n")
+}
+
+// TestBootstrapFinaliserUploadsRecoveryArchive ensures the unmanaged
+// bootstrap path streams the recovery archive onto the target machine
+// before its setup runs: unmanaged machines are provisioned through
+// common.ConfigureMachine, the same shared boundary as provider
+// allocated ones.
+func (s *environSuite) TestBootstrapFinaliserUploadsRecoveryArchive(c *tc.C) {
+	s.PatchValue(&sshprovisioner.CheckProvisioned,
+		func(string, string) (bool, error) { return false, nil })
+	s.PatchValue(&initUbuntuUser,
+		func(string, string, string, string, io.Reader, io.Writer) error { return nil })
+	amd64 := arch.AMD64
+	ubuntuBase := base.MustParseBaseFromString("ubuntu@24.04")
+	s.PatchValue(&sshprovisioner.DetectBaseAndHardwareCharacteristics,
+		func(string, string) (instance.HardwareCharacteristics, base.Base, error) {
+			return instance.HardwareCharacteristics{Arch: &amd64}, ubuntuBase, nil
+		})
+
+	// The ssh executable is replaced with a faithful simulation of the
+	// remote end, so the archive is really staged, checksummed and
+	// installed on real files.
+	localArchive := filepath.Join(c.MkDir(), "backup.tar.gz")
+	payload := []byte("recovery archive payload")
+	c.Assert(os.WriteFile(localArchive, payload, 0o600), tc.ErrorIsNil)
+	digest := sha256.Sum256(payload)
+
+	remoteRoot := c.MkDir()
+	logPath := filepath.Join(c.MkDir(), "ssh.log")
+	testhelpers.PatchExecutable(c, s, "ssh", fakeSSHScript(remoteRoot, logPath))
+
+	ctx := envtesting.BootstrapTestContext(c)
+	result, err := s.env.Bootstrap(ctx, environs.BootstrapParams{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	icfg, err := instancecfg.NewBootstrapInstanceConfig(
+		coretesting.FakeControllerConfig(), constraints.Value{}, constraints.Value{},
+		ubuntuBase, "", nil,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	icfg.DataDir = filepath.Join(remoteRoot, "var", "lib", "juju")
+	icfg.Bootstrap.RecoveryMode = true
+	icfg.Bootstrap.RecoveryArchivePath = localArchive
+	icfg.Bootstrap.RecoveryArchiveSHA256 = "sha256-" + hex.EncodeToString(digest[:])
+
+	// The instance config is deliberately not fully populated: the
+	// finaliser must upload the archive first and only then fail while
+	// generating the machine setup.
+	err = result.CloudBootstrapFinalizer(ctx, icfg, environs.BootstrapDialOpts{})
+	c.Check(err, tc.ErrorMatches, "invalid machine configuration: .*")
+
+	c.Check(readInvocationLog(c, logPath), tc.DeepEquals,
+		[]string{"mktemp", "stream", "checksum", "install", "cleanup"})
+	// The archive the machine setup would find is the one that was
+	// streamed, byte for byte.
+	installed, err := os.ReadFile(
+		filepath.Join(icfg.DataDir, "recovery", "archive.tar.gz"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(installed, tc.DeepEquals, payload)
 }

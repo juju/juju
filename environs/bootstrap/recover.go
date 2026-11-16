@@ -48,30 +48,32 @@ type MachineRecoveryParams struct {
 	// jujuagentd binary via BuildAgentTarball.
 	AvailableTools coretools.List
 
-	// BuildAgentTarball packages the local jujuagentd binary when no packaged
-	// tools match AgentVersion. It is called with build=false so official
-	// snap/package installs copy the shipped binary instead of trying to
-	// compile from source.
+	// ArchivePath is the local path of the verified recovery archive.
+	ArchivePath string
+
+	// ArchiveSHA256 is the archive digest, verified on the replacement.
+	ArchiveSHA256 string
+
+	// SystemIdentity is the archived controller's private SSH identity.
+	SystemIdentity string
+
+	// BuildAgentTarball packages the local binary without building from source
+	// when no packaged tools match the archived version.
 	BuildAgentTarball sync.BuildAgentTarballFunc
 
-	// CAPrivateKey is the archived CA private key used to mint the
-	// replacement controller certificate.
+	// CAPrivateKey is the archived CA key used for the replacement certificate.
 	CAPrivateKey string
 
-	// AdminSecret is the administrator password used until state import
-	// reconciles it.
+	// AdminSecret is used until state import reconciles it.
 	AdminSecret string
 
-	// CloudCredentialName is the name of the cloud credential used to
-	// allocate the replacement.
+	// CloudCredentialName identifies the credential used for allocation.
 	CloudCredentialName string
 
-	// BootstrapSSHAuthorizedKeys are installed on the replacement instance so
-	// bootstrap configuration can connect to it.
+	// BootstrapSSHAuthorizedKeys are installed on the replacement.
 	BootstrapSSHAuthorizedKeys []string
 
-	// DialOpts controls the connection to the replacement instance during
-	// bootstrap configuration.
+	// DialOpts controls the connection during bootstrap configuration.
 	DialOpts environs.BootstrapDialOpts
 }
 
@@ -82,6 +84,12 @@ func (p MachineRecoveryParams) Validate() error {
 	}
 	if err := validateCommonRecoveryParams(p.AllocationParams, p.AgentVersion); err != nil {
 		return err
+	}
+	if p.ArchivePath == "" {
+		return errors.Errorf("recovery without an archive path %w", coreerrors.NotValid)
+	}
+	if p.ArchiveSHA256 == "" {
+		return errors.Errorf("recovery without an archive checksum %w", coreerrors.NotValid)
 	}
 	if p.BootstrapBase.Empty() {
 		return errors.Errorf("recovery without a controller base %w", coreerrors.NotValid)
@@ -207,11 +215,10 @@ func validateCommonRecoveryParams(p AllocationParams, agentVersion semversion.Nu
 	return nil
 }
 
-// RecoverMachine allocates a replacement machine controller instance from a
-// recovery archive through the allocation stages shared with Bootstrap,
-// preserving the archived agent version and base, installs and starts its
-// agent, and stops before importing state. A fresh controller bootstrap is
-// done by Bootstrap.
+// RecoverMachine allocates a replacement machine controller through the stages
+// shared with Bootstrap, preserving the archived identity, agent version and
+// base. It uploads and verifies the archive, then starts the agent to initialise
+// Dqlite with the replacement controller-node row. It does not import state.
 //
 // RecoverMachine returns the replacement instance ID whenever the provider
 // reports a successful allocation, even if a later check fails. In that case
@@ -293,6 +300,9 @@ func RecoverMachine(
 			instanceConfig.MachineAgentServiceName = jujunames.JujuAgentd + "-" +
 				names.NewMachineTag(args.MachineID).String()
 			instanceConfig.Bootstrap.StateInitializationParams.RecoveryMode = true
+			instanceConfig.Bootstrap.ControllerAgentInfo.SystemIdentity = args.SystemIdentity
+			instanceConfig.Bootstrap.RecoveryArchivePath = args.ArchivePath
+			instanceConfig.Bootstrap.RecoveryArchiveSHA256 = args.ArchiveSHA256
 			err = result.CloudBootstrapFinalizer(ctx, instanceConfig, args.DialOpts)
 		}
 	}
