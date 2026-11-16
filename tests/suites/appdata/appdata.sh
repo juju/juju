@@ -92,6 +92,10 @@ EOF
 		exit 1
 	fi
 
+	# The reset must run config-changed, which blocks the charm again
+	# because it no longer has a token.
+	wait_for "blocked" "$(workload_status appdata-source 1).current"
+
 	destroy_model "appdata-basic"
 }
 

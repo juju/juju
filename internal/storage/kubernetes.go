@@ -3,6 +3,70 @@
 
 package storage
 
+import (
+	"strings"
+)
+
+// storagePoolNameMaxLength mirrors the maximum length of a Juju storage
+// pool name, [domain/storage.StoragePoolNameMaxLength]. The value cannot
+// be imported directly (the domain package depends on this one) and is
+// pinned by test to fail loudly on drift.
+const storagePoolNameMaxLength = 128
+
+// Kubernetes models are seeded with one storage pool per Kubernetes
+// storage provider, named after the provider. The values cannot be
+// imported directly (the provider constants package depends on this
+// one) and are pinned by test to fail loudly on drift.
+const (
+	// kubernetesPoolName is the name of the pool seeded for the
+	// Kubernetes storage provider.
+	kubernetesPoolName = "kubernetes"
+
+	// rootfsPoolName is the name of the pool seeded for the rootfs
+	// storage provider.
+	rootfsPoolName = "rootfs"
+
+	// tmpfsPoolName is the name of the pool seeded for the tmpfs
+	// storage provider.
+	tmpfsPoolName = "tmpfs"
+)
+
+// PoolNameForStorageClass derives a valid Juju storage pool name from a
+// Kubernetes storage class name. Kubernetes class names allow dots,
+// leading digits and lengths beyond the Juju pool name limit, so only
+// the derived name is affected: the storage-class attribute of the pool
+// always records the class name verbatim.
+//
+// Names that would collide with one of the pools seeded in every
+// Kubernetes model are prefixed, so the derived pool never shadows a
+// seeded one. An empty string is returned if the class name is empty.
+func PoolNameForStorageClass(className string) string {
+	if className == "" {
+		return ""
+	}
+	poolName := strings.Map(func(r rune) rune {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' ||
+			r >= '0' && r <= '9' || r == '-' {
+			return r
+		}
+		return '-'
+	}, className)
+	poolName = strings.Trim(poolName, "-")
+	if poolName == "" || poolName[0] >= '0' && poolName[0] <= '9' {
+		poolName = "k8s-" + poolName
+	}
+	if len(poolName) > storagePoolNameMaxLength {
+		poolName = poolName[:storagePoolNameMaxLength]
+	}
+	poolName = strings.TrimRight(poolName, "-")
+	if poolName == kubernetesPoolName ||
+		poolName == rootfsPoolName ||
+		poolName == tmpfsPoolName {
+		poolName = "k8s-" + poolName
+	}
+	return poolName
+}
+
 // KubernetesFilesystemParams is a fully specified set of parameters for filesystem creation,
 // derived from one or more of user-specified storage directives, a
 // storage pool definition, and charm storage metadata.

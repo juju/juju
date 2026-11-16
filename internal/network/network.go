@@ -21,11 +21,11 @@ var logger = internallogger.GetLogger("juju.network")
 // UnknownId can be used whenever an Id is needed but not known.
 const UnknownId = ""
 
-// DefaultLXDBridge is the bridge that gets used for LXD containers
-const DefaultLXDBridge = "lxdbr0"
+// DefaultLXDBridge is an alias for corenetwork.DefaultLXDBridge.
+const DefaultLXDBridge = corenetwork.DefaultLXDBridge
 
-// DefaultDockerBridge is the bridge that is set up by Docker.
-const DefaultDockerBridge = "docker0"
+// DefaultDockerBridge is an alias for corenetwork.DefaultDockerBridge.
+const DefaultDockerBridge = corenetwork.DefaultDockerBridge
 
 // AddressesForInterfaceName returns the addresses in string form for the
 // given interface name. It's exported to facilitate cross-package testing.

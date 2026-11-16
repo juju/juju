@@ -224,6 +224,10 @@ Bootstrap configuration keys:
     ssh-server-host-key:
       type: string
       description: Sets the bootstrapped controller's SSH server host key
+    workload-storage:
+      type: string
+      description: A 3.x Kubernetes cloud attribute, removed in Juju 4.0 and accepted
+        only so existing cloud definitions remain valid; the value is ignored.
     
 
 Controller configuration keys:

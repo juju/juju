@@ -20,8 +20,7 @@ clouds:
       <region-name>:
         endpoint: <endpoint>       # Region-specific endpoint (if different)
     config:                        # Optional: model config defaults
-      operator-storage: <class>    # Storage class for operator storage
-      workload-storage: <class>    # Storage class for workload storage
+      storage-default-filesystem-source: <pool>  # Default filesystem source pool (schedule the pool at bootstrap)
     ca-certificates:               # Optional: cluster CA certificates
       - <base64-cert>              # Base64-encoded x.509 certificates
 ```

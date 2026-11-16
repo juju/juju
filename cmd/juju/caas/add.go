@@ -90,9 +90,10 @@ Region is strictly necessary only when adding a Kubernetes cluster to a JAAS con
 When using a standalone Juju controller, usually just ` + "`--cloud` " + `is required.
 
 Once Juju is aware of the underlying cloud type, it looks for a suitably
-configured storage class to provide workload storage. If none is found, use of
-the ` + "`--storage` " + `option is required so that Juju will select (or create if not
-already present) a storage class with the specified name.
+configured storage class to provide workload storage. A cluster where none is
+found is still added, with a warning: the storage class is nominated at
+bootstrap time, by scheduling a Kubernetes storage pool and setting the
+` + "`storage-default-filesystem-source` " + `model configuration to that pool.
 
 If the cluster does not have a storage provisioning capability, use the
 ` + "`--skip-storage` " + `option to add the cluster without any workload storage configured.
@@ -109,7 +110,6 @@ When your kubeconfig file is in the default location:
     juju add-k8s myk8scloud --region cloudNameOrCloudType/someregion
     juju add-k8s myk8scloud --cloud cloudNameOrCloudType
     juju add-k8s myk8scloud --cloud cloudNameOrCloudType --region=someregion
-    juju add-k8s myk8scloud --cloud cloudNameOrCloudType --storage mystorageclass
 
 To add a Kubernetes cloud using data from your kubeconfig file, when this file is not in the default location:
 
@@ -159,9 +159,6 @@ type AddCAASCommand struct {
 
 	// givenHostCloudRegion holds a copy of cloud name/type and/or region as supplied by the user via options.
 	givenHostCloudRegion string
-
-	// workloadStorage is a storage class specified by the user.
-	workloadStorage string
 
 	// skipStorage is used to signal that we don't need to configure storage provisioning.
 	skipStorage bool
@@ -237,7 +234,6 @@ func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.contextName, "context-name", "", "Specify the Kubernetes context to import")
 	f.StringVar(&c.hostCloudRegion, "region", "", "Specify the Kubernetes cluster region or cloud/region")
 	f.StringVar(&c.hostCloud, "cloud", "", "Specify the Kubernetes cluster cloud")
-	f.StringVar(&c.workloadStorage, "storage", "", "Specify the Kubernetes storage class for workload storage")
 	f.BoolVar(&c.skipStorage, "skip-storage", false, "Skip storage provisioning for clusters that don't have storage")
 	f.StringVar(&c.credential, "credential", "", "Specify the credential to use when accessing the cluster")
 	// TODO(k8s) - support k8s tooling in strict snap
@@ -440,18 +436,11 @@ func (c *AddCAASCommand) getAKSKubeConfig(ctx *cmd.Context) (io.Reader, string, 
 }
 
 var clusterQueryErrMsg = `
-	Juju needs to query the k8s cluster to ensure that the recommended
-	storage defaults are available and to detect the cluster's cloud/region.
-	This was not possible in this case so run add-k8s again, using
-	--storage=<name> to specify the storage class to use and
+	Juju needs to query the k8s cluster to detect the cluster's
+	cloud/region and any recommended storage defaults. This was not
+	possible in this case so run add-k8s again, and
 	%s.
 `[1:]
-
-var noRecommendedStorageError = errors.New(`
-	No recommended storage configuration is defined on this cluster.
-	Run add-k8s again with --storage=<name> and Juju will use the
-	specified storage class.
-`[1:])
 
 // Run is defined on the Command interface.
 func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
@@ -547,14 +536,12 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	if !c.skipStorage {
 		storageParams := k8sprovider.KubeCloudStorageParams{
-			WorkloadStorage:        c.workloadStorage,
 			HostCloudRegion:        c.hostCloudRegion,
 			MetadataChecker:        broker,
 			GetClusterMetadataFunc: c.getClusterMetadataFunc(ctx),
 		}
 
 		var err error
-		var preferredStorageErr *environs.PreferredStorageNotFound
 		newCloud, err = k8sprovider.UpdateKubeCloudWithStorage(newCloud, storageParams)
 		if err != nil {
 			if k8sprovider.IsClusterQueryError(err) {
@@ -567,10 +554,20 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 				}
 				return errors.Annotatef(err, clusterQueryErrMsg, cloudArg)
 			}
-			if errors.As(err, &preferredStorageErr) {
-				return noRecommendedStorageError
+			var notFoundPreferred *environs.PreferredStorageNotFound
+			if !errors.As(err, &notFoundPreferred) {
+				return errors.Trace(err)
 			}
-			return errors.Trace(err)
+			// The cluster has no storage class to recommend. The cloud is
+			// still added, with the updates made before the failure (such
+			// as the detected cloud/region) preserved: bootstrap either
+			// discovers a class later, or fails with instructions for
+			// nominating one.
+			logger.Warningf(ctx,
+				"no recommended storage class found on the cluster; %q was added without storage configuration."+
+					" At bootstrap, either ensure the cluster has a default storage class, or nominate one with"+
+					" --storage-pool name=<pool> --storage-pool type=kubernetes --storage-pool storage-class=<class> and"+
+					" --config storage-default-filesystem-source=<pool>", c.caasName)
 		}
 	}
 
@@ -620,10 +617,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		clusterName = fmt.Sprintf("%q ", clusterName)
 	}
 	storageMsg := " with no configured storage provisioning capability"
-	if !c.skipStorage && c.workloadStorage != "" {
-		storageMsg = fmt.Sprintf(` with storage provisioned
-by the existing %q storage class`, c.workloadStorage)
-	} else if !c.skipStorage && c.workloadStorage == "" {
+	if !c.skipStorage {
 		storageMsg = ""
 	}
 
@@ -838,7 +832,7 @@ func (c *AddCAASCommand) getClusterMetadataFunc(ctx *cmd.Context) k8sprovider.Ge
 		result := make(chan *k8s.ClusterMetadata, 1)
 		errChan := make(chan error, 1)
 		go func() {
-			clusterMetadata, err := storageParams.MetadataChecker.GetClusterMetadata(ctx, storageParams.WorkloadStorage)
+			clusterMetadata, err := storageParams.MetadataChecker.GetClusterMetadata(ctx, "")
 			if err != nil {
 				errChan <- err
 			} else {

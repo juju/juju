@@ -1597,6 +1597,55 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		storagePools[poolName] = storagePoolAttrs
 	}
 
+	// The "workload-storage" Kubernetes cloud attribute and its
+	// --config override were removed in Juju 4.0: workload storage is
+	// nominated by scheduling a storage pool for the controller model
+	// and setting the storage-default-filesystem-source model config.
+	// The key remains accepted (and bootstrap-only) so existing cloud
+	// definitions do not leak into model config, but warn so users can
+	// migrate to the supported mechanism.
+	if cloud.Type == jujucloud.CloudTypeKubernetes {
+		// The origins are checked in decreasing order of precedence --
+		// command line, cloud, then region -- and the first one carrying a
+		// key names it, once.
+		origins := []struct {
+			description string
+			attrs       map[string]any
+		}{
+			{"the --config workload-storage attribute", userConfigAttrs},
+			{fmt.Sprintf("cloud %q", cloud.Name), cloud.Config},
+			{fmt.Sprintf("region %q of cloud %q", c.Region, cloud.Name), cloud.RegionConfig[c.Region]},
+		}
+		for _, origin := range origins {
+			if source, ok := origin.attrs[bootstrap.WorkloadStorageKey].(string); ok && source != "" {
+				logger.Warningf(context.TODO(),
+					"ignoring workload-storage=%q set by %s: the key was removed in Juju 4.0."+
+						" Nominate workload storage by scheduling a storage pool and making it the"+
+						" default filesystem source, e.g."+
+						" --storage-pool name=<pool> --storage-pool type=kubernetes"+
+						" --storage-pool storage-class=<class>"+
+						" --config storage-default-filesystem-source=<pool>",
+					source, origin.description)
+				break
+			}
+		}
+		for _, origin := range origins {
+			if source, ok := origin.attrs[bootstrap.OperatorStorageKey].(string); ok && source != "" {
+				logger.Warningf(context.TODO(),
+					"ignoring operator-storage=%q set by %s: the key was removed in Juju 4.0 with"+
+						" podspec charms and no longer affects storage provisioning."+
+						" Nominate storage for the controller's persistent volume claim and charm"+
+						" storage by scheduling a storage pool and making it the default filesystem"+
+						" source, e.g."+
+						" --storage-pool name=<pool> --storage-pool type=kubernetes"+
+						" --storage-pool storage-class=<class>"+
+						" --config storage-default-filesystem-source=<pool>",
+					source, origin.description)
+				break
+			}
+		}
+	}
+
 	bootstrapConfigAttrs := make(map[string]any)
 	controllerConfigAttrs := make(map[string]any)
 	// Based on the attribute names in clouds.yaml, create

@@ -17,7 +17,9 @@ test_deploy_aks() {
 	resource_group_name="juju-test-aks-resource-group-$(rnd_str)"
 	az group create -l eastus -n "${resource_group_name}"
 	az aks create -g "${resource_group_name}" -n aks-cluster --generate-ssh-keys
-	juju add-k8s --aks --client --resource-group "${resource_group_name}" --storage test-aks-storage --cluster-name aks-cluster aks-k8s-cloud
+	# The storage class is no longer nominated at add-k8s time: AKS clusters
+	# ship a default storage class, which discovery resolves.
+	juju add-k8s --aks --client --resource-group "${resource_group_name}" --cluster-name aks-cluster aks-k8s-cloud
 
 	export BOOTSTRAP_PROVIDER=k8s
 	bootstrap_custom_controller "test-deploy-aks" "aks-k8s-cloud"

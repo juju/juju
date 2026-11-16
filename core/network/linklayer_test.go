@@ -51,6 +51,46 @@ func (s *linkLayerSuite) TestIsValidLinkLayerDeviceTypeInvalid(c *tc.C) {
 	c.Check(result, tc.IsFalse)
 }
 
+func (s *linkLayerSuite) TestIsHostLocalBridge(c *tc.C) {
+	// Literals are used rather than the constants, so that a change to
+	// either constant is caught here.
+	c.Check(IsHostLocalBridge("lxdbr0"), tc.IsTrue)
+	c.Check(IsHostLocalBridge("docker0"), tc.IsTrue)
+
+	for _, name := range []string{
+		// Empty or whitespace only.
+		"",
+		" ",
+		// Other devices.
+		"eth0",
+		"br-eth0",
+		"virbr0",
+		// Prefix and suffix near-misses.
+		"lxdbr",
+		"lxdbr1",
+		"docker",
+		"docker1",
+		"lxdbr0docker0",
+		// VLAN and alias forms.
+		"lxdbr0.100",
+		"lxdbr0:1",
+		"docker0.10",
+		// Device names are case-sensitive.
+		"LXDBR0",
+		"Docker0",
+		// Surrounding whitespace.
+		" lxdbr0",
+		"lxdbr0 ",
+		"lxdbr0\n",
+		"\tdocker0",
+		// Combined or NUL-terminated.
+		"lxdbr0,docker0",
+		"lxdbr0\x00",
+	} {
+		c.Check(IsHostLocalBridge(name), tc.IsFalse, tc.Commentf("name %q", name))
+	}
+}
+
 var validUnixDeviceNames = []string{"eth0", "eno1", "br-eth0.123", "tun:1", "bond0.42"}
 
 func (s *linkLayerSuite) TestIsValidLinkLayerDeviceNameValidNamesLinux(c *tc.C) {

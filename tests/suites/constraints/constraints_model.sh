@@ -7,7 +7,11 @@ run_constraints_model_bootstrap() {
 		log_file="${TEST_DIR}/bootstrap.log"
 
 		bootstrap_additional_args=(--constraints "mem=1024M")
-		BOOTSTRAP_ADDITIONAL_ARGS="${bootstrap_additional_args[*]}" \
+		# The default public-cloud bootstrap sizing would override the model
+		# constraints on machine 0 (bootstrap constraints take precedence),
+		# so disable it for this bootstrap.
+		PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS="" \
+			BOOTSTRAP_ADDITIONAL_ARGS="${bootstrap_additional_args[*]}" \
 			BOOTSTRAP_REUSE=false \
 			bootstrap "model-constraints" "$log_file"
 

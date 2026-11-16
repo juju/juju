@@ -365,7 +365,7 @@ not_completed AS (
 UPDATE operation
 SET    completed_at = $taskUUIDTime.time
 WHERE  operation.uuid = (SELECT operation_uuid FROM task)
-AND    operation.uuid NOT IN not_completed
+AND    operation.uuid NOT IN (SELECT nc.uuid FROM not_completed AS nc)
 `, status{}, taskUUIDTime{})
 	if err != nil {
 		return errors.Errorf("preparing maybe complete operation statement: %w", err)

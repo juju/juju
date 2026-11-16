@@ -80,20 +80,13 @@ run_deploy_ck() {
 run_deploy_caas_workload() {
 	echo
 
-	local name k8s_cloud_name model_name file storage controller_name
+	local name k8s_cloud_name model_name file controller_name
 
 	name="deploy-caas-workload"
 	k8s_cloud_name="k8s-cloud"
 
 	case "${BOOTSTRAP_PROVIDER:-}" in
-	"ec2")
-		storage="csi-aws-ebs-default"
-		;;
-	"gce")
-		storage="gce-pd-csi-driver"
-		;;
-	"azure")
-		storage="csi-azure-default"
+	"ec2" | "gce" | "azure")
 		;;
 	*)
 		echo "Unexpected bootstrap provider (${BOOTSTRAP_PROVIDER})."
@@ -104,8 +97,11 @@ run_deploy_caas_workload() {
 	model_name="test-${name}"
 	file="${TEST_DIR}/${model_name}.log"
 
+	# The storage class is no longer nominated at add-k8s time: the model's
+	# charm storage resolves through the cluster's storage classes when the
+	# model is created.
 	controller_name=$(juju controllers --format json | yq -r 'select(.controllers) | .controllers | keys[0]')
-	juju add-k8s "${k8s_cloud_name}" --storage "${storage}" --controller "${controller_name}" 2>&1 | OUTPUT "${file}"
+	juju add-k8s "${k8s_cloud_name}" --controller "${controller_name}" 2>&1 | OUTPUT "${file}"
 
 	juju_add_model "${model_name}" "${k8s_cloud_name}" "${controller_name}" "${file}"
 

@@ -22,7 +22,6 @@ juju add-k8s [options] <k8s name>
 | `--credential` |  | Specify the credential to use when accessing the cluster |
 | `--region` |  | Specify the Kubernetes cluster region or cloud/region |
 | `--skip-storage` | false | Skip storage provisioning for clusters that don't have storage |
-| `--storage` |  | Specify the Kubernetes storage class for workload storage |
 
 ## Examples
 
@@ -35,7 +34,6 @@ When your kubeconfig file is in the default location:
     juju add-k8s myk8scloud --region cloudNameOrCloudType/someregion
     juju add-k8s myk8scloud --cloud cloudNameOrCloudType
     juju add-k8s myk8scloud --cloud cloudNameOrCloudType --region=someregion
-    juju add-k8s myk8scloud --cloud cloudNameOrCloudType --storage mystorageclass
 
 To add a Kubernetes cloud using data from your kubeconfig file, when this file is not in the default location:
 
@@ -72,9 +70,10 @@ Region is strictly necessary only when adding a Kubernetes cluster to a JAAS con
 When using a standalone Juju controller, usually just `--cloud` is required.
 
 Once Juju is aware of the underlying cloud type, it looks for a suitably
-configured storage class to provide workload storage. If none is found, use of
-the `--storage` option is required so that Juju will select (or create if not
-already present) a storage class with the specified name.
+configured storage class to provide workload storage. A cluster where none is
+found is still added, with a warning: the storage class is nominated at
+bootstrap time, by scheduling a Kubernetes storage pool and setting the
+`storage-default-filesystem-source` model configuration to that pool.
 
 If the cluster does not have a storage provisioning capability, use the
 `--skip-storage` option to add the cluster without any workload storage configured.

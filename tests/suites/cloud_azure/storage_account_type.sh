@@ -11,19 +11,20 @@ check_storage_account_type_controller() {
 		cloud_region="${cloud}"
 	fi
 
-	bs_cmd=(juju bootstrap "${cloud_region}" "${controller_name}" --show-log)
+	bs_cmd=(juju bootstrap "${cloud_region}" "${controller_name}" --show-log
+		--bootstrap-constraints="${PUBLIC_CLOUD_BOOTSTRAP_CONSTRAINTS}")
 	if [[ -n ${constraints} ]]; then
 		# Split raw flag into string and append each element to bs_cmd.
 		read -r -a constraint_args <<<"$constraints"
 		bs_cmd+=("${constraint_args[@]}")
 	fi
 
+	# Keep track even if bootstrap fails after provisioning the VM.
+	echo "${controller_name}" >>"${TEST_DIR}/jujus"
 	if ! "${bs_cmd[@]}" >>"${file}" 2>&1; then
 		echo "Bootstrap failed for ${controller_name}"
 		return 1
 	fi
-	# This will clean up the controller later.
-	echo "${controller_name}" >>"${TEST_DIR}/jujus"
 
 	juju add-model test
 

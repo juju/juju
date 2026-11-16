@@ -147,6 +147,13 @@ type localConsumerWorker struct {
 	// consume the remote application to which this worker pertains.
 	offerMacaroon *macaroon.Macaroon
 
+	// relationMacaroons retains the macaroon and consuming application UUID
+	// recorded when each relation was registered. The child relation workers
+	// can disappear before the parent observes that the relation was removed,
+	// so the parent must retain the credential needed to notify the offering
+	// model.
+	relationMacaroons map[corerelation.UUID]relationMacaroonInfo
+
 	consumerRelationUnitChanges chan consumerunitrelations.RelationUnitChange
 	offererRelationUnitChanges  chan offererunitrelations.RelationUnitChange
 	offererRelationChanges      chan offererrelations.RelationChange
@@ -160,6 +167,14 @@ type localConsumerWorker struct {
 
 	clock  clock.Clock
 	logger logger.Logger
+}
+
+// relationMacaroonInfo records what a relation was registered with, so the
+// parent worker can notify the offering model of a removal even after the
+// child relation workers have stopped.
+type relationMacaroonInfo struct {
+	macaroon                 *macaroon.Macaroon
+	consumingApplicationUUID application.UUID
 }
 
 // NewLocalConsumerWorker creates a new local consumer worker.
@@ -192,6 +207,7 @@ func NewLocalConsumerWorker(config LocalConsumerWorkerConfig) (ReportableWorker,
 		offererModelUUID:  config.OffererModelUUID,
 		consumeVersion:    config.ConsumeVersion,
 		offerMacaroon:     config.Macaroon,
+		relationMacaroons: make(map[corerelation.UUID]relationMacaroonInfo),
 
 		remoteRelationClientGetter: config.RemoteRelationClientGetter,
 
@@ -531,6 +547,11 @@ func (w *localConsumerWorker) handleRelationNotFound(ctx context.Context, relati
 		return errors.Annotatef(err, "notifying offering model of removed relation %q", relationUUID)
 	}
 
+	// The relation is confirmed gone from the local model, so the credential
+	// is no longer needed. If the fallback notification ran, it already
+	// deleted this entry itself.
+	delete(w.relationMacaroons, relationUUID)
+
 	return w.handleRelationRemoved(ctx, relationUUID, 0)
 }
 
@@ -600,12 +621,13 @@ func (w *localConsumerWorker) publishRelationDyingChange(
 func (w *localConsumerWorker) publishRelationDyingForRemovedRelation(ctx context.Context, relationUUID corerelation.UUID) error {
 	offererUnitWorker, err := w.runner.Worker(offererUnitRelationWorkerName(relationUUID), ctx.Done())
 	if errors.Is(err, errors.NotFound) {
-		// If the worker doesn't exist, then it either hasn't been created yet,
-		// or has already been removed, in either case, we can skip sending the
-		// notification.
+		// The worker has already been removed, or was never created. Fall back
+		// to the macaroon retained by the parent when the relation was
+		// registered, so that the offering model is still told to clean up.
+		w.publishRelationDyingWithCachedMacaroon(ctx, relationUUID)
 		return nil
 	} else if err != nil {
-		return errors.Annotatef(err, "stopping offerer unit relation worker for %q", relationUUID)
+		return errors.Annotatef(err, "getting offerer unit relation worker for %q", relationUUID)
 	}
 
 	type offererWorkerDetails interface {
@@ -624,6 +646,27 @@ func (w *localConsumerWorker) publishRelationDyingForRemovedRelation(ctx context
 	)
 
 	return nil
+}
+
+// publishRelationDyingWithCachedMacaroon notifies the offering model that a
+// locally removed relation must be cleaned up, using the macaroon and
+// consuming application UUID retained by the parent when the relation was
+// registered.
+func (w *localConsumerWorker) publishRelationDyingWithCachedMacaroon(ctx context.Context, relationUUID corerelation.UUID) {
+	info, ok := w.relationMacaroons[relationUUID]
+	if !ok {
+		w.logger.Debugf(ctx, "no cached macaroon for removed relation %q", relationUUID)
+		return
+	}
+	delete(w.relationMacaroons, relationUUID)
+
+	w.publishRelationDyingChange(
+		info.consumingApplicationUUID,
+		relationUUID,
+		info.macaroon,
+		"relation %q removed locally, notifying offering model",
+		"removal",
+	)
 }
 
 // publishRelationDyingWithMacaroon sends a ForceCleanup notification to the
@@ -738,6 +781,10 @@ func (w *localConsumerWorker) handleRelationConsumption(
 	}
 
 	w.logger.Debugf(ctx, "consumer relation registered for %q: %v", details.UUID, result)
+	w.relationMacaroons[details.UUID] = relationMacaroonInfo{
+		macaroon:                 result.macaroon,
+		consumingApplicationUUID: consumingApplicationUUID,
+	}
 
 	// Start the remote relation worker to watch for offerer relation changes.
 	// The aim is to ensure that we can track the suspended status of the

@@ -780,6 +780,35 @@ func (s *watcherSuite) TestWatchApplicationConfigHash(c *tc.C) {
 		w.Check(watchertest.StringSliceAssert(hash))
 	})
 
+	// Assert that removing a config key triggers the watcher.
+	harness.AddTest(c, func(c *tc.C) {
+		err := svc.UnsetApplicationConfigKeys(ctx, appUUID, []string{"foo"})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		hash := s.getApplicationConfigHash(c, db, appUUID)
+		w.Check(watchertest.StringSliceAssert(hash))
+	})
+
+	// Assert that setting the removed value again triggers the watcher.
+	harness.AddTest(c, func(c *tc.C) {
+		err := svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
+			"foo": "blah",
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		hash := s.getApplicationConfigHash(c, db, appUUID)
+		w.Check(watchertest.StringSliceAssert(hash))
+	})
+
+	// Assert that removing the trust setting triggers the watcher.
+	harness.AddTest(c, func(c *tc.C) {
+		err := svc.UnsetApplicationConfigKeys(ctx, appUUID, []string{"trust"})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		hash := s.getApplicationConfigHash(c, db, appUUID)
+		w.Check(watchertest.StringSliceAssert(hash))
+	})
+
 	// Assert that nothing changes if nothing happens.
 	harness.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
