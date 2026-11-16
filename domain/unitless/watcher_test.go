@@ -22,6 +22,13 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
+type charmKind int
+
+const (
+	regularCharm charmKind = iota
+	virtualCharm
+)
+
 type watcherSuite struct {
 	changestreamtesting.ModelSuite
 }
@@ -31,8 +38,8 @@ func TestWatcherSuite(t *testing.T) {
 }
 
 func (s *watcherSuite) TestWatchScriptletApplications(c *tc.C) {
-	scriptletCharmID := s.insertCharm(c, true)
-	regularCharmID := s.insertCharm(c, false)
+	scriptletCharmID := s.insertCharm(c, virtualCharm)
+	regularCharmID := s.insertCharm(c, regularCharm)
 
 	st := unitlessstate.NewState(s.TxnRunnerFactory())
 	factory := domain.NewWatcherFactory(
@@ -71,7 +78,7 @@ func (s *watcherSuite) TestWatchScriptletApplications(c *tc.C) {
 }
 
 func (s *watcherSuite) TestWatchScriptletApplicationDying(c *tc.C) {
-	charmID := s.insertCharm(c, true)
+	charmID := s.insertCharm(c, virtualCharm)
 	applicationID := tc.Must(c, coreapplication.NewUUID)
 	s.insertApplication(c, applicationID, charmID)
 
@@ -93,14 +100,14 @@ func (s *watcherSuite) TestWatchScriptletApplicationDying(c *tc.C) {
 	harness.Run(c, struct{}{})
 }
 
-func (s *watcherSuite) insertCharm(c *tc.C, scriptlet bool) corecharm.ID {
+func (s *watcherSuite) insertCharm(c *tc.C, kind charmKind) corecharm.ID {
 	charmID := tc.Must(c, corecharm.NewID)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO charm (uuid, reference_name, architecture_id)
 VALUES (?, ?, 0);
 `, charmID.String(), charmID.String())
-		if err != nil || !scriptlet {
+		if err != nil || kind == regularCharm {
 			return err
 		}
 		_, err = tx.ExecContext(ctx, `
