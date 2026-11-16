@@ -37,6 +37,12 @@ func (s *controllerSuite) TestExportDecodeLoadRoundTrip(c *tc.C) {
 	execSQL(c, s.DB(), `INSERT INTO controller_ssh_server_port VALUES (8022)`)
 	seedBlob(c, s.DB(), "0")
 	execSQL(c, s.DB(), `INSERT INTO controller_node_password (controller_id, password_hash) VALUES ('0', 'source')`)
+	execSQL(c, s.DB(), `INSERT INTO flag (name, value, description) VALUES
+('roundtrip-null', NULL, ''), ('roundtrip-false', FALSE, ''), ('roundtrip-true', TRUE, '')`)
+	execSQL(c, s.DB(), `INSERT INTO model_migration_redirect (model_uuid, source_migration_uuid,
+target_controller_uuid, target_addresses, target_ca_cert, created_at, completed_at)
+VALUES ('roundtrip-null', 'migration', 'target', '', '', '2026-01-01 00:00:00', NULL),
+       ('roundtrip-set', 'migration', 'target', '', '', '2026-01-01 00:00:00', '2026-01-02 03:04:05')`)
 	exporter := exportcontroller.NewState(s.TxnRunnerFactory())
 	before, err := exporter.Export(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -47,6 +53,8 @@ func (s *controllerSuite) TestExportDecodeLoadRoundTrip(c *tc.C) {
 	execSQL(c, s.DB(), `DELETE FROM macaroon_root_key`)
 	execSQL(c, s.DB(), `DELETE FROM controller_ssh_server_port`)
 	execSQL(c, s.DB(), `UPDATE controller_node_password SET password_hash = 'target'`)
+	execSQL(c, s.DB(), `DELETE FROM flag WHERE name LIKE 'roundtrip-%'`)
+	execSQL(c, s.DB(), `DELETE FROM model_migration_redirect WHERE model_uuid LIKE 'roundtrip-%'`)
 	// Direct callers cannot override the exclusion policy through Present.
 	dump.Present["controller_node_password"] = true
 	dump.Present["schema"] = true
@@ -60,6 +68,26 @@ func (s *controllerSuite) TestExportDecodeLoadRoundTrip(c *tc.C) {
 	c.Check(after.ControllerNode, tc.DeepEquals, before.ControllerNode)
 	c.Check(after.ObjectStoreMetadata, tc.DeepEquals, before.ObjectStoreMetadata)
 	c.Check(after.ObjectStorePlacement, tc.DeepEquals, before.ObjectStorePlacement)
+	c.Check(after.Flag, tc.SameContents, before.Flag)
+	c.Check(after.ModelMigrationRedirect, tc.SameContents, before.ModelMigrationRedirect)
+	for _, test := range []struct {
+		name   string
+		isNull bool
+		value  bool
+	}{
+		{"roundtrip-null", true, false},
+		{"roundtrip-false", false, false},
+		{"roundtrip-true", false, true},
+	} {
+		var isNull, value bool
+		err := s.DB().QueryRowContext(c.Context(),
+			`SELECT value IS NULL, COALESCE(value, FALSE) FROM flag WHERE name = ?`, test.name).Scan(&isNull, &value)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(isNull, tc.Equals, test.isNull, tc.Commentf("%s", test.name))
+		c.Check(value, tc.Equals, test.value, tc.Commentf("%s", test.name))
+	}
+	checkString(c, s.DB(), `SELECT typeof(completed_at) FROM model_migration_redirect WHERE model_uuid = 'roundtrip-null'`, "null")
+	checkString(c, s.DB(), `SELECT strftime('%Y-%m-%d %H:%M:%S', completed_at) FROM model_migration_redirect WHERE model_uuid = 'roundtrip-set'`, "2026-01-02 03:04:05")
 	checkString(c, s.DB(), `SELECT password_hash FROM controller_node_password WHERE controller_id = '0'`, "target")
 	checkPlacement(c, s.DB(), "0")
 	// Consumers bind the key ID as bytes, so restoring it as TEXT would make
