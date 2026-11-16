@@ -94,16 +94,30 @@ func innerListen(soc Socket) (listener net.Listener, err error) {
 		return testUnixListen(soc)
 	}
 
-	// The socket is created with the permissions the process
-	// umask allows, then restricted to 0700 by the Chmod below.
-	listener, err = net.Listen(soc.Network, soc.Address)
+	// Create the socket in a 0700 temporary directory next to the target,
+	// so no other user can connect to it before the Chmod, then rename it
+	// into place. This avoids changing the process umask, which is shared
+	// by all goroutines.
+	tempDir, err := os.MkdirTemp(filepath.Dir(soc.Address), "")
 	if err != nil {
-		logger.Errorf(context.TODO(), "failed to listen on unix:%s: %v", soc.Address, err)
 		return nil, errors.Trace(err)
 	}
-	if err := os.Chmod(soc.Address, 0700); err != nil {
+	defer func() { _ = os.RemoveAll(tempDir) }()
+	// Keep the socket path as short as possible so as not to
+	// exceed the 108 length limit.
+	tempSocketPath := filepath.Join(tempDir, "s")
+	listener, err = net.Listen(soc.Network, tempSocketPath)
+	if err != nil {
+		logger.Errorf(context.TODO(), "failed to listen on unix:%s: %v", tempSocketPath, err)
+		return nil, errors.Trace(err)
+	}
+	if err := os.Chmod(tempSocketPath, 0700); err != nil {
 		_ = listener.Close()
-		return nil, errors.Annotatef(err, "could not chmod socket %v", soc.Address)
+		return nil, errors.Annotatef(err, "could not chmod socket %v", tempSocketPath)
+	}
+	if err := os.Rename(tempSocketPath, soc.Address); err != nil {
+		_ = listener.Close()
+		return nil, errors.Annotatef(err, "could not rename socket %v", tempSocketPath)
 	}
 	return listener, nil
 }
