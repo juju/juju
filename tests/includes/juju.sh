@@ -524,7 +524,9 @@ add_client_ssh_key_to_juju_model() {
 	# The client only generates its own key when the directory holds none.
 	# An older client, such as the 3.6 one the migration suite runs first,
 	# leaves a key of another type (juju_id_rsa) that this client then uses.
-	for candidate in "${ssh_dir}"/juju_id_*.pub; do
+	for candidate in \
+		"${ssh_dir}/juju_id_ed25519.pub" \
+		"${ssh_dir}/juju_id_rsa.pub"; do
 		if [[ -f ${candidate} ]]; then
 			ssh_key_file="${candidate}"
 			break
