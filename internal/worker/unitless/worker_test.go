@@ -123,7 +123,7 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 	)
 	service.EXPECT().GetScriptletApplication(gomock.Any(), applicationUUID).Return(
 		scriptlet, nil,
-	).Times(2)
+	)
 	service.EXPECT().WatchScriptletApplicationDying(gomock.Any(), applicationUUID).Return(
 		watchertest.NewMockNotifyWatcher(dyingChanges), nil,
 	)

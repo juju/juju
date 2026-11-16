@@ -12,6 +12,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 )
 
@@ -61,21 +62,48 @@ func (r *applicationRunner) loop() error {
 	applicationUUID := r.config.ApplicationUUID
 
 	log.Infof(ctx, "starting scriptlet application runner %q", applicationUUID)
-	scriptlet, err := r.config.ScriptletService.GetScriptletApplication(ctx, applicationUUID)
-	if err != nil {
-		return internalerrors.Errorf("getting scriptlet for application %q: %w", applicationUUID, err)
-	}
-
 	dyingWatcher, err := r.config.ScriptletService.WatchScriptletApplicationDying(ctx, applicationUUID)
-	if err != nil {
+	if internalerrors.Is(err, applicationerrors.ApplicationNotFound) {
+		log.Infof(ctx, "scriptlet application %q not found, stopping runner", applicationUUID)
+		return nil
+	} else if err != nil {
 		return internalerrors.Errorf("watching scriptlet application life %q: %w", applicationUUID, err)
 	}
 	if err := r.catacomb.Add(dyingWatcher); err != nil {
 		return internalerrors.Capture(err)
 	}
 
+	// Wait for the subscription to be active before reading application life.
+	select {
+	case <-r.catacomb.Dying():
+		return r.catacomb.ErrDying()
+	case _, ok := <-dyingWatcher.Changes():
+		if !ok {
+			return internalerrors.New("scriptlet application dying watcher closed")
+		}
+	}
+
+	application, err := r.config.ScriptletService.GetScriptletApplication(ctx, applicationUUID)
+	if internalerrors.Is(err, applicationerrors.ApplicationNotFound) {
+		// The application was removed before we could start the runner, so just
+		// exit cleanly.
+		log.Infof(ctx, "scriptlet application %q not found, stopping runner", applicationUUID)
+		return nil
+	} else if err != nil {
+		return internalerrors.Errorf("getting scriptlet for application %q: %w", applicationUUID, err)
+	}
+
+	// If the application is no longer alive, exit cleanly.
+	if life.IsNotAlive(application.Life) {
+		log.Infof(ctx, "scriptlet application %q is no longer alive, stopping runner", applicationUUID)
+		return nil
+	}
+
 	eventWatcher, err := r.config.ScriptletService.WatchApplicationEvents(ctx, applicationUUID)
-	if err != nil {
+	if internalerrors.Is(err, applicationerrors.ApplicationNotFound) {
+		log.Infof(ctx, "scriptlet application %q was removed, stopping runner", applicationUUID)
+		return nil
+	} else if err != nil {
 		return internalerrors.Errorf("watching scriptlet events for application %q: %w", applicationUUID, err)
 	}
 	if err := r.catacomb.Add(eventWatcher); err != nil {
@@ -83,7 +111,7 @@ func (r *applicationRunner) loop() error {
 	}
 
 	r.executor, err = r.config.NewExecutor(ctx, ExecutorConfig{
-		Scriptlet: scriptlet,
+		Scriptlet: application,
 		MaxAllocs: r.config.MaxAllocs,
 		MaxSteps:  r.config.MaxSteps,
 		Logger:    NewStarformLogAdapter(log),
@@ -102,9 +130,16 @@ func (r *applicationRunner) loop() error {
 				return internalerrors.New("scriptlet application dying watcher closed")
 			}
 			application, err := r.config.ScriptletService.GetScriptletApplication(ctx, applicationUUID)
-			if err != nil {
+			if internalerrors.Is(err, applicationerrors.ApplicationNotFound) {
+				// The application was removed before we saw the dying event, so
+				// just exit cleanly.
+				log.Infof(ctx, "scriptlet application %q was removed, stopping runner", applicationUUID)
+				return nil
+			} else if err != nil {
 				return internalerrors.Errorf("getting scriptlet application life %q: %w", applicationUUID, err)
 			}
+
+			// If the application is no longer alive, exit cleanly.
 			if life.IsNotAlive(application.Life) {
 				log.Infof(ctx, "scriptlet application %q is no longer alive, stopping runner", applicationUUID)
 				return nil
@@ -115,7 +150,15 @@ func (r *applicationRunner) loop() error {
 				return internalerrors.New("scriptlet event watcher closed")
 			}
 			for _, eventName := range eventNames {
-				if err := r.handleEvent(ctx, eventName); err != nil {
+				select {
+				case <-r.catacomb.Dying():
+					return r.catacomb.ErrDying()
+				default:
+				}
+				if err := r.handleEvent(ctx, eventName); internalerrors.Is(err, applicationerrors.ApplicationNotFound) {
+					log.Infof(ctx, "scriptlet application %q was removed, stopping runner", applicationUUID)
+					return nil
+				} else if err != nil {
 					return internalerrors.Errorf(
 						"handling scriptlet event %q for application %q: %w",
 						eventName, applicationUUID, err,

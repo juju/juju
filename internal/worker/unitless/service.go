@@ -18,7 +18,7 @@ type ScriptletService interface {
 	WatchScriptletApplications(context.Context) (watcher.StringsWatcher, error)
 
 	// WatchScriptletApplicationDying emits when an application changes life or
-	// is removed.
+	// is removed. Its initial event indicates that the subscription is active.
 	WatchScriptletApplicationDying(
 		ctx context.Context, applicationUUID coreapplication.UUID,
 	) (watcher.NotifyWatcher, error)
