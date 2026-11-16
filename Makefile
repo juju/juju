@@ -21,7 +21,7 @@ GOHOSTARCH=$(shell go env GOHOSTARCH)
 GO_MOD_VERSION=$(shell grep "^go" go.mod | awk '{print $$2}')
 GO_MOD_TRACK=$(shell echo "$(GO_MOD_VERSION)" | cut -d '.' -f 1,2)
 GO_INSTALLED_VERSION=$(shell GOARCH=$(uname -m) go version | awk '{print $$3}' | sed -e /.*go/s///)
-GO_INSTALL_PATH=$(if $(shell go env GOBIN),$(shell go env GOBIN),$(firstword $(subst :, ,$(shell go env GOPATH)))/bin)
+GO_INSTALL_PATH=$(shell go env GOBIN)
 
 # The last path element must match the installed executable name.
 GO_DEVELOPMENT_TOOLS = \
@@ -645,10 +645,7 @@ install-dependencies: install-snap-dependencies install-development-system-depen
 install-development-go-tools:
 ## install-development-go-tools: Install missing Go development tools
 	@set -e; \
-	gobin=$$(go env GOBIN); \
-	if [ -z "$$gobin" ]; then \
-		gobin=$$(go env GOPATH | cut -d ':' -f 1)/bin; \
-	fi; \
+	gobin="$(GO_INSTALL_PATH)"; \
 	PATH="$$PATH:$$gobin"; export PATH; \
 	for module in $(GO_DEVELOPMENT_TOOLS); do \
 		tool=$${module##*/}; \
