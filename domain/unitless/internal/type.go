@@ -3,12 +3,14 @@
 
 package internal
 
+import "github.com/juju/juju/domain/life"
+
 // ScriptletApplication is the scalar persistence representation of a
 // scriptlet-backed application.
 type ScriptletApplication struct {
 	UUID    string
 	Name    string
-	Life    int
+	Life    life.Life
 	Sources []ScriptSource
 }
 

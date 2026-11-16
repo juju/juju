@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
-	domainlife "github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/unitless"
 	unitlessinternal "github.com/juju/juju/domain/unitless/internal"
 	"github.com/juju/juju/internal/errors"
@@ -94,7 +93,7 @@ func (s *Service) GetScriptletApplication(
 	if result.UUID == "" {
 		return unitless.ScriptletApplication{}, nil
 	}
-	life, err := domainlife.Life(result.Life).Value()
+	life, err := result.Life.Value()
 	if err != nil {
 		return unitless.ScriptletApplication{}, errors.Errorf("decoding application life: %w", err)
 	}

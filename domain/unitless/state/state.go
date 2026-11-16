@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/unitless"
 	unitlessinternal "github.com/juju/juju/domain/unitless/internal"
 	"github.com/juju/juju/internal/errors"
@@ -24,10 +25,10 @@ type applicationUUID struct {
 type applicationUUIDs []string
 
 type scriptletSource struct {
-	ApplicationName string `db:"application_name"`
-	Life            int    `db:"life_id"`
-	Path            string `db:"path"`
-	Content         []byte `db:"content"`
+	ApplicationName string    `db:"application_name"`
+	Life            life.Life `db:"life_id"`
+	Path            string    `db:"path"`
+	Content         []byte    `db:"content"`
 }
 
 // State provides persistence operations for unitless applications.
