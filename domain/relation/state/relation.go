@@ -3721,9 +3721,29 @@ func (st *State) inferEndpoints(
 		}
 	}
 
-	if matchCount := len(matches); matchCount == 0 {
+	if len(matches) == 0 {
 		return Endpoint{}, Endpoint{}, relationerrors.CompatibleEndpointsNotFound
-	} else if matchCount > 1 {
+	}
+
+	if len(matches) > 1 {
+		// If there's ambiguity, try discarding matches that use an
+		// implicit endpoint (e.g. the juju-provided "juju-info"), the
+		// same way state.InferEndpoints did. A charm explicitly
+		// providing an interface is preferred over the implicit one
+		// juju provides for every application.
+		var filtered []match
+		for _, m := range matches {
+			if m.ep1.toRelationEndpoint().IsImplicit() || m.ep2.toRelationEndpoint().IsImplicit() {
+				continue
+			}
+			filtered = append(filtered, m)
+		}
+		if len(filtered) == 1 {
+			matches = filtered
+		}
+	}
+
+	if matchCount := len(matches); matchCount > 1 {
 		possibleMatches := make([]string, 0, matchCount)
 		for _, match := range matches {
 			possibleMatches = append(possibleMatches, fmt.Sprintf("\"%s %s\"", match.ep1, match.ep2))

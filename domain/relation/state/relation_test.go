@@ -755,6 +755,8 @@ func (s *addRelationSuite) TestInferEndpoints(c *tc.C) {
 	appUUID2 := s.addApplication(c, "application-2")
 	appUUID3 := s.addApplication(c, "application-3")
 	appSubUUID := s.addSubordinateApplication(c, "application-sub")
+	appProviderUUID := s.addApplication(c, "application-provider")
+	appRequirerUUID := s.addApplication(c, "application-requirer")
 
 	// Create endpoints on applications:
 	uuids := map[string]corerelation.EndpointUUID{
@@ -786,6 +788,29 @@ func (s *addRelationSuite) TestInferEndpoints(c *tc.C) {
 			Interface: "unique",
 			Scope:     charm.ScopeContainer,
 		}),
+		// - Application provider: offers both the juju-provided implicit
+		//   juju-info relation and an explicit cos-agent relation, as a
+		//   real charm (e.g. charmed-etcd) does for a COS subordinate.
+		"application-provider:juju-info": s.addApplicationEndpointFromRelation(c, appProviderUUID, charm.Relation{
+			Name:      "juju-info",
+			Role:      charm.RoleProvider,
+			Interface: "juju-info",
+			Scope:     charm.ScopeGlobal,
+		}),
+		"application-provider:cos-agent": s.addApplicationEndpoint(c, appProviderUUID, "cos-agent",
+			charm.RoleProvider, "cos-agent"),
+		// - Application requirer: requires both juju-info and cos-agent,
+		//   matching both of application-provider's endpoints above, so
+		//   an unqualified relation between them is ambiguous unless the
+		//   implicit juju-info match is discarded.
+		"application-requirer:juju-info": s.addApplicationEndpointFromRelation(c, appRequirerUUID, charm.Relation{
+			Name:      "juju-info",
+			Role:      charm.RoleRequirer,
+			Interface: "juju-info",
+			Scope:     charm.ScopeGlobal,
+		}),
+		"application-requirer:cos-agent": s.addApplicationEndpoint(c, appRequirerUUID, "cos-agent",
+			charm.RoleRequirer, "cos-agent"),
 	}
 
 	cases := []struct {
@@ -823,6 +848,12 @@ func (s *addRelationSuite) TestInferEndpoints(c *tc.C) {
 			input2:      "application-3",
 			expected1:   "application-sub:whatever",
 			expected2:   "application-3:whatever",
+		}, {
+			description: "ambiguous match discards the implicit juju-info endpoint",
+			input1:      "application-provider",
+			input2:      "application-requirer",
+			expected1:   "application-provider:cos-agent",
+			expected2:   "application-requirer:cos-agent",
 		},
 	}
 
