@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package unitless
+package scriptlet
 
 import (
 	"github.com/canonical/starform/formtest"
@@ -18,10 +18,10 @@ type starformEventObjectStorage = struct {
 	Event *starform.EventObject
 }
 
-func (s *starformSuite) TestSetStatusCollectsIntent(c *tc.C) {
+func (s *scriptletSuite) TestSetStatusCollectsIntent(c *tc.C) {
 	collector := &IntentCollector{}
 	ft := formtest.From(c)
-	ft.SetApp(newAppObject())
+	ft.SetApp(&starform.AppObject{Name: "juju", Methods: AppObjectMethods()})
 	ft.SetEvent(&starform.EventObject{
 		Name: "config_changed",
 		Attrs: starlark.StringDict{
@@ -47,10 +47,10 @@ def on_config_changed(event):
 	})
 }
 
-func (s *starformSuite) TestSetStatusUnobservedEventHasNoIntent(c *tc.C) {
+func (s *scriptletSuite) TestSetStatusUnobservedEventHasNoIntent(c *tc.C) {
 	collector := &IntentCollector{}
 	ft := formtest.From(c)
-	ft.SetApp(newAppObject())
+	ft.SetApp(&starform.AppObject{Name: "juju", Methods: AppObjectMethods()})
 	ft.SetEvent(&starform.EventObject{
 		Name:  "update_status",
 		State: collector,
@@ -67,21 +67,21 @@ def on_config_changed(event):
 	c.Check(collector.Intents(), tc.DeepEquals, []Intent{})
 }
 
-func (s *starformSuite) TestSetStatusCPUSafe(c *tc.C) {
+func (s *scriptletSuite) TestSetStatusCPUSafe(c *tc.C) {
 	assertSetStatusSafety(c, starlark.CPUSafe, func(st *startest.ST) {
 		st.SetMinSteps(1)
 	})
 }
 
-func (s *starformSuite) TestSetStatusMemSafe(c *tc.C) {
+func (s *scriptletSuite) TestSetStatusMemSafe(c *tc.C) {
 	assertSetStatusSafety(c, starlark.MemSafe, nil)
 }
 
-func (s *starformSuite) TestSetStatusTimeSafe(c *tc.C) {
+func (s *scriptletSuite) TestSetStatusTimeSafe(c *tc.C) {
 	assertSetStatusSafety(c, starlark.TimeSafe, nil)
 }
 
-func (s *starformSuite) TestSetStatusIOSafe(c *tc.C) {
+func (s *scriptletSuite) TestSetStatusIOSafe(c *tc.C) {
 	assertSetStatusSafety(c, starlark.IOSafe, nil)
 }
 

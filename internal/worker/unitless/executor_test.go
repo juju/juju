@@ -11,6 +11,7 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	domainunitless "github.com/juju/juju/domain/unitless"
+	"github.com/juju/juju/internal/worker/unitless/scriptlet"
 )
 
 type starformSuite struct{}
@@ -86,8 +87,8 @@ def on_config_changed(event):
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(intents, tc.DeepEquals, []Intent{{
-		Type: IntentSetStatus,
+	c.Check(intents, tc.DeepEquals, []scriptlet.Intent{{
+		Type: scriptlet.IntentSetStatus,
 		Args: map[string]any{
 			"status":  "active",
 			"message": "updated",
