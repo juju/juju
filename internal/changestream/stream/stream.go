@@ -47,7 +47,14 @@ var (
 	// from the database. This is used to prevent the worker from polling
 	// the database too frequently and allow us to attempt to coalesce
 	// changes when there is less activity.
-	backOffStrategy = retry.ExpBackoff(time.Millisecond*100, time.Second*10, 1.4, false)
+	// History of this maximum backoff:
+	// - it was at 250ms, but it was deemed too aggressive, and at the time DqLite didn't have read
+	//   parallelization.
+	// - it was at 10s, but it's too long when watchers are relied upon for interactive commands.
+	//   ex. ssh connections require a watcher to establish a session from the machine to the controller.
+	// - now it's at 1s, but it can be lowered down once DqLite supports statements caching, because
+	//   this read should be cheaper, and it shouldn't spin lock the database.
+	backOffStrategy = retry.ExpBackoff(time.Millisecond*100, time.Second, 1.1, false)
 )
 
 // MetricsCollector represents the metrics methods called.
