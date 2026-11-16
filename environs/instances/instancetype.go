@@ -200,8 +200,15 @@ func (bc byCost) Less(i, j int) bool {
 	if inst0.RootDisk != inst1.RootDisk {
 		return inst0.RootDisk < inst1.RootDisk
 	}
-	// we intentionally don't compare tags, since we can't know how tags compare against each other
-	return false
+	// Fall back to the name so the ordering is total and deterministic;
+	// instance type names are unique within a provider's list, so the
+	// name is a valid total-order key.
+	// Providers without cost data (e.g. GCE) otherwise get an unstable
+	// order among instance types with identical specs, making the
+	// selected instance type effectively random.
+	// We intentionally don't compare tags, since we can't know how tags
+	// compare against each other.
+	return inst0.Name < inst1.Name
 }
 
 func (bc byCost) Swap(i, j int) {
@@ -218,9 +225,13 @@ func (s byMemory) Less(i, j int) bool {
 	if inst0.Mem != inst1.Mem {
 		return s[i].Mem < s[j].Mem
 	}
-	// Memory is equal, so use cost as a tie breaker.
-	// Result is in descending order of cost so instance with lowest cost is used.
-	return inst0.Cost > inst1.Cost
+	if inst0.Cost != inst1.Cost {
+		// Memory is equal, so use cost as a tie breaker.
+		// Result is in descending order of cost so instance with lowest cost is used.
+		return inst0.Cost > inst1.Cost
+	}
+	// Fall back to the name so the ordering is total and deterministic.
+	return inst0.Name < inst1.Name
 }
 
 // ByName is used to sort a slice by name by best effort. As we have different separators for different providers
