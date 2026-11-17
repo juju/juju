@@ -183,6 +183,10 @@ type updateMachineLinkLayerOp struct {
 	// updated link-layer devices to the state subnets collection.
 	discoverSubnets bool
 
+	// processedSubnetCIDRs tracks subnet discovery within one Build call.
+	// It is reset for each transaction attempt.
+	processedSubnetCIDRs set.Strings
+
 	// st is the state indirection required to persist discovered subnets.
 	st AddSubnetsState
 }
@@ -202,6 +206,7 @@ func newUpdateMachineLinkLayerOp(
 // merge incoming provider link-layer data with that in state.
 func (o *updateMachineLinkLayerOp) Build(_ int) ([]txn.Op, error) {
 	o.ClearProcessed()
+	o.processedSubnetCIDRs = set.NewStrings()
 
 	if err := o.PopulateExistingDevices(); err != nil {
 		return nil, errors.Trace(err)
@@ -435,14 +440,20 @@ func (o *updateMachineLinkLayerOp) processSubnets(name string) ([]txn.Op, error)
 
 	var ops []txn.Op
 	for _, cidr := range cidrs {
+		if o.processedSubnetCIDRs.Contains(cidr) {
+			continue
+		}
+
 		addOps, err := o.st.AddSubnetOps(network.SubnetInfo{CIDR: cidr})
 		if err != nil {
 			if errors.Is(err, errors.AlreadyExists) {
+				o.processedSubnetCIDRs.Add(cidr)
 				continue
 			}
 			return nil, errors.Trace(err)
 		}
 		ops = append(ops, addOps...)
+		o.processedSubnetCIDRs.Add(cidr)
 	}
 	return ops, nil
 }

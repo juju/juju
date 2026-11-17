@@ -378,6 +378,59 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpUnobservedParentNotRemo
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// Both devices report the same previously unknown CIDR. The mock state does
+// not commit queued operations, matching the transaction builder's behavior.
+func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpDeduplicatesSubnetsPerBuild(c *gc.C) {
+	s.checkSubnetDiscoveryPerBuild(c, []txn.Op{{}}, nil)
+}
+
+func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpDeduplicatesExistingSubnetsPerBuild(c *gc.C) {
+	s.checkSubnetDiscoveryPerBuild(c, nil, errors.AlreadyExistsf("subnet"))
+}
+
+func (s *networkConfigSuite) checkSubnetDiscoveryPerBuild(c *gc.C, subnetOps []txn.Op, subnetErr error) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.expectMachine()
+	mExp := s.machine.EXPECT()
+	mExp.AllLinkLayerDevices().Return(nil, nil).Times(2)
+	mExp.AllDeviceAddresses().Return(nil, nil).Times(2)
+	mExp.AddLinkLayerDeviceOps(gomock.Any(), gomock.Any()).
+		Return([]txn.Op{{}, {}}, nil).Times(4)
+
+	// Exactly one lookup per Build, not one per device. Build(1) must
+	// regenerate the subnet operation if Build(0) was not committed.
+	s.state.EXPECT().AddSubnetOps(network.SubnetInfo{CIDR: "10.241.6.0/24"}).
+		Return(subnetOps, subnetErr).Times(2)
+
+	op := s.NewUpdateMachineLinkLayerOp(s.machine, network.InterfaceInfos{
+		{
+			InterfaceName: "eth0",
+			InterfaceType: "ethernet",
+			MACAddress:    "aa:bb:cc:dd:ee:f0",
+			Addresses: network.ProviderAddresses{
+				network.NewMachineAddress("10.241.6.14",
+					network.WithCIDR("10.241.6.0/24")).AsProviderAddress(),
+			},
+		}, {
+			InterfaceName: "eth1",
+			InterfaceType: "ethernet",
+			MACAddress:    "aa:bb:cc:dd:ee:f1",
+			Addresses: network.ProviderAddresses{
+				network.NewMachineAddress("10.241.6.15",
+					network.WithCIDR("10.241.6.0/24")).AsProviderAddress(),
+			},
+		},
+	}, true, s.state)
+
+	for attempt := 0; attempt < 2; attempt++ {
+		ops, err := op.Build(attempt)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(ops, gc.HasLen, 4+len(subnetOps))
+	}
+}
+
 func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpNewSubnetsAdded(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
