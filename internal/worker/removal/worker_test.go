@@ -132,6 +132,67 @@ func (s *workerSuite) TestWorkerNotifiedSchedulesDueJob(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
+func (s *workerSuite) TestWorkerNotifiedSchedulesEarlierDeadline(c *tc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+
+	changes := make(chan []string)
+	watch := watchertest.NewMockStringsWatcher(changes)
+	s.svc.EXPECT().WatchRemovals(gomock.Any()).Return(watch, nil)
+
+	timer := NewMockTimer(ctrl)
+	timer.EXPECT().Chan().Return(make(chan time.Time)).AnyTimes()
+	timer.EXPECT().Reset(jobCheckMaxInterval).Return(true).Times(2)
+	timer.EXPECT().Stop().Return(true)
+	s.clk.EXPECT().NewTimer(jobCheckMaxInterval).Return(timer)
+
+	now := time.Now().UTC()
+	job := removal.Job{
+		UUID:         "job-uuid",
+		RemovalType:  removal.UnitJob,
+		EntityUUID:   "unit-uuid",
+		Force:        true,
+		ScheduledFor: now.Add(5 * time.Minute),
+	}
+	updatedJob := job
+	updatedJob.ScheduledFor = now
+	executed := make(chan struct{})
+	gomock.InOrder(
+		s.svc.EXPECT().GetAllJobs(gomock.Any()).Return([]removal.Job{job}, nil),
+		s.clk.EXPECT().Now().Return(now),
+		s.svc.EXPECT().GetAllJobs(gomock.Any()).Return([]removal.Job{updatedJob}, nil),
+		s.clk.EXPECT().Now().Return(now),
+		s.svc.EXPECT().ExecuteJob(gomock.Any(), updatedJob).DoAndReturn(func(context.Context, removal.Job) error {
+			close(executed)
+			return nil
+		}),
+	)
+
+	w, err := NewWorker(Config{
+		RemovalService: s.svc,
+		Clock:          s.clk,
+		Logger:         loggertesting.WrapCheckLog(c),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	for range 2 {
+		select {
+		case changes <- []string{"job-uuid"}:
+		case <-c.Context().Done():
+			c.Fatal("timed out waiting for watcher event consumption")
+		}
+	}
+
+	select {
+	case <-executed:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for job execution")
+	}
+
+	workertest.CleanKill(c, w)
+}
+
 // TestWorkerTimerSchedulesOnlyRequiredJob tests the following sequence of events:
 // - The timer fires.
 // - We query for jobs, receive two, but one has already been scheduled.

@@ -5,6 +5,8 @@ package service
 
 import (
 	"context"
+	"strconv"
+	"strings"
 
 	"github.com/juju/clock"
 
@@ -26,6 +28,11 @@ import (
 
 // MigrationState is the state required for migrating applications.
 type MigrationState interface {
+	// GetApplicationUnitSequence returns the imported unit ordinal high-water
+	// mark, or false when the sequence is absent.
+	GetApplicationUnitSequence(context.Context, string) (uint64, bool, error)
+	// EnsureApplicationUnitSequenceAtLeast advances that high-water mark.
+	EnsureApplicationUnitSequenceAtLeast(context.Context, string, uint64) error
 	// GetSpaceUUIDByName returns the UUID of the space with the given name.
 	// It returns an error satisfying [networkerrors.SpaceNotFound] if the provided
 	//
@@ -239,25 +246,6 @@ func (s *MigrationService) GetUnitUUIDByName(ctx context.Context, name coreunit.
 	return s.st.GetUnitUUIDByName(ctx, name)
 }
 
-// GetApplicationScaleState returns the scale state of the specified
-// application, returning an error satisfying
-// [applicationerrors.ApplicationNotFound] if the application is not found.
-func (s *MigrationService) GetApplicationScaleState(ctx context.Context, name string) (application.ScaleState, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if !application.IsValidApplicationName(name) {
-		return application.ScaleState{}, applicationerrors.ApplicationNameNotValid
-	}
-
-	appID, err := s.st.GetApplicationUUIDByName(ctx, name)
-	if err != nil {
-		return application.ScaleState{}, errors.Capture(err)
-	}
-
-	return s.st.GetApplicationScaleState(ctx, appID)
-}
-
 // ImportCAASApplication imports the specified CAAS application and units
 // if required, returning an error satisfying
 // [applicationerrors.ApplicationAlreadyExists] if the application already
@@ -266,22 +254,15 @@ func (s *MigrationService) ImportCAASApplication(ctx context.Context, name strin
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	// Legacy scale requests were recorded before units were created. Importing
+	// such a request without its units would lose the accepted intent.
+	if args.LegacyDesiredScale != len(args.Units) {
+		return errors.Errorf("imported application %q has scale %d but %d units: scale request is not materialised", name, args.LegacyDesiredScale, len(args.Units))
+	}
+
 	charmUUID, err := s.importCAASApplication(ctx, name, args)
 	if err != nil {
 		return errors.Errorf("importing application %q: %w", name, err)
-	}
-
-	// TODO hml 1-May-25
-	// Improve the efficiency of importing caas applications by touching
-	// the application_scale table once, instead of three times. Once in
-	// st.ImportApplication and the following two methods.
-	if err := s.st.SetApplicationScalingStateWithStart(
-		ctx, name, args.ScaleState.ScaleTarget, args.ScaleState.StartOrdinal,
-		args.ScaleState.Scaling); err != nil {
-		return errors.Errorf("setting scale state for application %q: %w", name, err)
-	}
-	if err := s.st.SetDesiredApplicationScale(ctx, args.UUID, args.ScaleState.Scale); err != nil {
-		return errors.Errorf("setting desired scale for application %q: %w", name, err)
 	}
 
 	unitArgs, err := makeCAASUnitArgs(args.Units, charmUUID)
@@ -289,7 +270,62 @@ func (s *MigrationService) ImportCAASApplication(ctx context.Context, name strin
 		return errors.Errorf("creating unit args: %w", err)
 	}
 
-	return s.st.InsertMigratingCAASUnits(ctx, args.UUID, unitArgs...)
+	if err := s.st.InsertMigratingCAASUnits(ctx, args.UUID, unitArgs...); err != nil {
+		return errors.Capture(err)
+	}
+	return s.ReconcileImportedCAASUnits(ctx, name)
+}
+
+// ReconcileImportedCAASUnits preserves the ordinal high-water mark from
+// imported units and pods. It never creates units from legacy scale metadata.
+func (s *MigrationService) ReconcileImportedCAASUnits(ctx context.Context, name string) error {
+	appUUID, err := s.st.GetApplicationUUIDByName(ctx, name)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	unitLives, err := s.st.GetAllUnitLifeForApplication(ctx, appUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	podIDs, err := s.st.GetAllUnitK8sPodIDsForApplication(ctx, appUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	last, hasSequence, err := s.st.GetApplicationUnitSequence(ctx, name)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	for unitName := range unitLives {
+		parsed, err := coreunit.NewName(unitName)
+		if err != nil || parsed.Application() != name {
+			return errors.Errorf("invalid imported unit name %q for application %q", unitName, name)
+		}
+		ordinal := parsed.Number()
+		if !hasSequence || uint64(ordinal) > last {
+			last, hasSequence = uint64(ordinal), true
+		}
+	}
+	for _, providerID := range podIDs {
+		prefix, ordinalText, ok := strings.Cut(providerID, name+"-")
+		if !ok || prefix != "" {
+			continue
+		}
+		ordinal, err := strconv.Atoi(ordinalText)
+		if err != nil || ordinal < 0 {
+			continue
+		}
+		if !hasSequence || uint64(ordinal) > last {
+			last, hasSequence = uint64(ordinal), true
+		}
+	}
+
+	if hasSequence {
+		if err := s.st.EnsureApplicationUnitSequenceAtLeast(ctx, name, last); err != nil {
+			return errors.Errorf("reconciling unit sequence for application %q: %w", name, err)
+		}
+	}
+	return nil
 }
 
 // ImportIAASApplication imports the specified IAAS application and units
@@ -359,8 +395,6 @@ func (s *MigrationService) importCAASApplication(
 	if err != nil {
 		return "", errors.Errorf("creating application args: %w", err)
 	}
-
-	appArg.Scale = len(args.Units)
 
 	if err := s.st.InsertMigratingApplication(ctx, name, appArg); err != nil {
 		return "", errors.Errorf("creating application %q: %w", name, err)

@@ -76,24 +76,8 @@ type ApplicationService interface {
 	// life of any units if an application.
 	WatchApplicationUnitLife(ctx context.Context, appName string) (watcher.StringsWatcher, error)
 
-	// WatchApplicationScale returns a watcher that observes changes to an
-	// application's scale.
-	WatchApplicationScale(ctx context.Context, appName string) (watcher.NotifyWatcher, error)
-
-	// GetApplicationScale returns the desired scale of an application,
-	// The following errors may be returned:
-	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
+	// GetApplicationScale returns the number of Alive units for the application.
 	GetApplicationScale(ctx context.Context, appName string) (int, error)
-
-	// SetApplicationScalingState sets the scaling state for an application.
-	SetApplicationScalingState(ctx context.Context, name string, scaleTarget int, scaling bool) error
-
-	// SetApplicationScalingStateWithStart sets the scaling state and StatefulSet
-	// ordinal range for an application.
-	SetApplicationScalingStateWithStart(ctx context.Context, name string, scaleTarget, startOrdinal int, scaling bool) error
-
-	// GetApplicationScalingState returns the scaling state for an application.
-	GetApplicationScalingState(ctx context.Context, name string) (applicationservice.ScalingState, error)
 
 	// GetApplicationLife returns the life value for the given application UUID.
 	GetApplicationLife(ctx context.Context, id coreapplication.UUID) (life.Value, error)
@@ -104,6 +88,14 @@ type ApplicationService interface {
 	// GetAllUnitLifeForApplication returns a map of the unit names and their
 	// life values for the given application.
 	GetAllUnitLifeForApplication(context.Context, coreapplication.UUID) (map[unit.Name]life.Value, error)
+
+	// GetApplicationUnitSequence returns the ordinal high-water mark for the
+	// application, or false when no unit ordinal has been allocated.
+	GetApplicationUnitSequence(ctx context.Context, appName string) (uint64, bool, error)
+
+	// ReserveCAASUnits commits every intended unit in a StatefulSet ordinal
+	// range before the provider is allowed to start those pods.
+	ReserveCAASUnits(context.Context, string, int, int) error
 
 	// GetApplicationName returns the application name for the given application
 	// UUID.

@@ -43,3 +43,29 @@ func (s *validateSuite) TestValidatePayloadAllowsEmptyModelAgentPassword(c *tc.C
 	})
 	c.Assert(err, tc.ErrorIsNil)
 }
+
+func (s *validateSuite) TestValidatePayloadRejectsUnmaterialisedScale(c *tc.C) {
+	scale := int64(2)
+	err := modelimport.ValidatePayload(latest.ModelExport{
+		ModelAgent:       []v4_1_0.ModelAgent{{}},
+		Application:      []v4_1_0.Application{{UUID: "app", Name: "foo"}},
+		ApplicationScale: []v4_1_0.ApplicationScale{{ApplicationUUID: "app", Scale: &scale}},
+		Unit:             []v4_1_0.Unit{{ApplicationUUID: "app", Name: "foo/0", LifeID: 0}},
+	})
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, "imported application .* scale request is not materialised.*")
+}
+
+func (s *validateSuite) TestValidatePayloadCountsOnlyAliveUnits(c *tc.C) {
+	scale := int64(1)
+	err := modelimport.ValidatePayload(latest.ModelExport{
+		ModelAgent:       []v4_1_0.ModelAgent{{}},
+		Application:      []v4_1_0.Application{{UUID: "app", Name: "foo"}},
+		ApplicationScale: []v4_1_0.ApplicationScale{{ApplicationUUID: "app", Scale: &scale}},
+		Unit: []v4_1_0.Unit{
+			{ApplicationUUID: "app", Name: "foo/1", LifeID: 0},
+			{ApplicationUUID: "app", Name: "foo/0", LifeID: 1},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}

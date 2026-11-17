@@ -320,7 +320,6 @@ func (s *baseSuite) createCAASApplication(
 	ctx := c.Context()
 
 	appID, err := appState.CreateCAASApplication(ctx, name, application.AddCAASApplicationArg{
-		Scale: len(units),
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Platform: platform,
 			Channel:  channel,

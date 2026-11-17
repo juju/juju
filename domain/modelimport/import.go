@@ -6,25 +6,33 @@ package modelimport
 import (
 	"context"
 
+	"github.com/juju/clock"
+
 	"github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
+	applicationservice "github.com/juju/juju/domain/application/service"
+	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/export/types/latest"
 	"github.com/juju/juju/domain/export/types/v4_1_0"
 	importstate "github.com/juju/juju/domain/modelimport/state/model"
 	"github.com/juju/juju/internal/errors"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 // Importer applies a transformed, target-version model-DB payload to the model
 // database. The transformed payload's rows already match the target schema by
 // construction, so the importer bulk-inserts every content table directly.
 type Importer struct {
-	state *importstate.State
+	state   *importstate.State
+	modelDB database.TxnRunnerFactory
 }
 
 // NewImporter returns an [Importer] that writes into the model database
 // reachable through the given transaction-runner factory.
 func NewImporter(modelDB database.TxnRunnerFactory) *Importer {
 	return &Importer{
-		state: importstate.NewState(modelDB),
+		state:   importstate.NewState(modelDB),
+		modelDB: modelDB,
 	}
 }
 
@@ -35,6 +43,9 @@ func (i *Importer) Import(ctx context.Context, payload *latest.ModelExport) erro
 		return nil
 	}
 	sanitized := sanitizeCharmBlobResidency(*payload)
+	if err := ValidatePayload(sanitized); err != nil {
+		return errors.Capture(err)
+	}
 	if err := i.state.Import(ctx, &sanitized); err != nil {
 		return errors.Errorf("importing model-DB payload: %w", err)
 	}
@@ -83,11 +94,18 @@ func sanitizeCharmBlobResidency(payload latest.ModelExport) latest.ModelExport {
 // sanitizeCharmBlobResidency, this has no foreign-key dependency on an
 // excluded table, so it is free to run as a separate, later transaction.
 func (i *Importer) applyPostImportFixups(ctx context.Context, payload latest.ModelExport) error {
-	if err := ValidatePayload(payload); err != nil {
-		return errors.Capture(err)
-	}
 	if err := i.state.MergeModelAgentPassword(ctx, payload.ModelAgent[0]); err != nil {
 		return errors.Errorf("merging model agent password: %w", err)
+	}
+	log := internallogger.GetLogger("juju.domain.modelimport")
+	appService := applicationservice.NewMigrationService(
+		applicationstate.NewState(i.modelDB, coremodel.UUID(payload.ModelAgent[0].ModelUUID), clock.WallClock, log),
+		clock.WallClock, log,
+	)
+	for _, app := range payload.Application {
+		if err := appService.ReconcileImportedCAASUnits(ctx, app.Name); err != nil {
+			return errors.Errorf("reconciling imported application %q: %w", app.Name, err)
+		}
 	}
 	return nil
 }

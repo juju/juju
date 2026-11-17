@@ -201,12 +201,6 @@ func decodeModelDump(dump *dump) (*recovery.ModelDump, error) {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
 			out.ApplicationResource = decoded
-		case "application_scale":
-			decoded, err := decodeRows[exporttypes.ApplicationScale](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ApplicationScale = decoded
 		case "application_setting":
 			decoded, err := decodeRows[exporttypes.ApplicationSetting](rows)
 			if err != nil {

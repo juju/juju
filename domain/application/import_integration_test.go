@@ -33,6 +33,7 @@ import (
 	migrationtesting "github.com/juju/juju/domain/modelmigration/testing"
 	networkmodelmigration "github.com/juju/juju/domain/network/modelmigration"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	sequencemodelmigration "github.com/juju/juju/domain/sequence/modelmigration"
 	domaintesting "github.com/juju/juju/domain/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -843,8 +844,13 @@ func (s *importSuite) TestCAASApplication(c *tc.C) {
 		Type: string(model.CAAS),
 	})
 	app := setupMinimalApplication(desc)
-	app.SetDesiredScale(42)
+	app.SetDesiredScale(3)
+	for _, name := range []string{"foo/0", "foo/1", "foo/2"} {
+		app.AddUnit(description.UnitArgs{Name: name, Type: string(model.CAAS)})
+	}
+	desc.SetSequence("application-foo", 3)
 
+	sequencemodelmigration.RegisterImport(s.coordinator)
 	applicationmodelmigration.RegisterImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	// Act
@@ -863,7 +869,43 @@ func (s *importSuite) TestCAASApplication(c *tc.C) {
 
 	obtainedScale, err := s.svc.GetApplicationScale(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtainedScale, tc.DeepEquals, 42)
+	c.Check(obtainedScale, tc.DeepEquals, 3)
+
+	var names []string
+	var highWater int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `SELECT name FROM unit ORDER BY name`)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var name string
+			if err := rows.Scan(&name); err != nil {
+				return err
+			}
+			names = append(names, name)
+		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		return tx.QueryRowContext(ctx, `SELECT value FROM sequence WHERE namespace = 'application_foo'`).Scan(&highWater)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(names, tc.DeepEquals, []string{"foo/0", "foo/1", "foo/2"})
+	c.Check(highWater, tc.Equals, 2)
+}
+
+func (s *importSuite) TestCAASApplicationRejectsUnmaterialisedScale(c *tc.C) {
+	desc := description.NewModel(description.ModelArgs{
+		Type: string(model.CAAS),
+	})
+	app := setupMinimalApplication(desc)
+	app.SetDesiredScale(1)
+
+	applicationmodelmigration.RegisterImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
+	err := s.coordinator.Perform(c.Context(), s.scope, desc)
+	c.Check(err, tc.ErrorMatches, ".*scale request is not materialised.*")
 }
 
 func (s *importSuite) TestImportCAASUnit(c *tc.C) {
@@ -875,6 +917,7 @@ func (s *importSuite) TestImportCAASUnit(c *tc.C) {
 		Name:     "foo",
 		CharmURL: "ch:foo-1",
 	})
+	app.SetDesiredScale(2)
 	app.SetCharmOrigin(description.CharmOriginArgs{
 		Source:   "charm-hub",
 		ID:       "deadbeef",

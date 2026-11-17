@@ -62,7 +62,6 @@ func (s *migrationStateSuite) TestInsertMigratingApplication(c *tc.C) {
 			Revision:      42,
 			Architecture:  architecture.ARM64,
 		},
-		Scale:   1,
 		Channel: channel,
 		Config: map[string]application.AddApplicationConfig{
 			"foo": {
@@ -76,8 +75,7 @@ func (s *migrationStateSuite) TestInsertMigratingApplication(c *tc.C) {
 	}
 	err := st.InsertMigratingApplication(ctx, "666", args)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("Failed to create application: %s", errors.ErrorStack(err)))
-	scale := application.ScaleState{Scale: 1}
-	s.assertApplication(c, "666", platform, channel, scale, false)
+	s.assertApplication(c, "666", platform, channel, false)
 	s.assertDownloadProvenance(c, id, charm.ProvenanceLegacyMigration)
 	s.assertCharmHashCount(c, id, 0)
 
@@ -128,7 +126,6 @@ INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)`,
 			Revision:      42,
 			Architecture:  architecture.ARM64,
 		},
-		Scale: 1,
 		StorageDirectives: []application.MigratingStorageDirectiveArg{{
 			Name:     "pgdata",
 			PoolName: "fast",
@@ -178,7 +175,6 @@ func (s *migrationStateSuite) TestInsertMigratingApplicationStorageDirectivesPoo
 			Revision:      42,
 			Architecture:  architecture.ARM64,
 		},
-		Scale: 1,
 		StorageDirectives: []application.MigratingStorageDirectiveArg{{
 			Name:     "pgdata",
 			PoolName: "missing",

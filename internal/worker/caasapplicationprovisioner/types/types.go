@@ -24,7 +24,6 @@ type ProvisioningInfo struct {
 	ImageDetails         resource.DockerImageDetails
 	CharmModifiedVersion int
 	Trust                bool
-	Scale                int
 }
 
 // FilesystemProvisioningInfo holds the filesystem info needed to provision
