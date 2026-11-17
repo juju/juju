@@ -9,6 +9,11 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+func init() {
+	registry := GlobalEnvRegistry()
+	registry.AddAppMethod(setStatusBuiltin)
+}
+
 // IntentSetStatus indicates an application status update.
 const IntentSetStatus IntentType = "set-status"
 

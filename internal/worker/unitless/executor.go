@@ -67,8 +67,9 @@ func NewStarformExecutor(ctx context.Context, cfg ExecutorConfig) (Executor, err
 		return nil, errors.Capture(err)
 	}
 
+	registry := scriptlet.GlobalEnvRegistry()
 	scriptSet, err := starform.NewScriptSet(&starform.ScriptSetOptions{
-		App:            newAppObject(),
+		App:            registry.App(),
 		Logger:         cfg.Logger,
 		RequiredSafety: requiredSafety,
 		MaxAllocs:      cfg.MaxAllocs,
@@ -85,13 +86,6 @@ func NewStarformExecutor(ctx context.Context, cfg ExecutorConfig) (Executor, err
 	}
 
 	return &starformExecutor{scriptSet: scriptSet}, nil
-}
-
-func newAppObject() *starform.AppObject {
-	return &starform.AppObject{
-		Name:    "juju",
-		Methods: scriptlet.AppObjectMethods(),
-	}
 }
 
 type starformExecutor struct {
