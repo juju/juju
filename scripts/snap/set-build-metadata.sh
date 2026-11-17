@@ -20,5 +20,5 @@ eval "${metadata}"
 
 # shellcheck disable=SC2154  # assigned by eval above
 echo "Adopting snap version ${version} (grade ${grade})"
-craftctl set version="${version}"
-craftctl set grade="${grade}"
+snapcraftctl set-version "${version}"
+snapcraftctl set-grade "${grade}"
