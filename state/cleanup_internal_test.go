@@ -43,6 +43,16 @@ func (s *cleanupInternalSuite) TestRemoveDyingRemoteApplicationOnForce(c *gc.C) 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	dead, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
+		Name:        "dead",
+		SourceModel: names.NewModelTag("source-model"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Writeable().UpdateId(s.state.docID(dead.Name()), bson.M{
+		"$set": bson.M{"life": Dead},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	noForce := false
 	c.Assert(s.state.removeRemoteApplicationsForDyingModel(DestroyModelParams{Force: &noForce}), jc.ErrorIsNil)
 	c.Assert(remote.Refresh(), jc.ErrorIsNil)
@@ -51,6 +61,8 @@ func (s *cleanupInternalSuite) TestRemoveDyingRemoteApplicationOnForce(c *gc.C) 
 	force := true
 	c.Assert(s.state.removeRemoteApplicationsForDyingModel(DestroyModelParams{Force: &force}), jc.ErrorIsNil)
 	c.Check(remote.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(dead.Refresh(), jc.ErrorIsNil)
+	c.Check(dead.Life(), gc.Equals, Dead)
 }
 
 func (s *cleanupInternalSuite) TestRemoveRemoteApplicationsForDyingModelContinuesAfterFailure(c *gc.C) {

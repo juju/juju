@@ -902,12 +902,12 @@ func (st *State) removeRemoteApplicationsForDyingModel(args DestroyModelParams) 
 	}
 	defer closer()
 	remoteApp := RemoteApplication{st: st}
-	sel := bson.D{{"life", Alive}}
+	sel := isAliveDoc
 	force := args.Force != nil && *args.Force
 	if force {
 		// If we're forcing, propagate down to even dying remote
 		// applications, just in case they weren't originally forced.
-		sel = nil
+		sel = notDeadDoc
 	}
 	iter := remoteApps.Find(sel).Iter()
 	defer closeIter(iter, &err, "reading remote application document")

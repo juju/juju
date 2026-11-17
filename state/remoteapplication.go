@@ -300,8 +300,11 @@ type DestroyRemoteApplicationOperation struct {
 	// app holds the remote application to destroy.
 	app *RemoteApplication
 
-	// skipRelations holds the keys of relations that a forced offer removal
-	// destroys in the same transaction.
+	// skipRelations holds the keys of relations that this operation does
+	// not destroy. A forced offer removal destroys the offer's relations
+	// itself, then builds this operation for each consumer proxy in the
+	// same transaction. Destroying the proxy's relations here as well
+	// would decrement the offered application's relationcount twice.
 	skipRelations set.Strings
 }
 
