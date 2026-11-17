@@ -20,6 +20,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/arch"
+	coreassumes "github.com/juju/juju/core/assumes"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -627,6 +628,19 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Cont
 					arg.Cons),
 			)
 		}
+	} else if coreassumes.HasFeature(resolvedCharm.Meta().Assumes, "unitless") {
+		// Unitless-only charms run controller-side scriptlets instead of
+		// unit hooks, so they are deployed without units. The juju client
+		// defaults num units to 1, so a request for a single unit without
+		// placement is the default and is deployed without units.
+		if (arg.NumUnits != nil && *arg.NumUnits > 1) || len(arg.Placement) > 0 {
+			errs = append(
+				errs,
+				internalerrors.New(
+					"cannot use --num-units or --to with unitless application"),
+			)
+		}
+		numUnits = 0
 	} else {
 		cons = arg.Cons
 
