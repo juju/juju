@@ -1096,13 +1096,14 @@ JOIN application ON application.uuid = application_status.application_uuid
 	return ret, nil
 }
 
-// SetUnitPresence marks the presence of the specified unit, returning an error
-// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+// SetUnitPresence marks the presence of the specified unit and returns the
+// time recorded as when it was last seen. It returns an error satisfying
+// [applicationerrors.UnitNotFound] if the unit doesn't exist.
 // The unit life is not considered when making this query.
-func (st *ModelState) SetUnitPresence(ctx context.Context, name coreunit.Name) error {
+func (st *ModelState) SetUnitPresence(ctx context.Context, name coreunit.Name) (time.Time, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return errors.Capture(err)
+		return time.Time{}, errors.Capture(err)
 	}
 
 	unit := unitName{Name: name}
@@ -1111,7 +1112,7 @@ func (st *ModelState) SetUnitPresence(ctx context.Context, name coreunit.Name) e
 	queryUnit := `SELECT &unitUUID.uuid FROM unit WHERE name = $unitName.name;`
 	queryUnitStmt, err := st.Prepare(queryUnit, unit, uuid)
 	if err != nil {
-		return errors.Capture(err)
+		return time.Time{}, errors.Capture(err)
 	}
 
 	recordUnit := `
@@ -1122,8 +1123,12 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 	var presence unitPresence
 	recordUnitStmt, err := st.Prepare(recordUnit, presence)
 	if err != nil {
-		return errors.Capture(err)
+		return time.Time{}, errors.Capture(err)
 	}
+
+	// Taken outside the transaction so that a retry records the same time
+	// that is returned.
+	lastSeen := st.clock.Now().UTC()
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, queryUnitStmt, unit).Get(&uuid); errors.Is(err, sql.ErrNoRows) {
@@ -1134,7 +1139,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 
 		presence := unitPresence{
 			UnitUUID: uuid.UnitUUID,
-			LastSeen: st.clock.Now().UTC(),
+			LastSeen: lastSeen,
 		}
 
 		if err := tx.Query(ctx, recordUnitStmt, presence).Run(); err != nil {
@@ -1143,9 +1148,9 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 		return nil
 	})
 	if err != nil {
-		return errors.Capture(err)
+		return time.Time{}, errors.Capture(err)
 	}
-	return nil
+	return lastSeen, nil
 }
 
 // DeleteUnitPresence removes the presence of the specified unit. If the
@@ -1180,13 +1185,66 @@ WHERE unit_uuid = (
 	return errors.Capture(err)
 }
 
-// SetMachinePresence marks the presence of the specified machine, returning an
-// error satisfying [machineerrors.MachineNotFound] if the machine doesn't
-// exist. The machine life is not considered when making this query.
-func (st *ModelState) SetMachinePresence(ctx context.Context, name coremachine.Name) error {
+// DeleteUnitPresenceIfLastSeen removes the presence of the specified unit only
+// if it was last seen at lastSeen. If the unit isn't found, or its presence
+// has since been recorded at a different time, it does nothing.
+// The unit life is not considered when making this query.
+func (st *ModelState) DeleteUnitPresenceIfLastSeen(ctx context.Context, name coreunit.Name, lastSeen time.Time) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
+	}
+
+	unit := unitName{Name: name}
+	var uuid unitUUID
+
+	queryUnitStmt, err := st.Prepare(`
+SELECT &unitUUID.uuid
+FROM   unit AS u
+WHERE  u.name = $unitName.name;
+`, unit, uuid)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	presence := unitPresence{LastSeen: lastSeen}
+	deleteStmt, err := st.Prepare(`
+DELETE FROM unit_agent_presence
+WHERE  unit_uuid = $unitPresence.unit_uuid
+AND    last_seen = $unitPresence.last_seen;
+`, presence)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, queryUnitStmt, unit).Get(&uuid); errors.Is(err, sql.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+
+		presence := unitPresence{
+			UnitUUID: uuid.UnitUUID,
+			LastSeen: lastSeen,
+		}
+		if err := tx.Query(ctx, deleteStmt, presence).Run(); err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+
+	return errors.Capture(err)
+}
+
+// SetMachinePresence marks the presence of the specified machine and returns
+// the time recorded as when it was last seen. It returns an error satisfying
+// [machineerrors.MachineNotFound] if the machine doesn't exist. The machine
+// life is not considered when making this query.
+func (st *ModelState) SetMachinePresence(ctx context.Context, name coremachine.Name) (time.Time, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return time.Time{}, errors.Capture(err)
 	}
 
 	machine := machineName{Name: name.String()}
@@ -1195,7 +1253,7 @@ func (st *ModelState) SetMachinePresence(ctx context.Context, name coremachine.N
 	queryMachine := `SELECT &machineUUID.uuid FROM machine WHERE name = $machineName.name;`
 	queryMachineStmt, err := st.Prepare(queryMachine, machine, uuid)
 	if err != nil {
-		return errors.Capture(err)
+		return time.Time{}, errors.Capture(err)
 	}
 
 	recordMachine := `
@@ -1206,8 +1264,12 @@ ON CONFLICT(machine_uuid) DO UPDATE SET
 	var presence machinePresence
 	recordMachineStmt, err := st.Prepare(recordMachine, presence)
 	if err != nil {
-		return errors.Capture(err)
+		return time.Time{}, errors.Capture(err)
 	}
+
+	// Taken outside the transaction so that a retry records the same time
+	// that is returned.
+	lastSeen := st.clock.Now().UTC()
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, queryMachineStmt, machine).Get(&uuid); errors.Is(err, sql.ErrNoRows) {
@@ -1218,7 +1280,7 @@ ON CONFLICT(machine_uuid) DO UPDATE SET
 
 		presence := machinePresence{
 			MachineUUID: uuid.UUID,
-			LastSeen:    st.clock.Now().UTC(),
+			LastSeen:    lastSeen,
 		}
 
 		if err := tx.Query(ctx, recordMachineStmt, presence).Run(); err != nil {
@@ -1227,9 +1289,9 @@ ON CONFLICT(machine_uuid) DO UPDATE SET
 		return nil
 	})
 	if err != nil {
-		return errors.Capture(err)
+		return time.Time{}, errors.Capture(err)
 	}
-	return nil
+	return lastSeen, nil
 }
 
 // DeleteMachinePresence removes the presence of the specified machine. If the
@@ -1256,6 +1318,58 @@ WHERE machine_uuid = (
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, deleteStmt, machine).Run(); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+
+	return errors.Capture(err)
+}
+
+// DeleteMachinePresenceIfLastSeen removes the presence of the specified
+// machine only if it was last seen at lastSeen. If the machine isn't found, or
+// its presence has since been recorded at a different time, it does nothing.
+// The machine life is not considered when making this query.
+func (st *ModelState) DeleteMachinePresenceIfLastSeen(ctx context.Context, name coremachine.Name, lastSeen time.Time) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	machine := machineName{Name: name.String()}
+	var uuid machineUUID
+
+	queryMachineStmt, err := st.Prepare(`
+SELECT &machineUUID.uuid
+FROM   machine AS m
+WHERE  m.name = $machineName.name;
+`, machine, uuid)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	presence := machinePresence{LastSeen: lastSeen}
+	deleteStmt, err := st.Prepare(`
+DELETE FROM machine_agent_presence
+WHERE  machine_uuid = $machinePresence.machine_uuid
+AND    last_seen = $machinePresence.last_seen;
+`, presence)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, queryMachineStmt, machine).Get(&uuid); errors.Is(err, sql.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+
+		presence := machinePresence{
+			MachineUUID: uuid.UUID,
+			LastSeen:    lastSeen,
+		}
+		if err := tx.Query(ctx, deleteStmt, presence).Run(); err != nil {
 			return errors.Capture(err)
 		}
 		return nil
@@ -2163,13 +2277,13 @@ SELECT
   mci.instance_id AS &machineStatusDetails.instance_id,
   mci.display_name AS &machineStatusDetails.display_name,
   mci.arch AS &machineStatusDetails.instance_arch,
-  mci.cpu_cores AS &machineStatusDetails.instance_cpu_cores, 
+  mci.cpu_cores AS &machineStatusDetails.instance_cpu_cores,
   mci.cpu_power AS &machineStatusDetails.instance_cpu_power,
   mci.mem AS &machineStatusDetails.instance_mem,
   mci.root_disk AS &machineStatusDetails.instance_root_disk,
   mci.root_disk_source AS &machineStatusDetails.instance_root_disk_source,
   mci.virt_type AS &machineStatusDetails.instance_virt_type,
-  az.name AS &machineStatusDetails.availability_zone_name, 
+  az.name AS &machineStatusDetails.availability_zone_name,
   p.os_id AS &machineStatusDetails.platform_os_id,
   p.channel AS &machineStatusDetails.platform_channel,
   p.architecture_id AS &machineStatusDetails.platform_architecture_id,
@@ -2217,7 +2331,7 @@ LEFT JOIN container_type AS ct ON c.container_type_id = ct.id;
 	}
 
 	addressesStmt, err := st.Prepare(`
-SELECT 
+SELECT
 	m.uuid AS &machineSpaceAddress.machine_uuid,
 	ipa.address_value AS &machineSpaceAddress.address_value,
 	ipa.config_type_name AS &machineSpaceAddress.config_type_name,
@@ -2584,9 +2698,9 @@ func (st *ModelState) SetInstanceStatus(ctx context.Context, mName string, newSt
 INSERT INTO machine_cloud_instance_status (*)
 VALUES ($setMachineStatus.*)
   ON CONFLICT (machine_uuid)
-  DO UPDATE SET 
-    status_id = excluded.status_id, 
-    message = excluded.message, 
+  DO UPDATE SET
+    status_id = excluded.status_id,
+    message = excluded.message,
     updated_at = excluded.updated_at,
     data = excluded.data;
 `
