@@ -640,6 +640,14 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Cont
 					"cannot use --num-units or --to with unitless application"),
 			)
 		}
+		if !constraints.IsEmpty(&arg.Cons) {
+			errs = append(
+				errs,
+				internalerrors.Errorf(
+					"unitless application must be deployed without constraints, not %q",
+					arg.Cons),
+			)
+		}
 		numUnits = 0
 	} else {
 		cons = arg.Cons

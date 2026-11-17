@@ -14,6 +14,7 @@ import (
 
 	coreassumes "github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
@@ -393,6 +394,22 @@ func (s *deployRepositorySuite) TestResolvedCharmValidationUnitlessCharmPlacemen
 	})
 	c.Assert(errs, tc.HasLen, 1)
 	c.Check(errs[0], tc.ErrorMatches, "cannot use --num-units or --to with unitless application")
+}
+
+func (s *deployRepositorySuite) TestResolvedCharmValidationUnitlessCharmConstraints(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	v, ch := s.newUnitlessCharmValidator(c, ctrl)
+
+	numUnits := 1
+	_, errs := v.resolvedCharmValidation(c.Context(), ch, params.DeployFromRepositoryArg{
+		CharmName: "unitless",
+		NumUnits:  &numUnits,
+		Cons:      constraints.MustParse("arch=amd64"),
+	})
+	c.Assert(errs, tc.HasLen, 1)
+	c.Check(errs[0], tc.ErrorMatches, `unitless application must be deployed without constraints, not "arch=amd64"`)
 }
 
 // TestDeployFromRepositoryReturnsWarningsOnError checks that advisory warnings
