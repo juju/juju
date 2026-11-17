@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	coreapplication "github.com/juju/juju/core/application"
+	coreassumes "github.com/juju/juju/core/assumes"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -139,6 +140,14 @@ func (d *deployCharm) deploy(
 			numUnits = 0
 		} else {
 			return errors.New("cannot use --num-units or --to with subordinate application")
+		}
+	} else if coreassumes.HasFeature(charmInfo.Meta.Assumes, "unitless") {
+		// Unitless-only charms run controller-side scriptlets instead of
+		// unit hooks, so they are deployed without units.
+		if numUnits == 1 && d.placementSpec == "" {
+			numUnits = 0
+		} else {
+			return errors.New("cannot use --num-units or --to with unitless application")
 		}
 	}
 	charmName := charmInfo.Meta.Name

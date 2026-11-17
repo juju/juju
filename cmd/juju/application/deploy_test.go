@@ -57,7 +57,10 @@ import (
 	"github.com/juju/juju/testcharms"
 )
 
-var defaultBase = corebase.MustParseBaseFromString("ubuntu@22.04")
+var (
+	defaultBase  = corebase.MustParseBaseFromString("ubuntu@22.04")
+	unitlessBase = corebase.MustParseBaseFromString("ubuntu@24.04")
+)
 
 type DeploySuiteBase struct {
 	testhelpers.FakeHomeSuite
@@ -680,6 +683,38 @@ func (s *DeploySuite) TestNumUnitsSubordinate(c *tc.C) {
 
 	err := s.runDeploy(c, "--num-units", "3", charmDir.Path, "--base", "ubuntu@22.04")
 	c.Assert(err, tc.ErrorMatches, "cannot use --num-units or --to with subordinate application")
+}
+
+func (s *DeploySuite) TestUnitlessCharm(c *tc.C) {
+	charmDir := testcharms.CharmRepo().CharmArchive(c.MkDir(), "unitless")
+	curl := charm.MustParseURL("local:unitless-0")
+	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
+	// A unitless-only charm runs controller-side scriptlets instead of unit
+	// hooks, so the application is deployed without units.
+	withCharmDeployable(s.fakeAPI, curl, unitlessBase, charmDir.Meta(), false, 0, nil, nil)
+
+	err := s.runDeploy(c, charmDir.Path, "--base", "ubuntu@24.04")
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *DeploySuite) TestNumUnitsUnitlessCharm(c *tc.C) {
+	charmDir := testcharms.CharmRepo().CharmArchive(c.MkDir(), "unitless")
+	curl := charm.MustParseURL("local:unitless-0")
+	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
+	withCharmDeployable(s.fakeAPI, curl, unitlessBase, charmDir.Meta(), false, 0, nil, nil)
+
+	err := s.runDeploy(c, "--num-units", "3", charmDir.Path, "--base", "ubuntu@24.04")
+	c.Assert(err, tc.ErrorMatches, "cannot use --num-units or --to with unitless application")
+}
+
+func (s *DeploySuite) TestForceMachineUnitlessCharm(c *tc.C) {
+	charmDir := testcharms.CharmRepo().CharmArchive(c.MkDir(), "unitless")
+	curl := charm.MustParseURL("local:unitless-0")
+	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
+	withCharmDeployable(s.fakeAPI, curl, unitlessBase, charmDir.Meta(), false, 0, nil, nil)
+
+	err := s.runDeploy(c, "--to", "1", charmDir.Path, "--base", "ubuntu@24.04")
+	c.Assert(err, tc.ErrorMatches, "cannot use --num-units or --to with unitless application")
 }
 
 func (s *DeploySuite) TestForceMachine(c *tc.C) {
