@@ -587,19 +587,30 @@ func (s *unitSuite) TestUnitScheduleRemovalConcurrentDeadlines(c *tc.C) {
 	ctx := c.Context()
 	for i, wait := range waits {
 		go func() {
-			<-start
+			select {
+			case <-start:
+			case <-ctx.Done():
+				return
+			}
 			uuid, err := st.UnitScheduleRemoval(
 				ctx, fmt.Sprintf("concurrent-removal-uuid-%d", i),
 				"unit-uuid", true, now.Add(wait),
 			)
-			results <- result{jobUUID: uuid, err: err}
+			select {
+			case results <- result{jobUUID: uuid, err: err}:
+			case <-ctx.Done():
+			}
 		}()
 	}
 	close(start)
 	for range waits {
-		result := <-results
-		c.Assert(result.err, tc.ErrorIsNil)
-		c.Check(result.jobUUID, tc.Equals, jobUUID)
+		select {
+		case result := <-results:
+			c.Assert(result.err, tc.ErrorIsNil)
+			c.Check(result.jobUUID, tc.Equals, jobUUID)
+		case <-ctx.Done():
+			c.Fatal("timed out waiting for removal scheduling")
+		}
 	}
 
 	jobs, err := st.GetAllJobs(ctx)
