@@ -503,6 +503,115 @@ func (s *pruneBySizeSuite) TestEstimateOperationSizeVariableContent(c *tc.C) {
 	c.Check(avg, tc.Equals, 36)
 }
 
+// TestEstimateOperationSizeSchema requires a review of the estimate whenever
+// the columns or their declared types change.
+func (s *pruneBySizeSuite) TestEstimateOperationSizeSchema(c *tc.C) {
+	tables := map[string][]string{
+		"operation": {
+			"uuid TEXT", "operation_id INTEGER", "summary TEXT",
+			"enqueued_at TIMESTAMP", "started_at TIMESTAMP", "completed_at TIMESTAMP",
+			"parallel BOOLEAN", "execution_group TEXT",
+		},
+		"operation_task": {
+			"uuid TEXT", "operation_uuid TEXT", "task_id TEXT",
+			"enqueued_at DATETIME", "started_at DATETIME", "completed_at DATETIME",
+		},
+		"operation_task_log":         {"task_uuid TEXT", "content TEXT", "created_at TIMESTAMP"},
+		"operation_action":           {"operation_uuid TEXT", "charm_uuid TEXT", "charm_action_key TEXT"},
+		"operation_parameter":        {"operation_uuid TEXT", "key TEXT", "value TEXT"},
+		"operation_task_status":      {"task_uuid TEXT", "status_id INT", "message TEXT", "updated_at DATETIME"},
+		"operation_machine_task":     {"task_uuid TEXT", "machine_uuid TEXT"},
+		"operation_unit_task":        {"task_uuid TEXT", "unit_uuid TEXT"},
+		"operation_task_output":      {"task_uuid TEXT", "store_path TEXT"},
+		"object_store_metadata":      {"uuid TEXT", "sha_256 TEXT", "sha_384 TEXT", "size INT"},
+		"object_store_metadata_path": {"path TEXT", "metadata_uuid TEXT"},
+	}
+	for table, expected := range tables {
+		rows := s.queryRows(c, `SELECT pti.name, pti.type
+FROM pragma_table_info(?) AS pti ORDER BY pti.cid`, table)
+		var columns []string
+		for _, row := range rows {
+			columns = append(columns, fmt.Sprintf("%s %s", row["name"], row["type"]))
+		}
+		c.Check(columns, tc.DeepEquals, expected,
+			tc.Commentf("review the pruning estimate for table %s", table))
+	}
+}
+
+// TestEstimateOperationSizeRepresentativeData compares the estimate against
+// the byte lengths of known representative values and object content. These
+// lengths do not include database pages, indexes or other storage overhead.
+func (s *pruneBySizeSuite) TestEstimateOperationSizeRepresentativeData(c *tc.C) {
+	const (
+		timestamp = "2024-01-02T03:04:05Z"
+		summary   = "example operation"
+		group     = "group"
+		message   = "status message"
+		log       = "example log entry"
+		action    = "action"
+		key       = "parameter"
+		value     = "example value"
+		output    = 128
+	)
+	charm := s.addCharm(c)
+	unit := s.addUnit(c, charm)
+	machine := s.addMachine(c, "0")
+	var referenceBytes int
+	for i := range 12 {
+		op := s.addOperation(c)
+		task := s.addOperationTask(c, op)
+		taskID := fmt.Sprintf("task-%d", i)
+		s.query(c, `UPDATE operation SET operation_id = ?, summary = ?, execution_group = ?,
+			enqueued_at = ?, started_at = ?, completed_at = ?, parallel = 1
+			WHERE uuid = ?`, 1000+i, summary, group, timestamp, timestamp, timestamp, op)
+		s.query(c, `UPDATE operation_task SET task_id = ?,
+			enqueued_at = ?, started_at = ?, completed_at = ? WHERE uuid = ?`,
+			taskID, timestamp, timestamp, timestamp, task)
+		s.query(c, `INSERT INTO operation_task_status
+			(task_uuid, status_id, message, updated_at) VALUES (?, 5, ?, ?)`,
+			task, message, timestamp)
+		s.query(c, `INSERT INTO operation_task_log (task_uuid, content, created_at)
+			VALUES (?, ?, ?)`, task, log, timestamp)
+		s.addOperationAction(c, op, charm, action)
+		s.addOperationParameter(c, op, key, value)
+		if i%2 == 0 {
+			s.addOperationUnitTask(c, task, unit)
+			referenceBytes += len(task) + len(unit)
+		} else {
+			s.addOperationMachineTask(c, task, machine)
+			referenceBytes += len(task) + len(machine)
+		}
+		path := fmt.Sprintf("/output/%d", i)
+		sha256 := fmt.Sprintf("sha256-%d", i)
+		sha384 := fmt.Sprintf("sha384-%d", i)
+		store := s.addOperationTaskOutputWithData(c, task, sha256, sha384, output, path)
+
+		referenceBytes += len(op) + len(strconv.Itoa(1000+i)) + len(summary) +
+			3*len(timestamp) + len("1") + len(group)
+		referenceBytes += len(task) + len(op) + len(taskID) + 3*len(timestamp)
+		referenceBytes += len(task) + len("5") + len(message) + len(timestamp)
+		referenceBytes += len(task) + len(log) + len(timestamp)
+		referenceBytes += len(op) + len(charm) + len(action)
+		referenceBytes += len(op) + len(key) + len(value)
+		referenceBytes += len(task) + 2*len(path) + 2*len(store) +
+			len(sha256) + len(sha384) + len(strconv.Itoa(output)) + output
+	}
+
+	var total int
+	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		total, _, err = s.state.estimateOperationSizeInKiB(ctx, tx)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	estimatedBytes := total * humanize.KiByte
+	// Allow 25% error, plus one KiB for the estimate's rounding.
+	c.Check(estimatedBytes >= referenceBytes*3/4, tc.IsTrue,
+		tc.Commentf("estimated %d bytes; representative content %d bytes", estimatedBytes, referenceBytes))
+	c.Check(estimatedBytes <= referenceBytes*5/4+humanize.KiByte, tc.IsTrue,
+		tc.Commentf("estimated %d bytes; representative content %d bytes", estimatedBytes, referenceBytes))
+}
+
 // TestPruneBySizeCountsParameters verifies that large parameter content
 // contributes to the decision to prune the oldest operation.
 func (s *pruneBySizeSuite) TestPruneBySizeCountsParameters(c *tc.C) {

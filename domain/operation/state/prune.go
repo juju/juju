@@ -160,45 +160,73 @@ func (st *State) estimateOperationSizeInKiB(ctx context.Context, tx *sqlair.TX) 
 		Count int `db:"count"`
 		Size  int `db:"size"`
 	}
-	// UUIDs are estimated at 36 bytes, numeric fields and timestamps at 8
-	// bytes, and booleans at 1 byte. Variable-length text is measured.
+	type rowSizes struct {
+		Operation   int `db:"operation"`
+		Task        int `db:"task"`
+		Log         int `db:"log"`
+		Action      int `db:"action"`
+		Parameter   int `db:"parameter"`
+		Status      int `db:"status"`
+		Association int `db:"association"`
+	}
+	const (
+		// UUIDs are stored as canonical hyphenated strings.
+		uuidBytes = len("00000000-0000-0000-0000-000000000000")
+		// Fixed allowances, not the database's actual stored representation.
+		scalarBytes = 8 // integer or timestamp
+		boolBytes   = 1
+	)
+	// Field counts follow domain/schema/model/sql/0033-operation.sql.
+	sizes := rowSizes{
+		Operation: uuidBytes + 4*scalarBytes + boolBytes, // ID, timestamps, parallel
+		Task:      2*uuidBytes + 3*scalarBytes,           // UUIDs, timestamps
+		Log:       uuidBytes + scalarBytes,               // task UUID, timestamp
+		Action:    2 * uuidBytes,                         // operation and charm UUIDs
+		Parameter: uuidBytes,                             // operation UUID
+		Status:    uuidBytes + 2*scalarBytes,             // task UUID, status ID, timestamp
+		// Receiver links contain two UUIDs. Use the same allowance for
+		// outputs, whose paths are also counted with object-store metadata.
+		Association: 2 * uuidBytes,
+	}
+	// Variable-length text is measured separately; the fixed allowances also
+	// count nullable fields. Schema changes must be reflected in the estimate.
 	stmt, err := st.Prepare(`
 WITH
 operations AS (
     SELECT COUNT(*) AS count,
-           COALESCE(SUM(36 + 8 + 3 * 8 + 1 +
+           COALESCE(SUM($rowSizes.operation +
                COALESCE(octet_length(o.summary), 0) +
                COALESCE(octet_length(o.execution_group), 0)), 0) AS size
     FROM operation AS o
 ),
 tasks AS (
-    SELECT COALESCE(SUM(2 * 36 + 3 * 8 + octet_length(t.task_id)), 0) AS size
+    SELECT COALESCE(SUM($rowSizes.task + octet_length(t.task_id)), 0) AS size
     FROM operation_task AS t
 ),
 logs AS (
-    SELECT COALESCE(SUM(36 + 8 + octet_length(l.content)), 0) AS size
+    SELECT COALESCE(SUM($rowSizes.log + octet_length(l.content)), 0) AS size
     FROM operation_task_log AS l
 ),
 actions AS (
-    SELECT COALESCE(SUM(2 * 36 + octet_length(a.charm_action_key)), 0) AS size
+    SELECT COALESCE(SUM($rowSizes.action + octet_length(a.charm_action_key)), 0) AS size
     FROM operation_action AS a
 ),
 parameters AS (
-    SELECT COALESCE(SUM(36 + octet_length(p.key) + octet_length(p.value)), 0) AS size
+    SELECT COALESCE(SUM($rowSizes.parameter + octet_length(p.key) + octet_length(p.value)), 0) AS size
     FROM operation_parameter AS p
 ),
 statuses AS (
-    SELECT COALESCE(SUM(36 + 2 * 8 + COALESCE(octet_length(s.message), 0)), 0) AS size
+    SELECT COALESCE(SUM($rowSizes.status + COALESCE(octet_length(s.message), 0)), 0) AS size
     FROM operation_task_status AS s
 ),
 machine_tasks AS (
-    SELECT COUNT(*) * 2 * 36 AS size FROM operation_machine_task AS mt
+    SELECT COUNT(*) * $rowSizes.association AS size FROM operation_machine_task AS mt
 ),
 unit_tasks AS (
-    SELECT COUNT(*) * 2 * 36 AS size FROM operation_unit_task AS ut
+    SELECT COUNT(*) * $rowSizes.association AS size FROM operation_unit_task AS ut
 ),
 outputs AS (
-    SELECT COUNT(*) * 2 * 36 AS size FROM operation_task_output AS oto
+    SELECT COUNT(*) * $rowSizes.association AS size FROM operation_task_output AS oto
 ),
 totals AS (
     SELECT o.count AS count,
@@ -215,12 +243,12 @@ totals AS (
     CROSS JOIN outputs AS oto
 )
 SELECT t.count AS &estimate.count, t.size AS &estimate.size
-FROM totals AS t`, estimate{})
+FROM totals AS t`, estimate{}, sizes)
 	if err != nil {
 		return 0, -1, errors.Capture(err)
 	}
 	var tableEstimate estimate
-	if err := tx.Query(ctx, stmt).Get(&tableEstimate); err != nil {
+	if err := tx.Query(ctx, stmt, sizes).Get(&tableEstimate); err != nil {
 		return 0, -1, errors.Errorf("estimating operation table sizes: %w", err)
 	}
 	if tableEstimate.Count == 0 {
