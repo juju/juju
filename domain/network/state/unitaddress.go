@@ -107,7 +107,7 @@ SELECT ipa.address_value AS &controllerAPIAddress.address_value,
        iact.name AS &controllerAPIAddress.config_type_name,
        iat.name AS &controllerAPIAddress.type_name,
        iao.name AS &controllerAPIAddress.origin_name,
-       CASE WHEN unn.is_caas = 1
+       CASE WHEN unn.is_caas = TRUE
             THEN 'local-cloud'
             ELSE ias.name
        END AS &controllerAPIAddress.scope_name,
@@ -127,7 +127,7 @@ JOIN   ip_address_origin AS iao ON ipa.origin_id = iao.id
 JOIN   ip_address_scope AS ias ON ipa.scope_id = ias.id
 LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
 WHERE  lldt.name != $apiAddressFilter.loopback_device_type
-AND    (unn.is_caas = 1
+AND    (unn.is_caas = TRUE
         OR ias.name != $apiAddressFilter.scope_name)
 `, controllerAPIAddress{}, entityUUID{}, apiAddressFilter{})
 	if err != nil {
