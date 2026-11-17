@@ -5,7 +5,6 @@ package observer
 
 import (
 	"context"
-	"time"
 
 	"github.com/juju/names/v6"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/rpc"
 )
 
@@ -20,28 +20,27 @@ import (
 // model.
 type StatusService interface {
 	// SetUnitPresence marks the presence of the unit in the model and returns
-	// the time recorded for it. It is called when the unit agent logs in to
-	// the API server. The unit life is not considered when setting the
-	// presence.
-	SetUnitPresence(ctx context.Context, unitName unit.Name) (time.Time, error)
+	// a token for this login. It is called when the unit agent logs in to the
+	// API server. The unit life is not considered when setting the presence.
+	SetUnitPresence(ctx context.Context, unitName unit.Name) (status.PresenceToken, error)
 
-	// DeleteUnitPresenceIfLastSeen removes the presence of the unit in the
-	// model only if it is still the presence recorded at lastSeen. If the unit
+	// DeleteUnitPresenceWithToken removes the presence of the unit in the
+	// model only if it was recorded by the login that got token. If the unit
 	// is not found, it ignores the error. The unit life is not considered when
 	// deleting the presence.
-	DeleteUnitPresenceIfLastSeen(ctx context.Context, unitName unit.Name, lastSeen time.Time) error
+	DeleteUnitPresenceWithToken(ctx context.Context, unitName unit.Name, token status.PresenceToken) error
 
 	// SetMachinePresence marks the presence of the machine in the model and
-	// returns the time recorded for it. It is called when the machine agent
-	// logs in to the API server. The machine life is not considered when
-	// setting the presence.
-	SetMachinePresence(ctx context.Context, machineName machine.Name) (time.Time, error)
+	// returns a token for this login. It is called when the machine agent logs
+	// in to the API server. The machine life is not considered when setting
+	// the presence.
+	SetMachinePresence(ctx context.Context, machineName machine.Name) (status.PresenceToken, error)
 
-	// DeleteMachinePresenceIfLastSeen removes the presence of the machine in
-	// the model only if it is still the presence recorded at lastSeen. If the
+	// DeleteMachinePresenceWithToken removes the presence of the machine in
+	// the model only if it was recorded by the login that got token. If the
 	// machine is not found, it ignores the error. The machine life is not
 	// considered when deleting the presence.
-	DeleteMachinePresenceIfLastSeen(ctx context.Context, machineName machine.Name, lastSeen time.Time) error
+	DeleteMachinePresenceWithToken(ctx context.Context, machineName machine.Name, token status.PresenceToken) error
 }
 
 // ModelService provides methods to interact with the model.
@@ -76,12 +75,12 @@ type AgentPresence struct {
 
 	modelService ModelService
 
-	// lastSeen is the presence time recorded when this connection logged in.
+	// token identifies the presence recorded when this connection logged in.
 	// An agent can reconnect, to this or another controller, before this
 	// connection is closed. Leave only removes the presence if it still has
-	// this time, so it does not remove the presence of the newer connection.
-	// It is zero if no presence was recorded.
-	lastSeen time.Time
+	// this token, so it does not remove the presence of the newer connection.
+	// It is empty if no presence was recorded.
+	token status.PresenceToken
 }
 
 // NewAgentPresence returns a new RPCObserver.
@@ -116,19 +115,19 @@ func (n *AgentPresence) Login(ctx context.Context, entity names.Tag, modelTag na
 
 	switch t := entity.(type) {
 	case names.UnitTag:
-		lastSeen, err := statusService.SetUnitPresence(ctx, unit.Name(t.Id()))
+		token, err := statusService.SetUnitPresence(ctx, unit.Name(t.Id()))
 		if err != nil {
 			n.logger.Infof(ctx, "recording presence for agent %s: unable to set unit presence: %v", t, err)
 			return
 		}
-		n.lastSeen = lastSeen
+		n.token = token
 	case names.MachineTag:
-		lastSeen, err := statusService.SetMachinePresence(ctx, machine.Name(t.Id()))
+		token, err := statusService.SetMachinePresence(ctx, machine.Name(t.Id()))
 		if err != nil {
 			n.logger.Infof(ctx, "recording presence for agent %s: unable to set machine presence: %v", t, err)
 			return
 		}
-		n.lastSeen = lastSeen
+		n.token = token
 	}
 }
 
@@ -143,7 +142,7 @@ func (n *AgentPresence) Leave(ctx context.Context) {
 	}
 
 	// Nothing to remove if this connection did not record presence.
-	if n.modelService == nil || n.lastSeen.IsZero() {
+	if n.modelService == nil || n.token.IsEmpty() {
 		return
 	}
 
@@ -151,12 +150,12 @@ func (n *AgentPresence) Leave(ctx context.Context) {
 
 	switch t := n.AgentTag().(type) {
 	case names.UnitTag:
-		err := statusService.DeleteUnitPresenceIfLastSeen(ctx, unit.Name(t.Id()), n.lastSeen)
+		err := statusService.DeleteUnitPresenceWithToken(ctx, unit.Name(t.Id()), n.token)
 		if err != nil {
 			n.logger.Infof(ctx, "recording presence for agent %s: unable to delete unit presence: %v", t, err)
 		}
 	case names.MachineTag:
-		if err := statusService.DeleteMachinePresenceIfLastSeen(ctx, machine.Name(t.Id()), n.lastSeen); err != nil {
+		if err := statusService.DeleteMachinePresenceWithToken(ctx, machine.Name(t.Id()), n.token); err != nil {
 			n.logger.Infof(ctx, "recording presence for agent %s: unable to delete machine presence: %v", t, err)
 		}
 	}

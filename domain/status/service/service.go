@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
@@ -136,20 +135,20 @@ type ModelState interface {
 	// the model, indexed by application name, if they have a status set.
 	GetAllApplicationStatuses(context.Context) (map[string]status.StatusInfo[status.WorkloadStatusType], error)
 
-	// SetUnitPresence marks the presence of the specified unit and returns the
-	// time recorded as when it was last seen. The unit life is not considered
-	// when making this query.
-	SetUnitPresence(ctx context.Context, name coreunit.Name) (time.Time, error)
+	// SetUnitPresence marks the presence of the specified unit, recording token
+	// as the login that set it. The unit life is not considered when making
+	// this query.
+	SetUnitPresence(ctx context.Context, name coreunit.Name, token string) error
 
 	// DeleteUnitPresence removes the presence of the specified unit. If the
 	// unit isn't found it ignores the error.
 	// The unit life is not considered when making this query.
 	DeleteUnitPresence(ctx context.Context, name coreunit.Name) error
 
-	// DeleteUnitPresenceIfLastSeen removes the presence of the specified unit
-	// only if it was last seen at lastSeen. If the unit isn't found it ignores
+	// DeleteUnitPresenceWithToken removes the presence of the specified unit
+	// only if it was recorded with token. If the unit isn't found it ignores
 	// the error. The unit life is not considered when making this query.
-	DeleteUnitPresenceIfLastSeen(ctx context.Context, name coreunit.Name, lastSeen time.Time) error
+	DeleteUnitPresenceWithToken(ctx context.Context, name coreunit.Name, token string) error
 
 	// GetApplicationAndUnitStatuses returns the application statuses of all the
 	// applications in the model, indexed by application name.
@@ -165,21 +164,21 @@ type ModelState interface {
 	// SetMachineStatus sets the status of the specified machine.
 	SetMachineStatus(ctx context.Context, machineName string, status status.StatusInfo[status.MachineStatusType]) error
 
-	// SetMachinePresence marks the presence of the specified machine and
-	// returns the time recorded as when it was last seen. The machine life is
-	// not considered when making this query.
-	SetMachinePresence(ctx context.Context, name machine.Name) (time.Time, error)
+	// SetMachinePresence marks the presence of the specified machine,
+	// recording token as the login that set it. The machine life is not
+	// considered when making this query.
+	SetMachinePresence(ctx context.Context, name machine.Name, token string) error
 
 	// DeleteMachinePresence removes the presence of the specified machine. If
 	// the machine isn't found it ignores the error. The machine life is not
 	// considered when making this query.
 	DeleteMachinePresence(ctx context.Context, name machine.Name) error
 
-	// DeleteMachinePresenceIfLastSeen removes the presence of the specified
-	// machine only if it was last seen at lastSeen. If the machine isn't found
+	// DeleteMachinePresenceWithToken removes the presence of the specified
+	// machine only if it was recorded with token. If the machine isn't found
 	// it ignores the error. The machine life is not considered when making
 	// this query.
-	DeleteMachinePresenceIfLastSeen(ctx context.Context, name machine.Name, lastSeen time.Time) error
+	DeleteMachinePresenceWithToken(ctx context.Context, name machine.Name, token string) error
 
 	// GetAllMachineStatuses returns all the machine statuses for the model,
 	// indexed by machine name.
@@ -592,19 +591,27 @@ func (s *Service) GetUnitDisplayAndAgentStatus(ctx context.Context, unitName cor
 }
 
 // SetUnitPresence marks the presence of the unit in the model. It is called
-// when the unit agent logs in to the API server. It returns the time recorded
-// for this presence, which identifies it to
-// [Service.DeleteUnitPresenceIfLastSeen]. If the unit is not found, an error
-// satisfying [applicationerrors.UnitNotFound] is returned. The unit life is not
+// when the unit agent logs in to the API server. It returns a token for this
+// login, to pass to [Service.DeleteUnitPresenceWithToken] when the connection
+// closes. If the unit is not found, an error satisfying
+// [applicationerrors.UnitNotFound] is returned. The unit life is not
 // considered when setting the presence.
-func (s *Service) SetUnitPresence(ctx context.Context, unitName coreunit.Name) (time.Time, error) {
+func (s *Service) SetUnitPresence(ctx context.Context, unitName coreunit.Name) (status.PresenceToken, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if err := unitName.Validate(); err != nil {
-		return time.Time{}, errors.Capture(err)
+		return "", errors.Capture(err)
 	}
-	return s.modelState.SetUnitPresence(ctx, unitName)
+
+	token, err := status.NewPresenceToken()
+	if err != nil {
+		return "", errors.Errorf("creating presence token: %w", err)
+	}
+	if err := s.modelState.SetUnitPresence(ctx, unitName, token.String()); err != nil {
+		return "", errors.Capture(err)
+	}
+	return token, nil
 }
 
 // DeleteUnitPresence removes the presence of the unit in the model. If the unit
@@ -620,37 +627,48 @@ func (s *Service) DeleteUnitPresence(ctx context.Context, unitName coreunit.Name
 	return s.modelState.DeleteUnitPresence(ctx, unitName)
 }
 
-// DeleteUnitPresenceIfLastSeen removes the presence of the unit in the model,
-// but only if it is still the presence recorded at lastSeen by
+// DeleteUnitPresenceWithToken removes the presence of the unit in the model,
+// but only if it was recorded by the login that got token from
 // [Service.SetUnitPresence]. An agent can log in again, on any controller,
 // before its previous connection is closed; the old connection must then not
 // remove the presence recorded by the new one. If the unit is not found, it
 // ignores the error. The unit life is not considered when deleting the
 // presence.
-func (s *Service) DeleteUnitPresenceIfLastSeen(ctx context.Context, unitName coreunit.Name, lastSeen time.Time) error {
+func (s *Service) DeleteUnitPresenceWithToken(ctx context.Context, unitName coreunit.Name, token status.PresenceToken) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if err := unitName.Validate(); err != nil {
 		return errors.Capture(err)
 	}
-	return s.modelState.DeleteUnitPresenceIfLastSeen(ctx, unitName, lastSeen)
+	if err := token.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+	return s.modelState.DeleteUnitPresenceWithToken(ctx, unitName, token.String())
 }
 
 // SetMachinePresence marks the presence of the machine in the model. It is
-// called when the machine agent logs in to the API server. It returns the time
-// recorded for this presence, which identifies it to
-// [Service.DeleteMachinePresenceIfLastSeen]. If the machine is not found, an
-// error satisfying [machineerrors.MachineNotFound] is returned. The machine
-// life is not considered when setting the presence.
-func (s *Service) SetMachinePresence(ctx context.Context, machineName machine.Name) (time.Time, error) {
+// called when the machine agent logs in to the API server. It returns a token
+// for this login, to pass to [Service.DeleteMachinePresenceWithToken] when the
+// connection closes. If the machine is not found, an error satisfying
+// [machineerrors.MachineNotFound] is returned. The machine life is not
+// considered when setting the presence.
+func (s *Service) SetMachinePresence(ctx context.Context, machineName machine.Name) (status.PresenceToken, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if err := machineName.Validate(); err != nil {
-		return time.Time{}, errors.Capture(err)
+		return "", errors.Capture(err)
 	}
-	return s.modelState.SetMachinePresence(ctx, machineName)
+
+	token, err := status.NewPresenceToken()
+	if err != nil {
+		return "", errors.Errorf("creating presence token: %w", err)
+	}
+	if err := s.modelState.SetMachinePresence(ctx, machineName, token.String()); err != nil {
+		return "", errors.Capture(err)
+	}
+	return token, nil
 }
 
 // DeleteMachinePresence removes the presence of the machine in the model. If
@@ -666,21 +684,24 @@ func (s *Service) DeleteMachinePresence(ctx context.Context, machineName machine
 	return s.modelState.DeleteMachinePresence(ctx, machineName)
 }
 
-// DeleteMachinePresenceIfLastSeen removes the presence of the machine in the
-// model, but only if it is still the presence recorded at lastSeen by
+// DeleteMachinePresenceWithToken removes the presence of the machine in the
+// model, but only if it was recorded by the login that got token from
 // [Service.SetMachinePresence]. An agent can log in again, on any controller,
 // before its previous connection is closed; the old connection must then not
 // remove the presence recorded by the new one. If the machine is not found, it
 // ignores the error. The machine life is not considered when deleting the
 // presence.
-func (s *Service) DeleteMachinePresenceIfLastSeen(ctx context.Context, machineName machine.Name, lastSeen time.Time) error {
+func (s *Service) DeleteMachinePresenceWithToken(ctx context.Context, machineName machine.Name, token status.PresenceToken) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if err := machineName.Validate(); err != nil {
 		return errors.Capture(err)
 	}
-	return s.modelState.DeleteMachinePresenceIfLastSeen(ctx, machineName, lastSeen)
+	if err := token.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+	return s.modelState.DeleteMachinePresenceWithToken(ctx, machineName, token.String())
 }
 
 // CheckUnitStatusesReadyForMigration returns an error if the statuses of any units
