@@ -11,6 +11,6 @@ import (
 
 type scriptletSuite struct{}
 
-func TestMethodsSuite(t *testing.T) {
+func TestScriptletSuite(t *testing.T) {
 	tc.Run(t, &scriptletSuite{})
 }
