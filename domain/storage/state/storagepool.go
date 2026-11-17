@@ -284,49 +284,54 @@ ON CONFLICT(storage_pool_uuid, key) DO UPDATE SET key=excluded.key,
 }
 
 // DeleteStoragePool deletes a storage pool with the specified name.
+// The UUID lookup, usage check and deletion run in the same transaction.
 // The following errors can be expected:
-// - [domainstorageerrors.StoragePoolNotFound] if a pool with the specified name does not exist.
-func (st State) DeleteStoragePool(ctx context.Context, name string) error {
+// - [domainstorageerrors.StoragePoolNotFound] if the pool does not exist.
+// - [domainstorageerrors.StoragePoolInUse] if the pool is still referenced.
+func (st State) DeleteStoragePool(ctx context.Context, poolName string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	poolAttributeDeleteQ := `
-DELETE FROM storage_pool_attribute
-WHERE  storage_pool_attribute.storage_pool_uuid = (select uuid FROM storage_pool WHERE name = $M.name)
-`
-
-	poolDeleteQ := `
-DELETE FROM storage_pool
-WHERE  storage_pool.uuid = (select uuid FROM storage_pool WHERE name = $M.name)
-`
-
-	poolAttributeDeleteStmt, err := st.Prepare(poolAttributeDeleteQ, sqlair.M{})
+	usage := storagePoolUsage{}
+	usageStmt, err := st.Prepare(storagePoolUsageQuery, entityUUID{}, usage)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	poolDeleteStmt, err := st.Prepare(poolDeleteQ, sqlair.M{})
+	poolAttributeDeleteStmt, err := st.Prepare(`
+DELETE FROM storage_pool_attribute
+WHERE storage_pool_uuid = $storagePoolUsage.uuid
+`, usage)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	poolDeleteStmt, err := st.Prepare(`
+DELETE FROM storage_pool WHERE uuid = $storagePoolUsage.uuid
+`, usage)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		nameMap := sqlair.M{"name": name}
-		if err := tx.Query(ctx, poolAttributeDeleteStmt, nameMap).Run(); err != nil {
-			return errors.Errorf("deleting storage pool attributes: %w", err)
-		}
-		var outcome = sqlair.Outcome{}
-		err = tx.Query(ctx, poolDeleteStmt, nameMap).Get(&outcome)
+		poolUUID, err := GetStoragePoolUUID(ctx, tx, st, poolName)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		rowsAffected, err := outcome.Result().RowsAffected()
-		if err != nil {
-			return errors.Errorf("deleting storage pool: %w", err)
+		inputUUID := entityUUID{UUID: poolUUID.String()}
+		if err := tx.Query(ctx, usageStmt, inputUUID).Get(&usage); errors.Is(err, sqlair.ErrNoRows) {
+			return domainstorageerrors.StoragePoolNotFound
+		} else if err != nil {
+			return errors.Errorf("checking storage pool usage: %w", err)
 		}
-		if rowsAffected == 0 {
-			return errors.Errorf("storage pool %q not found", name).Add(domainstorageerrors.StoragePoolNotFound)
+		if usage.InUse {
+			return domainstorageerrors.StoragePoolInUse
+		}
+		if err := tx.Query(ctx, poolAttributeDeleteStmt, usage).Run(); err != nil {
+			return errors.Errorf("deleting storage pool attributes: %w", err)
+		}
+		if err := tx.Query(ctx, poolDeleteStmt, usage).Run(); err != nil {
+			return errors.Errorf("deleting storage pool: %w", err)
 		}
 		return nil
 	})
@@ -337,6 +342,7 @@ WHERE  storage_pool.uuid = (select uuid FROM storage_pool WHERE name = $M.name)
 // The storage pool must already exist, and its UUID must be specified.
 // The following errors can be expected:
 // - [domainstorageerrors.StoragePoolNotFound] if a pool with the specified UUID does not exist.
+// - [domainstorageerrors.StoragePoolInUse] if changing a referenced pool's provider.
 func (st State) ReplaceStoragePool(ctx context.Context, pool domainstorage.StoragePool) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -352,15 +358,21 @@ func (st State) ReplaceStoragePool(ctx context.Context, pool domainstorage.Stora
 		return errors.Capture(err)
 	}
 
+	inputUUID := entityUUID{UUID: pool.UUID}
+	usage := storagePoolUsage{}
+	usageStmt, err := st.Prepare(storagePoolUsageQuery, inputUUID, usage)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		exists, err := st.checkStoragePoolExists(ctx, tx, pool.UUID)
-		if err != nil {
-			return err
+		if err := tx.Query(ctx, usageStmt, inputUUID).Get(&usage); errors.Is(err, sqlair.ErrNoRows) {
+			return domainstorageerrors.StoragePoolNotFound
+		} else if err != nil {
+			return errors.Errorf("checking storage pool usage: %w", err)
 		}
-		if !exists {
-			return errors.Errorf(
-				"storage pool %s not found", pool.UUID,
-			).Add(domainstorageerrors.StoragePoolNotFound)
+		if usage.Type != pool.Provider && usage.InUse {
+			return domainstorageerrors.StoragePoolInUse
 		}
 
 		if err := storagePoolUpserter(ctx, tx, pool.UUID, pool.Name, pool.Provider); err != nil {
@@ -375,6 +387,63 @@ func (st State) ReplaceStoragePool(ctx context.Context, pool domainstorage.Stora
 
 	return errors.Capture(err)
 }
+
+type storagePoolUsage struct {
+	UUID  string `db:"uuid"`
+	Type  string `db:"type"`
+	InUse bool   `db:"in_use"`
+}
+
+const storagePoolUsageQuery = `
+WITH pool_usage AS (
+SELECT sp.uuid AS uuid,
+       sp.type AS type,
+    (
+        EXISTS (
+            SELECT 1 FROM model_storage_pool AS msp
+            WHERE msp.storage_pool_uuid = sp.uuid
+        )
+        OR EXISTS (
+            SELECT 1 FROM model_config AS mc
+            WHERE mc.key IN (
+                'storage-default-block-source',
+                'storage-default-filesystem-source'
+            )
+            AND mc.value = sp.name
+        )
+        OR EXISTS (
+            SELECT 1 FROM application_storage_directive AS asd
+            WHERE asd.storage_pool_uuid = sp.uuid
+        )
+        OR EXISTS (
+            SELECT 1 FROM unit_storage_directive AS usd
+            WHERE usd.storage_pool_uuid = sp.uuid
+        )
+        OR EXISTS (
+            SELECT 1 FROM storage_instance AS si
+            WHERE si.storage_pool_uuid = sp.uuid
+        )
+        OR (
+            EXISTS (
+                SELECT 1 FROM model AS m WHERE m.type = 'caas'
+            )
+            AND EXISTS (
+                SELECT 1 FROM model_config AS mc
+                WHERE mc.key = 'operator-storage' AND mc.value = sp.name
+            )
+            AND EXISTS (
+                SELECT 1 FROM application AS a
+            )
+        )
+    ) AS in_use
+FROM storage_pool AS sp
+)
+SELECT pu.uuid AS &storagePoolUsage.uuid,
+       pu.type AS &storagePoolUsage.type,
+       pu.in_use AS &storagePoolUsage.in_use
+FROM pool_usage AS pu
+WHERE pu.uuid = $entityUUID.uuid
+`
 
 // ListStoragePools returns all storage pools in the model.
 func (st State) ListStoragePools(ctx context.Context) ([]domainstorage.StoragePool, error) {
