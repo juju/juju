@@ -217,7 +217,8 @@ func (s *WatchableService) WatchScriptletApplicationDying(
 // config hash changes. The first config hash is always dispatched, so the
 // application receives a config changed event for its current config when
 // the watcher starts. Changes to another application's config hash are not
-// reported.
+// reported. When the config hash row is deleted, as happens when the
+// application is destroyed, no event is emitted.
 func (s *WatchableService) WatchApplicationEvents(
 	ctx context.Context,
 	applicationUUID coreapplication.UUID,
@@ -262,6 +263,13 @@ func (s *WatchableService) WatchApplicationEvents(
 			currentSHA256, err := s.st.GetApplicationConfigHash(ctx, applicationUUID.String())
 			if err != nil {
 				return nil, errors.Capture(err)
+			}
+			// An empty hash means the application's config hash row has
+			// been deleted, i.e. the application is going away. No event
+			// is dispatched: the initial dispatch is unconditional, so
+			// the empty case never needs one.
+			if currentSHA256 == "" {
+				return nil, nil
 			}
 			// If the hash hasn't changed, return no events. This includes
 			// changes to another application's config hash, for which this

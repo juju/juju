@@ -150,9 +150,11 @@ WHERE ach.application_uuid = $applicationUUID.uuid;
 			return nil, errors.Errorf("preparing initial application config hash query: %w", err)
 		}
 
-		var hashes []applicationConfigHash
+		// application_uuid is the primary key of application_config_hash,
+		// so the query returns at most one row.
+		var hash applicationConfigHash
 		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			err := tx.Query(ctx, stmt, ident).GetAll(&hashes)
+			err := tx.Query(ctx, stmt, ident).Get(&hash)
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return nil
 			}
@@ -161,12 +163,10 @@ WHERE ach.application_uuid = $applicationUUID.uuid;
 		if err != nil {
 			return nil, errors.Errorf("getting initial application config hash: %w", err)
 		}
-		if len(hashes) > 1 {
-			return nil, errors.Errorf("too many config hashes for application %q", applicationID)
+		if hash.SHA256 == "" {
+			return nil, nil
 		}
-		return transform.Slice(hashes, func(row applicationConfigHash) string {
-			return row.SHA256
-		}), nil
+		return []string{hash.SHA256}, nil
 	}
 	return "application_config_hash", query
 }

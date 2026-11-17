@@ -135,6 +135,20 @@ func (s *stateSuite) TestInitialWatchStatementApplicationConfigHash(c *tc.C) {
 	c.Check(hashes, tc.DeepEquals, []string{"hash-1"})
 }
 
+func (s *stateSuite) TestInitialWatchStatementApplicationConfigHashNoHash(c *tc.C) {
+	charmID := tc.Must(c, corecharm.NewID)
+	applicationID := tc.Must(c, coreapplication.NewUUID)
+	s.insertApplication(c, charmID.String(), applicationID.String(), false)
+
+	runner := s.TxnRunner()
+	_, query := unitlessstate.NewState(s.TxnRunnerFactory()).
+		InitialWatchStatementApplicationConfigHash(applicationID.String())
+
+	hashes, err := query(c.Context(), runner)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hashes, tc.HasLen, 0)
+}
+
 func (s *stateSuite) insertApplication(c *tc.C, charmID, applicationID string, scriptlet bool) {
 	_, err := s.DB().Exec(`
 INSERT INTO charm (uuid, reference_name, architecture_id)

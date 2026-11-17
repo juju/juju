@@ -98,6 +98,31 @@ func (s *serviceSuite) TestWatchApplicationEvents(c *tc.C) {
 	c.Check(events, tc.HasLen, 0)
 }
 
+func (s *serviceSuite) TestWatchApplicationEventsConfigHashDeleted(c *tc.C) {
+	st := &stubState{hash: "hash-1"}
+	factory := &stubWatcherFactory{}
+	applicationUUID := tc.Must(c, coreapplication.NewUUID)
+	w, err := unitlessservice.NewWatchableService(st, factory).WatchApplicationEvents(
+		c.Context(), applicationUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	// The first config hash is always dispatched as a config changed event.
+	_, err = factory.initialQuery(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// When the application is destroyed, its config hash row is deleted and
+	// the current hash is empty. No event is dispatched for the deletion;
+	// the dying watcher stops the application without a final spurious
+	// config changed event.
+	st.hash = ""
+	changes := []changestream.ChangeEvent{changeEvent{changed: applicationUUID.String()}}
+	events, err := factory.mapper(c.Context(), changes)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(events, tc.HasLen, 0)
+}
+
 func (s *serviceSuite) TestWatchApplicationEventsInvalidApplicationUUID(c *tc.C) {
 	st := &stubState{}
 	_, err := unitlessservice.NewWatchableService(st, &stubWatcherFactory{}).WatchApplicationEvents(
