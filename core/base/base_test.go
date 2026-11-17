@@ -139,3 +139,11 @@ func (s *BaseSuite) TestIsUbuntuLTSForNonLTSes(c *gc.C) {
 		c.Check(lts.IsUbuntuLTS(), jc.IsFalse)
 	}
 }
+
+func (s *BaseSuite) TestIsZero(c *gc.C) {
+	c.Check(Base{}.IsZero(), jc.IsTrue)
+	c.Check(Base{OS: "ubuntu"}.IsZero(), jc.IsFalse)
+	c.Check(Base{Channel: Channel{Track: "22.04"}}.IsZero(), jc.IsFalse)
+	c.Check(Base{Channel: Channel{Risk: Stable}}.IsZero(), jc.IsFalse)
+	c.Check(MakeDefaultBase("ubuntu", "22.04").IsZero(), jc.IsFalse)
+}

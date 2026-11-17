@@ -112,6 +112,11 @@ func (b Base) Empty() bool {
 	return b.OS == "" && b.Channel.Empty()
 }
 
+// IsZero returns true if the base is the zero value.
+func (b Base) IsZero() bool {
+	return b.Empty()
+}
+
 func (b Base) String() string {
 	if b.OS == "" {
 		return ""
