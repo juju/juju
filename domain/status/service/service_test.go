@@ -948,16 +948,18 @@ func (s *serviceSuite) TestSetUnitAgentStatusInvalidStatus(c *tc.C) {
 func (s *serviceSuite) TestSetUnitPresence(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().SetUnitPresence(gomock.Any(), coreunit.Name("foo/666"))
+	now := s.clock.Now()
+	s.modelState.EXPECT().SetUnitPresence(gomock.Any(), coreunit.Name("foo/666")).Return(now, nil)
 
-	err := s.modelService.SetUnitPresence(c.Context(), coreunit.Name("foo/666"))
+	lastSeen, err := s.modelService.SetUnitPresence(c.Context(), coreunit.Name("foo/666"))
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lastSeen, tc.Equals, now)
 }
 
 func (s *serviceSuite) TestSetUnitPresenceInvalidName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.modelService.SetUnitPresence(c.Context(), coreunit.Name("!!!"))
+	_, err := s.modelService.SetUnitPresence(c.Context(), coreunit.Name("!!!"))
 	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
 }
 
@@ -977,19 +979,38 @@ func (s *serviceSuite) TestDeleteUnitPresenceInvalidName(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
 }
 
+func (s *serviceSuite) TestDeleteUnitPresenceIfLastSeen(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	lastSeen := s.clock.Now()
+	s.modelState.EXPECT().DeleteUnitPresenceIfLastSeen(gomock.Any(), coreunit.Name("foo/666"), lastSeen)
+
+	err := s.modelService.DeleteUnitPresenceIfLastSeen(c.Context(), coreunit.Name("foo/666"), lastSeen)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestDeleteUnitPresenceIfLastSeenInvalidName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.modelService.DeleteUnitPresenceIfLastSeen(c.Context(), coreunit.Name("!!!"), s.clock.Now())
+	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
+}
+
 func (s *serviceSuite) TestSetMachinePresence(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().SetMachinePresence(gomock.Any(), machine.Name("666"))
+	now := s.clock.Now()
+	s.modelState.EXPECT().SetMachinePresence(gomock.Any(), machine.Name("666")).Return(now, nil)
 
-	err := s.modelService.SetMachinePresence(c.Context(), machine.Name("666"))
+	lastSeen, err := s.modelService.SetMachinePresence(c.Context(), machine.Name("666"))
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lastSeen, tc.Equals, now)
 }
 
 func (s *serviceSuite) TestSetMachinePresenceInvalidName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.modelService.SetMachinePresence(c.Context(), machine.Name("!!!"))
+	_, err := s.modelService.SetMachinePresence(c.Context(), machine.Name("!!!"))
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -1006,6 +1027,23 @@ func (s *serviceSuite) TestDeleteMachinePresenceInvalidName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.modelService.DeleteMachinePresence(c.Context(), machine.Name("!!!"))
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *serviceSuite) TestDeleteMachinePresenceIfLastSeen(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	lastSeen := s.clock.Now()
+	s.modelState.EXPECT().DeleteMachinePresenceIfLastSeen(gomock.Any(), machine.Name("666"), lastSeen)
+
+	err := s.modelService.DeleteMachinePresenceIfLastSeen(c.Context(), machine.Name("666"), lastSeen)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestDeleteMachinePresenceIfLastSeenInvalidName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.modelService.DeleteMachinePresenceIfLastSeen(c.Context(), machine.Name("!!!"), s.clock.Now())
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
