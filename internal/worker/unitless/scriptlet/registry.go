@@ -45,13 +45,9 @@ func (er *EnvRegistry) AddAppMethod(method *starlark.Builtin) {
 	er.jujuMethods = append(er.jujuMethods, method)
 }
 
-func (er *EnvRegistry) Freeze() {
-	er.frozen.Store(true)
-}
-
 // App constructs an app object and freezes this registry.
 func (er *EnvRegistry) App() *starform.AppObject {
-	er.Freeze()
+	er.frozen.Store(true)
 
 	methods := make([]*starlark.Builtin, len(er.jujuMethods))
 	copy(methods, er.jujuMethods)

@@ -34,15 +34,6 @@ func (s *scriptletSuite) TestRegistryRejectsSameNameBuiltins(c *tc.C) {
 	}, tc.PanicMatches, expected)
 }
 
-func (s *scriptletSuite) TestRegistryFreezing(c *tc.C) {
-	registry := &EnvRegistry{}
-	registry.Freeze()
-
-	c.Check(func() {
-		registry.AddAppMethod(builtin)
-	}, tc.PanicMatches, ".*frozen.*")
-}
-
 var builtin = starlark.NewBuiltinWithSafety("builtin", starlark.NotSafe, func(_ *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 	return starlark.None, nil
 })
