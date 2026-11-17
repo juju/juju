@@ -6,7 +6,6 @@ package state
 import (
 	"fmt"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -744,7 +743,8 @@ func (st *State) cleanupRemoteApplication(name string, cleanupArgs []bson.Raw) (
 		return errors.Trace(err)
 	}
 	if app.Life() == Alive {
-		return errors.BadRequestf("cleanupRemoteApplication requested for a remote application (%s) that is still alive", name)
+		logger.Tracef("cleanupRemoteApplication(%s): remote application is alive", name)
+		return nil
 	}
 	// Count the relations that reference the remote application rather
 	// than trusting its relationcount, which may be stale.
@@ -972,7 +972,7 @@ func (st *State) removeOffersForDyingModel(force bool) (err error) {
 // failedRemovalsError names the entities a forced removal left, each
 // logged where it failed, and reports the first failure.
 func failedRemovalsError(firstErr error, kind string, failed []string) error {
-	sort.Strings(failed)
+	slices.Sort(failed)
 	return errors.Annotatef(firstErr, "cannot remove %s%s %s",
 		kind, plural(len(failed)), strings.Join(failed, ", "))
 }
