@@ -51,6 +51,7 @@ import (
 	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/deployment/charm"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
+	charmtesting "github.com/juju/juju/domain/deployment/charm/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -686,7 +687,7 @@ func (s *DeploySuite) TestNumUnitsSubordinate(c *tc.C) {
 }
 
 func (s *DeploySuite) TestUnitlessCharm(c *tc.C) {
-	charmDir := testcharms.CharmRepo().CharmArchive(c.MkDir(), "unitless")
+	charmDir := newUnitlessCharmArchive(c)
 	curl := charm.MustParseURL("local:unitless-0")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	// A unitless-only charm runs controller-side scriptlets instead of unit
@@ -698,7 +699,7 @@ func (s *DeploySuite) TestUnitlessCharm(c *tc.C) {
 }
 
 func (s *DeploySuite) TestNumUnitsUnitlessCharm(c *tc.C) {
-	charmDir := testcharms.CharmRepo().CharmArchive(c.MkDir(), "unitless")
+	charmDir := newUnitlessCharmArchive(c)
 	curl := charm.MustParseURL("local:unitless-0")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployable(s.fakeAPI, curl, unitlessBase, charmDir.Meta(), false, 0, nil, nil)
@@ -708,7 +709,7 @@ func (s *DeploySuite) TestNumUnitsUnitlessCharm(c *tc.C) {
 }
 
 func (s *DeploySuite) TestForceMachineUnitlessCharm(c *tc.C) {
-	charmDir := testcharms.CharmRepo().CharmArchive(c.MkDir(), "unitless")
+	charmDir := newUnitlessCharmArchive(c)
 	curl := charm.MustParseURL("local:unitless-0")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployable(s.fakeAPI, curl, unitlessBase, charmDir.Meta(), false, 0, nil, nil)
@@ -1456,6 +1457,41 @@ func vanillaFakeModelAPI(cfgAttrs map[string]any) *fakeDeployAPI {
 	fakeAPI.Call("BestFacadeVersion", "Resources").Returns(3)
 
 	return fakeAPI
+}
+
+// newUnitlessCharmArchive returns a minimal charm archive that declares the
+// unitless assumes feature. The unitless example charm is a charmcraft
+// project, so it cannot be packed from source here; the deploy tests only
+// need the feature to drive the unitless validation.
+func newUnitlessCharmArchive(c *tc.C) *charm.CharmArchive {
+	dir := filepath.Join(c.MkDir(), "unitless")
+	c.Assert(os.Mkdir(dir, 0o755), tc.ErrorIsNil)
+
+	metadata := `
+name: unitless
+summary: Unitless charm
+description: Unitless charm
+assumes:
+- unitless
+`
+	c.Assert(os.WriteFile(filepath.Join(dir, "metadata.yaml"), []byte(metadata), 0o644), tc.ErrorIsNil)
+
+	manifest := `
+bases:
+- architectures:
+  - amd64
+  channel: '24.04'
+  name: ubuntu
+`
+	c.Assert(os.WriteFile(filepath.Join(dir, "manifest.yaml"), []byte(manifest), 0o644), tc.ErrorIsNil)
+
+	charmDir, err := charmtesting.ReadCharmDir(dir)
+	c.Assert(err, tc.ErrorIsNil)
+	path := filepath.Join(c.MkDir(), "unitless.charm")
+	c.Assert(charmDir.ArchiveToPath(path), tc.ErrorIsNil)
+	archive, err := charm.ReadCharmArchive(path)
+	c.Assert(err, tc.ErrorIsNil)
+	return archive
 }
 
 func withLocalCharmDeployable(
