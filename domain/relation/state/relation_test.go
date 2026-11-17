@@ -864,7 +864,7 @@ func (s *addRelationSuite) TestInferEndpoints(c *tc.C) {
 		// Act
 		var uuid1, uuid2 corerelation.EndpointUUID
 		err := db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-			ep1, ep2, err := s.state.inferEndpoints(ctx, tx, identifier1, identifier2)
+			ep1, ep2, err := s.state.inferEndpoints(ctx, tx, identifier1, identifier2, true)
 			uuid1 = ep1.ApplicationEndpointUUID
 			uuid2 = ep2.ApplicationEndpointUUID
 			return err
@@ -986,7 +986,7 @@ func (s *addRelationSuite) TestInferEndpointsError(c *tc.C) {
 
 		// Act
 		err := db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-			_, _, err = s.state.inferEndpoints(ctx, tx, identifier1, identifier2)
+			_, _, err = s.state.inferEndpoints(ctx, tx, identifier1, identifier2, true)
 			return err
 		})
 
@@ -4507,6 +4507,73 @@ func (s *relationSuite) TestInferRelationUUIDByEndpointsAmbiguousCharmSingleRela
 
 	// Assert: despite ambiguity in charm metadata, falls back to the single
 	// existing relation.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedUUID, tc.Equals, relUUID)
+}
+
+// TestInferRelationUUIDByEndpointsAmbiguousImplicitAndExplicit tests that
+// lookup for removal does not discard the implicit (juju-info) candidate
+// the way creation does: only the implicit relation actually exists
+// between the two applications, so an unqualified lookup must still find
+// it rather than resolving straight to the (non-existent) explicit
+// relation and reporting not found.
+func (s *relationSuite) TestInferRelationUUIDByEndpointsAmbiguousImplicitAndExplicit(c *tc.C) {
+	// Arrange: app1 both explicitly provides an interface and offers the
+	// juju-provided implicit juju-info endpoint; app2 requires both.
+	jujuInfoProvider := charm.Relation{
+		Name:      "juju-info",
+		Role:      charm.RoleProvider,
+		Interface: "juju-info",
+		Scope:     charm.ScopeGlobal,
+	}
+	explicitProvider := charm.Relation{
+		Name:      "cos-agent",
+		Role:      charm.RoleProvider,
+		Interface: "cos-agent",
+		Scope:     charm.ScopeGlobal,
+	}
+	jujuInfoRequirer := charm.Relation{
+		Name:      "juju-info",
+		Role:      charm.RoleRequirer,
+		Interface: "juju-info",
+		Scope:     charm.ScopeGlobal,
+	}
+	explicitRequirer := charm.Relation{
+		Name:      "cos-agent",
+		Role:      charm.RoleRequirer,
+		Interface: "cos-agent",
+		Scope:     charm.ScopeGlobal,
+	}
+
+	charmRelUUID1Implicit := s.addCharmRelation(c, s.fakeCharmUUID1, jujuInfoProvider)
+	charmRelUUID1Explicit := s.addCharmRelation(c, s.fakeCharmUUID1, explicitProvider)
+	charmRelUUID2Implicit := s.addCharmRelation(c, s.fakeCharmUUID2, jujuInfoRequirer)
+	charmRelUUID2Explicit := s.addCharmRelation(c, s.fakeCharmUUID2, explicitRequirer)
+	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
+	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
+
+	appEndpointUUID1Implicit := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelUUID1Implicit)
+	s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelUUID1Explicit)
+	appEndpointUUID2Implicit := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelUUID2Implicit)
+	s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelUUID2Explicit)
+
+	// Only the implicit (juju-info) relation actually exists.
+	relUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relUUID, appEndpointUUID1Implicit)
+	s.addRelationEndpoint(c, relUUID, appEndpointUUID2Implicit)
+
+	candidate1 := domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: s.fakeApplicationName1,
+	}
+	candidate2 := domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: s.fakeApplicationName2,
+	}
+
+	// Act
+	obtainedUUID, err := s.state.InferRelationUUIDByEndpoints(c.Context(), candidate1, candidate2)
+
+	// Assert: resolves to the existing implicit relation, it is not
+	// discarded in favour of a non-existent explicit one.
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedUUID, tc.Equals, relUUID)
 }
