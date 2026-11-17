@@ -748,6 +748,9 @@ func (s *ProviderService) makeCAASApplicationArg(
 	args AddApplicationArgs,
 	units ...AddUnitArg,
 ) (string, application.AddCAASApplicationArg, []application.AddCAASUnitArg, error) {
+	if len(name) > 53 {
+		return "", application.AddCAASApplicationArg{}, nil, applicationerrors.ApplicationNameNotValid
+	}
 	var err error
 	if args, err = s.validateCreateApplicationArgs(ctx, name, charm, origin, args); err != nil {
 		return "", application.AddCAASApplicationArg{}, nil,

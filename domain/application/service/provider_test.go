@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
@@ -228,6 +229,25 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 	}, AddUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(receivedArgs, createAddCAASUnitArgsChecker(), us)
+}
+
+func (s *providerServiceSuite) TestCreateCAASApplicationWithApplicationNameTooLong(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.CreateCAASApplication(
+		c.Context(),
+		strings.Repeat("a", 54),
+		s.charm,
+		corecharm.Origin{
+			Source:   corecharm.CharmHub,
+			Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+			Revision: new(42),
+		},
+		AddApplicationArgs{
+			ReferenceName: "ubuntu",
+		},
+	)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
 func (s *providerServiceSuite) TestCreateIAASApplicationWithApplicationStatus(c *tc.C) {
