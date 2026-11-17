@@ -6,6 +6,7 @@ package gce
 import (
 	"context"
 	"strconv"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/compute/apiv1/computepb"
@@ -84,7 +85,7 @@ func (env *environ) getAllInstanceTypes(ctx context.Context, clock clock.Clock) 
 				Name:     m.GetName(),
 				CpuCores: uint64(m.GetGuestCpus()),
 				Mem:      uint64(m.GetMemoryMb()),
-				Arch:     machineTypeArch(m),
+				Arch:     machineTypeArch(ctx, m),
 				VirtType: &virtType,
 			}
 			resultUnique[m.GetName()] = i
@@ -104,11 +105,33 @@ func (env *environ) getAllInstanceTypes(ctx context.Context, clock clock.Clock) 
 	return env.cachedInstanceTypes, nil
 }
 
-// machineTypeArch returns the Juju architecture of a GCE machine type,
-// defaulting to amd64 when GCE does not report one.
-func machineTypeArch(m *computepb.MachineType) string {
-	if m.GetArchitecture() == computepb.MachineType_ARM64.String() {
+// machineTypeArch maps the architecture reported by the GCE API for a
+// machine type to a juju architecture.
+//
+// Unset values (empty or ARCHITECTURE_UNSPECIFIED) are treated as amd64.
+// This is deliberate: it preserves the historical behaviour where every
+// GCE machine type was assumed to be x86-64, so existing deployments keep
+// selecting the legacy families they always have.
+//
+// Unrecognised non-empty values are also coerced to amd64 (fail-open), so
+// a machine family reporting a future architecture stays provisionable
+// under arch=amd64 constraints; the coercion is logged so the day Google
+// ships a third machine architecture there is a signal pointing at it.
+// Compare convertImageArch, which is fail-closed for images: a mismatched
+// machine type fails cleanly at constraint matching, while a mismatched
+// image would boot the wrong architecture.
+func machineTypeArch(ctx context.Context, m *computepb.MachineType) string {
+	gceArch := m.GetArchitecture()
+	if strings.EqualFold(gceArch, computepb.MachineType_ARM64.String()) {
 		return arch.ARM64
+	}
+	switch {
+	case gceArch == "",
+		strings.EqualFold(gceArch, computepb.MachineType_X86_64.String()),
+		strings.EqualFold(gceArch, computepb.MachineType_ARCHITECTURE_UNSPECIFIED.String()):
+		// Known amd64 or deliberately-unset values: no signal needed.
+	default:
+		logger.Debugf(ctx, "unrecognised GCE machine type architecture %q, assuming amd64", gceArch)
 	}
 	return arch.AMD64
 }

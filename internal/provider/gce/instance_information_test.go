@@ -59,6 +59,94 @@ func (s *instanceInformationSuite) TestInstanceTypesCacheExpiration(c *tc.C) {
 	c.Assert(env.instCacheExpireAt.After(clk.Now()), tc.IsTrue, tc.Commentf("expected cache expiration to be in the future"))
 }
 
+func (s *instanceInformationSuite) TestMachineTypeArch(c *tc.C) {
+	// machineTypeArch must translate the GCE API architecture values, and
+	// default to amd64 for unset or unknown values (historical behaviour).
+	tests := []struct {
+		gceArch  *string
+		expected string
+	}{
+		{new("ARM64"), "arm64"},
+		{new("arm64"), "arm64"}, // case-insensitive match
+		{new("X86_64"), "amd64"},
+		{new("ARCHITECTURE_UNSPECIFIED"), "amd64"},
+		{new("amd64"), "amd64"},
+		{new("RISCV64"), "amd64"}, // unknown values fall back to amd64
+		{new(""), "amd64"},
+		{nil, "amd64"},
+	}
+	for i, t := range tests {
+		m := &computepb.MachineType{Architecture: t.gceArch}
+		c.Logf("test %d: architecture=%q", i, m.GetArchitecture())
+		c.Check(machineTypeArch(c.Context(), m), tc.Equals, t.expected)
+	}
+}
+
+func (s *instanceInformationSuite) TestInstanceTypesFiltersByArch(c *tc.C) {
+	// Regression test: machine types were all labelled amd64, so ARM64
+	// families (e.g. t2a) matched arch=amd64 constraints and were then
+	// rejected by GCE when the instance was created.
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   new("home-zone"),
+		Status: new("UP"),
+	}}, nil).Times(1)
+	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*computepb.MachineType{{
+		Id:           new(uint64(1)),
+		Name:         new("e2-standard-2"),
+		GuestCpus:    new(int32(2)),
+		MemoryMb:     new(int32(8192)),
+		Architecture: new("X86_64"),
+	}, {
+		Id:           new(uint64(2)),
+		Name:         new("t2a-standard-2"),
+		GuestCpus:    new(int32(2)),
+		MemoryMb:     new(int32(8192)),
+		Architecture: new("ARM64"),
+	}, {
+		Id:        new(uint64(3)),
+		Name:      new("n2-standard-2"),
+		GuestCpus: new(int32(2)),
+		MemoryMb:  new(int32(8192)),
+		// Architecture unset: must default to amd64.
+	}}, nil).Times(1)
+
+	// An amd64 constraint must exclude the ARM64 machine type.
+	types, err := env.InstanceTypes(c.Context(), constraints.MustParse("arch=amd64"))
+	c.Assert(err, tc.ErrorIsNil)
+	names := make([]string, len(types.InstanceTypes))
+	for i, it := range types.InstanceTypes {
+		names[i] = it.Name
+		c.Check(it.Arch, tc.Equals, "amd64")
+	}
+	c.Check(names, tc.DeepEquals, []string{"e2-standard-2", "n2-standard-2"})
+
+	// An arm64 constraint must only match the ARM64 machine type.
+	types, err = env.InstanceTypes(c.Context(), constraints.MustParse("arch=arm64"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(types.InstanceTypes, tc.HasLen, 1)
+	c.Check(types.InstanceTypes[0].Name, tc.Equals, "t2a-standard-2")
+	c.Check(types.InstanceTypes[0].Arch, tc.Equals, "arm64")
+
+	// Without an arch constraint, all types match and are labelled with
+	// their reported architecture.
+	types, err = env.InstanceTypes(c.Context(), constraints.Value{})
+	c.Assert(err, tc.ErrorIsNil)
+	arches := make(map[string]string, len(types.InstanceTypes))
+	for _, it := range types.InstanceTypes {
+		arches[it.Name] = it.Arch
+	}
+	c.Check(arches, tc.DeepEquals, map[string]string{
+		"e2-standard-2":  "amd64",
+		"n2-standard-2":  "amd64",
+		"t2a-standard-2": "arm64",
+	})
+}
+
 func (s *instanceInformationSuite) TestEnsureDefaultConstraints(c *tc.C) {
 	// Fill default cores and mem.
 	cons := constraints.Value{}
