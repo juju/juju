@@ -211,7 +211,7 @@ func (s *containerSuite) TestGetMachineAppBindingsSubordinatesDiscounted(c *tc.C
 	sAppUUID := s.addApplication(c, scUUID, "secondary")
 	_ = s.addApplicationEndpoint(c, sAppUUID, srUUID, sSpUUID)
 
-	_ = s.addUnit(c, "secondary/0", pAppUUID, pcUUID, nUUID)
+	_ = s.addUnit(c, "secondary/0", sAppUUID, scUUID, nUUID)
 
 	// Act.
 	bound, err := s.state.GetMachineAppBindings(c.Context(), mUUID.String())

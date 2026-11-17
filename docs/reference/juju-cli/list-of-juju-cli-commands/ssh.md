@@ -17,6 +17,7 @@ juju ssh [options] <[user@]target> [openssh options] [command]
 | `--direct` | false | Connect directly to the target (for Juju 3 controllers) |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--no-host-key-checks` | false | Skip host key checking (INSECURE) |
+| `--print-keys` | false | Print SHA256 fingerprints of the controller and virtual host keys |
 | `--proxy` | false | Proxy through the API server |
 | `--pty` | &lt;auto&gt; | Enable pseudo-tty allocation |
 | `--show-command` | false | Print the OpenSSH command instead of executing it |
@@ -39,6 +40,10 @@ Connect to the leader mysql unit:
 Connect to a specific mysql unit:
 
     juju ssh mysql/0
+
+Print the controller and virtual host key fingerprints for a mysql unit:
+
+    juju ssh --print-keys mysql/0
 
 Connect to a jenkins unit as user jenkins:
 
@@ -129,6 +134,13 @@ port 22 (by default).
 The SSH host keys of the target are verified. The `--no-host-key-checks` option
 can be used to disable these checks. Use of this option is not recommended as
 it opens up the possibility of a man-in-the-middle attack.
+
+Use `--print-keys` to print the controller SSH jump server and target virtual
+host key SHA256 fingerprints without opening an SSH session. The keys are
+retrieved through the authenticated Juju API and can be used to verify the trust prompts
+when using an alternative client like OpenSSH.
+The `--print-keys` option cannot be combined with `--direct` or
+`--show-command`.
 
 The default identity known to Juju and used by this command is `~/.ssh/id_ed25519`.
 For models on a machine cloud, an appropriate SSH key must be added to the model first.
