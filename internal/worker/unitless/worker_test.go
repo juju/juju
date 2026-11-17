@@ -133,7 +133,7 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 			return watchertest.NewMockStringsWatcher(eventChanges), nil
 		},
 	)
-	service.EXPECT().GetScriptletEvent(gomock.Any(), applicationUUID, "config_changed").Return(
+	service.EXPECT().GetScriptletEvent(gomock.Any(), applicationUUID, domainunitless.EventConfigChanged).Return(
 		event, nil,
 	)
 

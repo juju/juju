@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainunitless "github.com/juju/juju/domain/unitless"
 	internalerrors "github.com/juju/juju/internal/errors"
 )
 
@@ -175,7 +176,8 @@ func (r *applicationRunner) handleEvent(ctx context.Context, eventName string) e
 		return nil
 	}
 
-	event, err := r.config.ScriptletService.GetScriptletEvent(ctx, r.config.ApplicationUUID, eventName)
+	event, err := r.config.ScriptletService.GetScriptletEvent(
+		ctx, r.config.ApplicationUUID, domainunitless.EventType(eventName))
 	if err != nil {
 		return internalerrors.Errorf("getting event snapshot: %w", err)
 	}
