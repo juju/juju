@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v5/workertest"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
@@ -28,7 +29,7 @@ func TestServiceSuite(t *testing.T) {
 }
 
 func (s *serviceSuite) TestWatchScriptletApplications(c *tc.C) {
-	w, err := unitlessservice.NewWatchableService(&stubState{}, stubWatcherFactory{}).
+	w, err := unitlessservice.NewWatchableService(&stubState{}, &stubWatcherFactory{}).
 		WatchScriptletApplications(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -66,13 +67,45 @@ func (s *serviceSuite) TestGetScriptletApplicationInvalidApplicationUUID(c *tc.C
 }
 
 func (s *serviceSuite) TestWatchApplicationEvents(c *tc.C) {
-	w, err := unitlessservice.NewWatchableService(&stubState{}, stubWatcherFactory{}).WatchApplicationEvents(
-		c.Context(), tc.Must(c, coreapplication.NewUUID),
+	st := &stubState{hash: "hash-1"}
+	factory := &stubWatcherFactory{}
+	applicationUUID := tc.Must(c, coreapplication.NewUUID)
+	w, err := unitlessservice.NewWatchableService(st, factory).WatchApplicationEvents(
+		c.Context(), applicationUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	c.Check(<-w.Changes(), tc.HasLen, 0)
+	c.Check(st.applicationUUID, tc.Equals, applicationUUID.String())
+
+	// The first config hash is always dispatched as a config changed event.
+	initialEvents, err := factory.initialQuery(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(initialEvents, tc.DeepEquals, []string{unitless.EventConfigChanged.String()})
+
+	changes := []changestream.ChangeEvent{changeEvent{changed: applicationUUID.String()}}
+
+	// A config hash change emits a config changed event.
+	st.hash = "hash-2"
+	events, err := factory.mapper(c.Context(), changes)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(events, tc.DeepEquals, []string{unitless.EventConfigChanged.String()})
+
+	// A change that leaves the application's config hash untouched emits no
+	// events. This covers changes to another application's config hash.
+	events, err = factory.mapper(c.Context(), changes)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(events, tc.HasLen, 0)
+}
+
+func (s *serviceSuite) TestWatchApplicationEventsInvalidApplicationUUID(c *tc.C) {
+	st := &stubState{}
+	_, err := unitlessservice.NewWatchableService(st, &stubWatcherFactory{}).WatchApplicationEvents(
+		c.Context(), coreapplication.UUID("not-valid"),
+	)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, `application UUID: uuid "not-valid" not valid`)
+	c.Check(st.applicationUUID, tc.Equals, "")
 }
 
 func (s *serviceSuite) TestGetScriptletEvent(c *tc.C) {
@@ -97,19 +130,20 @@ func (s *serviceSuite) TestGetScriptletEventInvalidApplicationUUID(c *tc.C) {
 	c.Check(st.applicationUUID, tc.Equals, "")
 }
 
-func (s *serviceSuite) TestGetScriptletEventEmptyEventName(c *tc.C) {
+func (s *serviceSuite) TestGetScriptletEventEmptyEventType(c *tc.C) {
 	st := &stubState{}
 	_, err := unitlessservice.NewService(st).GetScriptletEvent(
 		c.Context(), tc.Must(c, coreapplication.NewUUID), "",
 	)
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
-	c.Check(err, tc.ErrorMatches, "empty event name not valid")
+	c.Check(err, tc.ErrorMatches, "empty event type not valid")
 	c.Check(st.applicationUUID, tc.Equals, "")
 }
 
 type stubState struct {
 	applicationUUID string
 	eventName       string
+	hash            string
 }
 
 func (s *stubState) InitialWatchStatementScriptletApplications() (string, eventsource.NamespaceQuery) {
@@ -148,24 +182,51 @@ func (s *stubState) GetScriptletEvent(
 	return unitless.Event{}, nil
 }
 
-type stubWatcherFactory struct{}
+func (s *stubState) InitialWatchStatementApplicationConfigHash(applicationUUID string) (string, eventsource.NamespaceQuery) {
+	s.applicationUUID = applicationUUID
+	return "application_config_hash", func(context.Context, database.TxnRunner) ([]string, error) {
+		return []string{s.hash}, nil
+	}
+}
 
-func (stubWatcherFactory) NewNamespaceMapperWatcher(
-	context.Context,
-	eventsource.NamespaceQuery,
-	string,
-	eventsource.Mapper,
-	eventsource.FilterOption,
-	...eventsource.FilterOption,
+func (s *stubState) GetApplicationConfigHash(_ context.Context, applicationUUID string) (string, error) {
+	s.applicationUUID = applicationUUID
+	return s.hash, nil
+}
+
+type changeEvent struct {
+	changed string
+}
+
+func (e changeEvent) Changed() string               { return e.changed }
+func (e changeEvent) Namespace() string             { return "application_config_hash" }
+func (e changeEvent) Type() changestream.ChangeType { return changestream.Changed }
+
+type stubWatcherFactory struct {
+	initialQuery eventsource.NamespaceQuery
+	summary      string
+	mapper       eventsource.Mapper
+}
+
+func (f *stubWatcherFactory) NewNamespaceMapperWatcher(
+	_ context.Context,
+	initialQuery eventsource.NamespaceQuery,
+	summary string,
+	mapper eventsource.Mapper,
+	_ eventsource.FilterOption,
+	_ ...eventsource.FilterOption,
 ) (watcher.StringsWatcher, error) {
+	f.initialQuery = initialQuery
+	f.summary = summary
+	f.mapper = mapper
 	return watcher.TODO[[]string](), nil
 }
 
-func (stubWatcherFactory) NewNotifyWatcher(
-	context.Context,
-	string,
-	eventsource.FilterOption,
-	...eventsource.FilterOption,
+func (f *stubWatcherFactory) NewNotifyWatcher(
+	_ context.Context,
+	_ string,
+	_ eventsource.FilterOption,
+	_ ...eventsource.FilterOption,
 ) (watcher.NotifyWatcher, error) {
 	return watcher.TODO[struct{}](), nil
 }
