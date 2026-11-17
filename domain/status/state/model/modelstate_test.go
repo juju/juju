@@ -13,6 +13,7 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -740,7 +741,7 @@ func (s *modelStateSuite) TestGetUnitAgentStatusPresent(c *tc.C) {
 	err := s.state.SetUnitAgentStatus(c.Context(), unitUUID, status)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.SetUnitPresence(c.Context(), coreunit.Name("foo/0"))
+	_, err = s.state.SetUnitPresence(c.Context(), coreunit.Name("foo/0"))
 	c.Assert(err, tc.ErrorIsNil)
 
 	gotStatus, err := s.state.GetUnitAgentStatus(c.Context(), unitUUID)
@@ -772,7 +773,7 @@ func (s *modelStateSuite) TestGetMachineAgentStatusPresent(c *tc.C) {
 	err := s.state.SetMachineStatus(c.Context(), "0", status)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.SetMachinePresence(c.Context(), coremachine.Name("0"))
+	_, err = s.state.SetMachinePresence(c.Context(), coremachine.Name("0"))
 	c.Assert(err, tc.ErrorIsNil)
 
 	gotStatus, err := s.state.GetMachineStatus(c.Context(), "0")
@@ -791,6 +792,42 @@ func (s *modelStateSuite) TestGetMachineAgentStatusPresent(c *tc.C) {
 	assertStatusInfoEqual(c, gotStatus.StatusInfo, status)
 }
 
+// TestDeleteMachinePresenceIfLastSeen covers a machine agent that logs in
+// again before its previous connection is closed. The old connection leaving
+// must not remove the presence recorded by the new one, but the new one
+// leaving must.
+func (s *modelStateSuite) TestDeleteMachinePresenceIfLastSeen(c *tc.C) {
+	s.createIAASApplicationWithNUnits(c, "foo", 1)
+
+	clk := testclock.NewClock(time.Now())
+	st := NewModelState(s.TxnRunnerFactory(), clk, loggertesting.WrapCheckLog(c))
+
+	oldLastSeen, err := st.SetMachinePresence(c.Context(), coremachine.Name("0"))
+	c.Assert(err, tc.ErrorIsNil)
+	clk.Advance(time.Second)
+	newLastSeen, err := st.SetMachinePresence(c.Context(), coremachine.Name("0"))
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.DeleteMachinePresenceIfLastSeen(c.Context(), coremachine.Name("0"), oldLastSeen)
+	c.Assert(err, tc.ErrorIsNil)
+
+	gotStatus, err := st.GetMachineStatus(c.Context(), "0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotStatus.Present, tc.IsTrue)
+
+	err = st.DeleteMachinePresenceIfLastSeen(c.Context(), coremachine.Name("0"), newLastSeen)
+	c.Assert(err, tc.ErrorIsNil)
+
+	gotStatus, err = st.GetMachineStatus(c.Context(), "0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotStatus.Present, tc.IsFalse)
+}
+
+func (s *modelStateSuite) TestDeleteMachinePresenceIfLastSeenNotFound(c *tc.C) {
+	err := s.state.DeleteMachinePresenceIfLastSeen(c.Context(), coremachine.Name("666"), time.Now())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *modelStateSuite) TestGetMachineAgentStatusPresentViaChildMachine(c *tc.C) {
 	_, parentName, _, childName := s.createContainerMachine(c)
 
@@ -804,7 +841,7 @@ func (s *modelStateSuite) TestGetMachineAgentStatusPresentViaChildMachine(c *tc.
 	err := s.state.SetMachineStatus(c.Context(), parentName.String(), status)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.SetMachinePresence(c.Context(), childName)
+	_, err = s.state.SetMachinePresence(c.Context(), childName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	gotStatus, err := s.state.GetMachineStatus(c.Context(), parentName.String())
@@ -918,7 +955,7 @@ func (s *modelStateSuite) TestSetWorkloadStatusPresent(c *tc.C) {
 	err := s.state.SetUnitWorkloadStatus(c.Context(), unitUUID, sts)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.SetUnitPresence(c.Context(), coreunit.Name("foo/0"))
+	_, err = s.state.SetUnitPresence(c.Context(), coreunit.Name("foo/0"))
 	c.Assert(err, tc.ErrorIsNil)
 
 	gotStatus, err := s.state.GetUnitWorkloadStatus(c.Context(), unitUUID)
@@ -1092,7 +1129,7 @@ func (s *modelStateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnits
 	}
 	err = s.state.SetUnitWorkloadStatus(c.Context(), unitUUID2, status2)
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.SetUnitPresence(c.Context(), coreunit.Name("foo/1"))
+	_, err = s.state.SetUnitPresence(c.Context(), coreunit.Name("foo/1"))
 	c.Assert(err, tc.ErrorIsNil)
 
 	results, err := s.state.GetUnitWorkloadStatusesForApplication(c.Context(), appId)
@@ -1323,7 +1360,7 @@ func (s *modelStateSuite) TestGetAllFullUnitStatuses(c *tc.C) {
 	err = s.state.SetUnitAgentStatus(c.Context(), u1UUID, u1Agent)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.SetUnitPresence(c.Context(), "foo/0")
+	_, err = s.state.SetUnitPresence(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
 
 	u2Workload := status.StatusInfo[status.WorkloadStatusType]{
@@ -1344,7 +1381,7 @@ func (s *modelStateSuite) TestGetAllFullUnitStatuses(c *tc.C) {
 	err = s.state.SetUnitAgentStatus(c.Context(), u2UUID, u2Agent)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.SetUnitPresence(c.Context(), "foo/1")
+	_, err = s.state.SetUnitPresence(c.Context(), "foo/1")
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.state.DeleteUnitPresence(c.Context(), "foo/1")
 	c.Assert(err, tc.ErrorIsNil)
@@ -1495,7 +1532,7 @@ func (s *modelStateSuite) TestGetAllApplicationStatuses(c *tc.C) {
 func (s *modelStateSuite) TestSetUnitPresence(c *tc.C) {
 	s.createIAASApplicationWithNUnits(c, "foo", 2)
 
-	err := s.state.SetUnitPresence(c.Context(), "foo/0")
+	_, err := s.state.SetUnitPresence(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
 
 	var lastSeen time.Time
@@ -1512,7 +1549,7 @@ func (s *modelStateSuite) TestSetUnitPresence(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestSetUnitPresenceNotFound(c *tc.C) {
-	err := s.state.SetUnitPresence(c.Context(), "foo/665")
+	_, err := s.state.SetUnitPresence(c.Context(), "foo/665")
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -1524,7 +1561,7 @@ func (s *modelStateSuite) TestDeleteUnitPresenceNotFound(c *tc.C) {
 func (s *modelStateSuite) TestDeleteUnitPresence(c *tc.C) {
 	s.createIAASApplicationWithNUnits(c, "foo", 2)
 
-	err := s.state.SetUnitPresence(c.Context(), "foo/0")
+	_, err := s.state.SetUnitPresence(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
 
 	var lastSeen time.Time
@@ -1551,6 +1588,78 @@ func (s *modelStateSuite) TestDeleteUnitPresence(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
+}
+
+func (s *modelStateSuite) TestSetUnitPresenceReturnsLastSeen(c *tc.C) {
+	s.createIAASApplicationWithNUnits(c, "foo", 1)
+
+	now := time.Now()
+	st := NewModelState(s.TxnRunnerFactory(), testclock.NewClock(now), loggertesting.WrapCheckLog(c))
+
+	lastSeen, err := st.SetUnitPresence(c.Context(), "foo/0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lastSeen, tc.Equals, now.UTC())
+}
+
+func (s *modelStateSuite) TestDeleteUnitPresenceIfLastSeen(c *tc.C) {
+	s.createIAASApplicationWithNUnits(c, "foo", 1)
+
+	lastSeen, err := s.state.SetUnitPresence(c.Context(), "foo/0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.DeleteUnitPresenceIfLastSeen(c.Context(), "foo/0", lastSeen)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(s.countUnitPresence(c, "foo/0"), tc.Equals, 0)
+}
+
+// TestDeleteUnitPresenceIfLastSeenKeepsNewerPresence covers an agent that logs
+// in again before its previous connection is closed. The old connection
+// leaving must not remove the presence recorded by the new one.
+func (s *modelStateSuite) TestDeleteUnitPresenceIfLastSeenKeepsNewerPresence(c *tc.C) {
+	s.createIAASApplicationWithNUnits(c, "foo", 1)
+
+	clk := testclock.NewClock(time.Now())
+	st := NewModelState(s.TxnRunnerFactory(), clk, loggertesting.WrapCheckLog(c))
+
+	oldLastSeen, err := st.SetUnitPresence(c.Context(), "foo/0")
+	c.Assert(err, tc.ErrorIsNil)
+	clk.Advance(time.Second)
+	newLastSeen, err := st.SetUnitPresence(c.Context(), "foo/0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.DeleteUnitPresenceIfLastSeen(c.Context(), "foo/0", oldLastSeen)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.countUnitPresence(c, "foo/0"), tc.Equals, 1)
+
+	err = st.DeleteUnitPresenceIfLastSeen(c.Context(), "foo/0", newLastSeen)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.countUnitPresence(c, "foo/0"), tc.Equals, 0)
+}
+
+func (s *modelStateSuite) TestDeleteUnitPresenceIfLastSeenNoPresence(c *tc.C) {
+	s.createIAASApplicationWithNUnits(c, "foo", 1)
+
+	err := s.state.DeleteUnitPresenceIfLastSeen(c.Context(), "foo/0", time.Now())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelStateSuite) TestDeleteUnitPresenceIfLastSeenNotFound(c *tc.C) {
+	err := s.state.DeleteUnitPresenceIfLastSeen(c.Context(), "foo/665", time.Now())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelStateSuite) countUnitPresence(c *tc.C, name coreunit.Name) int {
+	var count int
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM   unit_agent_presence AS uap
+JOIN   unit AS u ON u.uuid = uap.unit_uuid
+WHERE  u.name = ?`, name).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return count
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesNoApplications(c *tc.C) {
@@ -2556,7 +2665,7 @@ func (s *modelStateSuite) TestGetMachineFullStatuses(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.SetMachinePresence(c.Context(), mName0)
+	_, err = s.state.SetMachinePresence(c.Context(), mName0)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Seed a reported agent version for the first machine.

@@ -4,7 +4,9 @@
 package observer
 
 import (
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
@@ -38,7 +40,7 @@ func (s *AgentPresenceSuite) TestLoginForUnit(c *tc.C) {
 
 	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), uuid).Return(s.modelService, nil)
 	s.modelService.EXPECT().StatusService().Return(s.statusService)
-	s.statusService.EXPECT().SetUnitPresence(gomock.Any(), unit.Name("foo/666")).Return(nil)
+	s.statusService.EXPECT().SetUnitPresence(gomock.Any(), unit.Name("foo/666")).Return(time.Now(), nil)
 
 	observer := s.newObserver(c)
 	observer.Login(c.Context(), names.NewUnitTag("foo/666"), names.NewModelTag("bar"), uuid, false, "user data")
@@ -51,7 +53,7 @@ func (s *AgentPresenceSuite) TestLoginForMachine(c *tc.C) {
 
 	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), uuid).Return(s.modelService, nil)
 	s.modelService.EXPECT().StatusService().Return(s.statusService)
-	s.statusService.EXPECT().SetMachinePresence(gomock.Any(), machine.Name("0")).Return(nil)
+	s.statusService.EXPECT().SetMachinePresence(gomock.Any(), machine.Name("0")).Return(time.Now(), nil)
 
 	observer := s.newObserver(c)
 	observer.Login(c.Context(), names.NewMachineTag("0"), names.NewModelTag("bar"), uuid, false, "user data")
@@ -82,9 +84,51 @@ func (s *AgentPresenceSuite) TestLeaveForUnit(c *tc.C) {
 	uuid := tc.Must0(c, coremodel.NewUUID)
 
 	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), uuid).Return(s.modelService, nil)
+	lastSeen := time.Now()
 	s.modelService.EXPECT().StatusService().Return(s.statusService).Times(2)
-	s.statusService.EXPECT().SetUnitPresence(gomock.Any(), unit.Name("foo/666")).Return(nil)
-	s.statusService.EXPECT().DeleteUnitPresence(gomock.Any(), unit.Name("foo/666")).Return(nil)
+	s.statusService.EXPECT().SetUnitPresence(gomock.Any(), unit.Name("foo/666")).Return(lastSeen, nil)
+	s.statusService.EXPECT().DeleteUnitPresenceIfLastSeen(gomock.Any(), unit.Name("foo/666"), lastSeen).Return(nil)
+
+	observer := s.newObserver(c)
+	observer.Login(c.Context(), names.NewUnitTag("foo/666"), names.NewModelTag("bar"), uuid, false, "user data")
+	observer.Leave(c.Context())
+}
+
+// TestLeaveOfOlderConnectionForUnit covers an agent that logs in on a new
+// connection before its old one is closed. Each connection must only ask to
+// remove the presence it recorded itself, so the old one leaving does not
+// remove the presence recorded by the new one.
+func (s *AgentPresenceSuite) TestLeaveOfOlderConnectionForUnit(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := tc.Must0(c, coremodel.NewUUID)
+
+	oldLastSeen := time.Now()
+	newLastSeen := oldLastSeen.Add(time.Second)
+	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), uuid).Return(s.modelService, nil).Times(2)
+	s.modelService.EXPECT().StatusService().Return(s.statusService).Times(3)
+	gomock.InOrder(
+		s.statusService.EXPECT().SetUnitPresence(gomock.Any(), unit.Name("foo/666")).Return(oldLastSeen, nil),
+		s.statusService.EXPECT().SetUnitPresence(gomock.Any(), unit.Name("foo/666")).Return(newLastSeen, nil),
+		s.statusService.EXPECT().DeleteUnitPresenceIfLastSeen(gomock.Any(), unit.Name("foo/666"), oldLastSeen).Return(nil),
+	)
+
+	oldConn := s.newObserver(c)
+	oldConn.Login(c.Context(), names.NewUnitTag("foo/666"), names.NewModelTag("bar"), uuid, false, "user data")
+	newConn := s.newObserver(c)
+	newConn.Login(c.Context(), names.NewUnitTag("foo/666"), names.NewModelTag("bar"), uuid, false, "user data")
+	oldConn.Leave(c.Context())
+}
+
+func (s *AgentPresenceSuite) TestLeaveAfterFailedLoginForUnit(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := tc.Must0(c, coremodel.NewUUID)
+
+	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), uuid).Return(s.modelService, nil)
+	s.modelService.EXPECT().StatusService().Return(s.statusService)
+	s.statusService.EXPECT().SetUnitPresence(gomock.Any(), unit.Name("foo/666")).Return(time.Time{}, errors.New("boom"))
+	// No presence was recorded, so there is nothing to delete.
 
 	observer := s.newObserver(c)
 	observer.Login(c.Context(), names.NewUnitTag("foo/666"), names.NewModelTag("bar"), uuid, false, "user data")
@@ -97,9 +141,10 @@ func (s *AgentPresenceSuite) TestLeaveForMachine(c *tc.C) {
 	uuid := tc.Must0(c, coremodel.NewUUID)
 
 	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), uuid).Return(s.modelService, nil)
+	lastSeen := time.Now()
 	s.modelService.EXPECT().StatusService().Return(s.statusService).Times(2)
-	s.statusService.EXPECT().SetMachinePresence(gomock.Any(), machine.Name("0")).Return(nil)
-	s.statusService.EXPECT().DeleteMachinePresence(gomock.Any(), machine.Name("0")).Return(nil)
+	s.statusService.EXPECT().SetMachinePresence(gomock.Any(), machine.Name("0")).Return(lastSeen, nil)
+	s.statusService.EXPECT().DeleteMachinePresenceIfLastSeen(gomock.Any(), machine.Name("0"), lastSeen).Return(nil)
 
 	observer := s.newObserver(c)
 	observer.Login(c.Context(), names.NewMachineTag("0"), names.NewModelTag("bar"), uuid, false, "user data")

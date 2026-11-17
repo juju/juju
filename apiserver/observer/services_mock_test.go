@@ -11,6 +11,7 @@ package observer
 
 import (
 	context "context"
+	time "time"
 
 	gomock "github.com/canonical/gomock/gomock"
 	machine "github.com/juju/juju/core/machine"
@@ -113,11 +114,11 @@ type MockStatusService struct {
 
 // MockStatusServiceMockRecorder is the mock recorder for MockStatusService.
 type MockStatusServiceMockRecorder struct {
-	mock                         *MockStatusService
-	deleteMachinePresenceExpects []*gomock.Call2_1[context.Context, machine.Name, error]
-	deleteUnitPresenceExpects    []*gomock.Call2_1[context.Context, unit.Name, error]
-	setMachinePresenceExpects    []*gomock.Call2_1[context.Context, machine.Name, error]
-	setUnitPresenceExpects       []*gomock.Call2_1[context.Context, unit.Name, error]
+	mock                                   *MockStatusService
+	deleteMachinePresenceIfLastSeenExpects []*gomock.Call3_1[context.Context, machine.Name, time.Time, error]
+	deleteUnitPresenceIfLastSeenExpects    []*gomock.Call3_1[context.Context, unit.Name, time.Time, error]
+	setMachinePresenceExpects              []*gomock.Call2_2[context.Context, machine.Name, time.Time, error]
+	setUnitPresenceExpects                 []*gomock.Call2_2[context.Context, unit.Name, time.Time, error]
 }
 
 // NewMockStatusService creates a new mock instance.
@@ -132,74 +133,74 @@ func (m *MockStatusService) EXPECT() *MockStatusServiceMockRecorder {
 	return m.recorder
 }
 
-// DeleteMachinePresence mocks base method.
-func (m *MockStatusService) DeleteMachinePresence(ctx context.Context, machineName machine.Name) error {
+// DeleteMachinePresenceIfLastSeen mocks base method.
+func (m *MockStatusService) DeleteMachinePresenceIfLastSeen(ctx context.Context, machineName machine.Name, lastSeen time.Time) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.deleteMachinePresenceExpects, m.ctrl, m, "DeleteMachinePresence", ctx, machineName)
+	return gomock.Dispatch3_1(&m.recorder.deleteMachinePresenceIfLastSeenExpects, m.ctrl, m, "DeleteMachinePresenceIfLastSeen", ctx, machineName, lastSeen)
 }
 
-// DeleteMachinePresence indicates an expected call of DeleteMachinePresence.
-func (mr *MockStatusServiceMockRecorder) DeleteMachinePresence(ctx, machineName any) *MockStatusServiceDeleteMachinePresenceCall {
+// DeleteMachinePresenceIfLastSeen indicates an expected call of DeleteMachinePresenceIfLastSeen.
+func (mr *MockStatusServiceMockRecorder) DeleteMachinePresenceIfLastSeen(ctx, machineName, lastSeen any) *MockStatusServiceDeleteMachinePresenceIfLastSeenCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, machine.Name, error](mr.mock.ctrl.T, mr.mock, "DeleteMachinePresence", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(machineName))
-	mr.deleteMachinePresenceExpects = append(mr.deleteMachinePresenceExpects, call)
+	call := gomock.NewCall3_1[context.Context, machine.Name, time.Time, error](mr.mock.ctrl.T, mr.mock, "DeleteMachinePresenceIfLastSeen", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(machineName), gomock.EnsureMatcher(lastSeen))
+	mr.deleteMachinePresenceIfLastSeenExpects = append(mr.deleteMachinePresenceIfLastSeenExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockStatusServiceDeleteMachinePresenceCall is the typed call wrapper for DeleteMachinePresence.
-type MockStatusServiceDeleteMachinePresenceCall = gomock.Call2_1[context.Context, machine.Name, error]
+// MockStatusServiceDeleteMachinePresenceIfLastSeenCall is the typed call wrapper for DeleteMachinePresenceIfLastSeen.
+type MockStatusServiceDeleteMachinePresenceIfLastSeenCall = gomock.Call3_1[context.Context, machine.Name, time.Time, error]
 
-// DeleteUnitPresence mocks base method.
-func (m *MockStatusService) DeleteUnitPresence(ctx context.Context, unitName unit.Name) error {
+// DeleteUnitPresenceIfLastSeen mocks base method.
+func (m *MockStatusService) DeleteUnitPresenceIfLastSeen(ctx context.Context, unitName unit.Name, lastSeen time.Time) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.deleteUnitPresenceExpects, m.ctrl, m, "DeleteUnitPresence", ctx, unitName)
+	return gomock.Dispatch3_1(&m.recorder.deleteUnitPresenceIfLastSeenExpects, m.ctrl, m, "DeleteUnitPresenceIfLastSeen", ctx, unitName, lastSeen)
 }
 
-// DeleteUnitPresence indicates an expected call of DeleteUnitPresence.
-func (mr *MockStatusServiceMockRecorder) DeleteUnitPresence(ctx, unitName any) *MockStatusServiceDeleteUnitPresenceCall {
+// DeleteUnitPresenceIfLastSeen indicates an expected call of DeleteUnitPresenceIfLastSeen.
+func (mr *MockStatusServiceMockRecorder) DeleteUnitPresenceIfLastSeen(ctx, unitName, lastSeen any) *MockStatusServiceDeleteUnitPresenceIfLastSeenCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, unit.Name, error](mr.mock.ctrl.T, mr.mock, "DeleteUnitPresence", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(unitName))
-	mr.deleteUnitPresenceExpects = append(mr.deleteUnitPresenceExpects, call)
+	call := gomock.NewCall3_1[context.Context, unit.Name, time.Time, error](mr.mock.ctrl.T, mr.mock, "DeleteUnitPresenceIfLastSeen", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(unitName), gomock.EnsureMatcher(lastSeen))
+	mr.deleteUnitPresenceIfLastSeenExpects = append(mr.deleteUnitPresenceIfLastSeenExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockStatusServiceDeleteUnitPresenceCall is the typed call wrapper for DeleteUnitPresence.
-type MockStatusServiceDeleteUnitPresenceCall = gomock.Call2_1[context.Context, unit.Name, error]
+// MockStatusServiceDeleteUnitPresenceIfLastSeenCall is the typed call wrapper for DeleteUnitPresenceIfLastSeen.
+type MockStatusServiceDeleteUnitPresenceIfLastSeenCall = gomock.Call3_1[context.Context, unit.Name, time.Time, error]
 
 // SetMachinePresence mocks base method.
-func (m *MockStatusService) SetMachinePresence(ctx context.Context, machineName machine.Name) error {
+func (m *MockStatusService) SetMachinePresence(ctx context.Context, machineName machine.Name) (time.Time, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.setMachinePresenceExpects, m.ctrl, m, "SetMachinePresence", ctx, machineName)
+	return gomock.Dispatch2_2(&m.recorder.setMachinePresenceExpects, m.ctrl, m, "SetMachinePresence", ctx, machineName)
 }
 
 // SetMachinePresence indicates an expected call of SetMachinePresence.
 func (mr *MockStatusServiceMockRecorder) SetMachinePresence(ctx, machineName any) *MockStatusServiceSetMachinePresenceCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, machine.Name, error](mr.mock.ctrl.T, mr.mock, "SetMachinePresence", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(machineName))
+	call := gomock.NewCall2_2[context.Context, machine.Name, time.Time, error](mr.mock.ctrl.T, mr.mock, "SetMachinePresence", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(machineName))
 	mr.setMachinePresenceExpects = append(mr.setMachinePresenceExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStatusServiceSetMachinePresenceCall is the typed call wrapper for SetMachinePresence.
-type MockStatusServiceSetMachinePresenceCall = gomock.Call2_1[context.Context, machine.Name, error]
+type MockStatusServiceSetMachinePresenceCall = gomock.Call2_2[context.Context, machine.Name, time.Time, error]
 
 // SetUnitPresence mocks base method.
-func (m *MockStatusService) SetUnitPresence(ctx context.Context, unitName unit.Name) error {
+func (m *MockStatusService) SetUnitPresence(ctx context.Context, unitName unit.Name) (time.Time, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.setUnitPresenceExpects, m.ctrl, m, "SetUnitPresence", ctx, unitName)
+	return gomock.Dispatch2_2(&m.recorder.setUnitPresenceExpects, m.ctrl, m, "SetUnitPresence", ctx, unitName)
 }
 
 // SetUnitPresence indicates an expected call of SetUnitPresence.
 func (mr *MockStatusServiceMockRecorder) SetUnitPresence(ctx, unitName any) *MockStatusServiceSetUnitPresenceCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, unit.Name, error](mr.mock.ctrl.T, mr.mock, "SetUnitPresence", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(unitName))
+	call := gomock.NewCall2_2[context.Context, unit.Name, time.Time, error](mr.mock.ctrl.T, mr.mock, "SetUnitPresence", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(unitName))
 	mr.setUnitPresenceExpects = append(mr.setUnitPresenceExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStatusServiceSetUnitPresenceCall is the typed call wrapper for SetUnitPresence.
-type MockStatusServiceSetUnitPresenceCall = gomock.Call2_1[context.Context, unit.Name, error]
+type MockStatusServiceSetUnitPresenceCall = gomock.Call2_2[context.Context, unit.Name, time.Time, error]
