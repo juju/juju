@@ -15,6 +15,25 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+const (
+	// UUIDs are stored as canonical hyphenated strings.
+	uuidBytes = len("00000000-0000-0000-0000-000000000000")
+	// Fixed allowances, not the database's actual stored representation.
+	scalarBytes = 8 // integer or timestamp
+	boolBytes   = 1
+
+	// Field counts follow domain/schema/model/sql/0033-operation.sql.
+	operationRowBytes = uuidBytes + 4*scalarBytes + boolBytes // ID, timestamps, parallel
+	taskRowBytes      = 2*uuidBytes + 3*scalarBytes           // UUIDs, timestamps
+	logRowBytes       = uuidBytes + scalarBytes               // task UUID, timestamp
+	actionRowBytes    = 2 * uuidBytes                         // operation and charm UUIDs
+	parameterRowBytes = uuidBytes                             // operation UUID
+	statusRowBytes    = uuidBytes + 2*scalarBytes             // task UUID, status ID, timestamp
+	// Receiver links contain two UUIDs. Use the same allowance for outputs,
+	// whose paths are also counted with object-store metadata.
+	associationRowBytes = 2 * uuidBytes
+)
+
 // PruneOperations deletes operations older than maxAge and larger than maxSizeMB.
 // It returns the paths from objectStore that should be freed
 func (st *State) PruneOperations(ctx context.Context, maxAge time.Duration, maxSizeMB int) ([]string, error) {
@@ -169,24 +188,14 @@ func (st *State) estimateOperationSizeInKiB(ctx context.Context, tx *sqlair.TX) 
 		Status      int `db:"status"`
 		Association int `db:"association"`
 	}
-	const (
-		// UUIDs are stored as canonical hyphenated strings.
-		uuidBytes = len("00000000-0000-0000-0000-000000000000")
-		// Fixed allowances, not the database's actual stored representation.
-		scalarBytes = 8 // integer or timestamp
-		boolBytes   = 1
-	)
-	// Field counts follow domain/schema/model/sql/0033-operation.sql.
 	sizes := rowSizes{
-		Operation: uuidBytes + 4*scalarBytes + boolBytes, // ID, timestamps, parallel
-		Task:      2*uuidBytes + 3*scalarBytes,           // UUIDs, timestamps
-		Log:       uuidBytes + scalarBytes,               // task UUID, timestamp
-		Action:    2 * uuidBytes,                         // operation and charm UUIDs
-		Parameter: uuidBytes,                             // operation UUID
-		Status:    uuidBytes + 2*scalarBytes,             // task UUID, status ID, timestamp
-		// Receiver links contain two UUIDs. Use the same allowance for
-		// outputs, whose paths are also counted with object-store metadata.
-		Association: 2 * uuidBytes,
+		Operation:   operationRowBytes,
+		Task:        taskRowBytes,
+		Log:         logRowBytes,
+		Action:      actionRowBytes,
+		Parameter:   parameterRowBytes,
+		Status:      statusRowBytes,
+		Association: associationRowBytes,
 	}
 	// Variable-length text is measured separately; the fixed allowances also
 	// count nullable fields. Schema changes must be reflected in the estimate.

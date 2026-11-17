@@ -14,6 +14,8 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/dustin/go-humanize"
 	"github.com/juju/tc"
+
+	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
 type pruneByAgeSuite struct {
@@ -501,6 +503,35 @@ func (s *pruneBySizeSuite) TestEstimateOperationSizeVariableContent(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(total, tc.Equals, 37)
 	c.Check(avg, tc.Equals, 36)
+}
+
+// TestFixedRowSizeEstimates compares the fixed allowances with representative
+// textual values. Variable-length fields are measured separately in SQL.
+func (s *pruneBySizeSuite) TestFixedRowSizeEstimates(c *tc.C) {
+	uuid := internaluuid.MustNewUUID().String()
+	timestamp := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC).Format(time.RFC3339)
+	for _, test := range []struct {
+		name      string
+		estimate  int
+		reference int
+	}{
+		{"operation", operationRowBytes, len(uuid) + len("12345") + 3*len(timestamp) + len("1")},
+		{"task", taskRowBytes, 2*len(uuid) + 3*len(timestamp)},
+		{"log", logRowBytes, len(uuid) + len(timestamp)},
+		{"action", actionRowBytes, 2 * len(uuid)},
+		{"parameter", parameterRowBytes, len(uuid)},
+		{"status", statusRowBytes, len(uuid) + len("5") + len(timestamp)},
+		{"receiver association", associationRowBytes, 2 * len(uuid)},
+	} {
+		// The estimate uses eight bytes per timestamp instead of its text
+		// length. Allow 40% error for an individual row.
+		c.Check(test.estimate*10 >= test.reference*6, tc.IsTrue,
+			tc.Commentf("%s: estimate %d bytes; representative values %d bytes",
+				test.name, test.estimate, test.reference))
+		c.Check(test.estimate*10 <= test.reference*14, tc.IsTrue,
+			tc.Commentf("%s: estimate %d bytes; representative values %d bytes",
+				test.name, test.estimate, test.reference))
+	}
 }
 
 // TestEstimateOperationSizeSchema requires a review of the estimate whenever
