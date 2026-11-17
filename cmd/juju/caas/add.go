@@ -873,6 +873,13 @@ func (c *AddCAASCommand) getClusterMetadataFunc(ctx *cmd.Context) provider.GetCl
 }
 
 func (c *AddCAASCommand) verifyName(name string) error {
+	// The k8s name is used as both the cloud name and the credential
+	// name, so it must satisfy the stricter credential name constraints
+	// or bootstrapping the cloud later fails with an opaque credential
+	// error instead of being rejected here at add-k8s time.
+	if !names.IsValidCloudCredentialName(name) {
+		return errors.NotValidf("k8s name %q", name)
+	}
 	if name == k8s.K8sCloudMicrok8s {
 		return fmt.Errorf(`%q is the name of a built-in cloud.
 If you want to use Juju with microk8s, the recommended way is to install the strictly confined microk8s snap.
