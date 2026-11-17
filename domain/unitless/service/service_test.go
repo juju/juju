@@ -11,8 +11,13 @@ import (
 	"github.com/juju/worker/v5/workertest"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
+	corelife "github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/unitless"
+	unitlessinternal "github.com/juju/juju/domain/unitless/internal"
 	unitlessservice "github.com/juju/juju/domain/unitless/service"
 )
 
@@ -23,27 +28,36 @@ func TestServiceSuite(t *testing.T) {
 }
 
 func (s *serviceSuite) TestWatchScriptletApplications(c *tc.C) {
-	w, err := unitlessservice.NewWatchableService(&stubState{}).WatchScriptletApplications(c.Context())
+	w, err := unitlessservice.NewWatchableService(&stubState{}, stubWatcherFactory{}).
+		WatchScriptletApplications(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	c.Check(<-w.Changes(), tc.HasLen, 0)
 }
 
-func (s *serviceSuite) TestGetApplicationScriptlet(c *tc.C) {
+func (s *serviceSuite) TestGetScriptletApplication(c *tc.C) {
 	st := &stubState{}
 	applicationUUID := tc.Must(c, coreapplication.NewUUID)
-	scriptlet, err := unitlessservice.NewService(st).GetApplicationScriptlet(
+	scriptlet, err := unitlessservice.NewService(st).GetScriptletApplication(
 		c.Context(), applicationUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(scriptlet, tc.DeepEquals, unitless.Scriptlet{})
+	c.Check(scriptlet, tc.DeepEquals, unitless.ScriptletApplication{
+		UUID: applicationUUID,
+		Name: "foo",
+		Life: corelife.Alive,
+		Sources: []unitless.ScriptSource{{
+			LoadPath: "hook.star",
+			Source:   "def init(): pass",
+		}},
+	})
 	c.Check(st.applicationUUID, tc.Equals, applicationUUID.String())
 }
 
-func (s *serviceSuite) TestGetApplicationScriptletInvalidApplicationUUID(c *tc.C) {
+func (s *serviceSuite) TestGetScriptletApplicationInvalidApplicationUUID(c *tc.C) {
 	st := &stubState{}
-	_, err := unitlessservice.NewService(st).GetApplicationScriptlet(
+	_, err := unitlessservice.NewService(st).GetScriptletApplication(
 		c.Context(), coreapplication.UUID("not-valid"),
 	)
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
@@ -52,7 +66,7 @@ func (s *serviceSuite) TestGetApplicationScriptletInvalidApplicationUUID(c *tc.C
 }
 
 func (s *serviceSuite) TestWatchApplicationEvents(c *tc.C) {
-	w, err := unitlessservice.NewWatchableService(&stubState{}).WatchApplicationEvents(
+	w, err := unitlessservice.NewWatchableService(&stubState{}, stubWatcherFactory{}).WatchApplicationEvents(
 		c.Context(), tc.Must(c, coreapplication.NewUUID),
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -98,12 +112,30 @@ type stubState struct {
 	eventName       string
 }
 
-func (s *stubState) GetApplicationScriptlet(
+func (s *stubState) InitialWatchStatementScriptletApplications() (string, eventsource.NamespaceQuery) {
+	return "application", func(context.Context, database.TxnRunner) ([]string, error) {
+		return nil, nil
+	}
+}
+
+func (s *stubState) FilterScriptletApplications(_ context.Context, applicationUUIDs []string) ([]string, error) {
+	return applicationUUIDs, nil
+}
+
+func (s *stubState) GetScriptletApplication(
 	_ context.Context,
 	applicationUUID string,
-) (unitless.Scriptlet, error) {
+) (unitlessinternal.ScriptletApplication, error) {
 	s.applicationUUID = applicationUUID
-	return unitless.Scriptlet{}, nil
+	return unitlessinternal.ScriptletApplication{
+		UUID: applicationUUID,
+		Name: "foo",
+		Life: 0,
+		Sources: []unitlessinternal.ScriptSource{{
+			LoadPath: "hook.star",
+			Source:   "def init(): pass",
+		}},
+	}, nil
 }
 
 func (s *stubState) GetScriptletEvent(
@@ -114,4 +146,26 @@ func (s *stubState) GetScriptletEvent(
 	s.applicationUUID = applicationUUID
 	s.eventName = eventName
 	return unitless.Event{}, nil
+}
+
+type stubWatcherFactory struct{}
+
+func (stubWatcherFactory) NewNamespaceMapperWatcher(
+	context.Context,
+	eventsource.NamespaceQuery,
+	string,
+	eventsource.Mapper,
+	eventsource.FilterOption,
+	...eventsource.FilterOption,
+) (watcher.StringsWatcher, error) {
+	return watcher.TODO[[]string](), nil
+}
+
+func (stubWatcherFactory) NewNotifyWatcher(
+	context.Context,
+	string,
+	eventsource.FilterOption,
+	...eventsource.FilterOption,
+) (watcher.NotifyWatcher, error) {
+	return watcher.TODO[struct{}](), nil
 }

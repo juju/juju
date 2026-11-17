@@ -6,18 +6,25 @@ package unitless
 import (
 	"context"
 
+	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
+	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/internal/errors"
 )
 
-// Scriptlet contains the Starform source set for an application.
-type Scriptlet struct {
+// ScriptletApplication contains an application's identity, lifecycle, and
+// Starform sources.
+type ScriptletApplication struct {
+	UUID coreapplication.UUID
+	Name string
+	Life corelife.Value
+
 	// Sources are the Starform sources to load.
 	Sources []ScriptSource
 }
 
-// Validate checks that a scriptlet can be loaded.
-func (s Scriptlet) Validate() error {
+// Validate checks that a scriptlet application can be loaded.
+func (s ScriptletApplication) Validate() error {
 	if len(s.Sources) == 0 {
 		return errors.New("no scriptlet sources not valid").Add(coreerrors.NotValid)
 	}
