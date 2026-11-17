@@ -15,3 +15,9 @@ parts:
       - scriptlets
 assumes:
   - unitless
+config:
+  options:
+    token:
+      type: string
+      description: A token config option
+      default: "default"
