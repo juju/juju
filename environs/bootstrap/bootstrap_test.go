@@ -481,20 +481,18 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAAS(c *tc.C) {
 
 	var startedID instance.Id
 	err := bootstrap.Recover(ctx, env, bootstrap.RecoveryParams{
-		BootstrapParams: bootstrap.BootstrapParams{
-			AdminSecret:             "fake-moon-landing",
-			CAPrivateKey:            coretesting.CAKey,
-			ControllerConfig:        coretesting.FakeControllerConfig(),
-			SupportedBootstrapBases: supportedJujuBases,
-			BootstrapBase:           jammyBootstrapBase,
-			BootstrapConstraints:    constraints.MustParse("arch=amd64"),
-			AgentVersion:            &archivedVersion,
-			BuildAgentTarball: func(
-				bool, string, func(semversion.Number) semversion.Number,
-			) (*sync.BuiltAgent, error) {
-				c.Fatalf("local agent build ran during recovery")
-				return nil, errors.New("agent build attempted")
-			},
+		AdminSecret:             "fake-moon-landing",
+		CAPrivateKey:            coretesting.CAKey,
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		SupportedBootstrapBases: supportedJujuBases,
+		BootstrapBase:           jammyBootstrapBase,
+		BootstrapConstraints:    constraints.MustParse("arch=amd64"),
+		AgentVersion:            &archivedVersion,
+		BuildAgentTarball: func(
+			bool, string, func(semversion.Number) semversion.Number,
+		) (*sync.BuiltAgent, error) {
+			c.Fatalf("local agent build ran during recovery")
+			return nil, errors.New("agent build attempted")
 		},
 		AvailableTools: agentTools,
 		InstanceStarted: func(id instance.Id) {
@@ -566,16 +564,14 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASResultChecks(c *tc.C) {
 			result:           test.result,
 		}
 		err := bootstrap.Recover(envtesting.BootstrapTestContext(c), env, bootstrap.RecoveryParams{
-			BootstrapParams: bootstrap.BootstrapParams{
-				AdminSecret:             "fake-moon-landing",
-				CAPrivateKey:            coretesting.CAKey,
-				ControllerConfig:        coretesting.FakeControllerConfig(),
-				SupportedBootstrapBases: supportedJujuBases,
-				BootstrapBase:           jammyBootstrapBase,
-				BootstrapConstraints:    constraints.MustParse("arch=amd64"),
-				AgentVersion:            &archivedVersion,
-			},
-			AvailableTools: agentTools,
+			AdminSecret:             "fake-moon-landing",
+			CAPrivateKey:            coretesting.CAKey,
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			SupportedBootstrapBases: supportedJujuBases,
+			BootstrapBase:           jammyBootstrapBase,
+			BootstrapConstraints:    constraints.MustParse("arch=amd64"),
+			AgentVersion:            &archivedVersion,
+			AvailableTools:          agentTools,
 		})
 		c.Check(err, tc.ErrorMatches, test.err)
 	}
@@ -587,16 +583,14 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASInvalidParams(c *tc.C) {
 	otherVersion.Patch++
 	valid := func() bootstrap.RecoveryParams {
 		return bootstrap.RecoveryParams{
-			BootstrapParams: bootstrap.BootstrapParams{
-				AdminSecret:             "fake-moon-landing",
-				CAPrivateKey:            coretesting.CAKey,
-				ControllerConfig:        coretesting.FakeControllerConfig(),
-				SupportedBootstrapBases: supportedJujuBases,
-				BootstrapBase:           jammyBootstrapBase,
-				BootstrapConstraints:    constraints.MustParse("arch=amd64"),
-				AgentVersion:            &archivedVersion,
-			},
-			AvailableTools: recoveryIAASTools(archivedVersion, arch.AMD64),
+			AdminSecret:             "fake-moon-landing",
+			CAPrivateKey:            coretesting.CAKey,
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			SupportedBootstrapBases: supportedJujuBases,
+			BootstrapBase:           jammyBootstrapBase,
+			BootstrapConstraints:    constraints.MustParse("arch=amd64"),
+			AgentVersion:            &archivedVersion,
+			AvailableTools:          recoveryIAASTools(archivedVersion, arch.AMD64),
 		}
 	}
 	tests := []struct {

@@ -141,20 +141,18 @@ func provisionRecovery(
 	hostArch := arch.HostArch()
 	var started instance.Id
 	if err := bootstrap.Recover(provisionCtx, preparation.Environ, bootstrap.RecoveryParams{
-		BootstrapParams: bootstrap.BootstrapParams{
-			ControllerName:          info.ControllerName,
-			Cloud:                   *cloud,
-			CloudRegion:             region.Name,
-			CloudCredentialName:     credentialName,
-			CloudCredential:         credential,
-			ControllerConfig:        controllerConfig,
-			AdminSecret:             adminPassword,
-			CAPrivateKey:            info.CAPrivateKey,
-			AgentVersion:            &info.AgentVersion,
-			BootstrapConstraints:    constraints.Value{Arch: &hostArch},
-			BootstrapBase:           sourceBase,
-			SupportedBootstrapBases: []base.Base{sourceBase},
-		},
+		ControllerName:          info.ControllerName,
+		Cloud:                   *cloud,
+		CloudRegion:             region.Name,
+		CloudCredentialName:     credentialName,
+		CloudCredential:         credential,
+		ControllerConfig:        controllerConfig,
+		AdminSecret:             adminPassword,
+		CAPrivateKey:            info.CAPrivateKey,
+		AgentVersion:            &info.AgentVersion,
+		BootstrapConstraints:    constraints.Value{Arch: &hostArch},
+		BootstrapBase:           sourceBase,
+		SupportedBootstrapBases: []base.Base{sourceBase},
 		AvailableTools: tools.List{&tools.Tools{
 			Version: semversion.Binary{
 				Number:  info.AgentVersion,

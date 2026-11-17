@@ -323,10 +323,8 @@ func (s *BootstrapSuite) testBootstrapWithSubstrateWithIPV6Support(c *tc.C, supp
 func (s *BootstrapSuite) TestStartInstanceDerivedZone(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	env := &mockZonedEnviron{
-		mockEnviron: mockEnviron{
-			storage: newStorage(s, c),
-			config:  configGetter(c),
-		},
+		storage: newStorage(s, c),
+		config:  configGetter(c),
 		deriveAvailabilityZones: func(context.Context, environs.StartInstanceParams) ([]string, error) {
 			return []string{"derived-zone"}, nil
 		},
@@ -356,10 +354,8 @@ func (s *BootstrapSuite) TestStartInstanceDerivedZone(c *tc.C) {
 func (s *BootstrapSuite) TestStartInstanceAttemptAllZones(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	env := &mockZonedEnviron{
-		mockEnviron: mockEnviron{
-			storage: newStorage(s, c),
-			config:  configGetter(c),
-		},
+		storage: newStorage(s, c),
+		config:  configGetter(c),
 		deriveAvailabilityZones: func(context.Context, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
@@ -397,10 +393,8 @@ func (s *BootstrapSuite) TestStartInstanceAttemptAllZones(c *tc.C) {
 func (s *BootstrapSuite) TestStartInstanceAttemptZoneConstrained(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	env := &mockZonedEnviron{
-		mockEnviron: mockEnviron{
-			storage: newStorage(s, c),
-			config:  configGetter(c),
-		},
+		storage: newStorage(s, c),
+		config:  configGetter(c),
 		deriveAvailabilityZones: func(context.Context, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
@@ -442,10 +436,8 @@ func (s *BootstrapSuite) TestStartInstanceAttemptZoneConstrained(c *tc.C) {
 func (s *BootstrapSuite) TestStartInstanceNoMatchingConstraintZones(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	env := &mockZonedEnviron{
-		mockEnviron: mockEnviron{
-			storage: newStorage(s, c),
-			config:  configGetter(c),
-		},
+		storage: newStorage(s, c),
+		config:  configGetter(c),
 		deriveAvailabilityZones: func(context.Context, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
@@ -487,10 +479,8 @@ func (s *BootstrapSuite) TestStartInstanceNoMatchingConstraintZones(c *tc.C) {
 func (s *BootstrapSuite) TestStartInstanceStopOnZoneIndependentError(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	env := &mockZonedEnviron{
-		mockEnviron: mockEnviron{
-			storage: newStorage(s, c),
-			config:  configGetter(c),
-		},
+		storage: newStorage(s, c),
+		config:  configGetter(c),
 		deriveAvailabilityZones: func(context.Context, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
@@ -525,10 +515,8 @@ func (s *BootstrapSuite) TestStartInstanceStopOnZoneIndependentError(c *tc.C) {
 func (s *BootstrapSuite) TestStartInstanceNoUsableZones(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	env := &mockZonedEnviron{
-		mockEnviron: mockEnviron{
-			storage: newStorage(s, c),
-			config:  configGetter(c),
-		},
+		storage: newStorage(s, c),
+		config:  configGetter(c),
 		deriveAvailabilityZones: func(context.Context, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
