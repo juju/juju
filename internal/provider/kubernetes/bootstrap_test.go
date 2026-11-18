@@ -34,6 +34,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/constraints"
@@ -1056,9 +1057,24 @@ export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
 export JUJU_CONTROLLER_DIR=/var/lib/juju/controller
 export JUJU_BOOTSTRAP_PARAMS_PATH=/var/lib/juju/bootstrap-params
 
+# Temporary fallbacks (jujud, jujuagentd and pebble) to keep Docker image
+# working, will be removed together with the Docker image.
+jujud=/usr/bin/jujud
+if [ ! -x "$jujud" ]; then
+    jujud=/opt/jujud
+fi
+jujuagentd=/usr/bin/jujuagentd
+if [ ! -x "$jujuagentd" ]; then
+    jujuagentd=/opt/jujuagentd
+fi
+pebble=/usr/lib/juju/pebble
+if [ ! -x "$pebble" ]; then
+    pebble=/opt/pebble
+fi
+
 mkdir -p $JUJU_TOOLS_DIR
-cp /opt/jujud $JUJU_TOOLS_DIR/jujud
-cp /opt/jujuagentd $JUJU_TOOLS_DIR/jujuagentd
+cp "$jujud" $JUJU_TOOLS_DIR/jujud
+cp "$jujuagentd" $JUJU_TOOLS_DIR/jujuagentd
 
 export JUJU_BOOTSTRAP_PARAMS_PATH="$JUJU_DATA_DIR/bootstrap-params"; controller_id="${HOSTNAME##*-}"; if [ "${controller_id}" = "0" ]; then if ! test -e $JUJU_CONTROLLER_DIR/system-identity; then mkdir -p $JUJU_CONTROLLER_DIR/charms; until test -e $JUJU_CONTROLLER_DIR/charms/controller.charm; do sleep 1; done; JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud bootstrap-state --data-dir $JUJU_CONTROLLER_DIR --debug --timeout 10m0s; fi; else until test -e "$JUJU_CONTROLLER_DIR/runtime.conf"; do sleep 1; done; fi
 
@@ -1083,7 +1099,7 @@ services:
 
 EOF
 
-exec /opt/pebble run --http :38811 --verbose
+exec "$pebble" run --http :38811 --verbose
 `[1:],
 			},
 			WorkingDir: "/var/lib/juju",
@@ -1257,7 +1273,7 @@ fi
 		ImagePullPolicy: core.PullIfNotPresent,
 		Image:           "ghcr.io/juju/jujud-operator:" + expectedVersion.String(),
 		WorkingDir:      "/var/lib/juju",
-		Command:         []string{"/opt/containeragent"},
+		Command:         []string{"/bin/sh", "-ec", caas.ContainerAgentStartUpSh, "containeragent"},
 		Args: []string{
 			"init",
 			"--containeragent-pebble-dir", "/containeragent/pebble",

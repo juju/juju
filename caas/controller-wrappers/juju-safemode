@@ -9,7 +9,7 @@ fi
 controller_id=$(python3 -c "
 import yaml
 with open('$runtime_conf') as f:
-    print(yaml.safe_load()['controller-id'])
+    print(yaml.safe_load(f)['controller-id'])
 " 2>/dev/null || true)
 if [ -z "$controller_id" ]; then
   controller_id=0
@@ -29,12 +29,16 @@ fi
 # Stop the Pebble-managed jujud service before starting safe-mode,
 # so the two processes don't compete for the Dqlite database.
 #
-# Pebble lives at /opt/pebble and is not on PATH inside the container.
-# The jujud layer has startup:enabled, so pebble stop alone is
+# Pebble lives at /usr/lib/juju/pebble in the chiseled rock and at
+# /opt/pebble in the Docker image; it is not on PATH inside the
+# container. The jujud layer has startup:enabled, so pebble stop alone is
 # insufficient: Pebble restarts the service immediately. We add a
 # transient layer that disables auto-restart, then undo it after
 # safe-mode exits.
-pebble=/opt/pebble
+# Temporary fallback to keep Docker image working, will be removed together
+# with the Docker image.
+pebble=/usr/lib/juju/pebble
+[ -x "$pebble" ] || pebble=/opt/pebble
 safemode_layer=/var/lib/pebble/default/layers/002-safemode.yaml
 
 # cleanup_on_exit removes the disable layer, waits for the Dqlite
@@ -106,10 +110,10 @@ fi
 # safe-mode can be captured and propagated.
 signal_safemode() {
   if [ -z "$kill_deadline" ]; then
-    kill_deadline=$(( $(date +%s) + 30 ))
+    kill_deadline=$(($(date +%s) + 30))
     signal_count=1
   else
-    signal_count=$(( signal_count + 1 ))
+    signal_count=$((signal_count + 1))
   fi
   if [ "$signal_count" -ge 3 ] || [ "$(date +%s)" -ge "$kill_deadline" ]; then
     kill -KILL "$jujud_pid" 2>/dev/null
@@ -118,7 +122,9 @@ signal_safemode() {
   fi
 }
 trap signal_safemode INT TERM HUP
-/opt/jujud safe-mode --data-dir /var/lib/juju/controller --controller-id "$controller_id" "$@" &
+jujud=/usr/bin/jujud
+[ -x "$jujud" ] || jujud=/opt/jujud
+"$jujud" safe-mode --data-dir /var/lib/juju/controller --controller-id "$controller_id" "$@" &
 jujud_pid=$!
 kill_deadline=""
 while kill -0 "$jujud_pid" 2>/dev/null; do

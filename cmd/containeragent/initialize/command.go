@@ -5,6 +5,7 @@ package initialize
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"os"
@@ -218,32 +219,68 @@ func (c *initCommand) copyBinaries() error {
 	}
 
 	eg, _ := errgroup.WithContext(context.Background())
-	doCopy := func(src string, dst string) {
+	doCopy := func(srcs []string, dst string) {
 		eg.Go(func() error {
-			srcStream, err := c.fileReaderWriter.Reader(src)
-			if err != nil {
-				return errors.Annotatef(err, "opening %q for reading", src)
-			}
-			defer srcStream.Close()
-			dstStream, err := c.fileReaderWriter.Writer(dst, 0775)
-			if err != nil {
-				return errors.Annotatef(err, "opening %q for writing", dst)
-			}
-			defer dstStream.Close()
-			_, err = io.Copy(dstStream, srcStream)
-			if errors.Is(err, io.EOF) {
-				return nil
-			} else if err != nil {
-				return errors.Annotatef(err, "copying %q to %q", src, dst)
-			}
-			return nil
+			return c.copyFirstReadable(srcs, dst)
 		})
 	}
 
-	doCopy("/opt/pebble", path.Join(c.binDir, "pebble"))
-	doCopy("/opt/containeragent", path.Join(c.binDir, "containeragent"))
-	doCopy("/opt/jujuc", path.Join(c.binDir, "jujuc"))
+	// Prefer the FHS layout shipped by the chiselled rock, falling back to
+	// the /opt layout of the Docker image.
+	doCopy([]string{"/usr/lib/juju/pebble", "/opt/pebble"}, path.Join(c.binDir, "pebble"))
+	doCopy([]string{"/usr/bin/containeragent", "/opt/containeragent"}, path.Join(c.binDir, "containeragent"))
+	doCopy([]string{"/usr/bin/jujuc", "/opt/jujuc"}, path.Join(c.binDir, "jujuc"))
 	return eg.Wait()
+}
+
+// copyFirstReadable copies the first readable source to dst. The FHS
+// layout shipped by the chiselled rock is preferred over the /opt
+// layout of the Docker image. A source that opens but fails to copy
+// aborts the attempt; only sources that cannot be opened fall through
+// to the next candidate. When no source can be opened, the returned
+// error reports every attempted source, so a broken layout (e.g.
+// neither the FHS nor the /opt path exists) is visible in one message.
+func (c *initCommand) copyFirstReadable(srcs []string, dst string) error {
+	// A caller must supply at least one candidate; fail loudly rather
+	// than succeeding without writing dst.
+	if len(srcs) == 0 {
+		return errors.Errorf("no source paths to copy to %q", dst)
+	}
+	var errs []error
+	for _, src := range srcs {
+		srcStream, err := c.fileReaderWriter.Reader(src)
+		if err != nil {
+			errs = append(errs, errors.Annotatef(err, "opening %q for reading", src))
+			continue
+		}
+		err = c.copyFromReader(srcStream, dst)
+		_ = srcStream.Close()
+		if err != nil {
+			return errors.Annotatef(err, "copying %q to %q", src, dst)
+		}
+		return nil
+	}
+	// Every candidate failed to open. Join the errors in the order the
+	// sources were tried so the earlier attempts are not lost.
+	return errors.Annotatef(stderrors.Join(errs...), "copying to %q", dst)
+}
+
+func (c *initCommand) copyFromReader(src io.Reader, dst string) error {
+	dstStream, err := c.fileReaderWriter.Writer(dst, 0775)
+	if err != nil {
+		return errors.Annotatef(err, "opening %q for writing", dst)
+	}
+	// io.Copy converts reader-side EOF to nil; a writer-side EOF is not a
+	// success and must not silently bless a truncated binary.
+	_, copyErr := io.Copy(dstStream, src)
+	// Close flushes any buffered data, so its error matters even when the
+	// copy itself succeeded. The copy error takes precedence over a
+	// concurrent close error.
+	closeErr := dstStream.Close()
+	if copyErr != nil {
+		return errors.Trace(copyErr)
+	}
+	return errors.Annotatef(closeErr, "closing %q", dst)
 }
 
 // writeContainerAgentPebbleConfig is responsible for generating the container agent

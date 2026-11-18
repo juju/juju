@@ -71,20 +71,18 @@ jobs:
         if: github.repository_owner != 'juju'
         run: ./.github/squid.sh
 
-      # LXD is deliberately kept: the "Build jujud image" step builds the
-      # controller snap via `make jujud-snap-build` (snapcraft pack
-      # --use-lxd) before extracting its payload into the image.
+      # LXD is kept for both clouds: the localhost cloud itself is LXD
+      # (juju bootstrap localhost), and the microk8s leg packs the
+      # chiselled operator rock in a managed LXD instance.
 
       - name: Setup LXD
-        if: matrix.cloud == 'localhost'
         uses: canonical/setup-lxd@8c6a87bfb56aa48f3fb9b830baa18562d8bfd4ee # v1
 
       - name: Wait for LXD
-        if: matrix.cloud == 'localhost'
         run: |
           while ! ip link show lxdbr0; do
             echo "Waiting for lxdbr0..."
-            sleep 10
+            sleep 1
           done
 
       - name: Set some variables
@@ -259,6 +257,10 @@ jobs:
           sudo snap remove juju --purge
           make go-install
 
+      - name: Install Rockcraft
+        if: matrix.cloud == 'microk8s'
+        run: sudo snap install rockcraft --classic
+
       - name: Build jujud image
         if: matrix.cloud == 'microk8s'
         env:
@@ -281,7 +283,11 @@ jobs:
 
             COPY ca.crt /usr/local/share/ca-certificates/ca.crt
 
-            RUN update-ca-certificates
+            RUN if command -v update-ca-certificates >/dev/null 2>&1; then \\
+              update-ca-certificates; \\
+            else \\
+              cat /usr/local/share/ca-certificates/ca.crt >> /etc/ssl/certs/ca-certificates.crt; \\
+            fi
           EOL
           podman build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}
           podman push -f v2s2 "${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}" "docker://${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}"

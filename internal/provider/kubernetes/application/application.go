@@ -2163,7 +2163,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Image:           config.AgentImagePath,
 		WorkingDir:      jujuDataDir,
-		Command:         []string{"/opt/containeragent"},
+		Command:         []string{"/bin/sh", "-ec", caas.ContainerAgentStartUpSh, "containeragent"},
 		Args:            containerAgentArgs,
 		Env: []corev1.EnvVar{
 			{

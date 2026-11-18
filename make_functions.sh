@@ -2,7 +2,7 @@
 set -euf
 
 # Path variables
-BASE_DIR=$(realpath $(dirname "$0"))
+BASE_DIR=$(realpath "$(dirname "$0")")
 PROJECT_DIR=${PROJECT_DIR:-${BASE_DIR}}
 BUILD_DIR=${BUILD_DIR:-${PROJECT_DIR}/_build}
 JUJUD_BIN_DIR=${JUJUD_BIN_DIR:-${BUILD_DIR}/bin}
@@ -16,7 +16,6 @@ PUSH_OCI_REGISTRY=${PUSH_OCI_REGISTRY:-ghcr.io/juju}
 
 # Docker variables
 DOCKER_BUILDX_CONTEXT=${DOCKER_BUILDX_CONTEXT:-juju-make}
-DOCKER_STAGING_DIR="${BUILD_DIR}/docker-staging"
 DOCKER_BIN=${DOCKER_BIN:-$(which ${OCI_BUILDER} || true)}
 
 readonly docker_staging_dir="docker-staging"
@@ -38,7 +37,7 @@ _strip_build_version() {
     echo "$1" | grep -E -o "^[[:digit:]]{1,9}\.[[:digit:]]{1,9}(\.|-[[:alpha:]]+)[[:digit:]]{1,9}"
 }
 _image_version() {
-    _strip_build_version "$(_juju_version $@)"
+    _strip_build_version "$(_juju_version "$@")"
 }
 
 microk8s_operator_update() {
@@ -47,7 +46,7 @@ microk8s_operator_update() {
     # we can't use the ctr to stream off the local machine.
     if [[ $(uname) = "Darwin" ]]; then
         tmp_docker_image="/tmp/juju-operator-image-${RANDOM}.image"
-        "${DOCKER_BIN}" save $(operator_image_path) | multipass transfer - microk8s-vm:${tmp_docker_image}
+        "${DOCKER_BIN}" save "$(operator_image_path)" | multipass transfer - microk8s-vm:${tmp_docker_image}
         microk8s ctr --namespace k8s.io image import ${tmp_docker_image}
         multipass exec microk8s-vm rm "${tmp_docker_image}"
         return
@@ -104,94 +103,17 @@ elf_needed_sonames() {
     readelf -d "$1" | sed -n 's/.*Shared library: \[\([^]]*\)\]/\1/p'
 }
 
-# stage_operator_image_snap_payload stages the per-platform operator-image
-# payload (_build/<os>_<arch>/bin/jujud and _build/<os>_<arch>/lib/) from
-# the locally built controller snap, giving every operator image the same
-# provenance rule as the release path: the jujud binary and its bundled
-# Dqlite shared libraries come from the controller snap (built by
-# snaps/jujud/snapcraft.yaml, via the smart jujud-snap-build flow), never
-# from a source-built binary linked against host libraries. The snap
-# payload's lib/ tree carries the primed libdqlite and libuv soname
-# links and real files; soname links are preserved as links so the
-# loader resolves them by soname the same way it does inside the snap.
-# Sonames the image base provides (see base_libs) are staged as they are
-# found - the completeness of the staged closure is verified separately by
-# require_operator_image_libs, which walks the NEEDED closure of the
-# staged binary and every staged library.
-stage_operator_image_snap_payload() {
-    platform="${1:-$(go env GOOS)/$(go env GOARCH)}"
-    os=$(echo "$platform" | cut -d/ -f1)
-    arch=$(echo "$platform" | cut -d/ -f2)
-    if [ "${os}" != "$(go env GOOS)" ] || [ "${arch}" != "$(go env GOARCH)" ]; then
-        echo "operator image staging: ${platform} is a foreign platform on this host;" >&2
-        echo "operator image payloads are extracted from the locally built controller snap," >&2
-        echo "which is a native build. Build on a native ${arch} host," >&2
-        echo "or pre-stage the payload (OPERATOR_IMAGE_BUILD_SRC=false)." >&2
-        exit 1
-    fi
-    snap_arch=$(echo "${arch}" | sed 's/ppc64le/ppc64el/')
-    snap_version=$(sed -n 's/^version: *//p' "${PROJECT_DIR}/snaps/jujud/snapcraft.yaml" | tr -d '"' | head -n1)
-    snap_file="${BUILD_DIR}/snap/jujud_${snap_version}_${snap_arch}.snap"
-    if [ ! -f "${snap_file}" ]; then
-        echo "operator image staging: no controller snap found at ${snap_file};" >&2
-        echo "run 'make jujud-snap-build' first" >&2
-        exit 1
-    fi
-    platform_dir="${BUILD_DIR}/${os}_${arch}"
-    bin_dir="${platform_dir}/bin"
-    lib_dir=$(operator_image_lib_dir "$platform")
-    if ! command -v unsquashfs >/dev/null 2>&1; then
-        echo "operator image staging: unsquashfs (squashfs-tools) is required to extract the controller snap payload" >&2
-        exit 1
-    fi
-    tmp_root=$(mktemp -d)
-    cleanup() {
-        rm -rf "${tmp_root}"
-    }
-    trap cleanup EXIT
-    unsquashfs -no-progress -d "${tmp_root}/root" "${snap_file}" 'bin/jujud' 'lib/*' >/dev/null
-    if [ ! -f "${tmp_root}/root/bin/jujud" ]; then
-        echo "operator image staging: the controller snap payload does not carry bin/jujud" >&2
-        exit 1
-    fi
-    mkdir -p "${bin_dir}"
-    rm -rf "${lib_dir}"
-    mkdir -p "${lib_dir}"
-    cp "${tmp_root}/root/bin/jujud" "${bin_dir}/jujud"
-    staged=0
-    while IFS= read -r lib_src; do
-        real_src=$(readlink -f "${lib_src}")
-        real_name=$(basename "${real_src}")
-        soname=$(basename "${lib_src}")
-        cp -L "${real_src}" "${lib_dir}/${real_name}"
-        if [ "${soname}" != "${real_name}" ]; then
-            ln -sf "${real_name}" "${lib_dir}/${soname}"
-        fi
-        staged=$((staged + 1))
-    done < <(find "${tmp_root}/root/lib" \( -type f -o -type l \) -name '*.so*' 2>/dev/null)
-    if [ "${staged}" -eq 0 ]; then
-        echo "operator image staging: the controller snap payload carries no shared libraries;" >&2
-        echo "the juju-dynamic-image-layout contract requires the snap's bundled Dqlite closure" >&2
-        exit 1
-    fi
-    echo "operator image staging: staged ${bin_dir}/jujud and ${staged} libraries from ${snap_file}"
-}
-
-# stage_operator_image_libs was removed with the source-build image
-# staging: every operator image now consumes the controller snap payload
-# (stage_operator_image_snap_payload locally, pre-staged CI payloads, or
-# the release snap extraction), validated by require_operator_image_libs.
-
 # require_operator_image_libs checks that the runtime libraries jujud needs
-# are already present in the build payload's lib/ directory. This runs when
-# OPERATOR_IMAGE_BUILD_SRC is false: instead of compiling jujud here, the CI
-# payload delivers the binary together with its shared libraries under
-# _build/<os>_<arch>/lib/. Nothing is rebuilt or replaced here - we only
-# verify what was delivered. Every library the jujud binary needs is
-# checked, including libraries needed by other staged libraries, except
-# the C runtime the Ubuntu base image already provides (see base_libs).
-# A missing library fails the image build here with a clear message,
-# rather than producing an image whose jujud would fail to start.
+# are already present in the build payload's lib/ directory. The Docker
+# image path consumes a payload produced outside this Makefile (the QA
+# payload unpack or the release snap extraction): instead of compiling
+# jujud here, the payload delivers the binary together with its shared
+# libraries under _build/<os>_<arch>/lib/. Nothing is rebuilt or replaced
+# here - we only verify what was delivered. Every library the jujud binary
+# needs is checked, including libraries needed by other staged libraries,
+# except the C runtime the Ubuntu base image already provides (see
+# base_libs). A missing library fails the image build here with a clear
+# message, rather than producing an image whose jujud would fail to start.
 require_operator_image_libs() {
     platform="${1:-}"
     os=$(echo "$platform" | cut -d/ -f1)
@@ -201,7 +123,7 @@ require_operator_image_libs() {
     lib_dir=$(operator_image_lib_dir "$platform")
     if [ ! -d "${lib_dir}" ]; then
         echo "operator image build: missing pre-staged jujud library closure at ${lib_dir};" >&2
-        echo "provide it as part of the build payload (source-build closure or snap extraction)" >&2
+        echo "provide it as part of the build payload (QA payload unpack or release snap extraction)" >&2
         exit 1
     fi
     if [ ! -f "${jujud_bin}" ]; then
@@ -254,9 +176,8 @@ $(elf_needed_sonames "${lib_dir}/${soname}")"
 #   registry
 #
 # The jujud binary and its runtime library closure are never built or staged
-# here: they are a pre-staged input (staged from the locally built controller
-# snap by the image-check target locally, delivered by the QA payload unpack
-# or the release snap extraction in CI), verified by require_operator_image_libs.
+# here: they are a pre-staged input delivered by the QA payload unpack or the
+# release snap extraction, verified by require_operator_image_libs.
 build_push_operator_image() {
     build_multi_osarch=${1-""}
     if [[ -z "$build_multi_osarch" ]]; then
@@ -285,11 +206,9 @@ build_push_operator_image() {
     build_multi_osarch=$(echo "$build_multi_osarch" | sed 's/ppc64el/ppc64le/g')
 
     # Verify the staged jujud payload for every image platform, per the
-    # dynamic-image-layout contract in caas/Dockerfile. With
-    # OPERATOR_IMAGE_BUILD_SRC=true (local) the payload was just staged by
-    # stage_operator_image_snap_payload; with false (CI) it was delivered
-    # pre-staged by the QA payload unpack or the release snap extraction.
-    # Nothing is built or staged here - only verified.
+    # dynamic-image-layout contract in caas/Dockerfile. The payload is
+    # delivered pre-staged by the QA payload unpack or the release snap
+    # extraction; the Docker image path never builds or stages it here.
     for platform in $build_multi_osarch; do
         require_operator_image_libs "${platform}"
     done
@@ -334,6 +253,172 @@ build_push_operator_image() {
         echo "unknown OCI_BUILDER=${OCI_BUILDER} expected docker or podman"
         exit 1
     fi
+}
+
+# ---------------------------------------------------------------------------
+# Chiselled operator rock
+# ---------------------------------------------------------------------------
+
+# operator_rock_arch echoes the native Debian architecture name. Rockcraft
+# uses Debian architecture names, so ppc64le is reported as ppc64el.
+operator_rock_arch() {
+    echo "${OPERATOR_ROCK_ARCH:-$(dpkg --print-architecture)}"
+}
+
+operator_rock_dir() {
+    echo "${OPERATOR_ROCK_DIR:-${PROJECT_DIR}/rocks/jujud-operator}"
+}
+
+operator_rock_build_dir() {
+    echo "${OPERATOR_ROCK_BUILD_DIR:-${BUILD_DIR}/rocks}"
+}
+
+# operator_rock_version is the rock archive version. It matches the image
+# tag portion of operator_image_path (no build number).
+operator_rock_version() {
+    _strip_build_version "$(juju_version)"
+}
+
+operator_rock_archive() {
+    echo "$(operator_rock_build_dir)/jujud-operator_$(operator_rock_version)_$(operator_rock_arch).rock"
+}
+
+# require_operator_rock_tools checks the tools that pack a rock: the
+# Rockcraft CLI and a reachable LXD, since Rockcraft builds in a managed
+# LXD instance. It never installs snaps, changes the LXD configuration,
+# or falls back to Docker. Importing a packed rock needs neither the CLI
+# nor LXD; see require_operator_rock_import_tools.
+require_operator_rock_tools() {
+    missing=""
+    for tool in "${ROCKCRAFT:-rockcraft}" lxc; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            missing="${missing} ${tool}"
+        fi
+    done
+    if [ -n "${missing}" ]; then
+        echo "operator rock: missing required tools:${missing}" >&2
+        echo "install Rockcraft and LXD first;" >&2
+        echo "the rock targets do not install tools or fall back to the Docker image" >&2
+        exit 1
+    fi
+    if ! timeout 10 lxc info >/dev/null 2>&1; then
+        echo "operator rock: LXD is not reachable" >&2
+        echo "Rockcraft builds in a managed LXD instance; start or initialise LXD first" >&2
+        exit 1
+    fi
+}
+
+# require_operator_rock_import_tools checks the tools that import a packed
+# rock into the local container store: the skopeo binary (Rockcraft also
+# provides it as rockcraft.skopeo) and the local container runtime. Neither
+# the Rockcraft CLI nor LXD is needed for the import.
+require_operator_rock_import_tools() {
+    skopeo="${ROCKCRAFT_SKOPEO:-rockcraft.skopeo}"
+    if ! command -v "$skopeo" >/dev/null 2>&1; then
+        echo "operator rock: missing required tool: ${skopeo}" >&2
+        echo "install Rockcraft (which provides rockcraft.skopeo) first;" >&2
+        echo "the rock targets do not install tools or fall back to the Docker image" >&2
+        exit 1
+    fi
+    require_operator_image_runtime
+}
+
+# require_operator_image_runtime checks the local container runtime used to
+# import and tag the packed rock.
+require_operator_image_runtime() {
+    case "${OCI_BUILDER}" in
+        docker | podman)
+            ;;
+        *)
+            echo "operator image: unsupported OCI_BUILDER=${OCI_BUILDER}; expected docker or podman" >&2
+            exit 1
+            ;;
+    esac
+    if [ -z "${DOCKER_BIN}" ] || ! command -v "${DOCKER_BIN}" >/dev/null 2>&1; then
+        echo "operator image: ${OCI_BUILDER} is not available" >&2
+        exit 1
+    fi
+}
+
+# require_native_operator_rock_platform rejects foreign and multi-platform
+# requests: a local rock is a native, single-architecture build.
+require_native_operator_rock_platform() {
+    requested="${1:-}"
+    if [ -z "${requested}" ]; then
+        requested="linux/$(go env GOARCH)"
+    fi
+    case "${requested}" in
+        *" "* | *,*)
+            echo "operator rock: local rock builds are single-platform only" >&2
+            echo "requested platforms: ${requested}" >&2
+            exit 1
+            ;;
+    esac
+    requested_arch=$(echo "${requested}" | sed -e 's|^linux/||' -e 's/ppc64le/ppc64el/')
+    native_arch=$(operator_rock_arch)
+    if [ "${requested_arch}" != "${native_arch}" ]; then
+        echo "operator rock: local rock builds are native only" >&2
+        echo "requested ${requested}, host architecture is ${native_arch}" >&2
+        echo "build on a native ${requested_arch} host, or use the Docker image path" >&2
+        exit 1
+    fi
+}
+
+# pack_operator_rock packs the native rock and moves the archive to the
+# build output directory. It never builds a controller snap or stages the
+# payload of the Docker image.
+pack_operator_rock() {
+    require_operator_rock_tools
+    require_native_operator_rock_platform "${1:-}"
+
+    arch=$(operator_rock_arch)
+    name="jujud-operator_$(operator_rock_version)_${arch}.rock"
+    archive="$(operator_rock_dir)/${name}"
+    output_archive="$(operator_rock_build_dir)/${name}"
+
+    mkdir -p "$(operator_rock_build_dir)"
+    rm -f "${archive}"
+
+    echo "Packing ${name} with Rockcraft for native architecture ${arch}"
+    (
+        cd "$(operator_rock_dir)"
+        ROCKCRAFT_EXPERIMENTAL_MONOREPO=1 "${ROCKCRAFT:-rockcraft}" pack --build-for "${arch}"
+    )
+
+    if [ ! -f "${archive}" ]; then
+        echo "operator rock: Rockcraft did not produce ${archive}" >&2
+        exit 1
+    fi
+    mv -f "${archive}" "${output_archive}"
+    echo "Packed ${output_archive}"
+}
+
+# import_operator_rock_image imports the packed OCI archive into the local
+# Docker or Podman store under the unchanged operator_image_path tag.
+import_operator_rock_image() {
+    require_operator_rock_import_tools
+
+    archive=$(operator_rock_archive)
+    tag=$(operator_image_path)
+    if [ ! -f "${archive}" ]; then
+        echo "operator image: no rock archive at ${archive}" >&2
+        echo "run 'make operator-rock' first" >&2
+        exit 1
+    fi
+
+    case "${OCI_BUILDER}" in
+        docker)
+            transport="docker-daemon:${tag}"
+            ;;
+        podman)
+            transport="containers-storage:${tag}"
+            ;;
+    esac
+
+    echo "Importing ${archive} as ${tag}"
+    "${ROCKCRAFT_SKOPEO:-rockcraft.skopeo}" --insecure-policy \
+        copy "oci-archive:${archive}" "${transport}"
+    echo "Tagged ${tag} in the local ${OCI_BUILDER} store"
 }
 
 seed_repository() {

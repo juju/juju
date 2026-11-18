@@ -28,8 +28,11 @@ restart_pebble_service() {
 		return 1
 	fi
 	echo "Restarting Pebble service ${service} in pod ${pod}"
+	# Resolve the Pebble binary inside the pod: the chiselled rock ships
+	# Pebble in the FHS layout; the Docker image keeps it at /opt/pebble.
 	kubectl exec -n "controller-${BOOTSTRAPPED_JUJU_CTRL_NAME}" "${pod}" -c api-server -- \
-		/opt/pebble restart "${service}"
+		/bin/sh -c 'pebble=/usr/lib/juju/pebble; [ -x "$pebble" ] || pebble=/opt/pebble; exec "$pebble" restart "$1"' \
+		pebble "${service}"
 }
 
 # assert_split_topology inspects the controller pod's process list to
@@ -54,10 +57,13 @@ assert_split_topology() {
 	check_contains "${process_list}" "jujud controller"
 	check_contains "${process_list}" "jujuagentd machine"
 
-	# Verify Pebble services are both active
+	# Verify Pebble services are both active. The Pebble binary is
+	# resolved inside the pod: FHS first, /opt fallback for the
+	# Docker image.
 	local pebble_services
 	pebble_services=$(kubectl exec -n "controller-${BOOTSTRAPPED_JUJU_CTRL_NAME}" "${pod}" -c api-server -- \
-		/opt/pebble services 2>/dev/null || echo "")
+		/bin/sh -c 'pebble=/usr/lib/juju/pebble; [ -x "$pebble" ] || pebble=/opt/pebble; exec "$pebble" services' \
+		2>/dev/null || echo "")
 	echo "Pebble services:"
 	echo "${pebble_services}"
 	check_contains "${pebble_services}" "jujud"

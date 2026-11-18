@@ -1,5 +1,17 @@
 run_shellcheck() {
-	OUT=$(shellcheck --shell=bash --severity=warning tests/main.sh tests/includes/*.sh tests/suites/**/*.sh 2>&1 || true)
+	OUT=$(shellcheck --shell=bash --severity=warning tests/main.sh tests/includes/*.sh tests/suites/**/*.sh make_functions.sh 2>&1 || true)
+	if [ -n "${OUT}" ]; then
+		echo ""
+		echo "$(red 'Found some issues:')"
+		echo "${OUT}"
+		exit 1
+	fi
+
+	# The controller and snap wrappers are POSIX /bin/sh scripts: run
+	# them as a separate group and let shellcheck pick the dialect from
+	# each shebang, so the bash dialect above does not mask sh
+	# portability issues.
+	OUT=$(shellcheck --severity=warning caas/controller-wrappers/* snaps/jujud/local/wrappers/* 2>&1 || true)
 	if [ -n "${OUT}" ]; then
 		echo ""
 		echo "$(red 'Found some issues:')"
