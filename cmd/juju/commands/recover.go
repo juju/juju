@@ -14,6 +14,8 @@ import (
 	internalrecovery "github.com/juju/juju/internal/recovery"
 )
 
+// recoveryProvisioner allocates a replacement using validated archive metadata.
+// The client store supplies credentials for the target cloud.
 type recoveryProvisioner func(*cmd.Context, jujuclient.ClientStore, *recovery.ArchiveInfo) error
 
 func newRecoveryCommand() cmd.Command {
@@ -36,11 +38,15 @@ type recoveryCommand struct {
 func (c *recoveryCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name: "recover", Args: "<backup-file> <assertion-file>",
-		Purpose: "Allocate a replacement controller from a recovery archive.",
-		Doc: "Validate an archive against its unsigned SHA-256 assertion and allocate a replacement controller machine. " +
-			"Agent installation and controller initialisation are not available in this build. " +
-			"A successful allocation returns the replacement provider instance ID in an initialisation-unavailable error; " +
-			"the machine is left for inspection and the controller is not registered.",
+		Purpose: "Recover a controller from a backup archive.",
+		// TODO(recovery): update the limitation below once recovery restores
+		// controller state and registers the replacement with the client.
+		Doc: `Controller recovery uses a backup archive and its unsigned SHA-256 assertion
+to restore a controller on a replacement machine.
+
+This version validates the archive and allocates the replacement machine only.
+It leaves the instance for inspection and exits with an error reporting its ID.
+No agent is installed and no controller is registered.`,
 		SeeAlso: []string{"bootstrap", "create-backup", "unregister"},
 	})
 }

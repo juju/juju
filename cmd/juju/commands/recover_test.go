@@ -97,6 +97,7 @@ func (s *recoverySuite) TestRun(c *tc.C) {
 	const (
 		archiveName   = "backup.tar.gz"
 		assertionName = "backup.assert"
+		// TODO(recovery): expect success once the controller is finalised.
 		terminalError = "controller recovery initialisation is not available in this build; " +
 			"provisioned replacement instance test-instance"
 	)
@@ -277,6 +278,7 @@ func (s *recoverySuite) TestRun(c *tc.C) {
 	}
 }
 
+// TestRunPassesArchiveInfoToProvisioner checks the handoff after validation.
 func (s *recoverySuite) TestRunPassesArchiveInfoToProvisioner(c *tc.C) {
 	archive := recoveryArchive(c)
 	sum := sha256.Sum256(archive)

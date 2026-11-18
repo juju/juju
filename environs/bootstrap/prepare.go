@@ -102,9 +102,9 @@ func (p *ControllerPreparation) RegisterController(
 	return nil
 }
 
-// OpenController validates the given parameters and opens the
-// controller environ, but does not prepare it for bootstrapping and
-// does not record anything in the client store.
+// OpenController validates the parameters and opens the provider environment
+// for bootstrap or recovery. The caller chooses when to prepare the provider
+// and whether to register the controller with the client.
 func OpenController(
 	isCAASController bool,
 	ctx environs.BootstrapContext,
@@ -116,9 +116,7 @@ func OpenController(
 	return openController(isCAASController, ctx, args)
 }
 
-// openController opens the controller environ for the given validated
-// parameters. It does not prepare the environ for bootstrapping and
-// does not record anything in the client store.
+// openController opens the environment for already validated parameters.
 func openController(
 	isCAASController bool,
 	ctx environs.BootstrapContext,

@@ -64,7 +64,7 @@ type ModelInfo struct {
 // It is produced before anything is provisioned and drives the recovery
 // preflight checks.
 type ArchiveInfo struct {
-	// SourceBase is the operating system base recorded in metadata.json.
+	// SourceBase is the operating system base for the replacement controller image.
 	SourceBase string
 	// MachineName is the source agent identity recorded in metadata.json.
 	MachineName string

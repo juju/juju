@@ -114,6 +114,7 @@ func provisionRecovery(
 	}); err != nil {
 		return errors.Capture(err)
 	}
+	// TODO(recovery): return success once finalisation and registration finish.
 	return errors.Errorf(
 		"controller recovery initialisation is not available in this build; provisioned replacement instance %s",
 		started,
