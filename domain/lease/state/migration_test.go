@@ -98,6 +98,8 @@ func (s *migrationSuite) insertLease(
 	name, holder string,
 	startOffset, expiryOffset time.Duration,
 ) {
+	// SQL timestamp offset syntax differs between database dialects. The test
+	// database runs locally, so use the same host clock to calculate fixtures.
 	now := time.Now().UTC()
 	start := now.Add(startOffset).Format(time.DateTime)
 	expiry := now.Add(expiryOffset).Format(time.DateTime)
