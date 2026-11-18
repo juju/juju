@@ -78,6 +78,9 @@ See more: {ref}`command-juju-model-config`, {ref}`model-config-storage-default-b
 
 ## Update a storage pool
 
+To change a pool's provider, first ensure that the pool is not in-use.
+While the pool is in-use you can still update configuration attributes.
+
 To update storage pool attributes, use the `update-storage-pool` command:
 
 ```text
@@ -104,6 +107,11 @@ See more: {ref}`command-juju-update-storage-pool`
 
 ## Remove a storage pool
 
+Before removing a pool, remove or change any references to it in model-config
+keys `storage-default-block-source` and `storage-default-filesystem-source`.
+Pools referenced by storage, or application/unit storage directives, or model
+storage settings cannot be removed.
+
 To remove an existing storage pool, use the `remove-storage-pool` command:
 
 ```text
@@ -113,4 +121,3 @@ juju remove-storage-pool test-pool
 ```{ibnote}
 See more: {ref}`command-juju-remove-storage-pool`
 ```
-
