@@ -11,6 +11,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/trace"
@@ -41,6 +42,10 @@ type State interface {
 	// InitialWatchStatementScriptletApplications returns the initial query and
 	// namespace used to watch applications backed by scriptlets.
 	InitialWatchStatementScriptletApplications() (string, eventsource.NamespaceQuery)
+
+	// ScriptletApplicationNamespace returns the namespace used to watch an
+	// application's lifecycle and charm.
+	ScriptletApplicationNamespace() string
 
 	// InitialWatchStatementApplicationConfigHash returns the initial query and
 	// namespace used to watch an application's config hash.
@@ -109,9 +114,10 @@ func (s *Service) GetScriptletApplication(
 		return unitless.ScriptletApplication{}, errors.Errorf("decoding application life: %w", err)
 	}
 	return unitless.ScriptletApplication{
-		UUID: coreapplication.UUID(result.UUID),
-		Name: result.Name,
-		Life: life,
+		UUID:      coreapplication.UUID(result.UUID),
+		Name:      result.Name,
+		Life:      life,
+		CharmUUID: corecharm.ID(result.CharmUUID),
 		Sources: transform.Slice(result.Sources, func(source unitlessinternal.ScriptSource) unitless.ScriptSource {
 			return unitless.ScriptSource{
 				LoadPath: source.LoadPath,
@@ -190,9 +196,10 @@ func (s *WatchableService) WatchScriptletApplications(ctx context.Context) (watc
 	)
 }
 
-// WatchScriptletApplicationDying returns a watcher that emits when the
-// application changes life or is removed.
-func (s *WatchableService) WatchScriptletApplicationDying(
+// WatchScriptletApplication returns a watcher that emits when the
+// application changes life or charm, or is removed. Its initial event indicates
+// that the subscription is active.
+func (s *WatchableService) WatchScriptletApplication(
 	ctx context.Context, applicationUUID coreapplication.UUID,
 ) (watcher.NotifyWatcher, error) {
 	if err := applicationUUID.Validate(); err != nil {
@@ -200,9 +207,9 @@ func (s *WatchableService) WatchScriptletApplicationDying(
 	}
 	return s.watcherFactory.NewNotifyWatcher(
 		ctx,
-		"scriptlet application dying watcher",
+		"scriptlet application watcher",
 		eventsource.PredicateFilter(
-			"application",
+			s.st.ScriptletApplicationNamespace(),
 			changestream.All,
 			eventsource.EqualsPredicate(applicationUUID.String()),
 		),

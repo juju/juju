@@ -27,6 +27,7 @@ type applicationUUIDs []string
 
 type scriptletSource struct {
 	ApplicationName string    `db:"application_name"`
+	CharmUUID       string    `db:"charm_uuid"`
 	Life            life.Life `db:"life_id"`
 	Path            string    `db:"path"`
 	Content         []byte    `db:"content"`
@@ -66,7 +67,8 @@ func (st *State) GetScriptletApplication(
 SELECT cs.path AS &scriptletSource.path,
        cs.content AS &scriptletSource.content,
        a.name AS &scriptletSource.application_name,
-       a.life_id AS &scriptletSource.life_id
+       a.life_id AS &scriptletSource.life_id,
+       a.charm_uuid AS &scriptletSource.charm_uuid
 FROM application AS a
 JOIN charm_scriptlet AS cs ON cs.charm_uuid = a.charm_uuid
 WHERE a.uuid = $applicationUUID.uuid
@@ -92,9 +94,10 @@ ORDER BY cs.path;
 	}
 
 	return unitlessinternal.ScriptletApplication{
-		UUID: applicationID,
-		Name: rows[0].ApplicationName,
-		Life: rows[0].Life,
+		UUID:      applicationID,
+		Name:      rows[0].ApplicationName,
+		Life:      rows[0].Life,
+		CharmUUID: rows[0].CharmUUID,
 		Sources: transform.Slice(rows, func(row scriptletSource) unitlessinternal.ScriptSource {
 			return unitlessinternal.ScriptSource{
 				LoadPath: row.Path,
@@ -132,7 +135,13 @@ JOIN charm_scriptlet AS cs ON cs.charm_uuid = a.charm_uuid;
 			return row.UUID
 		}), nil
 	}
-	return "application", query
+	return st.ScriptletApplicationNamespace(), query
+}
+
+// ScriptletApplicationNamespace returns the namespace used to watch an
+// application's lifecycle and charm.
+func (st *State) ScriptletApplicationNamespace() string {
+	return "application"
 }
 
 // InitialWatchStatementApplicationConfigHash returns the initial namespace

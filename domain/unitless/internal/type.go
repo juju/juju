@@ -8,10 +8,11 @@ import "github.com/juju/juju/domain/life"
 // ScriptletApplication is the scalar persistence representation of a
 // scriptlet-backed application.
 type ScriptletApplication struct {
-	UUID    string
-	Name    string
-	Life    life.Life
-	Sources []ScriptSource
+	UUID      string
+	Name      string
+	Life      life.Life
+	CharmUUID string
+	Sources   []ScriptSource
 }
 
 // ScriptSource is the scalar persistence representation of a Starform source.
