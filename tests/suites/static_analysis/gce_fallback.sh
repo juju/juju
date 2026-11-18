@@ -237,7 +237,7 @@ __gce_harness_run_scenario() {
 
 	bootstrap() {
 		local model=$1 logfile=$2 r
-		echo "bootstrap model=${model} region=${BOOTSTRAP_REGION:-} reuse=${BOOTSTRAP_REUSE:-UNSET} excluded=[${GCE_EXCLUDED_REGIONS:-}]" >>"${BOOTSTRAP_CALLS}"
+		echo "bootstrap model=${model} region=${BOOTSTRAP_REGION:-} reuse=${BOOTSTRAP_REUSE:-UNSET} excluded=[${GCE_EXCLUDED_REGIONS:-}] local=[${BOOTSTRAP_REUSE_LOCAL:-}]" >>"${BOOTSTRAP_CALLS}"
 		# Word splitting of the failing region list is intended.
 		# shellcheck disable=SC2086
 		for r in ${GCE_BOOTSTRAP_FAIL_REGIONS:-}; do
@@ -351,12 +351,14 @@ __gce_harness_run_scenario() {
 	# the loop. The check runs even when the loop exits the shell; the
 	# sentinel guards against the loop returning instead of exiting.
 	run_fallback_expect_exit() { # <check function>
+		local rc
 		: >"${GCE_SCENARIO_DIR}/expect-exit"
 		# shellcheck disable=SC2064
 		trap "$1" EXIT
 		gce_run_with_region_fallback "test-cloud-gce" "${TEST_DIR}/test-cloud-gce.log" fake_body >"${GCE_SCENARIO_DIR}/fallback.out" 2>&1
+		rc=$?
 		rm -f "${GCE_SCENARIO_DIR}/expect-exit"
-		echo "  SCENARIO FAIL: gce_run_with_region_fallback returned (rc=$?) instead of exiting" >&2
+		echo "  SCENARIO FAIL: gce_run_with_region_fallback returned (rc=${rc}) instead of exiting" >&2
 		exit 1
 	}
 
@@ -567,9 +569,10 @@ __gce_harness_run_scenario() {
 		fixture_good_region us-east1 us-east1-b
 		fixture_good_region us-east4 us-east4-b
 
-		# Mimic ./main.sh -r: reuse would otherwise be true; the fallback
-		# must force a fresh bootstrap for the retry.
+		# Even with reuse and a named controller requested, both attempts
+		# must bootstrap fresh in the region chosen by the probe.
 		export BOOTSTRAP_REUSE="true"
+		export BOOTSTRAP_REUSE_LOCAL="other-region-controller"
 		export GCE_BODY_FAIL_REGIONS="us-east1"
 		export GCE_BODY_SIGNATURE='ERROR: (ZONE_RESOURCE_POOL_EXHAUSTED) machine creation failed in zone us-east1-b'
 
@@ -578,8 +581,9 @@ __gce_harness_run_scenario() {
 		assert_file_pattern_nlines "${BODY_CALLS}" "body called" 2 "suite body ran twice"
 		assert_file_pattern_nlines "${BOOTSTRAP_CALLS}" "bootstrap model=" 2 "bootstrap ran twice"
 		assert_file_pattern_nlines "${DESTROY_CALLS}" "." 1 "destroy_controller ran once (after success)"
-		assert_file_contains "${BOOTSTRAP_CALLS}" "region=us-east1 reuse=true" "first attempt reused"
-		assert_file_contains "${BOOTSTRAP_CALLS}" "region=us-east4 reuse=false excluded=[ us-east1]" "retry ran fresh with us-east1 excluded"
+		assert_file_contains "${BOOTSTRAP_CALLS}" "region=us-east1 reuse=false excluded=[] local=[]" "first attempt ran fresh"
+		assert_file_contains "${BOOTSTRAP_CALLS}" "region=us-east4 reuse=false excluded=[ us-east1] local=[]" "retry ran fresh with us-east1 excluded"
+		assert_eq "${BOOTSTRAP_REUSE_LOCAL}" "other-region-controller" "local controller setting preserved outside fallback"
 		assert_contains "${GCE_EXCLUDED_REGIONS:-}" "us-east1" "GCE_EXCLUDED_REGIONS grew"
 		assert_eq "${BOOTSTRAP_REUSE:-}" "false" "BOOTSTRAP_REUSE forced false for the retry"
 		assert_file_contains "${GCE_SCENARIO_DIR}/fallback.out" "GCE infrastructure failure in us-east1" "infra failure classified"

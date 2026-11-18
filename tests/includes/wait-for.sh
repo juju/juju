@@ -187,11 +187,17 @@ poll_for_machine_status() {
 		elapsed=$(date -u +%s)-$start_time
 		if [[ ${elapsed} -ge ${timeout} ]]; then
 			echo "[-] $(red 'timed out waiting for') machine ${machine_id} ${status_field} status to be ${status}"
-			juju show-machine "${machine_id}" 2>&1 | sed 's/^/    | /g'
-			echo "    (controller) juju debug-log output"
-			juju debug-log -m controller --replay --no-tail 2>&1 | sed 's/^/    | /g'
-			echo "    (model) juju debug-log output"
-			juju debug-log --replay --no-tail 2>&1 | sed 's/^/    | /g'
+			if [[ -n ${model} ]]; then
+				juju show-machine -m "${model}" "${machine_id}" 2>&1 | sed 's/^/    | /g'
+				echo "    (model ${model}) juju debug-log output"
+				juju debug-log -m "${model}" --replay --no-tail 2>&1 | sed 's/^/    | /g'
+			else
+				juju show-machine "${machine_id}" 2>&1 | sed 's/^/    | /g'
+				echo "    (controller) juju debug-log output"
+				juju debug-log -m controller --replay --no-tail 2>&1 | sed 's/^/    | /g'
+				echo "    (model) juju debug-log output"
+				juju debug-log --replay --no-tail 2>&1 | sed 's/^/    | /g'
+			fi
 			exit 1
 		fi
 

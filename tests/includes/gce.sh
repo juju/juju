@@ -190,6 +190,11 @@ gce_run_with_region_fallback() {
 
 	local max_attempts=${GCE_MAX_ATTEMPTS:-3}
 	local suite_status attempt=0 f
+	# Every attempt must bootstrap in the probed region. A named local
+	# controller would also enable reuse in bootstrap(), even with -r off.
+	local -x BOOTSTRAP_REUSE_LOCAL=""
+	# Leave reuse off afterwards: the credential test needs its own bootstrap.
+	export BOOTSTRAP_REUSE="false"
 	while true; do
 		attempt=$((attempt + 1))
 		if [[ ${attempt} -gt ${max_attempts} ]]; then
@@ -238,10 +243,7 @@ gce_run_with_region_fallback() {
 		echo "====> GCE infrastructure failure in $(red "${BOOTSTRAP_REGION}"), excluding it and trying another region"
 		GCE_EXCLUDED_REGIONS="${GCE_EXCLUDED_REGIONS:-} ${BOOTSTRAP_REGION}"
 		export GCE_EXCLUDED_REGIONS
-		# Force the next bootstrap to create a fresh controller instead of
-		# reusing the broken one. The leftover controller is destroyed by
-		# cleanup_jujus when the suite exits.
-		export BOOTSTRAP_REUSE="false"
+		# cleanup_jujus destroys controllers left by failed attempts at exit.
 
 		# Rotate the logs the failure classification above greps, naming
 		# them after the attempt that produced them: OUTPUT appends, so
