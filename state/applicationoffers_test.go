@@ -6,6 +6,7 @@ package state_test
 import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
@@ -943,6 +944,152 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 	s.assertInScope(c, mysqlru, true)
 	err = rwordpress.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	// The relation is only marked dying, so it still counts.
+	mysql, err = s.State.Application("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(state.RelationCount(mysql), gc.Equals, 1)
+}
+
+func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForceRemovesRelationsOnce(c *gc.C) {
+	offer := s.createDefaultOffer(c)
+	proxies := []string{"remote-wordpress", "remote-mediawiki"}
+	for _, name := range proxies {
+		_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+			Name:            name,
+			SourceModel:     names.NewModelTag("source-model"),
+			IsConsumerProxy: true,
+			Endpoints: []charm.Relation{{
+				Interface: "mysql",
+				Name:      "db",
+				Role:      charm.RoleRequirer,
+				Scope:     charm.ScopeGlobal,
+			}, {
+				Interface: "mysql-root",
+				Name:      "db-admin",
+				Role:      charm.RoleRequirer,
+				Scope:     charm.ScopeGlobal,
+			}},
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	// Two relations to one proxy and one to the other, with no units in
+	// scope, so each is removed in the transaction that removes the offer.
+	for _, pair := range [][]string{
+		{"mysql:server", "remote-wordpress:db"},
+		{"mysql:server-admin", "remote-wordpress:db-admin"},
+		{"mysql:server", "remote-mediawiki:db"},
+	} {
+		eps, err := s.State.InferEndpoints(pair...)
+		c.Assert(err, jc.ErrorIsNil)
+		rel, err := s.State.AddRelation(eps...)
+		c.Assert(err, jc.ErrorIsNil)
+		_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
+			OfferUUID:       offer.OfferUUID,
+			RelationId:      rel.Id(),
+			RelationKey:     rel.Tag().Id(),
+			Username:        "admin",
+			SourceModelUUID: testing.ModelTag.Id(),
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	ao := state.NewApplicationOffersExposingOps(s.State)
+	modelOp, err := ao.RemoveOfferOperation("hosted-mysql", true)
+	c.Assert(err, jc.ErrorIsNil)
+	ops, err := modelOp.Build(0)
+	c.Assert(err, jc.ErrorIsNil)
+	// Each proxy is removed once, not once for each relation.
+	var proxyRemovals int
+	for _, op := range ops {
+		if op.C == "remoteApplications" && op.Remove {
+			proxyRemovals++
+		}
+	}
+	c.Check(proxyRemovals, gc.Equals, len(proxies))
+
+	err = s.State.ApplyOperation(modelOp)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelOp.Errors, gc.HasLen, 0)
+
+	_, err = ao.ApplicationOffer("hosted-mysql")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	for _, name := range proxies {
+		_, err = s.State.RemoteApplication(name)
+		c.Check(err, jc.Satisfies, errors.IsNotFound)
+	}
+	conns, err := s.State.OfferConnections(offer.OfferUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(conns, gc.HasLen, 0)
+	mysql, err := s.State.Application("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rels, err := mysql.Relations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(rels, gc.HasLen, 0)
+	// The count started at 3 and went down once for each relation.
+	c.Check(state.RelationCount(mysql), gc.Equals, 0)
+}
+
+func (s *applicationOffersSuite) TestRemoveOfferForceQueuesDyingProxyCleanupOnce(c *gc.C) {
+	offer := s.createDefaultOffer(c)
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "remote-wordpress",
+		SourceModel:     names.NewModelTag("source-model"),
+		IsConsumerProxy: true,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "mysql-root",
+			Name:      "db-admin",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	for _, pair := range [][]string{
+		{"mysql:server", "remote-wordpress:db"},
+		{"mysql:server-admin", "remote-wordpress:db-admin"},
+	} {
+		eps, err := s.State.InferEndpoints(pair...)
+		c.Assert(err, jc.ErrorIsNil)
+		rel, err := s.State.AddRelation(eps...)
+		c.Assert(err, jc.ErrorIsNil)
+		_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
+			OfferUUID:       offer.OfferUUID,
+			RelationId:      rel.Id(),
+			RelationKey:     rel.Tag().Id(),
+			Username:        "admin",
+			SourceModelUUID: testing.ModelTag.Id(),
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	// Make the proxy dying while its relations stay alive, as destroying
+	// it would remove the relations first.
+	apps, closeApps := state.GetCollection(s.State, "remoteApplications")
+	defer closeApps()
+	err = apps.Writeable().UpdateId(state.DocID(s.State, "remote-wordpress"),
+		bson.M{"$set": bson.M{"life": state.Dying}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = state.NewApplicationOffers(s.State).Remove("hosted-mysql", true)
+	c.Assert(err, jc.ErrorIsNil)
+	// Both relations name the same consumer proxy, so one cleanup is
+	// queued for it.
+	cleanups, closeCleanups := state.GetCollection(s.State, "cleanups")
+	defer closeCleanups()
+	n, err := cleanups.Find(bson.D{
+		{"kind", "remoteApplication"}, {"prefix", "remote-wordpress"},
+	}).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(n, gc.Equals, 1)
+
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	_, err = s.State.RemoteApplication("remote-wordpress")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	state.AssertNoCleanups(c, s.State)
 }
 
 func (s *applicationOffersSuite) TestRemoveOneOfferSameApplication(c *gc.C) {
