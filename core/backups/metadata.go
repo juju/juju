@@ -71,8 +71,7 @@ type Origin struct {
 
 	// Arch is the Juju architecture of the machine the backup was
 	// created on, recorded so recovery can provision a replacement on
-	// the source controller's architecture. It is empty in archives
-	// created before the field existed.
+	// the source controller's architecture.
 	Arch string
 }
 
