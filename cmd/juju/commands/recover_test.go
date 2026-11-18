@@ -22,7 +22,9 @@ import (
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/arch"
 	corebackups "github.com/juju/juju/core/backups"
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/recovery"
@@ -308,7 +310,8 @@ func (s *recoverySuite) TestRunPassesArchiveInfoToProvisioner(c *tc.C) {
 	c.Check(got.ControllerModelUUID, tc.Equals, "c0ffee00-aaaa-2222-3333-444455556666")
 	c.Check(got.CACert, tc.Equals, "source-ca-cert")
 	c.Check(got.AgentVersion.String(), tc.Equals, "4.1.0")
-	c.Check(got.SourceBase, tc.Equals, "ubuntu@24.04")
+	c.Check(got.SourceBase, tc.Equals, "ubuntu@24.04/stable")
+	c.Check(got.SourceArch, tc.Equals, "amd64")
 	c.Check(got.MachineName, tc.Equals, "0")
 	c.Check(got.CloudName, tc.Equals, "lxd")
 	c.Check(got.CloudType, tc.Equals, "lxd")
@@ -353,9 +356,53 @@ func (s *recoverySuite) TestProvisionRecoveryRequiresSourceBase(c *tc.C) {
 			CloudType:    "lxd",
 			AgentVersion: version.Current,
 			SourceBase:   sourceBase,
+			SourceArch:   "amd64",
 		})
 		c.Check(err, tc.ErrorMatches, "archive does not record a usable controller base.*")
 	}
+}
+
+// TestProvisionRecoveryRequiresSourceArch checks that an archive which does
+// not record a usable controller architecture — empty, or a value no Juju
+// release supports — is rejected before any cloud access, so recovery never
+// provisions from the bootstrap client's host architecture.
+func (s *recoverySuite) TestProvisionRecoveryRequiresSourceArch(c *tc.C) {
+	for _, sourceArch := range []string{"", "not-an-arch"} {
+		err := provisionRecovery(cmdtesting.Context(c), nil, &recovery.ArchiveInfo{
+			CloudType:    "lxd",
+			AgentVersion: version.Current,
+			SourceBase:   "ubuntu@24.04",
+			SourceArch:   sourceArch,
+		})
+		c.Check(err, tc.ErrorMatches, `archive does not record a usable controller architecture: ".*"`)
+	}
+}
+
+// The recovery client must request the archived platform even when its
+// own architecture differs from the controller's.
+func (s *recoverySuite) TestAllocationTargetFromArchive(c *tc.C) {
+	nonClientArch := "arm64"
+	if arch.HostArch() == "arm64" {
+		nonClientArch = "amd64"
+	}
+	info := &recovery.ArchiveInfo{
+		AgentVersion: version.Current,
+		SourceBase:   "ubuntu@24.04/stable",
+		SourceArch:   nonClientArch,
+	}
+
+	params, err := recoveryParamsFromArchive(info)
+	c.Assert(err, tc.ErrorIsNil)
+	wantBase, err := base.ParseBaseFromString("ubuntu@24.04/stable")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(params.BootstrapBase, tc.Equals, wantBase)
+	c.Check(params.SupportedBootstrapBases, tc.DeepEquals, []base.Base{wantBase})
+	c.Assert(params.BootstrapConstraints.Arch, tc.NotNil)
+	c.Check(*params.BootstrapConstraints.Arch, tc.Equals, nonClientArch)
+	c.Assert(params.AvailableTools, tc.HasLen, 1)
+	c.Check(params.AvailableTools[0].Version, tc.DeepEquals, semversion.Binary{
+		Number: info.AgentVersion, Release: "ubuntu", Arch: nonClientArch,
+	})
 }
 
 // hookedOpenFS delegates every filesystem operation, except Open, to
@@ -406,7 +453,10 @@ func recoveryArchive(c *tc.C) []byte {
 		`"Notes":"",` +
 		`"ModelUUID":"` + controllerModelUUID + `",` +
 		`"Machine":"0",` +
-		`"Base":"ubuntu@24.04",` +
+		// The base is what the real producer records: the machine
+		// service's base string, channel included.
+		`"Base":"ubuntu@24.04/stable",` +
+		`"Arch":"amd64",` +
 		`"Hostname":"myhost",` +
 		`"Version":"4.1.0",` +
 		`"ControllerUUID":"` + controllerUUID + `",` +

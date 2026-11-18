@@ -49,7 +49,10 @@ func metadataJSON(agentVersion string) string {
 		`"Notes":"",` +
 		`"ModelUUID":"` + testControllerModelUUID + `",` +
 		`"Machine":"0",` +
-		`"Base":"ubuntu@24.04",` +
+		// The base is what the real producer records: the machine
+		// service's base string, channel included.
+		`"Base":"ubuntu@24.04/stable",` +
+		`"Arch":"amd64",` +
 		`"Hostname":"myhost",` +
 		`"Version":"` + agentVersion + `",` +
 		`"ControllerUUID":"` + testControllerUUID + `",` +

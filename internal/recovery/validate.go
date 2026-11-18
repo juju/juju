@@ -148,7 +148,9 @@ func buildArchiveInfo(ctx context.Context, logger corelogger.Logger, meta *coreb
 	}
 
 	info := &domainrecovery.ArchiveInfo{
+		// Only machine allocation requires a base; Kubernetes has none.
 		SourceBase:          meta.Origin.Base,
+		SourceArch:          meta.Origin.Arch,
 		MachineName:         meta.Origin.Machine,
 		AgentVersion:        meta.Origin.Version,
 		ControllerUUID:      meta.Controller.UUID,

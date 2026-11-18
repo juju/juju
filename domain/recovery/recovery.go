@@ -66,6 +66,10 @@ type ModelInfo struct {
 type ArchiveInfo struct {
 	// SourceBase is the operating system base for the replacement controller image.
 	SourceBase string
+
+	// SourceArch is the source controller's architecture, or empty if unknown.
+	SourceArch string
+
 	// MachineName is the source agent identity recorded in metadata.json.
 	MachineName string
 

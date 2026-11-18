@@ -39,7 +39,8 @@ func (s *validateSuite) TestValidateArchive(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(info.AgentVersion, tc.Equals, semversion.MustParse("4.1.0"))
-	c.Check(info.SourceBase, tc.Equals, "ubuntu@24.04")
+	c.Check(info.SourceBase, tc.Equals, "ubuntu@24.04/stable")
+	c.Check(info.SourceArch, tc.Equals, "amd64")
 	c.Check(info.MachineName, tc.Equals, "0")
 	c.Check(info.ControllerUUID, tc.Equals, testControllerUUID)
 	c.Check(info.ControllerName, tc.Equals, "source-ctrl")
@@ -63,6 +64,21 @@ func (s *validateSuite) TestValidateArchiveChecksumMismatch(c *tc.C) {
 
 	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, "deadbeef")
 	c.Assert(err, tc.ErrorMatches, "archive checksum mismatch: expected sha256 .deadbeef., archive is .*")
+}
+
+// TestValidateArchiveWithoutArch checks the behaviour on an archive whose
+// metadata does not record a source architecture, as produced before the
+// field existed: validation stays permissive and reports it empty, for
+// the recovery preflight to reject.
+func (s *validateSuite) TestValidateArchiveWithoutArch(c *tc.C) {
+	files := validFiles()
+	files["juju-backup/metadata.json"] = []byte(
+		strings.Replace(metadataJSON("4.1.0"), `"Arch":"amd64",`, "", 1))
+	path, sum := writeArchive(c, files)
+
+	info, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.SourceArch, tc.Equals, "")
 }
 
 func (s *validateSuite) TestValidateArchiveMissingMetadata(c *tc.C) {
@@ -260,6 +276,9 @@ func (s *validateSuite) TestValidateArchiveCreatedByBackup(c *tc.C) {
 		Machine:  "0",
 		Hostname: "myhost",
 		Version:  semversion.MustParse("4.1.0"),
+		// The channel spelling the producer records: the machine
+		// service base rendered as a string.
+		Base: "ubuntu@24.04/stable",
 	}
 	meta.Controller = corebackups.ControllerMetadata{
 		UUID:    testControllerUUID,
@@ -520,6 +539,21 @@ func (s *validateSuite) TestValidateArchiveMetadataMissingAgentVersion(c *tc.C) 
 	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorMatches,
 		"juju-backup/metadata.json does not record the source agent version")
+}
+
+// ValidateArchive leaves absent or empty bases for the provisioner to handle.
+func (s *validateSuite) TestValidateArchiveWithoutMachineBase(c *tc.C) {
+	for _, field := range []string{``, `"Base":"",`} {
+		c.Logf("base field: %q", field)
+		files := validFiles()
+		files["juju-backup/metadata.json"] = []byte(strings.Replace(
+			metadataJSON("4.1.0"), `"Base":"ubuntu@24.04/stable",`, field, 1))
+		path, sum := writeArchive(c, files)
+
+		info, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(info.SourceBase, tc.Equals, "")
+	}
 }
 
 func (s *validateSuite) TestValidateArchiveMetadataMalformedJSON(c *tc.C) {

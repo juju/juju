@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
-	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/recovery"
 	"github.com/juju/juju/environs"
@@ -45,15 +44,12 @@ func provisionRecovery(
 	if jujucloud.CloudTypeIsCAAS(info.CloudType) {
 		return errors.Errorf("Kubernetes recovery provisioning %w", coreerrors.NotSupported)
 	}
-	if info.SourceBase == "" {
-		return errors.New("archive does not record a usable controller base")
-	}
-	sourceBase, err := base.ParseBaseFromString(info.SourceBase)
+	params, err := recoveryParamsFromArchive(info)
 	if err != nil {
-		return errors.Errorf("archive does not record a usable controller base: %w", err)
+		return errors.Capture(err)
 	}
 
-	target, err := recoveryCredentials(ctx, store, info)
+	credentials, err := recoveryCredentials(ctx, store, info)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -75,8 +71,8 @@ func provisionRecovery(
 		ModelConfig:      modelConfig.AllAttrs(),
 		ControllerConfig: controllerConfig,
 		ControllerName:   info.ControllerName,
-		Cloud:            target.spec,
-		CredentialName:   target.credentialName,
+		Cloud:            credentials.spec,
+		CredentialName:   credentials.credentialName,
 		AdminSecret:      adminPassword,
 	})
 	if err != nil {
@@ -86,32 +82,15 @@ func provisionRecovery(
 		return errors.Capture(err)
 	}
 
-	hostArch := arch.HostArch()
 	var started instance.Id
-	if err := bootstrap.Recover(provisionCtx, preparation.Environ, bootstrap.RecoveryParams{
-		ControllerName:          info.ControllerName,
-		Cloud:                   target.cloud,
-		CloudRegion:             target.spec.Region,
-		CloudCredentialName:     target.credentialName,
-		CloudCredential:         target.spec.Credential,
-		ControllerConfig:        controllerConfig,
-		AdminSecret:             adminPassword,
-		CAPrivateKey:            info.CAPrivateKey,
-		AgentVersion:            &info.AgentVersion,
-		BootstrapConstraints:    constraints.Value{Arch: &hostArch},
-		BootstrapBase:           sourceBase,
-		SupportedBootstrapBases: []base.Base{sourceBase},
-		AvailableTools: tools.List{&tools.Tools{
-			Version: semversion.Binary{
-				Number:  info.AgentVersion,
-				Release: coreos.HostOSTypeName(),
-				Arch:    hostArch,
-			},
-		}},
-		InstanceStarted: func(id instance.Id) {
-			started = id
-		},
-	}); err != nil {
+	params.Cloud = credentials.cloud
+	params.CloudRegion = credentials.spec.Region
+	params.CloudCredentialName = credentials.credentialName
+	params.CloudCredential = credentials.spec.Credential
+	params.ControllerConfig = controllerConfig
+	params.AdminSecret = adminPassword
+	params.InstanceStarted = func(id instance.Id) { started = id }
+	if err := bootstrap.Recover(provisionCtx, preparation.Environ, params); err != nil {
 		return errors.Capture(err)
 	}
 	// TODO(recovery): return success once finalisation and registration finish.
@@ -119,6 +98,33 @@ func provisionRecovery(
 		"controller recovery initialisation is not available in this build; provisioned replacement instance %s",
 		started,
 	)
+}
+
+// recoveryParamsFromArchive prepares the machine-specific inputs before cloud
+// access. The client can run on a different platform from the controller.
+func recoveryParamsFromArchive(info *recovery.ArchiveInfo) (bootstrap.RecoveryParams, error) {
+	if info.SourceBase == "" {
+		return bootstrap.RecoveryParams{}, errors.New("archive does not record a usable controller base")
+	}
+	targetBase, err := base.ParseBaseFromString(info.SourceBase)
+	if err != nil {
+		return bootstrap.RecoveryParams{}, errors.Errorf("archive does not record a usable controller base: %w", err)
+	}
+	targetArch := arch.NormaliseArch(info.SourceArch)
+	if !arch.IsSupportedArch(targetArch) {
+		return bootstrap.RecoveryParams{}, errors.Errorf("archive does not record a usable controller architecture: %q", info.SourceArch)
+	}
+	return bootstrap.RecoveryParams{
+		ControllerName:          info.ControllerName,
+		CAPrivateKey:            info.CAPrivateKey,
+		AgentVersion:            &info.AgentVersion,
+		BootstrapConstraints:    constraints.Value{Arch: &targetArch},
+		BootstrapBase:           targetBase,
+		SupportedBootstrapBases: []base.Base{targetBase},
+		AvailableTools: tools.List{{Version: semversion.Binary{
+			Number: info.AgentVersion, Release: targetBase.OS, Arch: targetArch,
+		}}},
+	}, nil
 }
 
 type recoveryTarget struct {
