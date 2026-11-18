@@ -18,9 +18,6 @@ GOOS=$(shell go env GOOS)
 GOARCH=$(shell go env GOARCH)
 GOHOSTOS=$(shell go env GOHOSTOS)
 GOHOSTARCH=$(shell go env GOHOSTARCH)
-GO_MOD_VERSION=$(shell grep "^go" go.mod | awk '{print $$2}')
-GO_MOD_TRACK=$(shell echo "$(GO_MOD_VERSION)" | cut -d '.' -f 1,2)
-GO_INSTALLED_VERSION=$(shell GOARCH=$(uname -m) go version | awk '{print $$3}' | sed -e /.*go/s///)
 GO_INSTALL_PATH=$(shell go env GOBIN)
 
 # The last path element must match the installed executable name.
@@ -595,17 +592,10 @@ rebuild-export:
 # PPA includes the required mongodb-server binaries.
 install-snap-dependencies:
 ## install-snap-dependencies: Install the supported snap dependencies
-ifeq ($(shell [ -n "$(GO_INSTALLED_VERSION)" ] && [ "$$(printf '%s\n' "$(GO_MOD_VERSION)" "$(GO_INSTALLED_VERSION)" | sort -V | head -n 1)" = "$(GO_MOD_VERSION)" ] && echo 1),1)
-	@echo 'Using installed go-$(GO_MOD_VERSION)'
-else
-ifeq ("$(GO_INSTALLED_VERSION)","")
-	@echo 'Installing go-$(GO_MOD_VERSION) snap'
-	@sudo snap install go --channel=$(GO_MOD_TRACK)/stable --classic
-else
-	$(warning "warning: version of go too low: use 'snap refresh go --channel=$(GO_MOD_TRACK)'")
-	$(error "error Installed go version '$(GO_INSTALLED_VERSION)' less than required go version '$(GO_MOD_VERSION)'")
-endif
-endif
+	@command -v go >/dev/null 2>&1 || { \
+		echo "Go is required: install Go before installing dependencies" >&2; \
+		exit 1; \
+	}
 	@if ! command -v yq >/dev/null 2>&1; then \
 		echo 'Installing yq snap'; \
 		if ! sudo snap install yq; then \
