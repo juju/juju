@@ -22,8 +22,8 @@ import (
 
 // BootstrapParams holds the parameters for bootstrapping an environment.
 type BootstrapParams struct {
-	// InstanceStarted records the newly created instance before subsequent
-	// configuration can fail. Callers can use it for instance-scoped cleanup.
+	// InstanceStarted, if set, is called synchronously once the instance
+	// starts, before any subsequent configuration that could fail.
 	InstanceStarted func(instance.Id)
 
 	// AuthorizedKeys is the set of authorized keys to be allowed to ssh to the

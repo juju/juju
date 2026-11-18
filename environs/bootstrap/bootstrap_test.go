@@ -441,6 +441,21 @@ func recoveryIAASTools(archivedVersion semversion.Number, toolArch string) tools
 	}}
 }
 
+// validRecoveryParams returns recovery parameters that pass validation in
+// the IAAS recovery tests, observing an archived amd64 jammy controller.
+func validRecoveryParams(archivedVersion semversion.Number) bootstrap.RecoveryParams {
+	return bootstrap.RecoveryParams{
+		AdminSecret:             "fake-moon-landing",
+		CAPrivateKey:            coretesting.CAKey,
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		SupportedBootstrapBases: supportedJujuBases,
+		BootstrapBase:           jammyBootstrapBase,
+		BootstrapConstraints:    constraints.MustParse("arch=amd64"),
+		AgentVersion:            &archivedVersion,
+		AvailableTools:          recoveryIAASTools(archivedVersion, arch.AMD64),
+	}
+}
+
 // failingDataSourceFactory fails the test when used, proving that no
 // simplestreams data source is fetched.
 type failingDataSourceFactory struct {
@@ -537,7 +552,7 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASResultChecks(c *tc.C) {
 		name:       "nil bootstrap result",
 		instanceID: "test-instance",
 		result:     nil,
-		err:        "provider returned no replacement instance details",
+		err:        `replacement instance "test-instance" may require manual removal: provider returned no replacement instance details`,
 	}, {
 		name:       "wrong base",
 		instanceID: "test-instance",
@@ -545,7 +560,7 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASResultChecks(c *tc.C) {
 			Arch: arch.AMD64,
 			Base: focalBootstrapBase,
 		},
-		err: "replacement base differs from archived controller",
+		err: `replacement instance "test-instance" may require manual removal: replacement base differs from archived controller`,
 	}, {
 		name:       "wrong arch",
 		instanceID: "test-instance",
@@ -553,7 +568,7 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASResultChecks(c *tc.C) {
 			Arch: arch.ARM64,
 			Base: jammyBootstrapBase,
 		},
-		err: "replacement architecture differs from archived agent",
+		err: `replacement instance "test-instance" may require manual removal: replacement architecture differs from archived agent`,
 	}}
 
 	for i, test := range tests {
@@ -574,6 +589,100 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASResultChecks(c *tc.C) {
 			AvailableTools:          agentTools,
 		})
 		c.Check(err, tc.ErrorMatches, test.err)
+	}
+}
+
+func (s *bootstrapSuite) TestBootstrapRecoveryIAASAllocationError(c *tc.C) {
+	archivedVersion := coretesting.FakeVersionNumber
+	// allocationFailure stands in for a provider error returned after
+	// allocation; its identity must survive the recovery failure wrap.
+	allocationFailure := errors.New("allocation failed")
+
+	tests := []struct {
+		name       string
+		instanceID instance.Id
+		err        string
+	}{{
+		name:       "instance observed before failure",
+		instanceID: "test-instance",
+		err:        `replacement instance "test-instance" may require manual removal: allocation failed`,
+	}, {
+		name:       "no instance observed",
+		instanceID: "",
+		err:        "allocation failed",
+	}}
+	for i, test := range tests {
+		c.Logf("test %d: %s", i, test.name)
+		env := &recoveryBootstrapEnviron{
+			bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+			instanceID:       test.instanceID,
+			err:              allocationFailure,
+		}
+		err := bootstrap.Recover(
+			envtesting.BootstrapTestContext(c), env,
+			validRecoveryParams(archivedVersion))
+		c.Check(err, tc.ErrorMatches, test.err)
+		// The original error classification is preserved.
+		c.Check(err, tc.ErrorIs, allocationFailure)
+		c.Check(env.bootstrapCount, tc.Equals, 1)
+	}
+}
+
+func (s *bootstrapSuite) TestBootstrapRecoveryIAASCancelled(c *tc.C) {
+	archivedVersion := coretesting.FakeVersionNumber
+	ctx, cancel := context.WithCancel(c.Context())
+	defer cancel()
+	params := validRecoveryParams(archivedVersion)
+	params.InstanceStarted = func(instance.Id) { cancel() }
+
+	env := &recoveryBootstrapEnviron{
+		bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+		instanceID:       "test-instance",
+		result: &environs.BootstrapResult{
+			Arch: arch.AMD64,
+			Base: jammyBootstrapBase,
+		},
+	}
+	err := bootstrap.Recover(envtesting.BootstrapContext(ctx, c), env, params)
+	// The cancellation sentinel survives the cleanup hint, which
+	// names the observed replacement instance.
+	c.Check(err, tc.ErrorIs, bootstrap.Cancelled())
+	c.Check(err, tc.ErrorMatches,
+		`replacement instance "test-instance" may require manual removal: cancelled`)
+}
+
+func (s *bootstrapSuite) TestBootstrapRecoveryIAASPreAllocationFailure(c *tc.C) {
+	archivedVersion := coretesting.FakeVersionNumber
+	tests := []struct {
+		name string
+		base corebase.Base
+		err  string
+	}{{
+		name: "unsupported base",
+		base: corebase.MustParseBaseFromString("ubuntu@21.04"),
+		err:  `.*ubuntu@21\.04/stable not supported`,
+	}, {
+		name: "non-ubuntu base",
+		base: corebase.MustParseBaseFromString("centos@7"),
+		err:  `.*non-ubuntu bootstrap base "centos@7/stable".*not valid`,
+	}}
+	for i, test := range tests {
+		c.Logf("test %d: %s", i, test.name)
+		env := &recoveryBootstrapEnviron{
+			bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+			instanceID:       "test-instance",
+			result: &environs.BootstrapResult{
+				Arch: arch.AMD64,
+				Base: jammyBootstrapBase,
+			},
+		}
+		params := validRecoveryParams(archivedVersion)
+		params.BootstrapBase = test.base
+		err := bootstrap.Recover(
+			envtesting.BootstrapTestContext(c), env, params)
+		c.Check(err, tc.ErrorMatches, test.err)
+		// No instance was allocated, so no cleanup hint is offered.
+		c.Check(env.bootstrapCount, tc.Equals, 0)
 	}
 }
 
@@ -1847,12 +1956,15 @@ func (p bootstrapEnvironProvider) Version() int {
 
 // recoveryBootstrapEnviron extends bootstrapEnviron for IAAS recovery
 // tests. Bootstrap reports a fixed instance ID through the params'
-// callback and returns a configurable result.
+// callback and then returns the configured result, or the configured
+// error with no result, mirroring providers that allocate before
+// failing.
 type recoveryBootstrapEnviron struct {
 	*bootstrapEnviron
 
 	instanceID instance.Id
 	result     *environs.BootstrapResult
+	err        error
 }
 
 func (e *recoveryBootstrapEnviron) Bootstrap(
@@ -1863,6 +1975,10 @@ func (e *recoveryBootstrapEnviron) Bootstrap(
 	e.args = args
 	if args.InstanceStarted != nil && e.instanceID != "" {
 		args.InstanceStarted(e.instanceID)
+	}
+	if e.err != nil {
+		// Providers may report no result alongside an error.
+		return nil, e.err
 	}
 	return e.result, nil
 }
