@@ -68,6 +68,12 @@ type Origin struct {
 	Hostname string
 	Version  semversion.Number
 	Base     string
+
+	// Arch is the Juju architecture of the machine the backup was
+	// created on, recorded so recovery can provision a replacement on
+	// the source controller's architecture. It is empty in archives
+	// created before the field existed.
+	Arch string
 }
 
 // UnknownString is a marker value for string fields with unknown values.
@@ -193,6 +199,7 @@ type flatMetadata struct {
 	Hostname                    string
 	Version                     semversion.Number
 	Base                        string
+	Arch                        string
 	ControllerUUID              string
 	HANodes                     int64
 	ControllerMachineID         string
@@ -209,6 +216,7 @@ func (m *Metadata) flat() flatMetadata {
 		Hostname:                    m.Origin.Hostname,
 		Version:                     m.Origin.Version,
 		Base:                        m.Origin.Base,
+		Arch:                        m.Origin.Arch,
 		FormatVersion:               m.FormatVersion,
 		ControllerUUID:              m.Controller.UUID,
 		ControllerMachineID:         m.Controller.MachineID,
@@ -245,6 +253,7 @@ func (flat *flatMetadata) inflate() (*Metadata, error) {
 		Hostname: flat.Hostname,
 		Version:  flat.Version,
 		Base:     flat.Base,
+		Arch:     flat.Arch,
 	}
 
 	meta.Controller = ControllerMetadata{

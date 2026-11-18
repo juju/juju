@@ -22,6 +22,7 @@ import (
 	"github.com/juju/tc"
 	"gopkg.in/yaml.v3"
 
+	"github.com/juju/juju/core/arch"
 	corebackups "github.com/juju/juju/core/backups"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/database"
@@ -339,6 +340,7 @@ func (s *backupsSuite) TestCreate(c *tc.C) {
 	c.Check(s.createdMeta.Origin.Model, tc.Equals, s.controllerModelUUID.String())
 	c.Check(s.createdMeta.Origin.Machine, tc.Equals, "0")
 	c.Check(s.createdMeta.Origin.Base, tc.Equals, "ubuntu@24.04/stable")
+	c.Check(s.createdMeta.Origin.Arch, tc.Equals, arch.HostArch())
 	c.Check(s.createdMeta.Controller.UUID, tc.Equals, s.controllerUUID)
 	c.Check(s.createdMeta.Controller.MachineID, tc.Equals, "0")
 	c.Check(s.createdMeta.Controller.MachineInstanceID, tc.Equals, "inst-controller-0")

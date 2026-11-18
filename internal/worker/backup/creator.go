@@ -12,6 +12,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 
+	"github.com/juju/juju/core/arch"
 	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -396,6 +397,10 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 		Hostname: hostname,
 		Version:  coreversion.Current,
 		Base:     machineBase,
+		// The backup runs on the controller machine, so its running
+		// architecture is the source controller's: recovery provisions the
+		// replacement with it instead of the bootstrap client's host arch.
+		Arch: arch.HostArch(),
 	}
 	meta.Controller = corebackups.ControllerMetadata{
 		UUID:              c.controllerUUID,
