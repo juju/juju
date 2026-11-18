@@ -386,6 +386,8 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 	if err != nil {
 		return nil, "", nil, errors.Errorf("recording controller machine instance ID: %w", err)
 	}
+	// A machine backup needs a known base to allocate its replacement.
+	// Kubernetes has no controller machine and therefore records no base.
 	machineBase, err := c.machineBase(ctx, c.machineID, c.machineService)
 	if err != nil {
 		return nil, "", nil, errors.Errorf("recording controller machine base: %w", err)

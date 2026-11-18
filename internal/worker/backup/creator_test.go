@@ -874,6 +874,35 @@ func (s *backupsSuite) TestCreateEmptyMachineBase(c *tc.C) {
 	s.assertNoArchive(c, backupDir)
 }
 
+// TestCreateMachineBaseFailure verifies that a failure resolving the
+// controller machine base through the machine service aborts Create
+// before an archive is published, carrying the service error as the
+// cause. The failure happens after staging, so no staged dumps may be
+// left behind either.
+func (s *backupsSuite) TestCreateMachineBaseFailure(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	s.expectFilesToBackUp(c, backupDir)
+	s.expectModelConfig(c, backupDir)
+	s.expectControllerExport()
+	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{}, nil)
+
+	ctrl := gomock.NewController(c)
+	failing := NewMockMachineService(ctrl)
+	failing.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return(machine.UUID("controller-machine-uuid"), nil)
+	failing.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("controller-machine-uuid")).Return(instance.Id("inst-controller-0"), nil)
+	baseErr := errors.New("base unavailable")
+	failing.EXPECT().GetMachineBase(gomock.Any(), machine.Name("0")).Return(corebase.Base{}, baseErr)
+
+	cfg := s.newCreatorConfig(c, s.modelServicesFor())
+	cfg.ControllerModelMachineService = failing
+	_, _, cleanup, err := s.newCreatorFromConfig(c, cfg).Create(c.Context(), "")
+	c.Assert(err, tc.ErrorIs, baseErr)
+	c.Check(cleanup, tc.IsNil)
+	s.assertNoArchive(c, backupDir)
+}
+
 // TestCreateNoMachineMetadataRecordsEmpty verifies that the machineless
 // implementations injected by the Kubernetes manifold wiring record no
 // instance ID or base and never query machine metadata.
