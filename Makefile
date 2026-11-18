@@ -608,7 +608,14 @@ endif
 endif
 	@if ! command -v yq >/dev/null 2>&1; then \
 		echo 'Installing yq snap'; \
-		sudo snap install yq; \
+		if ! sudo snap install yq; then \
+			echo "Failed to install the yq snap" >&2; \
+			exit 1; \
+		fi; \
+		if ! command -v yq >/dev/null 2>&1; then \
+			echo "yq was installed but is not on PATH" >&2; \
+			exit 1; \
+		fi; \
 	fi; \
 	if ! json_input=$$(printf '%s\n' '{"value":"ok"}' | yq -p=json -r '.value' 2>/dev/null) || \
 		[ "$$json_input" != "ok" ] || \
@@ -642,6 +649,7 @@ install-dependencies: install-snap-dependencies install-development-system-depen
 	@$(MAKE) install-development-go-tools
 
 .PHONY: install-development-go-tools
+# The golangci-lint version check expects "golangci-lint has version X.Y.Z".
 install-development-go-tools:
 ## install-development-go-tools: Install missing Go development tools
 	@set -e; \
