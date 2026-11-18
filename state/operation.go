@@ -356,8 +356,10 @@ func (st *State) getOperationDoc(id string) (*operationDoc, []ActionStatus, erro
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "cannot get operation %q", id)
 	}
-	var actionDocs []actionDoc
-	err = actions.Find(bson.D{{"operation", id}}).All(&actionDocs)
+	var actionDocs []struct {
+		Status ActionStatus `bson:"status"`
+	}
+	err = actions.Find(bson.D{{"operation", id}}).Select(bson.M{"status": 1, "_id": 0}).All(&actionDocs)
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "cannot get tasks for operation %q", id)
 	}
