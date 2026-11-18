@@ -65,6 +65,11 @@ func provisionRecovery(
 	store jujuclient.ClientStore,
 	info *recovery.ArchiveInfo,
 ) error {
+	// TODO(recovery): dispatch Kubernetes archives to namespace allocation
+	// before looking for metadata that only machine controllers record.
+	if jujucloud.CloudTypeIsCAAS(info.CloudType) {
+		return errors.Errorf("Kubernetes recovery provisioning %w", coreerrors.NotSupported)
+	}
 	if info.SourceBase == "" {
 		return errors.New("archive does not record a usable controller base")
 	}
@@ -79,9 +84,6 @@ func provisionRecovery(
 	}
 	if err := info.CheckProviderFamily(cloud.Type); err != nil {
 		return errors.Capture(err)
-	}
-	if jujucloud.CloudIsCAAS(*cloud) {
-		return errors.Errorf("Kubernetes recovery provisioning %w", coreerrors.NotSupported)
 	}
 	provider, err := environs.Provider(info.CloudType)
 	if err != nil {
@@ -115,7 +117,7 @@ func provisionRecovery(
 		return errors.Capture(err)
 	}
 
-	stdCtx, cancel := context.WithTimeout(ctx, 20*time.Minute)
+	stdCtx, cancel := context.WithTimeout(ctx, bootstrap.DefaultBootstrapSSHTimeout*time.Second)
 	defer cancel()
 	provisionCtx := environscmd.BootstrapContext(stdCtx, ctx)
 
