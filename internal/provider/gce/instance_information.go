@@ -80,12 +80,16 @@ func (env *environ) getAllInstanceTypes(ctx context.Context, clock clock.Clock) 
 			return nil, env.HandleCredentialError(ctx, err)
 		}
 		for _, m := range machines {
+			machineArch, ok := machineTypeArch(ctx, m)
+			if !ok {
+				continue
+			}
 			i := instances.InstanceType{
 				Id:       strconv.FormatUint(m.GetId(), 10),
 				Name:     m.GetName(),
 				CpuCores: uint64(m.GetGuestCpus()),
 				Mem:      uint64(m.GetMemoryMb()),
-				Arch:     machineTypeArch(ctx, m),
+				Arch:     machineArch,
 				VirtType: &virtType,
 			}
 			resultUnique[m.GetName()] = i
@@ -113,25 +117,19 @@ func (env *environ) getAllInstanceTypes(ctx context.Context, clock clock.Clock) 
 // GCE machine type was assumed to be x86-64, so existing deployments keep
 // selecting the legacy families they always have.
 //
-// Unrecognised non-empty values are also coerced to amd64 (fail-open), so
-// a machine family reporting a future architecture stays provisionable
-// under arch=amd64 constraints; the coercion is logged so the day Google
-// ships a third machine architecture there is a signal pointing at it.
-// Compare convertImageArch, which is fail-closed for images: a mismatched
-// machine type fails cleanly at constraint matching, while a mismatched
-// image would boot the wrong architecture.
-func machineTypeArch(ctx context.Context, m *computepb.MachineType) string {
+// Like convertImageArch, this rejects unrecognised architectures: the caller
+// must exclude those types rather than pair them with an incompatible image.
+func machineTypeArch(ctx context.Context, m *computepb.MachineType) (string, bool) {
 	gceArch := m.GetArchitecture()
-	if strings.EqualFold(gceArch, computepb.MachineType_ARM64.String()) {
-		return arch.ARM64
-	}
 	switch {
+	case strings.EqualFold(gceArch, computepb.MachineType_ARM64.String()):
+		return arch.ARM64, true
 	case gceArch == "",
 		strings.EqualFold(gceArch, computepb.MachineType_X86_64.String()),
 		strings.EqualFold(gceArch, computepb.MachineType_ARCHITECTURE_UNSPECIFIED.String()):
-		// Known amd64 or deliberately-unset values: no signal needed.
+		return arch.AMD64, true
 	default:
-		logger.Debugf(ctx, "unrecognised GCE machine type architecture %q, assuming amd64", gceArch)
+		logger.Warningf(ctx, "excluding GCE machine type %q with unrecognised architecture %q", m.GetName(), gceArch)
+		return "", false
 	}
-	return arch.AMD64
 }

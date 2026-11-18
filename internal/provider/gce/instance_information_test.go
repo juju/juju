@@ -60,8 +60,6 @@ func (s *instanceInformationSuite) TestInstanceTypesCacheExpiration(c *tc.C) {
 }
 
 func (s *instanceInformationSuite) TestMachineTypeArch(c *tc.C) {
-	// machineTypeArch must translate the GCE API architecture values, and
-	// default to amd64 for unset or unknown values (historical behaviour).
 	tests := []struct {
 		gceArch  *string
 		expected string
@@ -70,15 +68,17 @@ func (s *instanceInformationSuite) TestMachineTypeArch(c *tc.C) {
 		{new("arm64"), "arm64"}, // case-insensitive match
 		{new("X86_64"), "amd64"},
 		{new("ARCHITECTURE_UNSPECIFIED"), "amd64"},
-		{new("amd64"), "amd64"},
-		{new("RISCV64"), "amd64"}, // unknown values fall back to amd64
+		{new("amd64"), ""}, // Not a GCE architecture enum value.
+		{new("RISCV64"), ""},
 		{new(""), "amd64"},
 		{nil, "amd64"},
 	}
 	for i, t := range tests {
 		m := &computepb.MachineType{Architecture: t.gceArch}
 		c.Logf("test %d: architecture=%q", i, m.GetArchitecture())
-		c.Check(machineTypeArch(c.Context(), m), tc.Equals, t.expected)
+		machineArch, ok := machineTypeArch(c.Context(), m)
+		c.Check(ok, tc.Equals, t.expected != "")
+		c.Check(machineArch, tc.Equals, t.expected)
 	}
 }
 
@@ -113,6 +113,12 @@ func (s *instanceInformationSuite) TestInstanceTypesFiltersByArch(c *tc.C) {
 		GuestCpus: new(int32(2)),
 		MemoryMb:  new(int32(8192)),
 		// Architecture unset: must default to amd64.
+	}, {
+		Id:           new(uint64(4)),
+		Name:         new("future-standard-2"),
+		GuestCpus:    new(int32(2)),
+		MemoryMb:     new(int32(8192)),
+		Architecture: new("RISCV64"),
 	}}, nil).Times(1)
 
 	// An amd64 constraint must exclude the ARM64 machine type.
@@ -132,8 +138,7 @@ func (s *instanceInformationSuite) TestInstanceTypesFiltersByArch(c *tc.C) {
 	c.Check(types.InstanceTypes[0].Name, tc.Equals, "t2a-standard-2")
 	c.Check(types.InstanceTypes[0].Arch, tc.Equals, "arm64")
 
-	// Without an arch constraint, all types match and are labelled with
-	// their reported architecture.
+	// An unknown architecture is excluded even without an arch constraint.
 	types, err = env.InstanceTypes(c.Context(), constraints.Value{})
 	c.Assert(err, tc.ErrorIsNil)
 	arches := make(map[string]string, len(types.InstanceTypes))
