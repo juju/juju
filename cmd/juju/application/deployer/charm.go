@@ -142,13 +142,13 @@ func (d *deployCharm) deploy(
 			return errors.New("cannot use --num-units or --to with subordinate application")
 		}
 	} else if coreassumes.HasFeature(charmInfo.Meta.Assumes, "unitless") {
-		// Unitless-only charms run controller-side scriptlets instead of
-		// unit hooks, so they are deployed without units.
-		if numUnits == 1 && d.placementSpec == "" {
-			numUnits = 0
-		} else {
+		countSpecified := len(utils.GetFlags(d.flagSet, []string{"n", "num-units"})) > 0
+		if countSpecified || d.placementSpec != "" {
 			return errors.New("cannot use --num-units or --to with unitless application")
 		}
+		// Unitless-only charms run controller-side scriptlets instead of
+		// unit hooks, so they are deployed without units.
+		numUnits = 0
 	}
 	charmName := charmInfo.Meta.Name
 	applicationName := d.applicationName

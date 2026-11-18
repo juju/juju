@@ -703,8 +703,16 @@ func (s *DeploySuite) TestNumUnitsUnitlessCharm(c *tc.C) {
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployable(s.fakeAPI, curl, defaultBase, charmDir.Meta(), false, 0, nil, nil)
 
-	err := s.runDeploy(c, "--num-units", "3", charmDir.Path, "--base", "ubuntu@22.04")
-	c.Assert(err, tc.ErrorMatches, "cannot use --num-units or --to with unitless application")
+	for _, args := range [][]string{
+		{"-n", "1"},
+		{"--num-units", "1"},
+		{"-n", "3"},
+		{"--num-units", "3"},
+	} {
+		c.Logf("args: %v", args)
+		err := s.runDeploy(c, append(args, charmDir.Path, "--base", "ubuntu@22.04")...)
+		c.Check(err, tc.ErrorMatches, "cannot use --num-units or --to with unitless application")
+	}
 }
 
 func (s *DeploySuite) TestForceMachineUnitlessCharm(c *tc.C) {
