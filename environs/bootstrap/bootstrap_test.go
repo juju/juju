@@ -473,11 +473,11 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAAS(c *tc.C) {
 	})
 	env := &recoveryBootstrapEnviron{
 		bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
-		instanceID:       "test-instance",
 	}
 	env.result = &environs.BootstrapResult{
-		Arch: arch.AMD64,
-		Base: jammyBootstrapBase,
+		InstanceID: "test-instance",
+		Arch:       arch.AMD64,
+		Base:       jammyBootstrapBase,
 		CloudBootstrapFinalizer: func(
 			environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts,
 		) error {
@@ -494,8 +494,7 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAAS(c *tc.C) {
 	ctx := envtesting.BootstrapContext(
 		context.WithValue(c.Context(), bootstrap.SimplestreamsFetcherContextKey, ss), c)
 
-	var startedID instance.Id
-	err := bootstrap.Recover(ctx, env, bootstrap.RecoveryParams{
+	id, err := bootstrap.Recover(ctx, env, bootstrap.RecoveryParams{
 		AdminSecret:             "fake-moon-landing",
 		CAPrivateKey:            coretesting.CAKey,
 		ControllerConfig:        coretesting.FakeControllerConfig(),
@@ -510,12 +509,9 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAAS(c *tc.C) {
 			return nil, errors.New("agent build attempted")
 		},
 		AvailableTools: agentTools,
-		InstanceStarted: func(id instance.Id) {
-			startedID = id
-		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(startedID, tc.Equals, instance.Id("test-instance"))
+	c.Check(id, tc.Equals, instance.Id("test-instance"))
 
 	// The provider received the exact archived tools and the pinned
 	// base and architecture.
@@ -540,33 +536,34 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASResultChecks(c *tc.C) {
 	agentTools := recoveryIAASTools(archivedVersion, arch.AMD64)
 
 	tests := []struct {
-		name       string
-		instanceID instance.Id
-		result     *environs.BootstrapResult
-		err        string
+		name   string
+		result *environs.BootstrapResult
+		err    string
 	}{{
-		name:       "no replacement instance reported",
-		instanceID: "",
-		err:        "recovery provisioning returned no replacement instance",
-	}, {
-		name:       "nil bootstrap result",
-		instanceID: "test-instance",
-		result:     nil,
-		err:        `replacement instance "test-instance" may require manual removal: provider returned no replacement instance details`,
-	}, {
-		name:       "wrong base",
-		instanceID: "test-instance",
+		name: "no replacement instance reported",
 		result: &environs.BootstrapResult{
 			Arch: arch.AMD64,
-			Base: focalBootstrapBase,
+			Base: jammyBootstrapBase,
+		},
+		err: "recovery provisioning returned no replacement instance",
+	}, {
+		name:   "nil bootstrap result",
+		result: nil,
+		err:    "provider returned no replacement instance details",
+	}, {
+		name: "wrong base",
+		result: &environs.BootstrapResult{
+			InstanceID: "test-instance",
+			Arch:       arch.AMD64,
+			Base:       focalBootstrapBase,
 		},
 		err: `replacement instance "test-instance" may require manual removal: replacement base differs from archived controller`,
 	}, {
-		name:       "wrong arch",
-		instanceID: "test-instance",
+		name: "wrong arch",
 		result: &environs.BootstrapResult{
-			Arch: arch.ARM64,
-			Base: jammyBootstrapBase,
+			InstanceID: "test-instance",
+			Arch:       arch.ARM64,
+			Base:       jammyBootstrapBase,
 		},
 		err: `replacement instance "test-instance" may require manual removal: replacement architecture differs from archived agent`,
 	}}
@@ -575,10 +572,9 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASResultChecks(c *tc.C) {
 		c.Logf("test %d: %s", i, test.name)
 		env := &recoveryBootstrapEnviron{
 			bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
-			instanceID:       test.instanceID,
 			result:           test.result,
 		}
-		err := bootstrap.Recover(envtesting.BootstrapTestContext(c), env, bootstrap.RecoveryParams{
+		id, err := bootstrap.Recover(envtesting.BootstrapTestContext(c), env, bootstrap.RecoveryParams{
 			AdminSecret:             "fake-moon-landing",
 			CAPrivateKey:            coretesting.CAKey,
 			ControllerConfig:        coretesting.FakeControllerConfig(),
@@ -588,40 +584,50 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASResultChecks(c *tc.C) {
 			AgentVersion:            &archivedVersion,
 			AvailableTools:          agentTools,
 		})
+		// No ID is returned on failure; only failures after a valid
+		// allocation name the instance in the error.
+		c.Check(id, tc.Equals, instance.Id(""))
 		c.Check(err, tc.ErrorMatches, test.err)
 	}
 }
 
 func (s *bootstrapSuite) TestBootstrapRecoveryIAASAllocationError(c *tc.C) {
 	archivedVersion := coretesting.FakeVersionNumber
-	// allocationFailure stands in for a provider error returned after
-	// allocation; its identity must survive the recovery failure wrap.
+	// allocationFailure stands in for a provider error. Providers
+	// already name the instance in the error when they allocated one
+	// before failing, so recovery must return provider errors
+	// unchanged instead of wrapping them a second time.
 	allocationFailure := errors.New("allocation failed")
 
 	tests := []struct {
-		name       string
-		instanceID instance.Id
-		err        string
+		name string
+		err  error
+		msg  string
 	}{{
-		name:       "instance observed before failure",
-		instanceID: "test-instance",
-		err:        `replacement instance "test-instance" may require manual removal: allocation failed`,
+		name: "instance allocated before the failure",
+		// The provider boundary names the instance it allocated.
+		err: fmt.Errorf(`allocating bootstrap instance %q: %w`,
+			instance.Id("test-instance"), allocationFailure),
+		msg: `allocating bootstrap instance "test-instance": allocation failed`,
 	}, {
-		name:       "no instance observed",
-		instanceID: "",
-		err:        "allocation failed",
+		name: "no instance allocated",
+		err:  allocationFailure,
+		msg:  "allocation failed",
 	}}
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.name)
 		env := &recoveryBootstrapEnviron{
 			bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
-			instanceID:       test.instanceID,
-			err:              allocationFailure,
+			err:              test.err,
 		}
-		err := bootstrap.Recover(
+		id, err := bootstrap.Recover(
 			envtesting.BootstrapTestContext(c), env,
 			validRecoveryParams(archivedVersion))
-		c.Check(err, tc.ErrorMatches, test.err)
+		// The provider error arrives unchanged, and no ID is
+		// returned: naming any allocated instance is the provider's
+		// responsibility.
+		c.Check(id, tc.Equals, instance.Id(""))
+		c.Check(err, tc.ErrorMatches, test.msg)
 		// The original error classification is preserved.
 		c.Check(err, tc.ErrorIs, allocationFailure)
 		c.Check(env.bootstrapCount, tc.Equals, 1)
@@ -632,20 +638,26 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASCancelled(c *tc.C) {
 	archivedVersion := coretesting.FakeVersionNumber
 	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
-	params := validRecoveryParams(archivedVersion)
-	params.InstanceStarted = func(instance.Id) { cancel() }
 
 	env := &recoveryBootstrapEnviron{
 		bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
-		instanceID:       "test-instance",
 		result: &environs.BootstrapResult{
-			Arch: arch.AMD64,
-			Base: jammyBootstrapBase,
+			InstanceID: "test-instance",
+			Arch:       arch.AMD64,
+			Base:       jammyBootstrapBase,
 		},
+		// Cancel while the provider is returning the allocated
+		// instance, so the cancellation is observed after a valid
+		// allocation. The hook belongs to the fake alone; production
+		// code has no such callback.
+		afterAllocate: cancel,
 	}
-	err := bootstrap.Recover(envtesting.BootstrapContext(ctx, c), env, params)
-	// The cancellation sentinel survives the cleanup hint, which
-	// names the observed replacement instance.
+	id, err := bootstrap.Recover(
+		envtesting.BootstrapContext(ctx, c), env, validRecoveryParams(archivedVersion))
+	// The cancellation sentinel survives the cleanup hint, which names
+	// the allocated replacement instance; no ID is returned because
+	// recovery did not succeed.
+	c.Check(id, tc.Equals, instance.Id(""))
 	c.Check(err, tc.ErrorIs, bootstrap.Cancelled())
 	c.Check(err, tc.ErrorMatches,
 		`replacement instance "test-instance" may require manual removal: cancelled`)
@@ -670,16 +682,12 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASPreAllocationFailure(c *tc.C) 
 		c.Logf("test %d: %s", i, test.name)
 		env := &recoveryBootstrapEnviron{
 			bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
-			instanceID:       "test-instance",
-			result: &environs.BootstrapResult{
-				Arch: arch.AMD64,
-				Base: jammyBootstrapBase,
-			},
 		}
 		params := validRecoveryParams(archivedVersion)
 		params.BootstrapBase = test.base
-		err := bootstrap.Recover(
+		id, err := bootstrap.Recover(
 			envtesting.BootstrapTestContext(c), env, params)
+		c.Check(id, tc.Equals, instance.Id(""))
 		c.Check(err, tc.ErrorMatches, test.err)
 		// No instance was allocated, so no cleanup hint is offered.
 		c.Check(env.bootstrapCount, tc.Equals, 0)
@@ -737,11 +745,11 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASInvalidParams(c *tc.C) {
 		c.Logf("test %d: %s", i, test.name)
 		env := &recoveryBootstrapEnviron{
 			bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
-			instanceID:       "test-instance",
 		}
 		params := valid()
 		test.mutate(&params)
-		err := bootstrap.Recover(envtesting.BootstrapTestContext(c), env, params)
+		id, err := bootstrap.Recover(envtesting.BootstrapTestContext(c), env, params)
+		c.Check(id, tc.Equals, instance.Id(""))
 		c.Check(err, tc.ErrorMatches, test.err)
 		c.Check(env.bootstrapCount, tc.Equals, 0)
 	}
@@ -1955,16 +1963,18 @@ func (p bootstrapEnvironProvider) Version() int {
 }
 
 // recoveryBootstrapEnviron extends bootstrapEnviron for IAAS recovery
-// tests. Bootstrap reports a fixed instance ID through the params'
-// callback and then returns the configured result, or the configured
-// error with no result, mirroring providers that allocate before
-// failing.
+// tests. Bootstrap returns the configured error, if any, or the
+// configured result, whose InstanceID records the allocated replacement
+// instance. afterAllocate, when set, runs after the instance is
+// recorded as allocated and before Bootstrap returns; it is a testing
+// hook for interrupting the provider call deterministically, and has no
+// production counterpart.
 type recoveryBootstrapEnviron struct {
 	*bootstrapEnviron
 
-	instanceID instance.Id
-	result     *environs.BootstrapResult
-	err        error
+	result        *environs.BootstrapResult
+	err           error
+	afterAllocate func()
 }
 
 func (e *recoveryBootstrapEnviron) Bootstrap(
@@ -1973,12 +1983,13 @@ func (e *recoveryBootstrapEnviron) Bootstrap(
 ) (*environs.BootstrapResult, error) {
 	e.bootstrapCount++
 	e.args = args
-	if args.InstanceStarted != nil && e.instanceID != "" {
-		args.InstanceStarted(e.instanceID)
-	}
 	if e.err != nil {
-		// Providers may report no result alongside an error.
+		// Providers report no result alongside an error; the error
+		// itself names any instance allocated before the failure.
 		return nil, e.err
+	}
+	if e.afterAllocate != nil && e.result != nil && e.result.InstanceID != "" {
+		e.afterAllocate()
 	}
 	return e.result, nil
 }

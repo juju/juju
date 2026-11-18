@@ -22,10 +22,6 @@ import (
 
 // BootstrapParams holds the parameters for bootstrapping an environment.
 type BootstrapParams struct {
-	// InstanceStarted, if set, is called synchronously once the instance
-	// starts, before any subsequent configuration that could fail.
-	InstanceStarted func(instance.Id)
-
 	// AuthorizedKeys is the set of authorized keys to be allowed to ssh to the
 	// bootstrap instance during bootstrap. This may not be the same set of keys
 	// that are allowed after the controller takes over management of the
@@ -122,6 +118,12 @@ type BootstrapResult struct {
 
 	// Base is the instance's base.
 	Base corebase.Base
+
+	// InstanceID is the provider-assigned ID of the allocated bootstrap
+	// machine, taken from the started instance itself. It is empty when
+	// the bootstrap did not allocate a machine, such as for Kubernetes
+	// controllers.
+	InstanceID instance.Id
 
 	// CloudBootstrapFinalizer is a function that must be called finalize the
 	// bootstrap process by transferring the tools and installing the

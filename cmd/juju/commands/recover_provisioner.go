@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/recovery"
 	"github.com/juju/juju/environs"
@@ -86,15 +85,14 @@ func provisionRecovery(
 		return errors.Capture(err)
 	}
 
-	var started instance.Id
 	params.Cloud = credentials.cloud
 	params.CloudRegion = credentials.spec.Region
 	params.CloudCredentialName = credentials.credentialName
 	params.CloudCredential = credentials.spec.Credential
 	params.ControllerConfig = controllerConfig
 	params.AdminSecret = adminPassword
-	params.InstanceStarted = func(id instance.Id) { started = id }
-	if err := bootstrap.Recover(provisionCtx, preparation.Environ, params); err != nil {
+	started, err := bootstrap.Recover(provisionCtx, preparation.Environ, params)
+	if err != nil {
 		return errors.Capture(err)
 	}
 	// TODO(recovery): return success once finalisation and registration finish.

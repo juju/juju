@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/sshinit"
+	internalerrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
 	jujussh "github.com/juju/juju/internal/ssh"
@@ -64,6 +65,7 @@ func Bootstrap(
 	bsResult := &environs.BootstrapResult{
 		Arch:                    *result.Hardware.Arch,
 		Base:                    *base,
+		InstanceID:              result.Instance.Id(),
 		CloudBootstrapFinalizer: finalizer,
 	}
 	return bsResult, nil
@@ -290,9 +292,16 @@ func BootstrapInstance(
 		}
 		return nil, nil, nil, errors.Annotatef(err, "cannot start bootstrap instance in availability zone %q", zone)
 	}
-	if args.InstanceStarted != nil {
-		args.InstanceStarted(result.Instance.Id())
-	}
+	// The bootstrap instance is now running and is not rolled back if any
+	// of the remaining steps fail. Annotate the error with the allocated
+	// instance ID, without masking the cause, so the instance can be
+	// identified for manual removal.
+	defer func() {
+		if err != nil {
+			err = internalerrors.Errorf("bootstrap instance %q: %w", result.Instance.Id(), err)
+		}
+	}()
+
 	modelFw, ok := env.(models.ModelFirewaller)
 	if ok {
 		envIPV6CIDRSupport := false

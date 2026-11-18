@@ -21,9 +21,6 @@ type RecoveryParams struct {
 	// AvailableTools is the exact archived agent set for IAAS recovery.
 	// It bypasses packaged-tool discovery and local tool building.
 	AvailableTools coretools.List
-
-	// InstanceStarted, when non-nil, observes the replacement instance ID.
-	InstanceStarted func(instance.Id)
 }
 
 // Validate validates the recovery parameters, including the shared bootstrap
@@ -76,44 +73,49 @@ func (p RecoveryParams) Validate() error {
 // database. It shares the allocation stages of Bootstrap, but always
 // performs recovery: the archived agent version and base are preserved. A
 // fresh controller bootstrap is done by Bootstrap.
+//
+// Recover returns the ID of the allocated replacement instance on success.
+// On failure the returned ID is empty and the error names any allocated
+// instance that may require manual removal. Errors from the provider pass
+// through unchanged, because the provider names any instance it allocated
+// before failing; only failures detected after a valid allocation are
+// wrapped with the allocated instance's ID here.
 func Recover(
 	ctx environs.BootstrapContext,
 	environ environs.BootstrapEnviron,
 	args RecoveryParams,
-) error {
+) (instance.Id, error) {
 	if err := args.Validate(); err != nil {
-		return errors.Errorf("validating recovery parameters: %w", err)
+		return "", errors.Errorf("validating recovery parameters: %w", err)
 	}
 
 	bootstrapParams := providerBootstrapParams(args.BootstrapParams)
-	observed, err := recoverIAAS(ctx, environ, args, bootstrapParams)
+	allocated, err := recoverIAAS(ctx, environ, args, bootstrapParams)
 	if err == nil && IsContextDone(ctx) {
 		err = Cancelled()
 	}
 	if err != nil {
-		if observed != "" {
-			// The provider may return a nil or partial result
-			// alongside the error, so the observed callback,
-			// not the result, is the record of any instance
-			// allocated before the failure. Wrapping rather
-			// than replacing the error keeps its
-			// classification intact.
-			return errors.Errorf(
+		if allocated != "" {
+			// Wrapping rather than replacing the error keeps its
+			// classification, including the cancellation sentinel,
+			// intact.
+			return "", errors.Errorf(
 				"replacement instance %q may require manual removal: %w",
-				observed, err,
+				allocated, err,
 			)
 		}
-		return err
+		return "", err
 	}
 
-	ctx.Infof("Replacement instance now allocated")
-	return nil
+	ctx.Infof("Replacement instance %q now allocated", allocated)
+	return allocated, nil
 }
 
 // recoverIAAS allocates a replacement IAAS controller instance from the
 // archive, using the exact archived agent binaries and base. It returns
-// the instance ID observed through the provider callback, which is empty
-// when no instance was allocated.
+// the ID of the allocated instance, which is empty when the provider
+// reported no valid allocation, and reports the same ID alongside errors
+// detected after a valid allocation, so the caller can name the instance.
 func recoverIAAS(
 	ctx environs.BootstrapContext,
 	environ environs.BootstrapEnviron,
@@ -129,36 +131,33 @@ func recoverIAAS(
 		return "", errors.Capture(err)
 	}
 
-	// The provider synchronously reports the allocated instance ID
-	// through this callback before Bootstrap returns.
-	var started instance.Id
-	bootstrapParams.InstanceStarted = func(id instance.Id) {
-		started = id
-		if args.InstanceStarted != nil {
-			args.InstanceStarted(id)
-		}
-	}
-
 	ctx.Verbosef("Starting new instance for replacement controller")
 	result, err := environ.Bootstrap(ctx, bootstrapParams)
 	if err != nil {
-		return started, err
+		// The provider enriches its own errors with any instance it
+		// allocated before failing, so recovery returns them
+		// unchanged.
+		return "", err
 	}
-	if started == "" {
+	if result == nil {
+		return "", errors.New("provider returned no replacement instance details")
+	}
+	if result.InstanceID == "" {
 		return "", errors.New("recovery provisioning returned no replacement instance")
 	}
-	return started, errors.Capture(checkRecoveryBootstrapResult(args, result))
+	if err := checkRecoveryBootstrapResult(args, result); err != nil {
+		return result.InstanceID, err
+	}
+	return result.InstanceID, nil
 }
 
 // checkRecoveryBootstrapResult verifies that the provider allocated a
-// replacement controller matching the archived base and architecture.
+// replacement controller matching the archived base and architecture. The
+// result is non-nil and identifies an allocated instance.
 func checkRecoveryBootstrapResult(
 	args RecoveryParams,
 	result *environs.BootstrapResult,
 ) error {
-	if result == nil {
-		return errors.New("provider returned no replacement instance details")
-	}
 	if result.Base != args.BootstrapBase {
 		return errors.New("replacement base differs from archived controller")
 	}
