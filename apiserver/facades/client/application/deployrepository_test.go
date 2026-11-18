@@ -325,7 +325,7 @@ func (s *deployRepositorySuite) newUnitlessCharmValidator(c *tc.C, ctrl *gomock.
 	ch.EXPECT().Meta().Return(&charm.Meta{
 		Name:    "unitless",
 		Assumes: unitlessAssumesTree(),
-	}).AnyTimes()
+	}).MinTimes(1)
 
 	return deployFromRepositoryValidator{
 		modelInfo:          coremodel.ModelInfo{Type: coremodel.IAAS, Name: "model"},
