@@ -1,0 +1,17 @@
+name: dummy-storage-k8s
+summary: Dummy k8s charm that utilises storage.
+description: Test charm for integration-testing k8s storage, without relying on a Charmhub charm.
+containers:
+  workload:
+    resource: ubuntu-image
+    mounts:
+      - storage: data
+        location: /data
+resources:
+  ubuntu-image:
+    type: oci-image
+    description: OCI image for the workload container.
+storage:
+  data:
+    type: filesystem
+    minimum-size: 1M
