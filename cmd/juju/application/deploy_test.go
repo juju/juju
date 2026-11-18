@@ -59,8 +59,7 @@ import (
 )
 
 var (
-	defaultBase  = corebase.MustParseBaseFromString("ubuntu@22.04")
-	unitlessBase = corebase.MustParseBaseFromString("ubuntu@24.04")
+	defaultBase = corebase.MustParseBaseFromString("ubuntu@22.04")
 )
 
 type DeploySuiteBase struct {
@@ -692,9 +691,9 @@ func (s *DeploySuite) TestUnitlessCharm(c *tc.C) {
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	// A unitless-only charm runs controller-side scriptlets instead of unit
 	// hooks, so the application is deployed without units.
-	withCharmDeployable(s.fakeAPI, curl, unitlessBase, charmDir.Meta(), false, 0, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, defaultBase, charmDir.Meta(), false, 0, nil, nil)
 
-	err := s.runDeploy(c, charmDir.Path, "--base", "ubuntu@24.04")
+	err := s.runDeploy(c, charmDir.Path, "--base", "ubuntu@22.04")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -702,9 +701,9 @@ func (s *DeploySuite) TestNumUnitsUnitlessCharm(c *tc.C) {
 	charmDir := newUnitlessCharmArchive(c)
 	curl := charm.MustParseURL("local:unitless-0")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, unitlessBase, charmDir.Meta(), false, 0, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, defaultBase, charmDir.Meta(), false, 0, nil, nil)
 
-	err := s.runDeploy(c, "--num-units", "3", charmDir.Path, "--base", "ubuntu@24.04")
+	err := s.runDeploy(c, "--num-units", "3", charmDir.Path, "--base", "ubuntu@22.04")
 	c.Assert(err, tc.ErrorMatches, "cannot use --num-units or --to with unitless application")
 }
 
@@ -712,9 +711,9 @@ func (s *DeploySuite) TestForceMachineUnitlessCharm(c *tc.C) {
 	charmDir := newUnitlessCharmArchive(c)
 	curl := charm.MustParseURL("local:unitless-0")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, unitlessBase, charmDir.Meta(), false, 0, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, defaultBase, charmDir.Meta(), false, 0, nil, nil)
 
-	err := s.runDeploy(c, "--to", "1", charmDir.Path, "--base", "ubuntu@24.04")
+	err := s.runDeploy(c, "--to", "1", charmDir.Path, "--base", "ubuntu@22.04")
 	c.Assert(err, tc.ErrorMatches, "cannot use --num-units or --to with unitless application")
 }
 
@@ -1480,7 +1479,7 @@ assumes:
 bases:
 - architectures:
   - amd64
-  channel: '24.04'
+  channel: '22.04'
   name: ubuntu
 `
 	c.Assert(os.WriteFile(filepath.Join(dir, "manifest.yaml"), []byte(manifest), 0o644), tc.ErrorIsNil)
