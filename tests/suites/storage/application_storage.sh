@@ -6,14 +6,13 @@ run_application_storage_directives() {
 
 	ensure "${model_name}" "${file}"
 
-	# Deploy an application with a 2G storage directive. Local dummy charms
-	# are used so the test does not depend on Charmhub.
+	# Deploy an application with a 2G storage directive
 	if [ "${BOOTSTRAP_PROVIDER:-}" = "k8s" ]; then
 		echo "Deploying k8s application"
 		app_name="dummy-storage-k8s"
 		storage_name="data"
 		juju deploy "./testcharms/charms/${app_name}" \
-			--resource ubuntu-image=public.ecr.aws/ubuntu/ubuntu:22.04 \
+			--resource ubuntu-image=public.ecr.aws/ubuntu/ubuntu:26.04 \
 			--storage "${storage_name}=2G"
 	else
 		echo "Deploying non-k8s application"
