@@ -230,12 +230,12 @@ var getInstanceTypesTest = []struct {
 		itypesToUse: []InstanceType{
 			{Id: "3", Name: "it-3", Arch: "amd64", Mem: 256, CpuCores: 4},
 			// Equal mem and cost: the fallback sorts by name and keeps
-			// the last element, so the lexicographically largest name
+			// the last element, so the lexicographically smallest name
 			// wins. Ids are anti-correlated to catch an Id tie-break.
-			{Id: "1", Name: "it-2", Arch: "amd64", Mem: 512, CpuCores: 4},
 			{Id: "2", Name: "it-1", Arch: "amd64", Mem: 512, CpuCores: 4},
+			{Id: "1", Name: "it-2", Arch: "amd64", Mem: 512, CpuCores: 4},
 		},
-		expectedItypes: []string{"it-2"},
+		expectedItypes: []string{"it-1"},
 	}, {
 		about:          "virt-type filtered by constraint",
 		cons:           "virt-type=hvm",

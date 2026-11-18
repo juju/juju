@@ -230,8 +230,7 @@ func (s byMemory) Less(i, j int) bool {
 		// Result is in descending order of cost so instance with lowest cost is used.
 		return inst0.Cost > inst1.Cost
 	}
-	// Fall back to the name so the ordering is total and deterministic.
-	return inst0.Name < inst1.Name
+	return inst0.Name > inst1.Name
 }
 
 // ByName is used to sort a slice by name by best effort. As we have different separators for different providers
