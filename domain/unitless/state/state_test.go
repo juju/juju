@@ -34,9 +34,10 @@ func (s *stateSuite) TestGetScriptletApplication(c *tc.C) {
 	scriptlet, err := st.GetScriptletApplication(c.Context(), applicationID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(scriptlet, tc.DeepEquals, unitlessinternal.ScriptletApplication{
-		UUID: applicationID.String(),
-		Name: applicationID.String(),
-		Life: 0,
+		UUID:      applicationID.String(),
+		Name:      applicationID.String(),
+		Life:      0,
+		CharmUUID: charmID.String(),
 		Sources: []unitlessinternal.ScriptSource{{
 			LoadPath: "hook.star",
 			Source:   "load hook",

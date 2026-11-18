@@ -12,6 +12,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
@@ -38,16 +39,17 @@ func (s *serviceSuite) TestWatchScriptletApplications(c *tc.C) {
 }
 
 func (s *serviceSuite) TestGetScriptletApplication(c *tc.C) {
-	st := &stubState{}
+	st := &stubState{charmUUID: tc.Must(c, corecharm.NewID).String()}
 	applicationUUID := tc.Must(c, coreapplication.NewUUID)
 	scriptlet, err := unitlessservice.NewService(st).GetScriptletApplication(
 		c.Context(), applicationUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(scriptlet, tc.DeepEquals, unitless.ScriptletApplication{
-		UUID: applicationUUID,
-		Name: "foo",
-		Life: corelife.Alive,
+		UUID:      applicationUUID,
+		Name:      "foo",
+		Life:      corelife.Alive,
+		CharmUUID: corecharm.ID(st.charmUUID),
 		Sources: []unitless.ScriptSource{{
 			LoadPath: "hook.star",
 			Source:   "def init(): pass",
@@ -167,6 +169,7 @@ func (s *serviceSuite) TestGetScriptletEventEmptyEventType(c *tc.C) {
 
 type stubState struct {
 	applicationUUID string
+	charmUUID       string
 	eventName       string
 	hash            string
 }
@@ -175,6 +178,10 @@ func (s *stubState) InitialWatchStatementScriptletApplications() (string, events
 	return "application", func(context.Context, database.TxnRunner) ([]string, error) {
 		return nil, nil
 	}
+}
+
+func (s *stubState) ScriptletApplicationNamespace() string {
+	return "application"
 }
 
 func (s *stubState) FilterScriptletApplications(_ context.Context, applicationUUIDs []string) ([]string, error) {
@@ -187,9 +194,10 @@ func (s *stubState) GetScriptletApplication(
 ) (unitlessinternal.ScriptletApplication, error) {
 	s.applicationUUID = applicationUUID
 	return unitlessinternal.ScriptletApplication{
-		UUID: applicationUUID,
-		Name: "foo",
-		Life: 0,
+		UUID:      applicationUUID,
+		Name:      "foo",
+		Life:      0,
+		CharmUUID: s.charmUUID,
 		Sources: []unitlessinternal.ScriptSource{{
 			LoadPath: "hook.star",
 			Source:   "def init(): pass",
