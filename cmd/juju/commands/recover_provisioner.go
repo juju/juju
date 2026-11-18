@@ -31,31 +31,6 @@ import (
 	"github.com/juju/juju/internal/tools"
 )
 
-// recoveryConfigs builds the controller and controller-model
-// configuration for a replacement controller from the recovery archive.
-// The archived identity and CA material are preserved so that surviving
-// agents keep trusting the replacement controller.
-func recoveryConfigs(info *recovery.ArchiveInfo) (controller.Config, *config.Config, error) {
-	controllerConfig, err := controller.NewConfig(
-		info.ControllerUUID,
-		info.CACert,
-		map[string]any{controller.ControllerName: info.ControllerName},
-	)
-	if err != nil {
-		return nil, nil, errors.Capture(err)
-	}
-	modelConfig, err := config.New(config.UseDefaults, map[string]any{
-		"name":                 bootstrap.ControllerModelName,
-		"type":                 info.CloudType,
-		config.UUIDKey:         info.ControllerModelUUID,
-		config.AgentVersionKey: info.AgentVersion.String(),
-	})
-	if err != nil {
-		return nil, nil, errors.Capture(err)
-	}
-	return controllerConfig, modelConfig, nil
-}
-
 // provisionRecovery allocates a replacement controller machine from the
 // recovery archive, through the ordinary bootstrap allocation pipeline, and
 // deliberately stops before installing an agent or initialising its
@@ -78,39 +53,10 @@ func provisionRecovery(
 		return errors.Errorf("archive does not record a usable controller base: %w", err)
 	}
 
-	cloud, err := common.CloudByName(info.CloudName)
+	target, err := recoveryCredentials(ctx, store, info)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	if err := info.CheckProviderFamily(cloud.Type); err != nil {
-		return errors.Capture(err)
-	}
-	provider, err := environs.Provider(info.CloudType)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	if finalizer, ok := provider.(environs.CloudFinalizer); ok {
-		finalizedCloud, err := finalizer.FinalizeCloud(ctx, *cloud)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		cloud = &finalizedCloud
-	}
-	credential, credentialName, regionName, _, err := common.GetOrDetectCredential(
-		ctx, store, provider, modelcmd.GetCredentialsParams{Cloud: *cloud},
-	)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	region, err := common.ChooseCloudRegion(*cloud, regionName)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	spec, err := cloudspec.MakeCloudSpec(*cloud, region.Name, credential)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	spec.IsControllerCloud = true
 
 	controllerConfig, modelConfig, err := recoveryConfigs(info)
 	if err != nil {
@@ -129,8 +75,8 @@ func provisionRecovery(
 		ModelConfig:      modelConfig.AllAttrs(),
 		ControllerConfig: controllerConfig,
 		ControllerName:   info.ControllerName,
-		Cloud:            spec,
-		CredentialName:   credentialName,
+		Cloud:            target.spec,
+		CredentialName:   target.credentialName,
 		AdminSecret:      adminPassword,
 	})
 	if err != nil {
@@ -144,10 +90,10 @@ func provisionRecovery(
 	var started instance.Id
 	if err := bootstrap.Recover(provisionCtx, preparation.Environ, bootstrap.RecoveryParams{
 		ControllerName:          info.ControllerName,
-		Cloud:                   *cloud,
-		CloudRegion:             region.Name,
-		CloudCredentialName:     credentialName,
-		CloudCredential:         credential,
+		Cloud:                   target.cloud,
+		CloudRegion:             target.spec.Region,
+		CloudCredentialName:     target.credentialName,
+		CloudCredential:         target.spec.Credential,
 		ControllerConfig:        controllerConfig,
 		AdminSecret:             adminPassword,
 		CAPrivateKey:            info.CAPrivateKey,
@@ -172,4 +118,75 @@ func provisionRecovery(
 		"controller recovery initialisation is not available in this build; provisioned replacement instance %s",
 		started,
 	)
+}
+
+type recoveryTarget struct {
+	cloud          jujucloud.Cloud
+	spec           cloudspec.CloudSpec
+	credentialName string
+}
+
+// recoveryCredentials resolves the archived cloud against the local cloud
+// definition, selected region and credentials used for allocation.
+func recoveryCredentials(ctx *cmd.Context, store jujuclient.ClientStore, info *recovery.ArchiveInfo) (*recoveryTarget, error) {
+	cloud, err := common.CloudByName(info.CloudName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	if err := info.CheckProviderFamily(cloud.Type); err != nil {
+		return nil, errors.Capture(err)
+	}
+	provider, err := environs.Provider(info.CloudType)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	if finalizer, ok := provider.(environs.CloudFinalizer); ok {
+		finalized, err := finalizer.FinalizeCloud(ctx, *cloud)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		cloud = &finalized
+	}
+	credential, name, regionName, _, err := common.GetOrDetectCredential(
+		ctx, store, provider, modelcmd.GetCredentialsParams{Cloud: *cloud},
+	)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	region, err := common.ChooseCloudRegion(*cloud, regionName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	spec, err := cloudspec.MakeCloudSpec(*cloud, region.Name, credential)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	spec.IsControllerCloud = true
+	return &recoveryTarget{cloud: *cloud, spec: spec, credentialName: name}, nil
+}
+
+// recoveryConfigs preserves the archived controller identity and CA so that
+// surviving agents can trust the replacement controller.
+func recoveryConfigs(info *recovery.ArchiveInfo) (controller.Config, *config.Config, error) {
+	controllerConfig, err := controller.NewConfig(
+		info.ControllerUUID,
+		info.CACert,
+		map[string]any{controller.ControllerName: info.ControllerName},
+	)
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
+	// TODO(recovery): reconcile archived settings instead of relying on
+	// allocation defaults when restoring the controller model. The local
+	// bootstrap name is conventional; the archived UUID identifies the model.
+	modelConfig, err := config.New(config.UseDefaults, map[string]any{
+		"name":                 bootstrap.ControllerModelName,
+		"type":                 info.CloudType,
+		config.UUIDKey:         info.ControllerModelUUID,
+		config.AgentVersionKey: info.AgentVersion.String(),
+	})
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
+	return controllerConfig, modelConfig, nil
 }

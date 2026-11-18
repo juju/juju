@@ -607,8 +607,7 @@ func prepareProviderBootstrap(
 			return errors.NewNotSupported(nil, "instance role constraint for provider")
 		}
 
-		*bootstrapParams, err = finaliseInstanceRole(ctx, instanceRoleEnviron, *bootstrapParams)
-		if err != nil {
+		if err := finaliseInstanceRole(ctx, instanceRoleEnviron, bootstrapParams); err != nil {
 			return errors.Annotate(err, "finalising instance role for provider")
 		}
 	}
@@ -730,15 +729,17 @@ func bootstrapIAAS(
 func finaliseInstanceRole(
 	ctx context.Context,
 	ir environs.InstanceRole,
-	args environs.BootstrapParams,
-) (environs.BootstrapParams, error) {
-	if *args.BootstrapConstraints.InstanceRole !=
-		environs.InstanceProfileAutoCreate {
-		return args, nil
+	args *environs.BootstrapParams,
+) error {
+	if *args.BootstrapConstraints.InstanceRole != environs.InstanceProfileAutoCreate {
+		return nil
 	}
-	irName, err := ir.CreateAutoInstanceRole(ctx, args)
+	irName, err := ir.CreateAutoInstanceRole(ctx, *args)
+	if err != nil {
+		return err
+	}
 	args.BootstrapConstraints.InstanceRole = &irName
-	return args, err
+	return nil
 }
 
 // providerBootstrapParams translates BootstrapParams into the provider's
