@@ -30,6 +30,10 @@ import (
 	"github.com/juju/juju/internal/tools"
 )
 
+// recoveryAllocationTimeout bounds provider preparation and machine allocation
+// after the client has resolved the cloud and credentials.
+const recoveryAllocationTimeout = 20 * time.Minute
+
 // provisionRecovery allocates a replacement controller machine from the
 // recovery archive, through the ordinary bootstrap allocation pipeline, and
 // deliberately stops before installing an agent or initialising its
@@ -59,7 +63,7 @@ func provisionRecovery(
 		return errors.Capture(err)
 	}
 
-	stdCtx, cancel := context.WithTimeout(ctx, bootstrap.DefaultBootstrapSSHTimeout*time.Second)
+	stdCtx, cancel := context.WithTimeout(ctx, recoveryAllocationTimeout)
 	defer cancel()
 	provisionCtx := environscmd.BootstrapContext(stdCtx, ctx)
 
@@ -121,6 +125,9 @@ func recoveryParamsFromArchive(info *recovery.ArchiveInfo) (bootstrap.RecoveryPa
 		BootstrapConstraints:    constraints.Value{Arch: &targetArch},
 		BootstrapBase:           targetBase,
 		SupportedBootstrapBases: []base.Base{targetBase},
+		// Allocation selects an image but does not download an agent, so
+		// only the binary identity is needed; URL, digest and size are unset.
+		// TODO(recovery): supply a verified agent tarball before installation.
 		AvailableTools: tools.List{{Version: semversion.Binary{
 			Number: info.AgentVersion, Release: targetBase.OS, Arch: targetArch,
 		}}},
