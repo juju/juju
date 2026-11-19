@@ -68,6 +68,7 @@ func (s *ConstraintsSuite) TestParseConstraintsCountRange(c *gc.C) {
 	s.testParseError(c, "p,0,100M", `parsing storage count: count must be greater than zero, got "0"`)
 	s.testParseError(c, "p,00,100M", `parsing storage count: count must be greater than zero, got "00"`)
 	s.testParseError(c, "p,-1,100M", `parsing storage count: count must not be negative, got "-1"`)
+	s.testParseError(c, "p,99999999999999999999999,100M", `parsing storage count: count is too large, got "99999999999999999999999"`)
 	s.testParseError(c, "", `storage constraints require at least one field to be specified`)
 	s.testParseError(c, ",", `storage constraints require at least one field to be specified`)
 }
@@ -108,6 +109,9 @@ func (s *ConstraintsSuite) TestParseDirectivesCount(c *gc.C) {
 
 	_, err = storage.ParseDirectives("p,-1,100M")
 	c.Check(err, gc.ErrorMatches, `parsing storage count: count must not be negative, got "-1"`)
+
+	_, err = storage.ParseDirectives("p,99999999999999999999999,100M")
+	c.Check(err, gc.ErrorMatches, `parsing storage count: count is too large, got "99999999999999999999999"`)
 }
 
 func (s *ConstraintsSuite) TestParseDirectivesMultipleCounts(c *gc.C) {
