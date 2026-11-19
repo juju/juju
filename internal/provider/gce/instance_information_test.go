@@ -12,7 +12,9 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/internal/provider/gce/internal/google"
 )
 
 type instanceInformationSuite struct {
@@ -92,4 +94,40 @@ func (s *instanceInformationSuite) TestEnsureDefaultConstraints(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	cons = ensureDefaultConstraints(cons)
 	c.Assert(cons.String(), tc.Equals, `cores=2 mem=4096M`)
+}
+
+func (s *instanceInformationSuite) TestInstanceTypesArch(c *tc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").
+		Return([]*computepb.Zone{{Name: new("us-east1-b"), Status: new(google.StatusUp)}}, nil)
+	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "us-east1-b").
+		Return([]*computepb.MachineType{{
+			Id:           new(uint64(1)),
+			Name:         new("n4-standard-2"),
+			Architecture: new(computepb.MachineType_X86_64.String()),
+		}, {
+			Id:           new(uint64(2)),
+			Name:         new("c4a-standard-2"),
+			Architecture: new(computepb.MachineType_ARM64.String()),
+		}, {
+			Id:   new(uint64(3)),
+			Name: new("n1-standard-2"),
+		}}, nil)
+
+	instTypes, err := env.getAllInstanceTypes(c.Context(), testclock.NewClock(time.Now()))
+	c.Assert(err, tc.ErrorIsNil)
+
+	arches := make(map[string]string)
+	for _, it := range instTypes {
+		arches[it.Name] = it.Arch
+	}
+	c.Check(arches, tc.DeepEquals, map[string]string{
+		"n4-standard-2":  arch.AMD64,
+		"c4a-standard-2": arch.ARM64,
+		"n1-standard-2":  arch.AMD64,
+	})
 }

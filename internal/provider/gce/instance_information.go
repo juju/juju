@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
@@ -83,8 +84,7 @@ func (env *environ) getAllInstanceTypes(ctx context.Context, clock clock.Clock) 
 				Name:     m.GetName(),
 				CpuCores: uint64(m.GetGuestCpus()),
 				Mem:      uint64(m.GetMemoryMb()),
-				// TODO: support arm64 once the API can report arch.
-				Arch:     arch.AMD64,
+				Arch:     machineTypeArch(m),
 				VirtType: &virtType,
 			}
 			resultUnique[m.GetName()] = i
@@ -102,4 +102,13 @@ func (env *environ) getAllInstanceTypes(ctx context.Context, clock clock.Clock) 
 	// they are published by the GCE.
 	env.instCacheExpireAt = clock.Now().Add(10 * time.Minute)
 	return env.cachedInstanceTypes, nil
+}
+
+// machineTypeArch returns the Juju architecture of a GCE machine type,
+// defaulting to amd64 when GCE does not report one.
+func machineTypeArch(m *computepb.MachineType) string {
+	if m.GetArchitecture() == computepb.MachineType_ARM64.String() {
+		return arch.ARM64
+	}
+	return arch.AMD64
 }
