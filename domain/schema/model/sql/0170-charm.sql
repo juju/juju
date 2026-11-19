@@ -12,11 +12,6 @@ INSERT INTO charm_run_as_kind VALUES
 (2, 'sudoer'),
 (3, 'non-root');
 
-CREATE TABLE charm_source (
-    id INT PRIMARY KEY,
-    name TEXT NOT NULL
-);
-
 CREATE UNIQUE INDEX idx_charm_source_name
 ON charm_source (name);
 
@@ -24,72 +19,6 @@ INSERT INTO charm_source VALUES
 (0, 'local'),
 (1, 'charmhub'),
 (2, 'cmr');
-
--- The charm table exists as the nexus to all charm data. 
---
--- The fact that the charm is in the database indicates that it's a placeholder.
--- Updating the available flag to true indicates that the charm is now available
--- for deployment.
-CREATE TABLE charm (
-    uuid TEXT NOT NULL PRIMARY KEY,
-    -- Archive path is the path to the charm archive on disk. This is used to
-    -- determine the source of the charm.
-    archive_path TEXT,
-    object_store_uuid TEXT,
-
-    available BOOLEAN DEFAULT FALSE,
-
-    version TEXT,
-    lxd_profile TEXT,
-
-    -- The following fields are purely here to reconstruct the charm URL.
-    -- Once we have the ability to only talk about charms in terms of a UUID,
-    -- these fields can be removed.
-    -- These values are not intended to be used for any other purpose, they
-    -- should not be used as a way to "derive" the charm origin. That concept
-    -- is for applications.
-    -- Note: revision is used to create lxd profile names, if removed, the
-    -- unique profile naming must be resolved.
-
-    source_id INT NOT NULL DEFAULT 1,
-    revision INT NOT NULL DEFAULT -1,
-
-    -- architecture_id may be null for local charms, but must be NULL for
-    -- CMR charms as they are architecture agnostic.
-    architecture_id INT,
-
-    -- reference_name is the name of the charm that was originally supplied.
-    -- The charm name can be different from the actual charm name in the
-    -- metadata. If it's downloaded from charmhub the reference_name will be
-    -- the name of the charm in the charmhub store. This is the transient
-    -- name of the charm.
-    --
-    -- This can happen if the charm was uploaded to charmhub with a different
-    -- name than the charm name in the metadata.yaml file.
-    reference_name TEXT NOT NULL,
-
-    -- create_time is purely used for ordering a charm by time, as we can't
-    -- use the revision number to determine the order of the charm.
-    create_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
-
-    CONSTRAINT fk_charm_source_source
-    FOREIGN KEY (source_id)
-    REFERENCES charm_source (id),
-    CONSTRAINT fk_charm_architecture
-    FOREIGN KEY (architecture_id)
-    REFERENCES architecture (id),
-    CONSTRAINT fk_charm_object_store_metadata
-    FOREIGN KEY (object_store_uuid)
-    REFERENCES object_store_metadata (uuid),
-
-    -- Ensure we have an architecture if the source is local or charmhub.
-    CONSTRAINT chk_charm_architecture
-    CHECK (((source_id = 0 OR source_id = 1) AND architecture_id >= 0) OR (source_id = 2 AND architecture_id IS NULL)),
-
-    -- Ensure we don't have an empty reference
-    CONSTRAINT chk_charm_reference_name
-    CHECK (reference_name <> '')
-);
 
 -- This ensures that the reference name and revision are unique. This is to
 -- ensure that we don't have two charms with the same reference name and
@@ -138,25 +67,6 @@ CREATE TABLE charm_download_info (
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid)
 );
-
-CREATE VIEW v_application_charm_download_info AS
-SELECT
-    a.uuid AS application_uuid,
-    c.uuid AS charm_uuid,
-    c.reference_name AS name,
-    c.available,
-    cs.id AS source_id,
-    cp.name AS provenance,
-    cdi.charmhub_identifier,
-    cdi.download_url,
-    cdi.download_size,
-    ch.hash
-FROM application AS a
-LEFT JOIN charm AS c ON a.charm_uuid = c.uuid
-LEFT JOIN charm_download_info AS cdi ON c.uuid = cdi.charm_uuid
-LEFT JOIN charm_provenance AS cp ON cdi.provenance_id = cp.id
-LEFT JOIN charm_source AS cs ON c.source_id = cs.id
-LEFT JOIN charm_hash AS ch ON c.uuid = ch.charm_uuid;
 
 CREATE TABLE charm_metadata (
     charm_uuid TEXT NOT NULL PRIMARY KEY,
@@ -343,11 +253,6 @@ CREATE TABLE charm_tag (
 CREATE INDEX idx_charm_tag_charm
 ON charm_tag (charm_uuid);
 
-CREATE TABLE charm_storage_kind (
-    id INT PRIMARY KEY,
-    kind TEXT NOT NULL
-);
-
 CREATE UNIQUE INDEX idx_charm_storage_kind
 ON charm_storage_kind (kind);
 
@@ -355,24 +260,21 @@ INSERT INTO charm_storage_kind VALUES
 (0, 'block'),
 (1, 'filesystem');
 
-CREATE TABLE charm_storage (
+CREATE INDEX idx_charm_storage_charm
+ON charm_storage (charm_uuid);
+
+CREATE TABLE charm_storage_property (
     charm_uuid TEXT NOT NULL,
-    name TEXT NOT NULL,
-    description TEXT,
-    storage_kind_id INT NOT NULL,
-    shared BOOLEAN NOT NULL,
-    read_only BOOLEAN,
-    count_min INT NOT NULL,
-    count_max INT NOT NULL,
-    minimum_size_mib INT,
-    location TEXT,
-    CONSTRAINT fk_charm_storage_charm_storage_kind
-    FOREIGN KEY (storage_kind_id)
-    REFERENCES charm_storage_kind (id),
-    CONSTRAINT fk_charm_storage_charm
+    charm_storage_name TEXT NOT NULL,
+    array_index INT NOT NULL,
+    value TEXT NOT NULL,
+    CONSTRAINT fk_charm_storage_property_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
-    PRIMARY KEY (charm_uuid, name)
+    CONSTRAINT fk_charm_storage_property_charm_storage
+    FOREIGN KEY (charm_uuid, charm_storage_name)
+    REFERENCES charm_storage (charm_uuid, name),
+    PRIMARY KEY (charm_uuid, charm_storage_name, array_index, value)
 );
 
 CREATE VIEW v_charm_storage AS
@@ -392,23 +294,6 @@ SELECT
 FROM charm_storage AS cs
 LEFT JOIN charm_storage_kind AS csk ON cs.storage_kind_id = csk.id
 LEFT JOIN charm_storage_property AS csp ON cs.charm_uuid = csp.charm_uuid AND cs.name = csp.charm_storage_name;
-
-CREATE INDEX idx_charm_storage_charm
-ON charm_storage (charm_uuid);
-
-CREATE TABLE charm_storage_property (
-    charm_uuid TEXT NOT NULL,
-    charm_storage_name TEXT NOT NULL,
-    array_index INT NOT NULL,
-    value TEXT NOT NULL,
-    CONSTRAINT fk_charm_storage_property_charm
-    FOREIGN KEY (charm_uuid)
-    REFERENCES charm (uuid),
-    CONSTRAINT fk_charm_storage_property_charm_storage
-    FOREIGN KEY (charm_uuid, charm_storage_name)
-    REFERENCES charm_storage (charm_uuid, name),
-    PRIMARY KEY (charm_uuid, charm_storage_name, array_index, value)
-);
 
 CREATE INDEX idx_charm_storage_property_charm
 ON charm_storage_property (charm_uuid);
@@ -497,19 +382,6 @@ CREATE TABLE charm_container (
     PRIMARY KEY (charm_uuid, "key")
 );
 
-CREATE VIEW v_charm_container AS
-SELECT
-    cc.charm_uuid,
-    cc."key",
-    cc.resource,
-    cc.uid,
-    cc.gid,
-    ccm.array_index,
-    ccm.storage,
-    ccm.location
-FROM charm_container AS cc
-LEFT JOIN charm_container_mount AS ccm ON cc.charm_uuid = ccm.charm_uuid AND cc."key" = ccm.charm_container_key;
-
 CREATE INDEX idx_charm_container_charm
 ON charm_container (charm_uuid);
 
@@ -527,6 +399,19 @@ CREATE TABLE charm_container_mount (
     REFERENCES charm_container (charm_uuid, "key"),
     PRIMARY KEY (charm_uuid, charm_container_key, array_index)
 );
+
+CREATE VIEW v_charm_container AS
+SELECT
+    cc.charm_uuid,
+    cc."key",
+    cc.resource,
+    cc.uid,
+    cc.gid,
+    ccm.array_index,
+    ccm.storage,
+    ccm.location
+FROM charm_container AS cc
+LEFT JOIN charm_container_mount AS ccm ON cc.charm_uuid = ccm.charm_uuid AND cc."key" = ccm.charm_container_key;
 
 CREATE INDEX idx_charm_container_mount_charm
 ON charm_container_mount (charm_uuid);

@@ -1,25 +1,45 @@
-CREATE TABLE machine (
-    uuid TEXT NOT NULL PRIMARY KEY,
-    name TEXT NOT NULL,
-    net_node_uuid TEXT NOT NULL,
-    life_id INT NOT NULL,
-    nonce TEXT,
-    password_hash_algorithm_id INT,
-    password_hash TEXT,
-    force_destroyed BOOLEAN DEFAULT FALSE,
-    agent_started_at DATETIME,
-    hostname TEXT,
-    keep_instance BOOLEAN,
-    CONSTRAINT fk_machine_net_node
-    FOREIGN KEY (net_node_uuid)
-    REFERENCES net_node (uuid),
-    CONSTRAINT fk_machine_life
-    FOREIGN KEY (life_id)
-    REFERENCES life (id),
-    CONSTRAINT fk_machine_password_hash_algorithm
-    FOREIGN KEY (password_hash_algorithm_id)
-    REFERENCES password_hash_algorithm (id)
-);
+-- v_constraint represents a view of the constraints in the model with foreign
+-- keys resolved for the viewer.
+CREATE VIEW v_constraint AS
+SELECT
+    c.uuid,
+    c.arch,
+    c.cpu_cores,
+    c.cpu_power,
+    c.mem,
+    c.root_disk,
+    c.root_disk_source,
+    c.instance_role,
+    c.instance_type,
+    ct.value AS container_type,
+    c.virt_type,
+    c.allocate_public_ip,
+    c.image_id,
+    c.ip_family
+FROM "constraint" AS c
+LEFT JOIN container_type AS ct ON c.container_type_id = ct.id;
+
+-- v_model_constraint is a view to represent the current model constraints. If
+-- no constraints have been set then expect this view to be empty. There will
+-- also only ever be a maximum of 1 record in this view.
+CREATE VIEW v_model_constraint AS
+SELECT
+    c.uuid,
+    c.arch,
+    c.cpu_cores,
+    c.cpu_power,
+    c.mem,
+    c.root_disk,
+    c.root_disk_source,
+    c.instance_role,
+    c.instance_type,
+    c.container_type,
+    c.virt_type,
+    c.allocate_public_ip,
+    c.image_id,
+    c.ip_family
+FROM model_constraint AS mc
+JOIN v_constraint AS c ON mc.constraint_uuid = c.uuid;
 
 CREATE UNIQUE INDEX idx_machine_name
 ON machine (name);
@@ -126,23 +146,6 @@ FROM machine_agent_version AS mav
 JOIN machine AS m ON mav.machine_uuid = m.uuid
 JOIN architecture AS a ON mav.architecture_id = a.id;
 
--- v_machine_target_agent_version provides a convenience view for establishing
--- what the current target agent version  for a machine. A machine will only
--- have a record in this view if a target agent version has been set for the
--- model and the machine has had its running machine agent version set.
-CREATE VIEW v_machine_target_agent_version AS
-SELECT
-    m.name,
-    mav.machine_uuid,
-    mav.architecture_id,
-    a.name AS architecture_name,
-    mav.version,
-    av.target_version
-FROM machine_agent_version AS mav
-JOIN machine AS m ON mav.machine_uuid = m.uuid
-JOIN architecture AS a ON mav.architecture_id = a.id
-JOIN agent_version AS av;
-
 CREATE TABLE machine_constraint (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
     constraint_uuid TEXT NOT NULL,
@@ -226,27 +229,6 @@ CREATE TABLE machine_status (
     REFERENCES machine_status_value (id)
 );
 
-CREATE VIEW v_machine_status AS
-WITH machine_presence AS (
-    SELECT machine_uuid
-    FROM machine_agent_presence
-    UNION
-    SELECT mp.parent_uuid AS machine_uuid
-    FROM machine_parent AS mp
-    JOIN machine_agent_presence AS map ON mp.machine_uuid = map.machine_uuid
-)
-
-SELECT
-    ms.machine_uuid,
-    ms.message,
-    ms.data,
-    ms.updated_at,
-    msv.status,
-    mp.machine_uuid IS NOT NULL AS present
-FROM machine_status AS ms
-JOIN machine_status_value AS msv ON ms.status_id = msv.id
-LEFT JOIN machine_presence AS mp ON ms.machine_uuid = mp.machine_uuid;
-
 -- machine_lxd_profile table keeps track of the lxd profiles (previously
 -- charm-profiles) for a machine.
 CREATE TABLE machine_lxd_profile (
@@ -257,13 +239,6 @@ CREATE TABLE machine_lxd_profile (
     CONSTRAINT fk_lxd_profile_machine
     FOREIGN KEY (machine_uuid)
     REFERENCES machine (uuid)
-);
-
--- container_type represents the valid container types that can exist for an
--- instance.
-CREATE TABLE container_type (
-    id INT PRIMARY KEY,
-    value TEXT NOT NULL
 );
 
 INSERT INTO container_type VALUES
@@ -289,13 +264,26 @@ CREATE TABLE machine_agent_presence (
     REFERENCES machine (uuid)
 );
 
-CREATE VIEW v_machine_is_controller AS
-SELECT m.uuid AS machine_uuid
-FROM machine AS m
-JOIN net_node AS n ON m.net_node_uuid = n.uuid
-JOIN unit AS u ON n.uuid = u.net_node_uuid
-JOIN application AS a ON u.application_uuid = a.uuid
-JOIN application_controller AS ac ON a.uuid = ac.application_uuid;
+CREATE VIEW v_machine_status AS
+WITH machine_presence AS (
+    SELECT machine_uuid
+    FROM machine_agent_presence
+    UNION
+    SELECT mp.parent_uuid AS machine_uuid
+    FROM machine_parent AS mp
+    JOIN machine_agent_presence AS map ON mp.machine_uuid = map.machine_uuid
+)
+
+SELECT
+    ms.machine_uuid,
+    ms.message,
+    ms.data,
+    ms.updated_at,
+    msv.status,
+    mp.machine_uuid IS NOT NULL AS present
+FROM machine_status AS ms
+JOIN machine_status_value AS msv ON ms.status_id = msv.id
+LEFT JOIN machine_presence AS mp ON ms.machine_uuid = mp.machine_uuid;
 
 CREATE VIEW v_machine_constraint AS
 SELECT

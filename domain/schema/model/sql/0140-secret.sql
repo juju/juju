@@ -81,6 +81,32 @@ CREATE TABLE secret_rotation (
     REFERENCES secret_metadata (secret_id)
 );
 
+-- Deleted revisions for which content is stored externally.
+-- These rows are deleted after the external content has been deleted.
+CREATE TABLE secret_deleted_value_ref (
+    revision_uuid TEXT NOT NULL PRIMARY KEY,
+    backend_uuid TEXT NOT NULL,
+    revision_id TEXT NOT NULL
+);
+
+CREATE INDEX idx_secret_deleted_value_ref_revision_id
+ON secret_deleted_value_ref (revision_id);
+
+CREATE TABLE secret_revision (
+    uuid TEXT NOT NULL PRIMARY KEY,
+    secret_id TEXT NOT NULL,
+    revision INT NOT NULL,
+    create_time DATETIME NOT NULL,
+    -- TODO(gfouillet): update_time should be not null in 4.1, but we can't do it till we release the first 4.1
+    --  version. This is due to the fact we check for non breaking changes between minor versions, and this change
+    --  is breaking the generated  domain/export/types/v4_0_2/model.go : SecretRevision.UpdateTime type  change from
+    --  pointer to non pointer.
+    update_time DATETIME, -- NOT NULL,
+    CONSTRAINT fk_secret_revision_secret_metadata_id
+    FOREIGN KEY (secret_id)
+    REFERENCES secret_metadata (secret_id)
+);
+
 -- 1:1
 CREATE TABLE secret_value_ref (
     revision_uuid TEXT NOT NULL PRIMARY KEY,
@@ -94,17 +120,6 @@ CREATE TABLE secret_value_ref (
 
 CREATE INDEX idx_secret_value_ref_backend_uuid
 ON secret_value_ref (backend_uuid);
-
--- Deleted revisions for which content is stored externally.
--- These rows are deleted after the external content has been deleted.
-CREATE TABLE secret_deleted_value_ref (
-    revision_uuid TEXT NOT NULL PRIMARY KEY,
-    backend_uuid TEXT NOT NULL,
-    revision_id TEXT NOT NULL
-);
-
-CREATE INDEX idx_secret_deleted_value_ref_revision_id
-ON secret_deleted_value_ref (revision_id);
 
 -- 1:many
 CREATE TABLE secret_content (
@@ -122,21 +137,6 @@ CREATE TABLE secret_content (
 
 CREATE INDEX idx_secret_content_revision_uuid
 ON secret_content (revision_uuid);
-
-CREATE TABLE secret_revision (
-    uuid TEXT NOT NULL PRIMARY KEY,
-    secret_id TEXT NOT NULL,
-    revision INT NOT NULL,
-    create_time DATETIME NOT NULL,
-    -- TODO(gfouillet): update_time should be not null in 4.1, but we can't do it till we release the first 4.1
-    --  version. This is due to the fact we check for non breaking changes between minor versions, and this change
-    --  is breaking the generated  domain/export/types/v4_0_2/model.go : SecretRevision.UpdateTime type  change from
-    --  pointer to non pointer.
-    update_time DATETIME, -- NOT NULL,
-    CONSTRAINT fk_secret_revision_secret_metadata_id
-    FOREIGN KEY (secret_id)
-    REFERENCES secret_metadata (secret_id)
-);
 
 CREATE UNIQUE INDEX idx_secret_revision_secret_id_revision
 ON secret_revision (secret_id, revision);
@@ -321,89 +321,6 @@ ON secret_permission (secret_id);
 
 CREATE INDEX idx_secret_permission_subject_uuid_subject_type_id
 ON secret_permission (subject_uuid, subject_type_id);
-
--- v_secret_permission is used to query secrets which can
--- be accessed by a subject of application, unit, or model.
-CREATE VIEW v_secret_permission AS
-SELECT
-    sp.secret_id,
-    sp.role_id,
-    sp.subject_type_id,
-    sp.subject_uuid,
-    sp.scope_type_id,
-    sp.scope_uuid,
-    -- subject_id is the natural id of the subject entity (uuid for model)
-    (CASE
-        WHEN sp.subject_type_id = 0 THEN suu.name
-        WHEN sp.subject_type_id = 1 THEN sua.name
-        WHEN sp.subject_type_id = 2 THEN m.uuid
-    END) AS subject_id,
-    -- scope_id is the natural id of the scope entity (uuid for model)
-    -- relations are not processed here - their scope_id is the relation key
-    -- which needs to be composed in code. 
-    (CASE
-        WHEN sp.scope_type_id = 0 THEN scu.name
-        WHEN sp.scope_type_id = 1 THEN sca.name
-        WHEN sp.scope_type_id = 2 THEN m.uuid
-    END) AS scope_id
-FROM secret_permission AS sp
-LEFT JOIN unit AS suu ON sp.subject_uuid = suu.uuid
-LEFT JOIN application AS sua ON sp.subject_uuid = sua.uuid
-LEFT JOIN unit AS scu ON sp.scope_uuid = scu.uuid
-LEFT JOIN application AS sca ON sp.scope_uuid = sca.uuid
-JOIN model AS m;
-
-CREATE VIEW v_secret_owner AS
-SELECT
-    'model' AS owner_kind,
-    m.uuid AS owner_uuid,
-    m.name AS owner_name,
-    so.label,
-    so.secret_id
-FROM secret_model_owner AS so
-JOIN model AS m -- this is a singleton
-UNION ALL
-SELECT
-    'application' AS owner_kind,
-    so.application_uuid AS owner_uuid,
-    a.name AS owner_name,
-    so.label,
-    so.secret_id
-FROM secret_application_owner AS so
-JOIN application AS a ON so.application_uuid = a.uuid
-UNION ALL
-SELECT
-    'unit' AS owner_kind,
-    so.unit_uuid AS owner_uuid,
-    u.name AS owner_name,
-    so.label,
-    so.secret_id
-FROM secret_unit_owner AS so
-JOIN unit AS u ON so.unit_uuid = u.uuid;
-
-CREATE VIEW v_secret_metadata AS
-SELECT
-    sm.secret_id,
-    sm.version,
-    sm.description,
-    sm.auto_prune,
-    sm.latest_revision_checksum,
-    sm.create_time,
-    sm.update_time,
-    rp.policy,
-    sro.next_rotation_time,
-    sre.expire_time,
-    sr.revision,
-    so.owner_kind,
-    so.owner_uuid,
-    so.owner_name,
-    so.label
-FROM secret_metadata AS sm
-JOIN secret_rotate_policy AS rp ON sm.rotate_policy_id = rp.id
-JOIN secret_revision AS sr ON sm.secret_id = sr.secret_id
-LEFT JOIN secret_revision_expire AS sre ON sr.uuid = sre.revision_uuid
-LEFT JOIN secret_rotation AS sro ON sm.secret_id = sro.secret_id
-LEFT JOIN v_secret_owner AS so ON sm.secret_id = so.secret_id;
 
 -- secret_reservation tracks secret IDs that have been minted by
 -- CreateSecretURIs but not yet persisted as charm secrets. Each

@@ -1,13 +1,3 @@
-CREATE TABLE autocert_cache (
-    uuid TEXT NOT NULL PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
-    data TEXT NOT NULL,
-    encoding INT NOT NULL,
-    CONSTRAINT fk_autocert_cache_encoding
-    FOREIGN KEY (encoding)
-    REFERENCES autocert_cache_encoding (id)
-);
-
 -- NOTE(nvinuesa): This table only populated with *one* hard-coded value
 -- (x509) because golang's autocert cache doesn't provide encoding in it's
 -- function signatures, and in juju we are only using x509 certs. The value
@@ -16,6 +6,16 @@ CREATE TABLE autocert_cache (
 CREATE TABLE autocert_cache_encoding (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL
+);
+
+CREATE TABLE autocert_cache (
+    uuid TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    data TEXT NOT NULL,
+    encoding INT NOT NULL,
+    CONSTRAINT fk_autocert_cache_encoding
+    FOREIGN KEY (encoding)
+    REFERENCES autocert_cache_encoding (id)
 );
 
 INSERT INTO autocert_cache_encoding VALUES

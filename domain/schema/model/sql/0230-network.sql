@@ -1,6 +1,10 @@
-CREATE TABLE net_node (
-    uuid TEXT NOT NULL PRIMARY KEY
-);
+CREATE VIEW v_machine_is_controller AS
+SELECT m.uuid AS machine_uuid
+FROM machine AS m
+JOIN net_node AS n ON m.net_node_uuid = n.uuid
+JOIN unit AS u ON n.uuid = u.net_node_uuid
+JOIN application AS a ON u.application_uuid = a.uuid
+JOIN application_controller AS ac ON a.uuid = ac.application_uuid;
 
 CREATE TABLE link_layer_device_type (
     id INT PRIMARY KEY,
