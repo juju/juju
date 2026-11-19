@@ -917,21 +917,33 @@ func NewSecretsTriggerWatcher(
 	return w
 }
 
+type secretTriggerKey struct {
+	uri string
+	rev int
+}
+
 // mergeChanges combines the changes in current and newChanges, such that we end up with
-// only one change per trigger change in the result; the most recent change wins.
+// only one change per trigger change in the result; the most recent change wins
+// and chronological order across distinct keys is preserved.
 func (w *secretsTriggerWatcher) mergeChanges(current, newChanges []watcher.SecretTriggerChange) []watcher.SecretTriggerChange {
-	chMap := make(map[string]watcher.SecretTriggerChange)
-	for _, c := range current {
-		chMap[c.URI.ID] = c
-	}
-	for _, c := range newChanges {
-		chMap[c.URI.ID] = c
-	}
-	result := make([]watcher.SecretTriggerChange, len(chMap))
-	i := 0
-	for _, c := range chMap {
-		result[i] = c
-		i++
+	return mergeOrderedTriggerChanges(current, newChanges, func(c watcher.SecretTriggerChange) secretTriggerKey {
+		return secretTriggerKey{uri: c.URI.ID, rev: c.Revision}
+	})
+}
+
+func (w *secretsTriggerWatcher) copyChanges(changes []params.SecretTriggerChange) []watcher.SecretTriggerChange {
+	result := make([]watcher.SecretTriggerChange, 0, len(changes))
+	for _, ch := range changes {
+		uri, err := secrets.ParseURI(ch.URI)
+		if err != nil {
+			logger.Errorf("ignoring invalid secret URI: %q", ch.URI)
+			continue
+		}
+		result = append(result, watcher.SecretTriggerChange{
+			URI:             uri,
+			Revision:        ch.Revision,
+			NextTriggerTime: ch.NextTriggerTime,
+		})
 	}
 	return result
 }
@@ -941,24 +953,8 @@ func (w *secretsTriggerWatcher) loop(initialChanges []params.SecretTriggerChange
 	w.commonWatcher.init()
 	go w.commonLoop()
 
-	copyChanges := func(changes []params.SecretTriggerChange) []watcher.SecretTriggerChange {
-		result := make([]watcher.SecretTriggerChange, len(changes))
-		for i, ch := range changes {
-			uri, err := secrets.ParseURI(ch.URI)
-			if err != nil {
-				logger.Errorf("ignoring invalid secret URI: %q", ch.URI)
-				continue
-			}
-			result[i] = watcher.SecretTriggerChange{
-				URI:             uri,
-				Revision:        ch.Revision,
-				NextTriggerTime: ch.NextTriggerTime,
-			}
-		}
-		return result
-	}
 	out := w.out
-	changes := copyChanges(initialChanges)
+	changes := w.copyChanges(initialChanges)
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -970,7 +966,7 @@ func (w *secretsTriggerWatcher) loop(initialChanges []params.SecretTriggerChange
 				// at this point, so just return.
 				return nil
 			}
-			newChanges := copyChanges(data.(*params.SecretTriggerWatchResult).Changes)
+			newChanges := w.copyChanges(data.(*params.SecretTriggerWatchResult).Changes)
 			changes = w.mergeChanges(changes, newChanges)
 			out = w.out
 		case out <- changes:
@@ -1013,20 +1009,30 @@ func NewSecretBackendRotateWatcher(
 }
 
 // mergeChanges combines the changes in current and newChanges, such that we end up with
-// only one change per trigger change in the result; the most recent change wins.
+// only one change per trigger change in the result. The most recent change wins
+// and chronological order across distinct keys is preserved.
 func (w *secretBackendRotateWatcher) mergeChanges(current, newChanges []watcher.SecretBackendRotateChange) []watcher.SecretBackendRotateChange {
-	chMap := make(map[string]watcher.SecretBackendRotateChange)
-	for _, c := range current {
-		chMap[c.ID] = c
+	return mergeOrderedTriggerChanges(current, newChanges, func(c watcher.SecretBackendRotateChange) string {
+		return c.ID
+	})
+}
+
+// mergeOrderedTriggerChanges combines current and newChanges by key, keeping
+// only the final occurrence of each key at its final chronological position (an
+// updated key moves to the tail after earlier events for other keys).
+func mergeOrderedTriggerChanges[T any, K comparable](current, newChanges []T, key func(T) K) []T {
+	combined := make([]T, 0, len(current)+len(newChanges))
+	combined = append(combined, current...)
+	combined = append(combined, newChanges...)
+	lastIdx := make(map[K]int, len(combined))
+	for i, c := range combined {
+		lastIdx[key(c)] = i
 	}
-	for _, c := range newChanges {
-		chMap[c.ID] = c
-	}
-	result := make([]watcher.SecretBackendRotateChange, len(chMap))
-	i := 0
-	for _, c := range chMap {
-		result[i] = c
-		i++
+	result := make([]T, 0, len(lastIdx))
+	for i, c := range combined {
+		if lastIdx[key(c)] == i {
+			result = append(result, c)
+		}
 	}
 	return result
 }
