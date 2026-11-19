@@ -5,11 +5,13 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/collections/transform"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
@@ -39,6 +41,15 @@ type State interface {
 	// InitialWatchStatementScriptletApplications returns the initial query and
 	// namespace used to watch applications backed by scriptlets.
 	InitialWatchStatementScriptletApplications() (string, eventsource.NamespaceQuery)
+
+	// InitialWatchStatementApplicationConfigHash returns the initial query and
+	// namespace used to watch an application's config hash.
+	InitialWatchStatementApplicationConfigHash(applicationUUID string) (string, eventsource.NamespaceQuery)
+
+	// GetApplicationConfigHash returns the SHA256 hash of the application
+	// config for the application identified by applicationUUID. If the
+	// application has no config hash, an empty string is returned.
+	GetApplicationConfigHash(ctx context.Context, applicationUUID string) (string, error)
 
 	// FilterScriptletApplications returns the input application UUIDs whose
 	// charms have scriptlet sources.
@@ -114,7 +125,7 @@ func (s *Service) GetScriptletApplication(
 func (s *Service) GetScriptletEvent(
 	ctx context.Context,
 	applicationUUID coreapplication.UUID,
-	eventName string,
+	eventType unitless.EventType,
 ) (unitless.Event, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -122,10 +133,10 @@ func (s *Service) GetScriptletEvent(
 	if err := applicationUUID.Validate(); err != nil {
 		return unitless.Event{}, errors.Errorf("application UUID: %w", err)
 	}
-	if eventName == "" {
-		return unitless.Event{}, errors.New("empty event name not valid").Add(coreerrors.NotValid)
+	if eventType == "" {
+		return unitless.Event{}, errors.New("empty event type not valid").Add(coreerrors.NotValid)
 	}
-	return s.st.GetScriptletEvent(ctx, applicationUUID.String(), eventName)
+	return s.st.GetScriptletEvent(ctx, applicationUUID.String(), string(eventType))
 }
 
 // WatchableService provides access to unitless application scriptlets and
@@ -199,10 +210,77 @@ func (s *WatchableService) WatchScriptletApplicationDying(
 }
 
 // WatchApplicationEvents returns a watcher for events associated with an
-// application. It currently reports an empty initial set.
+// application. The watcher emits event names that should be dispatched for
+// the application.
+//
+// The [unitless.EventConfigChanged] event is emitted when the application's
+// config hash changes. The first config hash is always dispatched, so the
+// application receives a config changed event for its current config when
+// the watcher starts. Changes to another application's config hash are not
+// reported. When the config hash row is deleted, as happens when the
+// application is destroyed, no event is emitted.
 func (s *WatchableService) WatchApplicationEvents(
-	context.Context,
-	coreapplication.UUID,
+	ctx context.Context,
+	applicationUUID coreapplication.UUID,
 ) (watcher.StringsWatcher, error) {
-	return watcher.TODO[[]string](), nil
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := applicationUUID.Validate(); err != nil {
+		return nil, errors.Errorf("application UUID: %w", err)
+	}
+
+	// sha256 is the current config hash for the application. It is seeded
+	// by the initial query and updated as changes are dispatched.
+	var sha256 string
+
+	table, query := s.st.InitialWatchStatementApplicationConfigHash(applicationUUID.String())
+	return s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
+		func(ctx context.Context, txn database.TxnRunner) ([]string, error) {
+			initialResults, err := query(ctx, txn)
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
+			if len(initialResults) == 1 {
+				sha256 = initialResults[0]
+			}
+
+			// The first config hash is always dispatched, so the application
+			// receives a config changed event for its current config.
+			return []string{unitless.EventConfigChanged.String()}, nil
+		},
+		fmt.Sprintf("application events watcher for %q", applicationUUID),
+		func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
+			ctx, span := trace.Start(ctx, trace.NameFromFunc())
+			defer span.End()
+
+			// If there are no changes, return no changes.
+			if len(changes) == 0 {
+				return nil, nil
+			}
+
+			currentSHA256, err := s.st.GetApplicationConfigHash(ctx, applicationUUID.String())
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
+			// An empty hash means the application's config hash row has
+			// been deleted, i.e. the application is going away. No event
+			// is dispatched: the initial dispatch is unconditional, so
+			// the empty case never needs one.
+			if currentSHA256 == "" {
+				return nil, nil
+			}
+			// If the hash hasn't changed, return no events. This includes
+			// changes to another application's config hash, for which this
+			// application's hash is unchanged.
+			if currentSHA256 == sha256 {
+				return nil, nil
+			}
+			sha256 = currentSHA256
+
+			return []string{unitless.EventConfigChanged.String()}, nil
+		},
+		eventsource.NamespaceFilter(table, changestream.All),
+	)
 }

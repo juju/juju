@@ -307,7 +307,7 @@ func (s *applicationRunnerSuite) TestLifeNotificationApplicationStillAlive(c *tc
 	fixture.lifeWatch.changes <- struct{}{}
 	waitFor(c, queried)
 
-	fixture.eventChanges <- []string{event.Name}
+	fixture.eventChanges <- []string{event.Name.String()}
 	c.Check(waitFor(c, fixture.executor.handled), tc.DeepEquals, event)
 	workertest.CleanKill(c, runner)
 	fixture.assertWatchersStopped(c)
@@ -415,7 +415,7 @@ func (s *applicationRunnerSuite) TestDispatchesEventsInOrderAndLogsIntents(c *tc
 
 	waitFor(c, fixture.executorConfigs)
 
-	fixture.eventChanges <- []string{first.Name, second.Name}
+	fixture.eventChanges <- []string{first.Name.String(), second.Name.String()}
 	c.Check(waitFor(c, fixture.executor.handled), tc.DeepEquals, first)
 	c.Check(waitFor(c, fixture.executor.handled), tc.DeepEquals, second)
 
@@ -438,7 +438,7 @@ func (s *applicationRunnerSuite) TestIgnoresEmptyEventsAndBatches(c *tc.C) {
 	waitFor(c, fixture.executorConfigs)
 
 	fixture.eventChanges <- []string{}
-	fixture.eventChanges <- []string{"", event.Name, ""}
+	fixture.eventChanges <- []string{"", event.Name.String(), ""}
 
 	c.Check(waitFor(c, fixture.executor.handled), tc.DeepEquals, event)
 
@@ -453,7 +453,7 @@ func (s *applicationRunnerSuite) TestEventApplicationNotFound(c *tc.C) {
 	defer ctrl.Finish()
 
 	fixture := s.expectRunningApplication(c)
-	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, "config_changed").Return(
+	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, domainunitless.EventConfigChanged).Return(
 		domainunitless.Event{}, errors.Errorf("application removed: %w", applicationerrors.ApplicationNotFound),
 	)
 	runner := s.startRunner(c)
@@ -474,7 +474,7 @@ func (s *applicationRunnerSuite) TestEventLookupErrorStopsBatch(c *tc.C) {
 
 	fixture := s.expectRunningApplication(c)
 	boom := errors.New("boom")
-	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, "config_changed").Return(
+	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, domainunitless.EventConfigChanged).Return(
 		domainunitless.Event{}, boom,
 	)
 
@@ -497,7 +497,7 @@ func (s *applicationRunnerSuite) TestEventLookupCanceledWithoutShutdown(c *tc.C)
 	defer ctrl.Finish()
 
 	fixture := s.expectRunningApplication(c)
-	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, "config_changed").Return(
+	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, domainunitless.EventConfigChanged).Return(
 		domainunitless.Event{}, context.Canceled,
 	)
 	runner := s.startRunner(c)
@@ -529,7 +529,7 @@ func (s *applicationRunnerSuite) TestExecutorErrorContinuesAndDiscardsIntents(c 
 
 	waitFor(c, fixture.executorConfigs)
 
-	fixture.eventChanges <- []string{first.Name, second.Name}
+	fixture.eventChanges <- []string{first.Name.String(), second.Name.String()}
 	c.Check(waitFor(c, fixture.executor.handled), tc.DeepEquals, first)
 	c.Check(waitFor(c, fixture.executor.handled), tc.DeepEquals, second)
 
@@ -644,8 +644,8 @@ func (s *applicationRunnerSuite) TestShutdownCancelsEventLookup(c *tc.C) {
 
 	fixture := s.expectRunningApplication(c)
 	contexts := make(chan context.Context, 1)
-	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, "config_changed").DoAndReturn(
-		func(ctx context.Context, _ coreapplication.UUID, _ string) (domainunitless.Event, error) {
+	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, domainunitless.EventConfigChanged).DoAndReturn(
+		func(ctx context.Context, _ coreapplication.UUID, _ domainunitless.EventType) (domainunitless.Event, error) {
 			contexts <- ctx
 			<-ctx.Done()
 			return domainunitless.Event{}, ctx.Err()
@@ -678,7 +678,7 @@ func (s *applicationRunnerSuite) TestShutdownCancelsEventExecutionAndStopsBatch(
 			return nil, ctx.Err()
 		}), nil
 	}
-	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, "config_changed").Return(
+	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, domainunitless.EventConfigChanged).Return(
 		domainunitless.Event{Name: "config_changed"}, nil,
 	)
 	runner := s.startRunner(c)

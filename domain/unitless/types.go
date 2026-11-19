@@ -58,11 +58,25 @@ func (s ScriptSource) Content(context.Context) ([]byte, error) {
 	return []byte(s.Source), nil
 }
 
+// EventType is the name of an event emitted to an application's scriptlet.
+type EventType string
+
+// String returns the name of the event type.
+func (e EventType) String() string {
+	return string(e)
+}
+
+const (
+	// EventConfigChanged is the event emitted when an application's
+	// configuration changes.
+	EventConfigChanged EventType = "config_changed"
+)
+
 // Event is emitted to an application's staged scriptlet when something
 // pertinent to the application changes.
 type Event struct {
-	// Name is the name of the event.
-	Name string
+	// Name is the type of the event.
+	Name EventType
 
 	// Attrs are data associated with the event,
 	// particular to the application receiving it.

@@ -12,17 +12,34 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
+	coreassumes "github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/deployment/charm"
+	charmassumes "github.com/juju/juju/domain/deployment/charm/assumes"
 	"github.com/juju/juju/domain/deployment/charm/repository"
 	"github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 )
+
+// unitlessAssumesTree returns an assumes expression tree that asserts the
+// unitless feature, as a unitless-only charm does.
+func unitlessAssumesTree() *charmassumes.ExpressionTree {
+	return &charmassumes.ExpressionTree{
+		Expression: charmassumes.CompositeExpression{
+			ExprType: charmassumes.AllOfExpression,
+			SubExpressions: []charmassumes.Expression{
+				charmassumes.FeatureExpression{Name: "unitless"},
+			},
+		},
+	}
+}
 
 type deployRepositorySuite struct {
 	baseSuite
@@ -297,6 +314,102 @@ func (s *deployRepositorySuite) TestModelTypeMismatchConsistent(c *tc.C) {
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(warning, tc.Equals, "")
+}
+
+func (s *deployRepositorySuite) newUnitlessCharmValidator(c *tc.C, ctrl *gomock.Controller) (deployFromRepositoryValidator, *MockCharm) {
+	fs := coreassumes.FeatureSet{}
+	fs.Add(coreassumes.UnitlessFeature())
+	s.applicationService.EXPECT().GetSupportedFeatures(gomock.Any()).Return(fs, nil).AnyTimes()
+
+	ch := NewMockCharm(ctrl)
+	ch.EXPECT().Meta().Return(&charm.Meta{
+		Name:    "unitless",
+		Assumes: unitlessAssumesTree(),
+	}).MinTimes(1)
+
+	return deployFromRepositoryValidator{
+		modelInfo:          coremodel.ModelInfo{Type: coremodel.IAAS, Name: "model"},
+		applicationService: s.applicationService,
+		logger:             loggertesting.WrapCheckLog(c),
+	}, ch
+}
+
+func (s *deployRepositorySuite) TestResolvedCharmValidationUnitlessCharm(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	v, ch := s.newUnitlessCharmValidator(c, ctrl)
+
+	// The juju client defaults num units to 1; a unitless application is
+	// deployed without units instead.
+	defaultNumUnits := 1
+	dt, errs := v.resolvedCharmValidation(c.Context(), ch, params.DeployFromRepositoryArg{
+		CharmName: "unitless",
+		NumUnits:  &defaultNumUnits,
+	})
+	c.Check(errs, tc.HasLen, 0)
+	c.Check(dt.numUnits, tc.Equals, 0)
+}
+
+func (s *deployRepositorySuite) TestResolvedCharmValidationUnitlessCharmNoNumUnits(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	v, ch := s.newUnitlessCharmValidator(c, ctrl)
+
+	// Clients that do not specify num units are also deployed without units.
+	dt, errs := v.resolvedCharmValidation(c.Context(), ch, params.DeployFromRepositoryArg{
+		CharmName: "unitless",
+	})
+	c.Check(errs, tc.HasLen, 0)
+	c.Check(dt.numUnits, tc.Equals, 0)
+}
+
+func (s *deployRepositorySuite) TestResolvedCharmValidationUnitlessCharmExplicitUnits(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	v, ch := s.newUnitlessCharmValidator(c, ctrl)
+
+	numUnits := 3
+	_, errs := v.resolvedCharmValidation(c.Context(), ch, params.DeployFromRepositoryArg{
+		CharmName: "unitless",
+		NumUnits:  &numUnits,
+	})
+	c.Assert(errs, tc.HasLen, 1)
+	c.Check(errs[0], tc.ErrorMatches, "cannot use --num-units or --to with unitless application")
+}
+
+func (s *deployRepositorySuite) TestResolvedCharmValidationUnitlessCharmPlacement(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	v, ch := s.newUnitlessCharmValidator(c, ctrl)
+
+	numUnits := 1
+	_, errs := v.resolvedCharmValidation(c.Context(), ch, params.DeployFromRepositoryArg{
+		CharmName: "unitless",
+		NumUnits:  &numUnits,
+		Placement: []*instance.Placement{instance.MustParsePlacement("1")},
+	})
+	c.Assert(errs, tc.HasLen, 1)
+	c.Check(errs[0], tc.ErrorMatches, "cannot use --num-units or --to with unitless application")
+}
+
+func (s *deployRepositorySuite) TestResolvedCharmValidationUnitlessCharmConstraints(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	v, ch := s.newUnitlessCharmValidator(c, ctrl)
+
+	numUnits := 1
+	_, errs := v.resolvedCharmValidation(c.Context(), ch, params.DeployFromRepositoryArg{
+		CharmName: "unitless",
+		NumUnits:  &numUnits,
+		Cons:      constraints.MustParse("arch=amd64"),
+	})
+	c.Assert(errs, tc.HasLen, 1)
+	c.Check(errs[0], tc.ErrorMatches, `unitless application must be deployed without constraints, not "arch=amd64"`)
 }
 
 // TestDeployFromRepositoryReturnsWarningsOnError checks that advisory warnings
