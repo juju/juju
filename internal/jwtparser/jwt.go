@@ -8,12 +8,15 @@ import (
 	"encoding/base64"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/lestrrat-go/httprc/v3"
 	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/lestrrat-go/jwx/v3/jwt"
 )
+
+const jwtRetryInterval = 30 * time.Second
 
 // Parser is a JWT parser responsible for parsing JWT tokens.
 type Parser struct {
@@ -85,6 +88,7 @@ func (j *Parser) SetJWKSCache(ctx context.Context, refreshURL string) error {
 	err := j.cache.Register(ctx, refreshURL,
 		jwk.WithHTTPClient(j.httpClient),
 		jwk.WithWaitReady(false),
+		jwk.WithMinInterval(jwtRetryInterval),
 	)
 	if err != nil {
 		return fmt.Errorf("registering jwk cache with url %q: %w", refreshURL, err)
