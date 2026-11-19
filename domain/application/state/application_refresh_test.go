@@ -587,6 +587,116 @@ VALUES (?, ?)`, spaceUUID, spaceName)
 	c.Assert(bindings["established"], tc.Equals, spaceUUID)
 }
 
+func (s *applicationRefreshSuite) TestSetApplicationCharmMergesEndpointBindingsWithNewEndpoints(c *tc.C) {
+	// Arrange
+	beta := s.addSpace(c, "beta")
+	appID := s.createApplication(c, createApplicationArgs{
+		appName: "my-app",
+		relations: []charm.Relation{
+			{
+				Name:      "established",
+				Role:      charm.RoleProvider,
+				Interface: "interf",
+			},
+		},
+		extraBindings: map[string]charm.ExtraBinding{
+			"extra": {
+				Name: "extra",
+			},
+		},
+	})
+	// The new charm declares an additional relation endpoint and an
+	// additional extra binding.
+	charmUUID := s.createCharm(c, createCharmArgs{
+		name: "foo",
+		relations: []charm.Relation{
+			{
+				Name:      "established",
+				Role:      charm.RoleProvider,
+				Interface: "interf",
+			},
+			{
+				Name:      "new-relation",
+				Role:      charm.RoleRequirer,
+				Interface: "interf",
+			},
+		},
+		extraBindings: map[string]charm.ExtraBinding{
+			"extra": {
+				Name: "extra",
+			},
+			"new-extra": {
+				Name: "new-extra",
+			},
+		},
+	})
+
+	// Act
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{
+		EndpointBindings: map[string]network.SpaceName{
+			"established":  network.AlphaSpaceName,
+			"extra":        network.AlphaSpaceName,
+			"new-relation": "beta",
+			"new-extra":    "beta",
+		},
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	bindings, err := s.state.GetApplicationEndpointBindings(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(bindings["established"], tc.Equals, network.AlphaSpaceId.String())
+	c.Check(bindings["extra"], tc.Equals, network.AlphaSpaceId.String())
+	c.Check(bindings["new-relation"], tc.Equals, beta)
+	c.Check(bindings["new-extra"], tc.Equals, beta)
+}
+
+func (s *applicationRefreshSuite) TestSetApplicationCharmEndpointBindingsUnknownEndpoint(c *tc.C) {
+	// Arrange
+	appID := s.createApplication(c, createApplicationArgs{
+		appName: "my-app",
+		relations: []charm.Relation{
+			{
+				Name:      "established",
+				Role:      charm.RoleProvider,
+				Interface: "interf",
+			},
+		},
+	})
+	originalCharmUUID, err := s.state.GetCharmIDByApplicationName(c.Context(), "my-app")
+	c.Assert(err, tc.ErrorIsNil)
+
+	charmUUID := s.createCharm(c, createCharmArgs{
+		name: "foo",
+		relations: []charm.Relation{
+			{
+				Name:      "established",
+				Role:      charm.RoleProvider,
+				Interface: "interf",
+			},
+		},
+	})
+
+	// Act
+	err = s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{
+		EndpointBindings: map[string]network.SpaceName{
+			"established":      network.AlphaSpaceName,
+			"unknown-endpoint": network.AlphaSpaceName,
+		},
+	})
+
+	// Assert: only the unknown endpoint is reported.
+	c.Assert(err, tc.ErrorIs, applicationerrors.EndpointNotFound)
+	c.Check(err.Error(), tc.Equals, `endpoints "unknown-endpoint" do not exist`)
+
+	// The transaction must have been rolled back, leaving the application
+	// on its current charm.
+	currentCharmUUID, err := s.state.GetCharmIDByApplicationName(c.Context(), "my-app")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(currentCharmUUID, tc.Equals, originalCharmUUID)
+}
+
 func (s *applicationRefreshSuite) TestSetApplicationCharmMaintainsRelationEndpointBindings(c *tc.C) {
 	// Arrange
 	beta := s.addSpace(c, "beta")
