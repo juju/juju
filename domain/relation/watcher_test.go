@@ -1277,11 +1277,17 @@ VALUES (?, ?, 0)
 // addCharmRelation inserts a new charm relation into the database with the
 // given UUID and predefined attributes.
 func (s *watcherSuite) addCharmRelation(c *tc.C, charmUUID corecharm.ID, charmRelationUUID uuid.UUID, roleID int) {
+	s.addCharmRelationWithScope(c, charmUUID, charmRelationUUID, roleID, 0)
+}
+
+// addCharmRelationWithScope inserts a new charm relation into the database
+// with the given UUID, role and scope (0: global, 1: container).
+func (s *watcherSuite) addCharmRelationWithScope(c *tc.C, charmUUID corecharm.ID, charmRelationUUID uuid.UUID, roleID int, scopeID int) {
 	name := fmt.Sprintf("fake-%d", roleID)
 	s.arrange(c, `
 INSERT INTO charm_relation (uuid, charm_uuid, scope_id, role_id, name)
-VALUES (?, ?, 0,?, ?)
-`, charmRelationUUID.String(), charmUUID, roleID, name)
+VALUES (?, ?, ?,?, ?)
+`, charmRelationUUID.String(), charmUUID, scopeID, roleID, name)
 }
 
 // addRelation inserts a new relation into the database with the given UUID and
@@ -1371,4 +1377,247 @@ func initialEvents(appUUID coreapplication.UUID, initialEvents []coreunit.UUID) 
 		return domainrelation.EncodeUnitUUID(uuid.String())
 	})
 	return append([]string{domainrelation.EncodeApplicationUUID(appUUID.String())}, units...)
+}
+
+// TestWatchRelatedUnitsContainerScopedSubordinateView is a regression test
+// for: https://github.com/juju/juju/issues/23742
+// It verifies that on a container-scoped relation, a subordinate unit only
+// sees the principal unit it is co-located with, and not the principal units
+// running on other machines.
+func (s *watcherSuite) TestWatchRelatedUnitsContainerScopedSubordinateView(c *tc.C) {
+	// Arrange: a container-scoped relation between a principal application
+	// with two units and a subordinate application with one unit per
+	// principal unit. The watcher is created for subordinate/1.
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "relation_unit_settings_hash")
+	config := s.setupTestWatchContainerScopedRelationUnit(c)
+
+	svc := s.setupService(c, factory)
+	watcher, err := svc.WatchRelatedUnits(c.Context(), config.subordinate1UUID, config.relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	var principal0RelUnitUUID, principal1RelUnitUUID relation.UnitUUID
+
+	// Act: principal/0 (not co-located) enters scope => no event.
+	harness.AddTest(c, func(c *tc.C) {
+		principal0RelUnitUUID = relationtesting.GenRelationUnitUUID(c)
+		s.act(c, "INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)",
+			principal0RelUnitUUID, config.principalRelEndpointUUID, config.principal0UUID)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	// Act: settings change for a principal unit that is not co-located =>
+	// no event.
+	harness.AddTest(c, func(c *tc.C) {
+		s.act(c, "INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256) VALUES (?, 'hash')",
+			principal0RelUnitUUID)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	// Act: the co-located principal unit enters scope => event with its
+	// unit UUID.
+	harness.AddTest(c, func(c *tc.C) {
+		principal1RelUnitUUID = relationtesting.GenRelationUnitUUID(c)
+		s.act(c, "INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)",
+			principal1RelUnitUUID, config.principalRelEndpointUUID, config.principal1UUID)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert(domainrelation.EncodeUnitUUID(config.principal1UUID.String())),
+		)
+	})
+
+	// Act: settings change for the co-located principal unit => event with
+	// its unit UUID.
+	harness.AddTest(c, func(c *tc.C) {
+		s.act(c, "INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256) VALUES (?, 'hash')",
+			principal1RelUnitUUID)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert(domainrelation.EncodeUnitUUID(config.principal1UUID.String())),
+		)
+	})
+
+	// Act: the other subordinate unit (same side of the relation) enters
+	// scope => no event.
+	harness.AddTest(c, func(c *tc.C) {
+		s.act(c, "INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)",
+			relationtesting.GenRelationUnitUUID(c), config.subordinateRelEndpointUUID, config.subordinate0UUID)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	// Act: the co-located principal unit leaves scope => event with its
+	// unit UUID. The settings hash row must go away in the same
+	// transaction, both for referential integrity and so that the change
+	// stream coalesces the deletions into a single event.
+	harness.AddTest(c, func(c *tc.C) {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx,
+				"DELETE FROM relation_unit_settings_hash WHERE relation_unit_uuid = ?",
+				principal1RelUnitUUID); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM relation_unit WHERE uuid = ?",
+				principal1RelUnitUUID); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert(domainrelation.EncodeUnitUUID(config.principal1UUID.String())),
+		)
+	})
+
+	// Act: a principal unit that is not co-located leaves scope => no
+	// event: a unit the watching unit never saw cannot visibly depart.
+	harness.AddTest(c, func(c *tc.C) {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx,
+				"DELETE FROM relation_unit_settings_hash WHERE relation_unit_uuid = ?",
+				principal0RelUnitUUID); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM relation_unit WHERE uuid = ?",
+				principal0RelUnitUUID); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	// Act: run test harness.
+	// Assert: the initial event only holds the remote application and the
+	// co-located principal unit.
+	harness.Run(c, initialEvents(config.principalAppUUID, []coreunit.UUID{config.principal1UUID}))
+}
+
+// TestWatchRelatedUnitsContainerScopedPrincipalView is a regression test
+// for: https://github.com/juju/juju/issues/23742
+// It verifies that on a container-scoped relation, a principal unit only
+// sees its own subordinate units, and not the subordinate units co-located
+// with other principal units.
+func (s *watcherSuite) TestWatchRelatedUnitsContainerScopedPrincipalView(c *tc.C) {
+	// Arrange: a container-scoped relation between a principal application
+	// with two units and a subordinate application with one unit per
+	// principal unit. The watcher is created for principal/0.
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "relation_unit_settings_hash")
+	config := s.setupTestWatchContainerScopedRelationUnit(c)
+
+	svc := s.setupService(c, factory)
+	watcher, err := svc.WatchRelatedUnits(c.Context(), config.principal0UUID, config.relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Act: subordinate/1 (co-located with principal/1) enters scope => no
+	// event.
+	harness.AddTest(c, func(c *tc.C) {
+		s.act(c, "INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)",
+			relationtesting.GenRelationUnitUUID(c), config.subordinateRelEndpointUUID, config.subordinate1UUID)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	// Act: subordinate/0 (co-located with the watching principal) enters
+	// scope => event with its unit UUID.
+	harness.AddTest(c, func(c *tc.C) {
+		s.act(c, "INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)",
+			relationtesting.GenRelationUnitUUID(c), config.subordinateRelEndpointUUID, config.subordinate0UUID)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert(domainrelation.EncodeUnitUUID(config.subordinate0UUID.String())),
+		)
+	})
+
+	// Act: the other principal unit (same side of the relation) enters
+	// scope => no event.
+	harness.AddTest(c, func(c *tc.C) {
+		s.act(c, "INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)",
+			relationtesting.GenRelationUnitUUID(c), config.principalRelEndpointUUID, config.principal1UUID)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	// Act: run test harness.
+	// Assert: the initial event only holds the remote application and the
+	// co-located subordinate unit.
+	harness.Run(c, initialEvents(config.subordinateAppUUID, []coreunit.UUID{config.subordinate0UUID}))
+}
+
+type testWatchContainerScopedRelationUnit struct {
+	relationUUID                       relation.UUID
+	principalAppUUID                   coreapplication.UUID
+	subordinateAppUUID                 coreapplication.UUID
+	principalRelEndpointUUID           string
+	subordinateRelEndpointUUID         string
+	principal0UUID, principal1UUID     coreunit.UUID
+	subordinate0UUID, subordinate1UUID coreunit.UUID
+}
+
+// setupTestWatchContainerScopedRelationUnit arranges:
+//   - a principal application with two units,
+//   - a subordinate application with one unit per principal unit,
+//   - both linked by a container-scoped relation.
+//
+// No unit has entered the relation scope yet.
+func (s *watcherSuite) setupTestWatchContainerScopedRelationUnit(c *tc.C) testWatchContainerScopedRelationUnit {
+	config := testWatchContainerScopedRelationUnit{}
+	config.relationUUID = relationtesting.GenRelationUUID(c)
+
+	charmUUID := charmtesting.GenCharmID(c)
+	subordinateCharmUUID := charmtesting.GenCharmID(c)
+	config.principalAppUUID = tc.Must(c, coreapplication.NewUUID)
+	config.subordinateAppUUID = tc.Must(c, coreapplication.NewUUID)
+	config.principal0UUID = unittesting.GenUnitUUID(c)
+	config.principal1UUID = unittesting.GenUnitUUID(c)
+	config.subordinate0UUID = unittesting.GenUnitUUID(c)
+	config.subordinate1UUID = unittesting.GenUnitUUID(c)
+
+	charmRelationProvidesUUID := uuid.MustNewUUID()
+	charmRelationRequiresUUID := uuid.MustNewUUID()
+	principalEndpointUUID := uuid.MustNewUUID()
+	subordinateEndpointUUID := uuid.MustNewUUID()
+	principalRelEndpointUUID := relationtesting.GenEndpointUUID(c)
+	subordinateRelEndpointUUID := relationtesting.GenEndpointUUID(c)
+
+	s.addCharm(c, charmUUID, "principal")
+	s.addCharmRelation(c, charmUUID, charmRelationProvidesUUID, 0)
+	s.addCharm(c, subordinateCharmUUID, "subordinate")
+	s.setCharmSubordinate(c, subordinateCharmUUID, true)
+	// The subordinate's endpoint is container-scoped, which is what makes
+	// the relation between the two applications container-scoped.
+	s.addCharmRelationWithScope(c, subordinateCharmUUID, charmRelationRequiresUUID, 1, 1)
+	s.addApplication(c, charmUUID, config.principalAppUUID, "principal")
+	s.addApplication(c, subordinateCharmUUID, config.subordinateAppUUID, "subordinate")
+	s.addUnit(c, config.principal0UUID, "principal/0", config.principalAppUUID, charmUUID)
+	s.addUnit(c, config.principal1UUID, "principal/1", config.principalAppUUID, charmUUID)
+	s.addUnit(c, config.subordinate0UUID, "subordinate/0", config.subordinateAppUUID, subordinateCharmUUID)
+	s.addUnit(c, config.subordinate1UUID, "subordinate/1", config.subordinateAppUUID, subordinateCharmUUID)
+	s.setUnitSubordinate(c, config.subordinate0UUID, config.principal0UUID)
+	s.setUnitSubordinate(c, config.subordinate1UUID, config.principal1UUID)
+	s.addApplicationEndpoint(c, principalEndpointUUID, config.principalAppUUID, charmRelationProvidesUUID)
+	s.addApplicationEndpoint(c, subordinateEndpointUUID, config.subordinateAppUUID, charmRelationRequiresUUID)
+
+	// A relation is container-scoped when either of its endpoints is, which
+	// is recorded on the relation itself (scope_id 1).
+	s.arrange(c, `
+INSERT INTO relation (uuid, life_id, relation_id, scope_id)
+VALUES (?,0,?,1)
+`, config.relationUUID, s.relationCount)
+	s.relationCount++
+	s.addRelationEndpoint(c, principalRelEndpointUUID, config.relationUUID, principalEndpointUUID)
+	s.addRelationEndpoint(c, subordinateRelEndpointUUID, config.relationUUID, subordinateEndpointUUID)
+
+	config.principalRelEndpointUUID = principalRelEndpointUUID.String()
+	config.subordinateRelEndpointUUID = subordinateRelEndpointUUID.String()
+
+	return config
 }

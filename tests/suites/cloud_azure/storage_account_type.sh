@@ -19,14 +19,15 @@ check_storage_account_type_controller() {
 		bs_cmd+=("${constraint_args[@]}")
 	fi
 
-	# Keep track even if bootstrap fails after provisioning the VM.
-	echo "${controller_name}" >>"${TEST_DIR}/jujus"
+	# Keep track even if bootstrap fails after provisioning the VM. Guarded so a
+	# failed append can't bootstrap an untracked (leaking) controller.
+	echo "${controller_name}" >>"${TEST_DIR}/jujus" || return 1
 	if ! "${bs_cmd[@]}" >>"${file}" 2>&1; then
 		echo "Bootstrap failed for ${controller_name}"
 		return 1
 	fi
 
-	juju add-model test
+	juju add-model test || return 1
 
 	# Validate controller VM's storageAccountType.
 	local controller_instance_id controller_resource_group
@@ -50,16 +51,20 @@ check_storage_account_type_controller() {
 		fi
 	fi
 
+	# Use optional test storage, without PostgreSQL's Juju version restriction.
 	# Run the deploy steps for all cases.
 	echo "Deploying ps1..ps4" >>"${file}"
-	# Default azure account type with no additional charm storage.
-	juju deploy postgresql ps1 2>&1 | OUTPUT "${file}" || true
-	# Premium azure account type with no additional charm storage.
-	juju deploy postgresql ps2 --constraints "instance-type=Standard_D8as_v5 root-disk-source=azure-premium" 2>&1 | OUTPUT "${file}" || true
-	# Default azure account type with additional premium charm storage.
-	juju deploy postgresql ps3 --constraints "instance-type=Standard_D8as_v5" --storage pgdata=2G,azure-premium 2>&1 | OUTPUT "${file}" || true
-	# Premium azure account type with additional default charm storage.
-	juju deploy postgresql ps4 --constraints "instance-type=Standard_D8as_v5 root-disk-source=azure-premium" --storage pgdata=2G,azure 2>&1 | OUTPUT "${file}" || true
+	(
+		set -o pipefail
+		# Default azure account type with no additional charm storage.
+		juju deploy juju-qa-dummy-storage ps1 --channel latest/stable --revision 1 --base ubuntu@24.04 2>&1 | OUTPUT "${file}" || exit 1
+		# Premium azure account type with no additional charm storage.
+		juju deploy juju-qa-dummy-storage ps2 --channel latest/stable --revision 1 --base ubuntu@24.04 --constraints "instance-type=Standard_D8as_v5 root-disk-source=azure-premium" 2>&1 | OUTPUT "${file}" || exit 1
+		# Default azure account type with additional premium charm storage.
+		juju deploy juju-qa-dummy-storage ps3 --channel latest/stable --revision 1 --base ubuntu@24.04 --constraints "instance-type=Standard_D8as_v5" --storage single-fs=2G,azure-premium 2>&1 | OUTPUT "${file}" || exit 1
+		# Premium azure account type with additional default charm storage.
+		juju deploy juju-qa-dummy-storage ps4 --channel latest/stable --revision 1 --base ubuntu@24.04 --constraints "instance-type=Standard_D8as_v5 root-disk-source=azure-premium" --storage single-fs=2G,azure 2>&1 | OUTPUT "${file}" || exit 1
+	) || return 1
 
 	# Wait for Juju to register machines for the deployed units and provide instance-ids.
 	echo "Waiting up to 5min for instance-ids for ps1..ps4" >>"${file}"
@@ -174,8 +179,10 @@ run_storage_account_type() {
 	local default_controller_name="azure-default-controller"
 	local premium_controller_name="azure-premium-controller"
 
-	check_storage_account_type_controller "${default_controller_name}" "" "StandardSSD_LRS"
-	check_storage_account_type_controller "${premium_controller_name}" "--storage-pool name=azp --storage-pool type=azure --storage-pool account-type=Premium_LRS --bootstrap-constraints=root-disk-source=azp" "Premium_LRS"
+	check_storage_account_type_controller "${default_controller_name}" "" "StandardSSD_LRS" || return 1
+	destroy_controller "${default_controller_name}" || return 1
+	check_storage_account_type_controller "${premium_controller_name}" "--storage-pool name=azp --storage-pool type=azure --storage-pool account-type=Premium_LRS --bootstrap-constraints=root-disk-source=azp" "Premium_LRS" || return 1
+	destroy_controller "${premium_controller_name}" || return 1
 }
 
 test_storage_account_type() {
