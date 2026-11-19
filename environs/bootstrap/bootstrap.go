@@ -307,7 +307,7 @@ func bootstrapCAAS(
 type machinePreparation struct {
 	params              environs.BootstrapParams
 	arch                string
-	ss                  *simplestreams.Simplestreams
+	simplestreams       *simplestreams.Simplestreams
 	customImageMetadata []*imagemetadata.ImageMetadata
 	validator           constraints.Validator
 }
@@ -464,7 +464,7 @@ func prepareMachineAllocation(
 	return machinePreparation{
 		params:              params,
 		arch:                bootstrapArch,
-		ss:                  ss,
+		simplestreams:       ss,
 		customImageMetadata: customImageMetadata,
 		validator:           constraintsValidator,
 	}, nil
@@ -492,7 +492,7 @@ func discoverBootstrapTools(
 		}
 		ctx.Infof("Looking for %vpackaged Juju agent version %s for %s", latestPatchTxt, versionTxt, prep.arch)
 
-		availableTools, err = findPackagedTools(ctx, environ, prep.ss, args.AgentVersion, &prep.arch, &prep.params.BootstrapBase)
+		availableTools, err = findPackagedTools(ctx, environ, prep.simplestreams, args.AgentVersion, &prep.arch, &prep.params.BootstrapBase)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, agentVersion, nil, err
 		}
