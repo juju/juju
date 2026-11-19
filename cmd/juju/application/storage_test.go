@@ -293,6 +293,11 @@ func (s *ApplicationStorageSuite) TestSetDirectivesParseError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `parsing storage constraints for "data": .*`)
 }
 
+func (s *ApplicationStorageSuite) TestSetDirectivesNegativeCount(c *gc.C) {
+	_, err := s.run(c, "storage-block", "data=loop,-1")
+	c.Assert(err, gc.ErrorMatches, `parsing storage constraints for "data": parsing storage count: count must not be negative, got "-1"`)
+}
+
 func assertTabLine(c *gc.C, line string, fields ...string) {
 	cols := strings.Fields(strings.TrimSpace(line))
 	c.Assert(cols, gc.DeepEquals, fields)
