@@ -230,6 +230,9 @@ func parseCount(s string) (uint64, bool, error) {
 		return 0, true, errors.Errorf("count must not be negative, got %q", s)
 	}
 	n, err := strconv.ParseUint(s, 10, 64)
+	if errors.Is(err, strconv.ErrRange) {
+		return 0, true, errors.Errorf("count is too large, got %q", s)
+	}
 	if err != nil {
 		return 0, false, nil
 	}
