@@ -130,12 +130,9 @@ func (s *PrepareSuite) assertPrepare(c *tc.C, skipVerify bool) {
 	c.Assert(err, tc.ErrorMatches, `controller "erewhemos" already exists`)
 }
 
-// TestOpenControllerDoesNotPrepareOrRegister checks that opening a
-// controller environ neither prepares it for bootstrapping nor records
-// anything in the client store, and that the registration stage then
-// writes the expected controller, bootstrap config, account and model
-// records.
-func (s *PrepareSuite) TestOpenControllerDoesNotPrepareOrRegister(c *tc.C) {
+// Opening requires no fresh-bootstrap account credentials. Registration is
+// performed by the fresh workflow, and reopening does not change its records.
+func (s *PrepareSuite) TestOpenControllerWithoutRegistration(c *tc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"somebool":  false,
 		"name":      "erewhemos",
@@ -153,28 +150,22 @@ func (s *PrepareSuite) TestOpenControllerDoesNotPrepareOrRegister(c *tc.C) {
 		controller.APIPort:                 17777,
 		controller.SetNUMAControlPolicyKey: true,
 	}
-	preparation, err := bootstrap.OpenController(false, ctx, bootstrap.PrepareParams{
-		ControllerConfig: controllerCfg,
-		ControllerName:   cfg.Name(),
-		ModelConfig:      cfg.AllAttrs(),
-		Cloud:            testing.FakeCloudSpec(),
-		AdminSecret:      "admin-secret",
+	env, err := bootstrap.OpenController(false, ctx, environs.OpenParams{
+		ControllerUUID: controllerCfg.ControllerUUID(),
+		Config:         cfg,
+		Cloud:          testing.FakeCloudSpec(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(preparation, tc.NotNil)
-	c.Assert(preparation.Environ, tc.NotNil)
+	c.Assert(env, tc.NotNil)
 
 	// Opening the controller records nothing in the client store.
 	controllers, err := controllerStore.AllControllers()
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(controllers, tc.HasLen, 0)
 
-	// Registering the controller writes the expected records.
-	c.Assert(preparation.RegisterController(controllerStore, cfg.Name()), tc.ErrorIsNil)
-
-	// Opening an already-registered controller succeeds and rewrites
-	// nothing in the client store.
-	secondPreparation, err := bootstrap.OpenController(false, ctx, bootstrap.PrepareParams{
+	// Fresh bootstrap separately prepares the provider and registers the
+	// controller with the supplied administrator credentials.
+	_, err = bootstrap.PrepareController(false, ctx, controllerStore, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
 		ControllerName:   cfg.Name(),
 		ModelConfig:      cfg.AllAttrs(),
@@ -182,8 +173,16 @@ func (s *PrepareSuite) TestOpenControllerDoesNotPrepareOrRegister(c *tc.C) {
 		AdminSecret:      "admin-secret",
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(secondPreparation, tc.NotNil)
-	c.Assert(secondPreparation.Environ, tc.NotNil)
+
+	// Opening an already-registered controller succeeds and rewrites
+	// nothing in the client store.
+	reopened, err := bootstrap.OpenController(false, ctx, environs.OpenParams{
+		ControllerUUID: controllerCfg.ControllerUUID(),
+		Config:         cfg,
+		Cloud:          testing.FakeCloudSpec(),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(reopened, tc.NotNil)
 
 	foundController, err := controllerStore.ControllerByName(cfg.Name())
 	c.Assert(err, tc.ErrorIsNil)
@@ -210,4 +209,10 @@ func (s *PrepareSuite) TestOpenControllerDoesNotPrepareOrRegister(c *tc.C) {
 	currentModel, err := controllerStore.CurrentModel(cfg.Name())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(currentModel, tc.Equals, modelName)
+}
+
+func (s *PrepareSuite) TestOpenControllerMissingConfig(c *tc.C) {
+	_, err := bootstrap.OpenController(false, envtesting.BootstrapTestContext(c), environs.OpenParams{})
+	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorMatches, "nil model configuration not valid")
 }

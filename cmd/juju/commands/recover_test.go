@@ -395,14 +395,9 @@ func (s *recoverySuite) TestAllocationTargetFromArchive(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	wantBase, err := base.ParseBaseFromString("ubuntu@24.04/stable")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(params.BootstrapBase, tc.Equals, wantBase)
-	c.Check(params.SupportedBootstrapBases, tc.DeepEquals, []base.Base{wantBase})
-	c.Assert(params.BootstrapConstraints.Arch, tc.NotNil)
-	c.Check(*params.BootstrapConstraints.Arch, tc.Equals, nonClientArch)
-	c.Assert(params.AvailableTools, tc.HasLen, 1)
-	c.Check(params.AvailableTools[0].Version, tc.DeepEquals, semversion.Binary{
-		Number: info.AgentVersion, Release: "ubuntu", Arch: nonClientArch,
-	})
+	c.Check(params.Base, tc.Equals, wantBase)
+	c.Check(params.Arch, tc.Equals, nonClientArch)
+	c.Check(params.AgentVersion, tc.Equals, info.AgentVersion)
 }
 
 // hookedOpenFS delegates every filesystem operation, except Open, to

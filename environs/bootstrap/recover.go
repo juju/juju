@@ -5,65 +5,52 @@ package bootstrap
 
 import (
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/errors"
 	coretools "github.com/juju/juju/internal/tools"
 )
 
-// RecoveryParams holds the parameters for allocating a replacement
-// controller from a recovery archive. It embeds the ordinary bootstrap
-// parameters and adds the recovery-only inputs.
+// RecoveryParams contains only the inputs needed to allocate a replacement
+// machine. Identity restoration, agent installation and client registration
+// belong to later recovery stages.
 type RecoveryParams struct {
-	BootstrapParams
+	ControllerConfig controller.Config
+	Cloud            cloud.Cloud
+	CloudRegion      string
+	CloudCredential  *cloud.Credential
 
-	// AvailableTools is the exact archived agent set for IAAS recovery.
-	// It bypasses packaged-tool discovery and local tool building.
-	AvailableTools coretools.List
+	// AgentVersion, Base and Arch are the exact archived controller platform.
+	AgentVersion semversion.Number
+	Base         base.Base
+	Arch         string
 }
 
-// Validate validates the recovery parameters, including the shared bootstrap
-// parameters and the recovery-only combinations.
+// Validate checks the inputs for replacement machine allocation.
 func (p RecoveryParams) Validate() error {
-	// TODO(k8s): support recovering a Kubernetes controller by
-	// allocating a replacement controller namespace. Only machine
-	// clouds are recoverable for now; the guard runs before the
-	// embedded validation, whose supported machine bases are
-	// machine-only requirements.
 	if cloud.CloudIsCAAS(p.Cloud) {
 		return errors.Errorf("recovery of a Kubernetes controller %w", coreerrors.NotSupported)
 	}
-	if err := p.BootstrapParams.Validate(); err != nil {
-		return errors.Capture(err)
+	if uuid, _ := p.ControllerConfig[controller.ControllerUUIDKey].(string); uuid == "" {
+		return errors.New("controller configuration has no controller UUID")
 	}
-	if p.AgentVersion == nil {
+	if _, ok := p.ControllerConfig.CACert(); !ok {
+		return errors.New("controller configuration has no ca-cert")
+	}
+	if p.AgentVersion == (semversion.Number{}) {
 		return errors.Errorf("recovery without an agent version %w", coreerrors.NotValid)
 	}
-	if p.BuildAgent {
-		return errors.Errorf("recovery with agent building enabled %w", coreerrors.NotValid)
+	if p.Base.Empty() {
+		return errors.Errorf("recovery without a controller base %w", coreerrors.NotValid)
 	}
-	if p.BootstrapBase.Empty() {
-		return errors.Errorf("recovery without a bootstrap base %w", coreerrors.NotValid)
-	}
-	if p.BootstrapConstraints.Arch == nil {
-		return errors.Errorf("recovery without a bootstrap architecture %w", coreerrors.NotValid)
-	}
-	hasTool := false
-	for _, tool := range p.AvailableTools {
-		if tool == nil {
-			continue
-		}
-		hasTool = true
-		if tool.Version.Number != *p.AgentVersion {
-			return errors.Errorf(
-				"recovery tool version %q not matching agent version %q %w",
-				tool.Version.Number, *p.AgentVersion, coreerrors.NotValid,
-			)
-		}
-	}
-	if !hasTool {
-		return errors.Errorf("recovery without any agent tools %w", coreerrors.NotValid)
+	if !arch.IsSupportedArch(p.Arch) {
+		return errors.Errorf("recovery controller architecture %q %w", p.Arch, coreerrors.NotValid)
 	}
 	return nil
 }
@@ -87,8 +74,7 @@ func Recover(
 		return "", errors.Errorf("validating recovery parameters: %w", err)
 	}
 
-	bootstrapParams := providerBootstrapParams(args.BootstrapParams)
-	allocated, err := recoverIAAS(ctx, environ, args, bootstrapParams)
+	allocated, err := recoverIAAS(ctx, environ, args)
 	if err == nil && IsContextDone(ctx) {
 		err = Cancelled()
 	}
@@ -110,7 +96,7 @@ func Recover(
 }
 
 // recoverIAAS allocates a replacement IAAS controller instance from the
-// archive, using the exact archived agent binaries and base. It returns
+// archive, using the exact archived agent version and platform. It returns
 // the ID of the allocated instance, which is empty when the provider
 // reported no valid allocation, and reports the same ID alongside errors
 // detected after a valid allocation, so the caller can name the instance.
@@ -118,14 +104,28 @@ func recoverIAAS(
 	ctx environs.BootstrapContext,
 	environ environs.BootstrapEnviron,
 	args RecoveryParams,
-	bootstrapParams environs.BootstrapParams,
 ) (instance.Id, error) {
-	if _, err := prepareIAASBootstrap(ctx, environ, args.BootstrapParams, &bootstrapParams); err != nil {
+	prep, err := prepareMachineAllocation(ctx, environ, environs.BootstrapParams{
+		ControllerConfig:        args.ControllerConfig,
+		CloudName:               args.Cloud.Name,
+		CloudRegion:             args.CloudRegion,
+		BootstrapBase:           args.Base,
+		SupportedBootstrapBases: []base.Base{args.Base},
+		BootstrapConstraints:    constraints.Value{Arch: &args.Arch},
+	}, "", "")
+	if err != nil {
 		return "", errors.Capture(err)
 	}
-	bootstrapParams.AvailableTools = args.AvailableTools
 
-	if err := prepareProviderBootstrap(ctx, environ, args.BootstrapParams, &bootstrapParams, *args.AgentVersion); err != nil {
+	// The provider allocation API uses tools to select an image. Adapt the
+	// archived platform at that boundary; this is not an installable agent.
+	// Recovery never calls the fresh-bootstrap finaliser returned below.
+	bootstrapParams := prep.params
+	bootstrapParams.AvailableTools = coretools.List{{Version: semversion.Binary{
+		Number: args.AgentVersion, Release: args.Base.OS, Arch: args.Arch,
+	}}}
+	bootstrapParams, err = prepareProviderAllocation(ctx, environ, args.CloudCredential, bootstrapParams, args.AgentVersion)
+	if err != nil {
 		return "", errors.Capture(err)
 	}
 
@@ -156,10 +156,10 @@ func checkRecoveryBootstrapResult(
 	args RecoveryParams,
 	result *environs.BootstrapResult,
 ) error {
-	if result.Base != args.BootstrapBase {
+	if result.Base != args.Base {
 		return errors.New("replacement base differs from archived controller")
 	}
-	if result.Arch != *args.BootstrapConstraints.Arch {
+	if result.Arch != args.Arch {
 		return errors.New("replacement architecture differs from archived agent")
 	}
 	return nil

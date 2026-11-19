@@ -17,9 +17,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
-	"github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/recovery"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -27,8 +25,6 @@ import (
 	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/password"
-	"github.com/juju/juju/internal/tools"
 )
 
 // recoveryAllocationTimeout bounds provider preparation and machine allocation
@@ -72,32 +68,23 @@ func provisionRecovery(
 	defer cancel()
 	provisionCtx := environscmd.BootstrapContext(stdCtx, ctx)
 
-	adminPassword, err := password.RandomPassword()
-	if err != nil {
-		return errors.Capture(err)
-	}
-	preparation, err := bootstrap.OpenController(false, provisionCtx, bootstrap.PrepareParams{
-		ModelConfig:      modelConfig.AllAttrs(),
-		ControllerConfig: controllerConfig,
-		ControllerName:   info.ControllerName,
-		Cloud:            credentials.spec,
-		CredentialName:   credentials.credentialName,
-		AdminSecret:      adminPassword,
+	environ, err := bootstrap.OpenController(false, provisionCtx, environs.OpenParams{
+		Config:         modelConfig,
+		ControllerUUID: info.ControllerUUID,
+		Cloud:          credentials.spec,
 	})
 	if err != nil {
 		return errors.Capture(err)
 	}
-	if err := preparation.Environ.PrepareForBootstrap(provisionCtx, info.ControllerName); err != nil {
+	if err := environ.PrepareForBootstrap(provisionCtx, info.ControllerName); err != nil {
 		return errors.Capture(err)
 	}
 
 	params.Cloud = credentials.cloud
 	params.CloudRegion = credentials.spec.Region
-	params.CloudCredentialName = credentials.credentialName
 	params.CloudCredential = credentials.spec.Credential
 	params.ControllerConfig = controllerConfig
-	params.AdminSecret = adminPassword
-	started, err := bootstrap.Recover(provisionCtx, preparation.Environ, params)
+	started, err := bootstrap.Recover(provisionCtx, environ, params)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -123,25 +110,15 @@ func recoveryParamsFromArchive(info *recovery.ArchiveInfo) (bootstrap.RecoveryPa
 		return bootstrap.RecoveryParams{}, errors.Errorf("archive does not record a usable controller architecture: %q", info.SourceArch)
 	}
 	return bootstrap.RecoveryParams{
-		ControllerName:          info.ControllerName,
-		CAPrivateKey:            info.CAPrivateKey,
-		AgentVersion:            &info.AgentVersion,
-		BootstrapConstraints:    constraints.Value{Arch: &targetArch},
-		BootstrapBase:           targetBase,
-		SupportedBootstrapBases: []base.Base{targetBase},
-		// Allocation selects an image but does not download an agent, so
-		// only the binary identity is needed; URL, digest and size are unset.
-		// TODO(recovery): supply a verified agent tarball before installation.
-		AvailableTools: tools.List{{Version: semversion.Binary{
-			Number: info.AgentVersion, Release: targetBase.OS, Arch: targetArch,
-		}}},
+		AgentVersion: info.AgentVersion,
+		Base:         targetBase,
+		Arch:         targetArch,
 	}, nil
 }
 
 type recoveryTarget struct {
-	cloud          jujucloud.Cloud
-	spec           cloudspec.CloudSpec
-	credentialName string
+	cloud jujucloud.Cloud
+	spec  cloudspec.CloudSpec
 }
 
 // recoveryCredentials resolves the archived cloud against the local cloud
@@ -165,7 +142,7 @@ func recoveryCredentials(ctx *cmd.Context, store jujuclient.ClientStore, info *r
 		}
 		cloud = &finalized
 	}
-	credential, name, regionName, _, err := common.GetOrDetectCredential(
+	credential, _, regionName, _, err := common.GetOrDetectCredential(
 		ctx, store, provider, modelcmd.GetCredentialsParams{Cloud: *cloud},
 	)
 	if err != nil {
@@ -180,7 +157,7 @@ func recoveryCredentials(ctx *cmd.Context, store jujuclient.ClientStore, info *r
 		return nil, errors.Capture(err)
 	}
 	spec.IsControllerCloud = true
-	return &recoveryTarget{cloud: *cloud, spec: spec, credentialName: name}, nil
+	return &recoveryTarget{cloud: *cloud, spec: spec}, nil
 }
 
 // recoveryConfigs preserves the archived controller identity and CA so that
