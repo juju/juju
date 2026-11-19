@@ -69,7 +69,9 @@ func (s *Service) GetUnitPublicAddress(ctx context.Context, unitName unit.Name) 
 	return publicAddresses[0], nil
 }
 
-// GetUnitPublicAddresses returns all public addresses for the specified unit.
+// GetUnitPublicAddresses returns addresses in the best available public scope
+// and family for the unit, falling back to cloud-local scope. Results retain
+// the preference order established by state.
 //
 // The following errors may be returned:
 // - [applicationerrors.UnitNotFound] if the unit does not exist
@@ -79,17 +81,16 @@ func (s *Service) GetUnitPublicAddresses(ctx context.Context, unitName unit.Name
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	addrs, err := s.st.GetUnitAndK8sServiceAddresses(ctx, unitUUID)
+	addrs, err := s.st.GetUnitPublicAddresses(ctx, unitUUID.String())
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	matchedAddrs := addrs.AllMatchingScopeUnsorted(network.ScopeMatchPublic)
-	if len(matchedAddrs) == 0 {
+	if len(addrs) == 0 {
 		return nil, network.NoAddressError(string(network.ScopePublic))
 	}
 
-	return matchedAddrs, nil
+	return addrs, nil
 }
 
 // GetControllerAPIAddresses returns addresses which can be used for API

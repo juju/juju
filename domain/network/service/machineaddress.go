@@ -32,16 +32,23 @@ func (s *Service) GetMachinePublicAddress(ctx context.Context, uuid machine.UUID
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	addresses, err := s.getMachineAddresses(ctx, uuid, true)
-	if err != nil {
+	if err := uuid.Validate(); err != nil {
 		return network.SpaceAddress{}, errors.Capture(err)
 	}
 
-	addresses = addresses.AllMatchingScopeUnsorted(network.ScopeMatchPublic)
-	if len(addresses) == 0 {
+	netNodeUUID, err := s.st.GetMachineNetNodeUUID(ctx, uuid.String())
+	if err != nil {
+		return network.SpaceAddress{}, errors.Errorf("retrieving net node for machine %q: %w", uuid, err)
+	}
+
+	address, err := s.st.GetNetNodePublicAddress(ctx, netNodeUUID)
+	if err != nil {
+		return network.SpaceAddress{}, errors.Errorf("retrieving public address for net node %q: %w", netNodeUUID, err)
+	}
+	if address.Value == "" {
 		return network.SpaceAddress{}, network.NoAddressError(network.ScopePublic.String())
 	}
-	return addresses[0], nil
+	return address, nil
 }
 
 // GetMachinePrivateAddress retrieves the private address of a machine

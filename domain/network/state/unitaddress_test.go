@@ -24,7 +24,7 @@ func TestUnitAddressSuite(t *testing.T) {
 	tc.Run(t, &unitAddressSuite{})
 }
 
-func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesIncludingK8sService(c *tc.C) {
+func (s *unitAddressSuite) TestGetUnitPublicAddressesIncludingK8sService(c *tc.C) {
 	// Arrange
 	podNodeUUID := s.addNetNode(c)
 	podDeviceUUID := s.addLinkLayerDevice(c, podNodeUUID)
@@ -35,7 +35,7 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesIncludingK8sService(
 	spaceUUID := s.addSpace(c)
 	subnetUUID, cidr := s.addsubnet(c, spaceUUID)
 
-	podAddr := s.addKubernetesIPAddress(c, podNodeUUID, podDeviceUUID, subnetUUID, 3, 0)
+	s.addKubernetesIPAddress(c, podNodeUUID, podDeviceUUID, subnetUUID, 2, 0)
 	svcAddr := s.addKubernetesIPAddress(c, svcNodeUUID, svcDeviceUUID, subnetUUID, 1, 1)
 
 	charmUUID := s.addCharm(c)
@@ -44,22 +44,11 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesIncludingK8sService(
 	s.addK8sService(c, svcNodeUUID, appUUID)
 
 	// Act
-	addr, err := s.state.GetUnitAndK8sServiceAddresses(c.Context(), unitUUID)
+	addr, err := s.state.GetUnitPublicAddresses(c.Context(), unitUUID.String())
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(addr, tc.SameContents, corenetwork.SpaceAddresses{
-		{
-			SpaceID: corenetwork.SpaceUUID(spaceUUID),
-			Origin:  corenetwork.OriginMachine,
-			MachineAddress: corenetwork.MachineAddress{
-				Value:      podAddr,
-				CIDR:       cidr,
-				Type:       corenetwork.IPv4Address,
-				Scope:      corenetwork.ScopeMachineLocal,
-				ConfigType: corenetwork.ConfigDHCP,
-			},
-		},
 		{
 			SpaceID: corenetwork.SpaceUUID(spaceUUID),
 			Origin:  corenetwork.OriginProvider,
@@ -74,20 +63,20 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesIncludingK8sService(
 	})
 }
 
-func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesWithoutK8sService(c *tc.C) {
+func (s *unitAddressSuite) TestGetUnitPublicAddressesWithoutK8sService(c *tc.C) {
 	// Arrange
 	nodeUUID := s.addNetNode(c)
 	deviceUUID := s.addLinkLayerDevice(c, nodeUUID)
 	spaceUUID := s.addSpace(c)
 	subnetUUID, cidr := s.addsubnet(c, spaceUUID)
-	expectedAddr := s.addIPAddress(c, nodeUUID, deviceUUID, subnetUUID, 3, 1)
+	expectedAddr := s.addIPAddress(c, nodeUUID, deviceUUID, subnetUUID, 2, 1)
 
 	charmUUID := s.addCharm(c)
 	appUUID := s.addApplication(c, charmUUID, spaceUUID)
 	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
 
 	// Act
-	addr, err := s.state.GetUnitAndK8sServiceAddresses(c.Context(), unitUUID)
+	addr, err := s.state.GetUnitPublicAddresses(c.Context(), unitUUID.String())
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -99,14 +88,46 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesWithoutK8sService(c 
 				Value:      expectedAddr,
 				CIDR:       cidr,
 				Type:       corenetwork.IPv4Address,
-				Scope:      corenetwork.ScopeMachineLocal,
+				Scope:      corenetwork.ScopeCloudLocal,
 				ConfigType: corenetwork.ConfigDHCP,
 			},
 		},
 	})
 }
 
-func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesNoAddresses(c *tc.C) {
+// Select a single scope/family group across both net nodes, retaining all
+// matching addresses rather than selecting one group independently per node.
+func (s *unitAddressSuite) TestGetUnitPublicAddressesCombinesPodAndService(c *tc.C) {
+	podNode := s.addNetNode(c)
+	podDevice := s.addLinkLayerDevice(c, podNode)
+	svcNode := s.addNetNode(c)
+	svcDevice := s.addLinkLayerDevice(c, svcNode)
+	spaceUUID := s.addSpace(c)
+	subnetUUID, _ := s.addsubnet(c, spaceUUID)
+	s.addKubernetesIPAddress(c, podNode, podDevice, subnetUUID, 1, 0)
+	s.addKubernetesIPAddress(c, svcNode, svcDevice, subnetUUID, 1, 1)
+	s.query(c, `UPDATE ip_address SET address_value = '1.1.1.1' WHERE net_node_uuid = ?`, podNode)
+	s.query(c, `UPDATE ip_address SET address_value = '8.8.8.8' WHERE net_node_uuid = ?`, svcNode)
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, podNode)
+	s.addK8sService(c, svcNode, appUUID)
+
+	addresses, err := s.state.GetUnitPublicAddresses(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addresses.Values(), tc.DeepEquals, []string{"8.8.8.8", "1.1.1.1"})
+
+	// A public IPv6 service address must not be included alongside the
+	// preferred public IPv4 family supplied by the pod.
+	s.query(c, `
+UPDATE ip_address SET address_value = '2001:db8::1', type_id = 1
+WHERE net_node_uuid = ?`, svcNode)
+	addresses, err = s.state.GetUnitPublicAddresses(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addresses.Values(), tc.DeepEquals, []string{"1.1.1.1"})
+}
+
+func (s *unitAddressSuite) TestGetUnitPublicAddressesNoAddresses(c *tc.C) {
 	// Arrange
 	podNodeUUID := s.addNetNode(c)
 	svcNodeUUID := s.addNetNode(c)
@@ -118,17 +139,17 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesNoAddresses(c *tc.C)
 	s.addK8sService(c, svcNodeUUID, appUUID)
 
 	// Act
-	addr, err := s.state.GetUnitAndK8sServiceAddresses(c.Context(), unitUUID)
+	addr, err := s.state.GetUnitPublicAddresses(c.Context(), unitUUID.String())
 
 	//Assert
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(addr, tc.DeepEquals, corenetwork.SpaceAddresses{})
 }
 
-// TestGetUnitAndK8sServiceAddressesDefaultRouteOrdering checks that SQL
+// TestGetUnitPublicAddressesDefaultRouteOrdering checks that SQL
 // returns primary addresses on the default route device before primary
 // addresses on other devices, and secondary addresses after all primaries.
-func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesDefaultRouteOrdering(c *tc.C) {
+func (s *unitAddressSuite) TestGetUnitPublicAddressesDefaultRouteOrdering(c *tc.C) {
 	// Arrange
 	nodeUUID := s.addNetNode(c)
 	eth0UUID := s.linkLayerBaseSuite.addLinkLayerDevice(
@@ -153,7 +174,7 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesDefaultRouteOrdering
 	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
 
 	// Act
-	addrs, err := s.state.GetUnitAndK8sServiceAddresses(c.Context(), unitUUID)
+	addrs, err := s.state.GetUnitPublicAddresses(c.Context(), unitUUID.String())
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -162,7 +183,7 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesDefaultRouteOrdering
 	})
 }
 
-func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesNotFound(c *tc.C) {
+func (s *unitAddressSuite) TestGetUnitPublicAddressesNotFound(c *tc.C) {
 	// Arrange
 	svcNodeUUID := s.addNetNode(c)
 	spaceUUID := s.addSpace(c)
@@ -172,10 +193,189 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesNotFound(c *tc.C) {
 	s.addK8sService(c, svcNodeUUID, appUUID)
 
 	// Act
-	_, err := s.state.GetUnitAndK8sServiceAddresses(c.Context(), "foo")
+	_, err := s.state.GetUnitPublicAddresses(c.Context(), "foo")
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+// Both queries must preserve the scope/family fallback rules that previously
+// ran in the service, including returning the whole best group for a unit.
+func (s *unitAddressSuite) TestPublicAddressSelection(c *tc.C) {
+	nodeUUID := s.addNetNode(c)
+	defaultDevice := s.linkLayerBaseSuite.addLinkLayerDevice(
+		c, nodeUUID, "eth0", "00:11:22:33:44:55", corenetwork.EthernetDevice)
+	otherDevice := s.linkLayerBaseSuite.addLinkLayerDevice(
+		c, nodeUUID, "eth1", "00:11:22:33:44:66", corenetwork.EthernetDevice)
+	s.setDefaultGateway(c, defaultDevice, "10.1.0.1")
+	spaceUUID := s.addSpace(c)
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	// An unrelated node's public address must not affect either selection.
+	unrelatedNode := s.addNetNode(c)
+	unrelatedDevice := s.addLinkLayerDevice(c, unrelatedNode)
+	s.query(c, `
+INSERT INTO ip_address (
+    uuid, net_node_uuid, device_uuid, address_value, type_id, scope_id,
+    origin_id, config_type_id
+) VALUES (?, ?, ?, '9.9.9.9', 0, 1, 1, 0)`,
+		uuid.MustNewUUID().String(), unrelatedNode, unrelatedDevice)
+
+	type candidate struct {
+		value        string
+		scope        corenetwork.Scope
+		provider     bool
+		secondary    bool
+		defaultRoute bool
+	}
+	for _, test := range []struct {
+		name       string
+		candidates []candidate
+		expected   []string
+	}{
+		{
+			name: "no addresses",
+		}, {
+			name: "only unusable addresses",
+			candidates: []candidate{
+				{value: "127.0.0.1", scope: corenetwork.ScopeMachineLocal},
+				{value: "169.254.1.1", scope: corenetwork.ScopeLinkLocal},
+			},
+		}, {
+			name: "public scope and IPv4 family",
+			candidates: []candidate{
+				{value: "8.8.8.8", scope: corenetwork.ScopePublic},
+				{value: "1.1.1.1", scope: corenetwork.ScopePublic},
+				{value: "2001:db8::1", scope: corenetwork.ScopePublic},
+				{value: "10.0.0.1", scope: corenetwork.ScopeCloudLocal, defaultRoute: true},
+				{value: "127.0.0.1", scope: corenetwork.ScopeMachineLocal},
+			},
+			expected: []string{"1.1.1.1", "8.8.8.8"},
+		}, {
+			name: "public IPv6 precedes cloud-local IPv4",
+			candidates: []candidate{
+				{value: "2001:db8::2", scope: corenetwork.ScopePublic, defaultRoute: true},
+				{value: "2001:db8::1", scope: corenetwork.ScopePublic},
+				{value: "10.0.0.1", scope: corenetwork.ScopeCloudLocal, defaultRoute: true},
+			},
+			expected: []string{"2001:db8::1", "2001:db8::2"},
+		}, {
+			name: "cloud-local IPv4 fallback",
+			candidates: []candidate{
+				{value: "10.0.0.2", scope: corenetwork.ScopeCloudLocal},
+				{value: "10.0.0.1", scope: corenetwork.ScopeCloudLocal},
+				{value: "fd00::1", scope: corenetwork.ScopeCloudLocal},
+				{value: "1.1.1.1", scope: corenetwork.ScopeUnknown},
+				{value: "169.254.1.1", scope: corenetwork.ScopeLinkLocal},
+			},
+			expected: []string{"10.0.0.1", "10.0.0.2"},
+		}, {
+			name: "cloud-local IPv6 precedes unknown IPv4",
+			candidates: []candidate{
+				{value: "fd00::2", scope: corenetwork.ScopeCloudLocal, defaultRoute: true},
+				{value: "fd00::1", scope: corenetwork.ScopeCloudLocal},
+				{value: "1.1.1.1", scope: corenetwork.ScopeUnknown},
+			},
+			expected: []string{"fd00::1", "fd00::2"},
+		}, {
+			name: "unknown IPv4 scope is excluded",
+			candidates: []candidate{
+				{value: "8.8.8.8", scope: corenetwork.ScopeUnknown},
+				{value: "1.1.1.1", scope: corenetwork.ScopeUnknown},
+				{value: "2001:db8::1", scope: corenetwork.ScopeUnknown},
+				{value: "127.0.0.1", scope: corenetwork.ScopeMachineLocal},
+			},
+		}, {
+			name: "unknown IPv6 scope is excluded",
+			candidates: []candidate{
+				{value: "2001:db8::2", scope: corenetwork.ScopeUnknown},
+				{value: "2001:db8::1", scope: corenetwork.ScopeUnknown},
+			},
+		}, {
+			name: "default route precedes origin and value",
+			candidates: []candidate{
+				{value: "8.8.8.8", scope: corenetwork.ScopePublic, defaultRoute: true},
+				{value: "1.1.1.1", scope: corenetwork.ScopePublic, provider: true},
+			},
+			expected: []string{"8.8.8.8", "1.1.1.1"},
+		}, {
+			name: "primary precedes secondary on default device",
+			candidates: []candidate{
+				{value: "1.1.1.1", scope: corenetwork.ScopePublic, secondary: true, defaultRoute: true},
+				{value: "8.8.8.8", scope: corenetwork.ScopePublic},
+			},
+			expected: []string{"8.8.8.8", "1.1.1.1"},
+		}, {
+			name: "secondary addresses ignore default device",
+			candidates: []candidate{
+				{value: "8.8.8.8", scope: corenetwork.ScopePublic, secondary: true, defaultRoute: true},
+				{value: "1.1.1.1", scope: corenetwork.ScopePublic, secondary: true},
+			},
+			expected: []string{"1.1.1.1", "8.8.8.8"},
+		}, {
+			name: "scope precedes primary status",
+			candidates: []candidate{
+				{value: "8.8.8.8", scope: corenetwork.ScopePublic, secondary: true},
+				{value: "10.0.0.1", scope: corenetwork.ScopeCloudLocal, defaultRoute: true},
+			},
+			expected: []string{"8.8.8.8"},
+		}, {
+			name: "provider origin precedes value",
+			candidates: []candidate{
+				{value: "8.8.8.8", scope: corenetwork.ScopePublic, provider: true},
+				{value: "1.1.1.1", scope: corenetwork.ScopePublic},
+			},
+			expected: []string{"8.8.8.8", "1.1.1.1"},
+		},
+	} {
+		c.Logf("%s", test.name)
+		s.query(c, `DELETE FROM ip_address WHERE net_node_uuid = ?`, nodeUUID)
+		var allValues []string
+		for _, addr := range test.candidates {
+			deviceUUID := otherDevice
+			if addr.defaultRoute {
+				deviceUUID = defaultDevice
+			}
+			typeID := 0
+			if corenetwork.NewMachineAddress(addr.value).Type == corenetwork.IPv6Address {
+				typeID = 1
+			}
+			scope := addr.scope.String()
+			if addr.scope == corenetwork.ScopeUnknown {
+				// The database uses "unknown", which the existing address
+				// decoder does not map to the core empty-string scope.
+				scope = "unknown"
+			}
+			s.query(c, `
+INSERT INTO ip_address (
+    uuid, net_node_uuid, device_uuid, address_value, type_id, scope_id,
+    origin_id, config_type_id, is_secondary
+)
+SELECT ?, ?, ?, ?, ?, scope.id, ?, 0, ?
+FROM ip_address_scope AS scope
+WHERE scope.name = ?`, uuid.MustNewUUID().String(), nodeUUID, deviceUUID,
+				addr.value, typeID, addr.provider, addr.secondary, scope)
+			allValues = append(allValues, addr.value)
+		}
+
+		addresses, err := s.state.GetUnitPublicAddresses(c.Context(), unitUUID.String())
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(addresses.Values(), tc.DeepEquals, test.expected)
+		address, err := s.state.GetNetNodePublicAddress(c.Context(), nodeUUID)
+		c.Assert(err, tc.ErrorIsNil)
+		if len(test.expected) == 0 {
+			c.Check(address, tc.DeepEquals, corenetwork.SpaceAddress{})
+		} else {
+			c.Check(address.Value, tc.Equals, test.expected[0])
+		}
+
+		// SSH's all-address query must retain every scope and family.
+		all, err := s.state.GetNetNodeAddresses(c.Context(), nodeUUID, true)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(all.Values(), tc.SameContents, allValues)
+	}
 }
 
 func (s *unitAddressSuite) TestGetControllerAPIAddressesReturnsDeviceTypes(c *tc.C) {

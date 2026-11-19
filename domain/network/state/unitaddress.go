@@ -18,29 +18,27 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// GetUnitAndK8sServiceAddresses returns the addresses of the specified unit.
-// The addresses are taken from the union the net node UUIDs of the cloud service
-// (if any) and the net node UUIDs of the unit, where each net node has an
-// associated address.
-// This approach allows us to get the addresses regardless of the substrate
-// (k8s or machines).
+// GetUnitPublicAddresses returns addresses from the unit's net node and its
+// Kubernetes service's net node (if any).
 //
-// Addresses are ordered by public scope, address type, primary status,
-// default route device (for primary IPv4 addresses), origin and value. If
-// several devices carry a default route, or a device has several primary
-// addresses, origin and value decide between them because no route metric is
-// stored.
+// Only addresses in the best available scope and family are returned: public,
+// then cloud-local, preferring IPv4 within each scope. Other scopes are excluded.
+// Addresses are ordered by primary status, default route device (for primary
+// IPv4 addresses), origin and value. If several devices carry a default route,
+// or a device has several primary addresses, origin and value decide between
+// them because no route metric is stored.
 //
 // The following errors may be returned:
-// - [uniterrors.UnitNotFound] if the unit does not exist
-func (st *State) GetUnitAndK8sServiceAddresses(ctx context.Context, uuid coreunit.UUID) (corenetwork.SpaceAddresses, error) {
+// - [applicationerrors.UnitNotFound] if the unit does not exist.
+// - [applicationerrors.UnitIsDead] if the unit is dead.
+func (st *State) GetUnitPublicAddresses(ctx context.Context, uuid string) (corenetwork.SpaceAddresses, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	var address []SpaceAddress
-	ident := entityUUID{UUID: uuid.String()}
+	ident := entityUUID{UUID: uuid}
 	queryUnitPublicAddressesStmt, err := st.Prepare(`
 WITH unit_net_node AS (
     SELECT ks.net_node_uuid AS net_node_uuid
@@ -51,13 +49,22 @@ WITH unit_net_node AS (
     SELECT u.net_node_uuid AS net_node_uuid
     FROM   unit AS u
     WHERE  u.uuid = $entityUUID.uuid
+), candidate AS (
+    SELECT ipa.*
+    FROM   unit_net_node AS unn
+    JOIN   v_ip_address_selection AS ipa ON unn.net_node_uuid = ipa.net_node_uuid
+    WHERE  ipa.scope_id IN (1 /* public */, 2 /* local-cloud */)
+), best_scope AS (
+    SELECT c.scope_rank AS scope_rank, c.type_id AS type_id
+    FROM   candidate AS c
+    ORDER BY c.scope_rank, c.type_id
+    LIMIT 1
 )
 SELECT &SpaceAddress.*
-FROM   unit_net_node AS unn
-JOIN   v_ip_address_selection AS ipa ON unn.net_node_uuid = ipa.net_node_uuid
+FROM   candidate AS ipa
+JOIN   best_scope AS best ON ipa.scope_rank = best.scope_rank
+                        AND ipa.type_id = best.type_id
 ORDER BY
-    ipa.scope_rank,
-    ipa.type_id,
     ipa.is_secondary,
     ipa.default_route_rank,
     ipa.origin_rank,
@@ -74,7 +81,7 @@ ORDER BY
 		}
 		err := tx.Query(ctx, queryUnitPublicAddressesStmt, ident).GetAll(&address)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("querying addresses for unit %q (and it's services): %w", uuid, err)
+			return errors.Errorf("querying unit public addresses: %w", err)
 		}
 		return nil
 	})

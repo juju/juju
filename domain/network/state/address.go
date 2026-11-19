@@ -64,3 +64,53 @@ ORDER BY
 	}
 	return encodeIPAddresses(address)
 }
+
+// GetNetNodePublicAddress returns the preferred public address of a net node,
+// falling back to cloud-local scope. Within each scope, IPv4 precedes IPv6,
+// primary addresses precede secondary addresses, and primary IPv4 addresses on
+// the default-route device are preferred. Origin and value break ties. Other
+// scopes are excluded.
+//
+// If no suitable address exists, it returns a zero address and no error.
+func (st *State) GetNetNodePublicAddress(ctx context.Context, nodeUUID string) (corenetwork.SpaceAddress, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return corenetwork.SpaceAddress{}, errors.Capture(err)
+	}
+
+	ident := entityUUID{UUID: nodeUUID}
+	stmt, err := st.Prepare(`
+SELECT &SpaceAddress.*
+FROM   v_ip_address_selection AS ipa
+WHERE  ipa.net_node_uuid = $entityUUID.uuid
+AND    ipa.scope_id IN (1 /* public */, 2 /* local-cloud */)
+ORDER BY
+    ipa.scope_rank,
+    ipa.type_id,
+    ipa.is_secondary,
+    ipa.default_route_rank,
+    ipa.origin_rank,
+    ipa.address_value
+LIMIT 1
+`, SpaceAddress{}, entityUUID{})
+	if err != nil {
+		return corenetwork.SpaceAddress{}, errors.Capture(err)
+	}
+
+	var address SpaceAddress
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		address = SpaceAddress{}
+		err := tx.Query(ctx, stmt, ident).Get(&address)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying public address: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return corenetwork.SpaceAddress{}, errors.Capture(err)
+	}
+	if address.Value == "" {
+		return corenetwork.SpaceAddress{}, nil
+	}
+	return encodeIPAddress(address)
+}
