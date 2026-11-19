@@ -84,7 +84,7 @@ func (s *Service) GetUnitPublicAddresses(ctx context.Context, unitName unit.Name
 		return nil, errors.Capture(err)
 	}
 
-	matchedAddrs := addrs.AllMatchingScope(network.ScopeMatchPublic)
+	matchedAddrs := addrs.AllMatchingScopeUnsorted(network.ScopeMatchPublic)
 	if len(matchedAddrs) == 0 {
 		return nil, network.NoAddressError(string(network.ScopePublic))
 	}

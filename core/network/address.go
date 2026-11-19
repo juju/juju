@@ -721,6 +721,12 @@ func (sas SpaceAddresses) OneMatchingScope(getMatcher ScopeMatchFunc) (SpaceAddr
 	return addrs[0], true
 }
 
+// AllMatchingScopeUnsorted returns the addresses that satisfy the input scope
+// matching function, in their input order.
+func (sas SpaceAddresses) AllMatchingScopeUnsorted(getMatcher ScopeMatchFunc) SpaceAddresses {
+	return allMatchingScope(sas, getMatcher)
+}
+
 // AllMatchingScope returns the addresses that satisfy the input scope
 // matching function. Matches are sorted to keep selection deterministic,
 // so that callers can use the first address in a predictable way.

@@ -138,8 +138,11 @@ type NetConfigState interface {
 	GetUnitAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error)
 
 	// GetNetNodeAddresses retrieves network space addresses associated with the
-	// given net node UUID. Returns an error if failed.
-	GetNetNodeAddresses(ctx context.Context, netNodeUUID string) (network.SpaceAddresses, error)
+	// given net node UUID. When preferDefaultRoute is true, primary addresses
+	// on the default route device are preferred within their scope and type.
+	GetNetNodeAddresses(
+		ctx context.Context, netNodeUUID string, preferDefaultRoute bool,
+	) (network.SpaceAddresses, error)
 
 	// GetControllerUnitUUIDByName returns the UUID for the named unit if it
 	// is a unit of the controller application.

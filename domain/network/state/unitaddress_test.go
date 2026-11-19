@@ -125,6 +125,43 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesNoAddresses(c *tc.C)
 	c.Assert(addr, tc.DeepEquals, corenetwork.SpaceAddresses{})
 }
 
+// TestGetUnitAndK8sServiceAddressesDefaultRouteOrdering checks that SQL
+// returns primary addresses on the default route device before primary
+// addresses on other devices, and secondary addresses after all primaries.
+func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesDefaultRouteOrdering(c *tc.C) {
+	// Arrange
+	nodeUUID := s.addNetNode(c)
+	eth0UUID := s.linkLayerBaseSuite.addLinkLayerDevice(
+		c, nodeUUID, "eth0", "00:11:22:33:44:55", corenetwork.EthernetDevice)
+	eth1UUID := s.linkLayerBaseSuite.addLinkLayerDevice(
+		c, nodeUUID, "eth1", "00:11:22:33:44:66", corenetwork.EthernetDevice)
+	s.setDefaultGateway(c, eth0UUID, "10.1.0.1")
+
+	spaceUUID := s.addSpace(c)
+	eth0SubnetUUID := s.addSubnet(c, "10.1.0.0/24", spaceUUID)
+	eth1SubnetUUID := s.addSubnet(c, "10.0.0.0/24", spaceUUID)
+	s.addIPAddressWithSubnetAndScope(c, eth0UUID, nodeUUID, eth0SubnetUUID,
+		"10.1.0.123", corenetwork.ScopeCloudLocal)
+	secondaryUUID := s.addIPAddressWithSubnetAndScope(c, eth0UUID, nodeUUID,
+		eth0SubnetUUID, "10.1.0.124", corenetwork.ScopeCloudLocal)
+	s.query(c, `UPDATE ip_address SET is_secondary = true WHERE uuid = ?`, secondaryUUID)
+	s.addIPAddressWithSubnetAndScope(c, eth1UUID, nodeUUID, eth1SubnetUUID,
+		"10.0.0.123", corenetwork.ScopeCloudLocal)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	// Act
+	addrs, err := s.state.GetUnitAndK8sServiceAddresses(c.Context(), unitUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addrs.Values(), tc.DeepEquals, []string{
+		"10.1.0.123", "10.0.0.123", "10.1.0.124",
+	})
+}
+
 func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesNotFound(c *tc.C) {
 	// Arrange
 	svcNodeUUID := s.addNetNode(c)

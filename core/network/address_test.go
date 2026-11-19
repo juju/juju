@@ -833,6 +833,46 @@ func (*AddressSuite) TestExactScopeMatch(c *tc.C) {
 	c.Assert(match, tc.IsTrue)
 }
 
+// TestAllMatchingScopeUnsortedSelectsBestScope checks that the unsorted scope
+// match returns only the best scope tier and leaves the input order unchanged.
+func (s *AddressSuite) TestAllMatchingScopeUnsortedSelectsBestScope(c *tc.C) {
+	// Arrange
+	public1 := network.NewSpaceAddress("8.8.8.8")
+	public2 := network.NewSpaceAddress("1.1.1.1")
+	addrs := network.SpaceAddresses{
+		network.NewSpaceAddress("10.0.0.1"),
+		public1,
+		network.NewSpaceAddress("127.0.0.1"),
+		public2,
+	}
+
+	// Act
+	matched := addrs.AllMatchingScopeUnsorted(network.ScopeMatchPublic)
+
+	// Assert
+	c.Check(matched, tc.DeepEquals, network.SpaceAddresses{public1, public2})
+}
+
+// TestAllMatchingScopeUnsortedPreservesInputOrder checks that cloud-local
+// fallback matches stay in database order rather than being sorted by value.
+func (s *AddressSuite) TestAllMatchingScopeUnsortedPreservesInputOrder(c *tc.C) {
+	// Arrange
+	defaultRoute := network.NewSpaceAddress("10.1.0.123")
+	other := network.NewSpaceAddress("10.0.0.123")
+	addrs := network.SpaceAddresses{
+		defaultRoute,
+		network.NewSpaceAddress("127.0.0.1"),
+		other,
+		network.NewSpaceAddress("169.254.1.1"),
+	}
+
+	// Act
+	matched := addrs.AllMatchingScopeUnsorted(network.ScopeMatchPublic)
+
+	// Assert
+	c.Check(matched, tc.DeepEquals, network.SpaceAddresses{defaultRoute, other})
+}
+
 func (s *AddressSuite) TestSelectAddressesBySpaceNamesFiltered(c *tc.C) {
 	sp := network.SpaceInfo{
 		ID:         "666",

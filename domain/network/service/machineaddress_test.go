@@ -75,7 +75,7 @@ func (s *machineaddressSuite) TestGetMachineAddressesErrorGettingAddresses(c *tc
 		Return(netNodeUUID, nil)
 
 	// Expect a call to GetNetNodeAddresses and return an error
-	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
+	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID, true).
 		Return(nil, expectedError)
 
 	// Call the function and check the error
@@ -101,7 +101,7 @@ func (s *machineaddressSuite) TestGetMachineAddressesSuccess(c *tc.C) {
 		Return(netNodeUUID, nil)
 
 	// Expect a call to GetNetNodeAddresses and return the addresses
-	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
+	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID, true).
 		Return(expectedAddresses, nil)
 
 	// Call the function and check the result
@@ -150,7 +150,7 @@ func (s *machineaddressSuite) TestGetMachinePublicAddressErrorGettingAddresses(c
 		Return(netNodeUUID, nil)
 
 	// Expect a call to GetNetNodeAddresses and return an error
-	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
+	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID, true).
 		Return(nil, expectedError)
 
 	// Call the function and check the error
@@ -175,7 +175,7 @@ func (s *machineaddressSuite) TestGetMachinePublicAddressNoPublicAddress(c *tc.C
 		Return(netNodeUUID, nil)
 
 	// Expect a call to GetNetNodeAddresses and return the addresses
-	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
+	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID, true).
 		Return(addresses, nil)
 
 	// Call the function and check the error
@@ -202,7 +202,7 @@ func (s *machineaddressSuite) TestGetMachinePublicAddressSuccess(c *tc.C) {
 		Return(netNodeUUID, nil)
 
 	// Expect a call to GetNetNodeAddresses and return the addresses
-	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
+	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID, true).
 		Return(addresses, nil)
 
 	// Call the function and check the result
@@ -251,7 +251,7 @@ func (s *machineaddressSuite) TestGetMachinePrivateAddressErrorGettingAddresses(
 		Return(netNodeUUID, nil)
 
 	// Expect a call to GetNetNodeAddresses and return an error
-	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
+	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID, false).
 		Return(nil, expectedError)
 
 	// Call the function and check the error
@@ -276,7 +276,7 @@ func (s *machineaddressSuite) TestGetMachinePrivateAddressNoPrivateAddress(c *tc
 		Return(netNodeUUID, nil)
 
 	// Expect a call to GetNetNodeAddresses and return the addresses
-	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
+	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID, false).
 		Return(addresses, nil)
 
 	// Call the function and check the error
@@ -303,7 +303,7 @@ func (s *machineaddressSuite) TestGetMachinePrivateAddressSuccess(c *tc.C) {
 		Return(netNodeUUID, nil)
 
 	// Expect a call to GetNetNodeAddresses and return the addresses
-	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
+	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID, false).
 		Return(addresses, nil)
 
 	// Call the function and check the result
@@ -325,7 +325,7 @@ func (s *machineaddressSuite) TestGetMachinePrivateAddressSortsMatches(c *tc.C) 
 
 	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
 		Return(netNodeUUID, nil)
-	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
+	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID, false).
 		Return(addresses, nil)
 
 	address, err := NewService(s.st, nil).GetMachinePrivateAddress(c.Context(), machineUUID)
@@ -343,21 +343,21 @@ func (s *machineaddressSuite) TestGetMachinePublicAddressSortsMatches(c *tc.C) {
 	machineUUID := machinetesting.GenUUID(c)
 	netNodeUUID := "net-node-456"
 
-	// Place the lexicographically larger address first to confirm sorting.
+	// State returns public addresses in value order.
 	addresses := network.SpaceAddresses{
-		network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic)),
 		network.NewSpaceAddress("1.1.1.1", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic)),
 	}
 
 	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
 		Return(netNodeUUID, nil)
-	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
+	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID, true).
 		Return(addresses, nil)
 
 	address, err := NewService(s.st, nil).GetMachinePublicAddress(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	// "1.1.1.1" sorts before "8.8.8.8", so it must always be returned first.
-	c.Check(address, tc.DeepEquals, addresses[1])
+	c.Check(address, tc.DeepEquals, addresses[0])
 }
 
 func (s *machineaddressSuite) TestGetMachinePublicAddressPrioritizeScope(c *tc.C) {
@@ -366,20 +366,73 @@ func (s *machineaddressSuite) TestGetMachinePublicAddressPrioritizeScope(c *tc.C
 	machineUUID := machinetesting.GenUUID(c)
 	netNodeUUID := "net-node-456"
 
-	// Place the lexicographically larger and internal addresses first to confirm sorting.
+	// State orders public addresses before machine-local addresses and by value.
 	addresses := network.SpaceAddresses{
+		network.NewSpaceAddress("2.2.2.2", network.WithScope(network.ScopePublic)),
 		network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic)),
 		network.NewSpaceAddress("1.1.1.1", network.WithScope(network.ScopeMachineLocal)),
-		network.NewSpaceAddress("2.2.2.2", network.WithScope(network.ScopePublic)),
 	}
 
 	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
 		Return(netNodeUUID, nil)
-	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
+	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID, true).
 		Return(addresses, nil)
 
 	address, err := NewService(s.st, nil).GetMachinePublicAddress(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	// "2.2.2.2" sorts before "8.8.8.8", and "1.1.1.1" is not public.
-	c.Check(address, tc.DeepEquals, addresses[2])
+	c.Check(address, tc.DeepEquals, addresses[0])
+}
+
+// TestGetMachinePublicAddressPreservesStateOrder checks that public selection
+// keeps the default-route preference established by the state query.
+func (s *machineaddressSuite) TestGetMachinePublicAddressPreservesStateOrder(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	machineUUID := machinetesting.GenUUID(c)
+	netNodeUUID := "net-node-456"
+	addresses := network.SpaceAddresses{
+		network.NewSpaceAddress("10.1.0.123", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("10.0.0.123", network.WithScope(network.ScopeCloudLocal)),
+	}
+
+	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
+		Return(netNodeUUID, nil)
+	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID, true).
+		Return(addresses, nil)
+
+	// Act
+	address, err := NewService(s.st, nil).GetMachinePublicAddress(c.Context(), machineUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(address.Value, tc.Equals, "10.1.0.123")
+}
+
+// TestGetMachinePrivateAddressDoesNotPreferDefaultRouteSource checks that the
+// private path keeps the original value ordering and does not use the
+// default-route preference used for public and all-address selection.
+func (s *machineaddressSuite) TestGetMachinePrivateAddressDoesNotPreferDefaultRouteSource(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	machineUUID := machinetesting.GenUUID(c)
+	netNodeUUID := "net-node-456"
+	addresses := network.SpaceAddresses{
+		network.NewSpaceAddress("10.1.0.123", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("10.0.0.123", network.WithScope(network.ScopeCloudLocal)),
+	}
+
+	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
+		Return(netNodeUUID, nil)
+	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID, false).
+		Return(addresses, nil)
+
+	// Act
+	address, err := NewService(s.st, nil).GetMachinePrivateAddress(c.Context(), machineUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(address.Value, tc.Equals, "10.0.0.123")
 }

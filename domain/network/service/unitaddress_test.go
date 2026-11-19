@@ -153,8 +153,7 @@ func (s *unitAddressSuite) TestGetPublicAddressMatchingAddress(c *tc.C) {
 
 	addr, err := s.service(c).GetUnitPublicAddress(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
-	// Since the second address is higher in hierarchy of scope match, it should
-	// be returned.
+	// The provider-origin address should be returned.
 	c.Check(addr, tc.DeepEquals, matchingScopeAddrs[1])
 }
 
@@ -201,8 +200,7 @@ func (s *unitAddressSuite) TestGetPublicAddressMatchingAddressSameOrigin(c *tc.C
 
 	addr, err := s.service(c).GetUnitPublicAddress(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
-	// Since the second address is higher in hierarchy of scope match, it should
-	// be returned.
+	// The provider-origin address should be returned.
 	c.Check(addr, tc.DeepEquals, matchingScopeAddrs[1])
 }
 
@@ -224,9 +222,9 @@ func (s *unitAddressSuite) TestGetPublicAddressMatchingAddressOneProviderOnly(c 
 		},
 		{
 			SpaceID: network.AlphaSpaceId,
-			Origin:  network.OriginMachine,
+			Origin:  network.OriginProvider,
 			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.2",
+				Value:      "54.32.1.3",
 				ConfigType: network.ConfigDHCP,
 				Type:       network.IPv4Address,
 				Scope:      network.ScopePublic,
@@ -234,9 +232,9 @@ func (s *unitAddressSuite) TestGetPublicAddressMatchingAddressOneProviderOnly(c 
 		},
 		{
 			SpaceID: network.AlphaSpaceId,
-			Origin:  network.OriginProvider,
+			Origin:  network.OriginMachine,
 			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.3",
+				Value:      "54.32.1.2",
 				ConfigType: network.ConfigDHCP,
 				Type:       network.IPv4Address,
 				Scope:      network.ScopePublic,
@@ -249,9 +247,8 @@ func (s *unitAddressSuite) TestGetPublicAddressMatchingAddressOneProviderOnly(c 
 
 	addr, err := s.service(c).GetUnitPublicAddress(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
-	// Since the second address is higher in hierarchy of scope match, it should
-	// be returned.
-	c.Check(addr, tc.DeepEquals, matchingScopeAddrs[2])
+	// The provider-origin address should be returned.
+	c.Check(addr, tc.DeepEquals, matchingScopeAddrs[1])
 }
 
 func (s *unitAddressSuite) TestGetPublicAddressMatchingAddressOneProviderOtherUnknown(c *tc.C) {
@@ -272,9 +269,9 @@ func (s *unitAddressSuite) TestGetPublicAddressMatchingAddressOneProviderOtherUn
 		},
 		{
 			SpaceID: network.AlphaSpaceId,
-			Origin:  network.OriginUnknown,
+			Origin:  network.OriginProvider,
 			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.2",
+				Value:      "54.32.1.3",
 				ConfigType: network.ConfigDHCP,
 				Type:       network.IPv4Address,
 				Scope:      network.ScopePublic,
@@ -282,9 +279,9 @@ func (s *unitAddressSuite) TestGetPublicAddressMatchingAddressOneProviderOtherUn
 		},
 		{
 			SpaceID: network.AlphaSpaceId,
-			Origin:  network.OriginProvider,
+			Origin:  network.OriginUnknown,
 			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.3",
+				Value:      "54.32.1.2",
 				ConfigType: network.ConfigDHCP,
 				Type:       network.IPv4Address,
 				Scope:      network.ScopePublic,
@@ -297,9 +294,8 @@ func (s *unitAddressSuite) TestGetPublicAddressMatchingAddressOneProviderOtherUn
 
 	addr, err := s.service(c).GetUnitPublicAddress(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
-	// Since the second address is higher in hierarchy of scope match, it should
-	// be returned.
-	c.Check(addr, tc.DeepEquals, matchingScopeAddrs[2])
+	// The provider-origin address should be returned.
+	c.Check(addr, tc.DeepEquals, matchingScopeAddrs[1])
 }
 
 func (s *unitAddressSuite) TestGetPublicAddresses(c *tc.C) {
@@ -407,6 +403,32 @@ func (s *unitAddressSuite) TestGetPublicAddressesCloudLocal(c *tc.C) {
 	// The two cloud-local addresses should be returned because there are no
 	// public ones.
 	c.Check(addrs, tc.DeepEquals, unitAddresses[0:2])
+}
+
+// TestGetPublicAddressesPreservesStateOrder checks that the service keeps the
+// default-route preference established by the state query instead of sorting
+// the addresses again by value.
+func (s *unitAddressSuite) TestGetPublicAddressesPreservesStateOrder(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	unitName := unit.Name("foo/0")
+	unitAddresses := network.SpaceAddresses{
+		network.NewSpaceAddress("10.1.0.123", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("10.0.0.123", network.WithScope(network.ScopeCloudLocal)),
+	}
+
+	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
+	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(unitAddresses, nil)
+
+	// Act
+	addrs, err := s.service(c).GetUnitPublicAddresses(c.Context(), unitName)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addrs.Values(), tc.DeepEquals, []string{
+		"10.1.0.123", "10.0.0.123",
+	})
 }
 
 func (s *unitAddressSuite) TestGetPublicAddressesNoAddresses(c *tc.C) {
@@ -692,8 +714,7 @@ func (s *unitAddressSuite) TestGetPrivateAddressMatchingAddress(c *tc.C) {
 
 	addrs, err := s.service(c).GetUnitPrivateAddress(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
-	// Since the second address is higher in hierarchy of scope match, it should
-	// be returned.
+	// The provider-origin address should be returned.
 	c.Check(addrs, tc.DeepEquals, matchingScopeAddrs[1])
 }
 
