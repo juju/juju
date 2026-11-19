@@ -5,6 +5,8 @@ package commands
 
 import (
 	"context"
+	"os"
+	"os/signal"
 	"time"
 
 	"github.com/juju/juju/api/jujuclient"
@@ -62,7 +64,11 @@ func provisionRecovery(
 		return errors.Capture(err)
 	}
 
-	stdCtx, cancel := context.WithTimeout(ctx, recoveryAllocationTimeout)
+	// Let allocation unwind on Ctrl-C so it can report an instance that
+	// may need manual removal.
+	interruptCtx, stop := signal.NotifyContext(ctx, os.Interrupt)
+	defer stop()
+	stdCtx, cancel := context.WithTimeout(interruptCtx, recoveryAllocationTimeout)
 	defer cancel()
 	provisionCtx := environscmd.BootstrapContext(stdCtx, ctx)
 
