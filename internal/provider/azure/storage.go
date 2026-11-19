@@ -27,6 +27,8 @@ const (
 	accountTypeStandardLRS    = "Standard_LRS"
 	accountTypePremiumLRS     = "Premium_LRS"
 	accountTypeStandardSSDLRS = "StandardSSD_LRS"
+	accountTypePremiumZRS     = "Premium_ZRS"
+	accountTypeStandardSSDZRS = "StandardSSD_ZRS"
 
 	// volumeSizeMaxGiB is the maximum disk size (in gibibytes) for Azure disks.
 	//
@@ -59,6 +61,8 @@ var azureStorageConfigFields = schema.Fields{
 		schema.Const(accountTypeStandardLRS),
 		schema.Const(accountTypeStandardSSDLRS),
 		schema.Const(accountTypePremiumLRS),
+		schema.Const(accountTypePremiumZRS),
+		schema.Const(accountTypeStandardSSDZRS),
 	),
 }
 

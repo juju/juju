@@ -295,6 +295,14 @@ In addition to generic storage providers, Microsoft Azure provides the following
   - `Standard_LRS`: Standard HDD
   - `StandardSSD_LRS`: Standard SSD — default (associated with pool `azure`)
   - `Premium_LRS`: Premium SSD (associated with pool `azure-premium`)
+  - `StandardSSD_ZRS`: Zone-redundant Standard SSD (only available in regions that support availability zones)
+  - `Premium_ZRS`: Zone-redundant Premium SSD (only available in regions that support availability zones)
+
+  To use a disk type without a predefined pool (such as `Standard_LRS`, `StandardSSD_ZRS`, or `Premium_ZRS`), create a custom storage pool:
+
+  ```text
+  juju create-storage-pool azure-zrs azure account-type=StandardSSD_ZRS
+  ```
 
 ```{ibnote}
 See more: [Azure Managed Disks Overview](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/managed-disks-overview)
