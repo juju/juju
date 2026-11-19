@@ -94,11 +94,7 @@ func (r *applicationRunner) loop() error {
 		return nil
 	}
 
-	err = r.startScriptlet(ctx, application)
-	if internalerrors.Is(err, applicationerrors.ApplicationNotFound) {
-		log.Infof(ctx, "scriptlet application %q was removed, stopping runner", applicationUUID)
-		return nil
-	} else if err != nil {
+	if err := r.startScriptlet(ctx, application); err != nil {
 		return internalerrors.Capture(err)
 	}
 
@@ -127,10 +123,7 @@ func (r *applicationRunner) loop() error {
 			if err := worker.Stop(r.eventWatcher); err != nil {
 				return internalerrors.Errorf("stopping scriptlet events for application %q: %w", applicationUUID, err)
 			}
-			if err := r.startScriptlet(ctx, application); internalerrors.Is(err, applicationerrors.ApplicationNotFound) {
-				log.Infof(ctx, "scriptlet application %q was removed, stopping runner", applicationUUID)
-				return nil
-			} else if err != nil {
+			if err := r.startScriptlet(ctx, application); err != nil {
 				return internalerrors.Capture(err)
 			}
 
@@ -197,6 +190,7 @@ func (r *applicationRunner) startScriptlet(
 	if err != nil {
 		return internalerrors.Errorf("watching scriptlet events for application %q: %w", applicationUUID, err)
 	}
+
 	if err := r.catacomb.Add(eventWatcher); err != nil {
 		return internalerrors.Capture(err)
 	}
