@@ -538,6 +538,7 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASResultChecks(c *tc.C) {
 	tests := []struct {
 		name   string
 		result *environs.BootstrapResult
+		wantID instance.Id
 		err    string
 	}{{
 		name: "no replacement instance reported",
@@ -557,7 +558,8 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASResultChecks(c *tc.C) {
 			Arch:       arch.AMD64,
 			Base:       focalBootstrapBase,
 		},
-		err: `replacement instance "test-instance" may require manual removal: replacement base differs from archived controller`,
+		wantID: "test-instance",
+		err:    `replacement instance "test-instance" may require manual removal: replacement base differs from archived controller`,
 	}, {
 		name: "wrong arch",
 		result: &environs.BootstrapResult{
@@ -565,7 +567,8 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASResultChecks(c *tc.C) {
 			Arch:       arch.ARM64,
 			Base:       jammyBootstrapBase,
 		},
-		err: `replacement instance "test-instance" may require manual removal: replacement architecture differs from archived agent`,
+		wantID: "test-instance",
+		err:    `replacement instance "test-instance" may require manual removal: replacement architecture differs from archived agent`,
 	}}
 
 	for i, test := range tests {
@@ -584,9 +587,7 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASResultChecks(c *tc.C) {
 			AgentVersion:            &archivedVersion,
 			AvailableTools:          agentTools,
 		})
-		// No ID is returned on failure; only failures after a valid
-		// allocation name the instance in the error.
-		c.Check(id, tc.Equals, instance.Id(""))
+		c.Check(id, tc.Equals, test.wantID)
 		c.Check(err, tc.ErrorMatches, test.err)
 	}
 }
@@ -654,10 +655,8 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASCancelled(c *tc.C) {
 	}
 	id, err := bootstrap.Recover(
 		envtesting.BootstrapContext(ctx, c), env, validRecoveryParams(archivedVersion))
-	// The cancellation sentinel survives the cleanup hint, which names
-	// the allocated replacement instance; no ID is returned because
-	// recovery did not succeed.
-	c.Check(id, tc.Equals, instance.Id(""))
+	// Cleanup gets the allocated ID without parsing the error message.
+	c.Check(id, tc.Equals, instance.Id("test-instance"))
 	c.Check(err, tc.ErrorIs, bootstrap.Cancelled())
 	c.Check(err, tc.ErrorMatches,
 		`replacement instance "test-instance" may require manual removal: cancelled`)

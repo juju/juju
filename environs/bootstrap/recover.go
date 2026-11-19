@@ -74,12 +74,10 @@ func (p RecoveryParams) Validate() error {
 // performs recovery: the archived agent version and base are preserved. A
 // fresh controller bootstrap is done by Bootstrap.
 //
-// Recover returns the ID of the allocated replacement instance on success.
-// On failure the returned ID is empty and the error names any allocated
-// instance that may require manual removal. Errors from the provider pass
-// through unchanged, because the provider names any instance it allocated
-// before failing; only failures detected after a valid allocation are
-// wrapped with the allocated instance's ID here.
+// Recover returns the replacement instance ID whenever the provider reports
+// a successful allocation, even if a later check fails. In that case the
+// error also names the instance for manual cleanup. If the provider itself
+// fails, Recover returns an empty ID and preserves the provider's error.
 func Recover(
 	ctx environs.BootstrapContext,
 	environ environs.BootstrapEnviron,
@@ -99,7 +97,7 @@ func Recover(
 			// Wrapping rather than replacing the error keeps its
 			// classification, including the cancellation sentinel,
 			// intact.
-			return "", errors.Errorf(
+			return allocated, errors.Errorf(
 				"replacement instance %q may require manual removal: %w",
 				allocated, err,
 			)
