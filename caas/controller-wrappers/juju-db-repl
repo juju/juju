@@ -8,16 +8,8 @@ if [ ! -f "$runtime_conf" ]; then
   exit 1
 fi
 
-controller_id=$(python3 -c "
-import yaml
-with open('$runtime_conf') as f:
-    print(yaml.safe_load(f)['controller-id'])
-" 2>/dev/null || true)
-if [ -z "$controller_id" ]; then
-  controller_id=0
-fi
 # Temporary fallback to keep Docker image working, will be removed together
 # with the Docker image.
 jujud=/usr/bin/jujud
 [ -x "$jujud" ] || jujud=/opt/jujud
-exec "$jujud" db-repl --data-dir /var/lib/juju/controller --controller-id "$controller_id" "$@"
+exec "$jujud" db-repl --data-dir /var/lib/juju/controller "$@"

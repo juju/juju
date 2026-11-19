@@ -57,20 +57,11 @@ type dbReplAgentCommand struct {
 
 	runtimeConfig controllerruntimeconfig.ControllerRuntimeConfig
 	agentTag      names.Tag
-
-	// The following are set via command-line flags.
-	controllerId string
 }
 
 // Init is called by the cmd system to initialize the structure for
 // running.
 func (a *dbReplAgentCommand) Init(args []string) error {
-	if a.controllerId == "" {
-		return errors.New("--controller-id must be set")
-	}
-	if !names.IsValidControllerAgent(a.controllerId) {
-		return errors.Errorf("--controller-id option must be a non-negative integer")
-	}
 	if err := a.agentInitializer.CheckArgs(args); err != nil {
 		return err
 	}
@@ -81,7 +72,6 @@ func (a *dbReplAgentCommand) Init(args []string) error {
 	// lines of all logging in the log file.
 	_, _ = loggo.RemoveWriter("logfile")
 
-	a.agentTag = names.NewControllerAgentTag(a.controllerId)
 	runtimeConfigPath := filepath.Join(
 		a.agentInitializer.DataDir(), controllerruntimeconfig.Filename,
 	)
@@ -90,6 +80,7 @@ func (a *dbReplAgentCommand) Init(args []string) error {
 		return errors.Annotate(err, "cannot read controller runtime configuration")
 	}
 	a.runtimeConfig = runtimeConfig
+	a.agentTag = names.NewControllerAgentTag(a.runtimeConfig.ControllerID)
 	if err := os.MkdirAll(runtimeConfig.LogDir, 0o755); err != nil {
 		logger.Warningf(context.TODO(), "cannot create log dir: %v", err)
 	}
@@ -114,7 +105,6 @@ func (a *dbReplAgentCommand) Run(c *cmd.Context) error {
 // SetFlags adds the requisite flags to run this command.
 func (a *dbReplAgentCommand) SetFlags(f *gnuflag.FlagSet) {
 	a.agentInitializer.AddFlags(f)
-	f.StringVar(&a.controllerId, "controller-id", "", "id of the controller to run")
 }
 
 // Info returns usage information for the command.

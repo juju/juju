@@ -86,31 +86,6 @@ parts:
     prime:
       - usr/lib/${CRAFT_ARCH_TRIPLET_BUILD_FOR}/libdqlite.so.0*
 
-  # The Noble Chisel release has no python3-yaml slice, but juju-db-repl
-  # and juju-safemode parse runtime.conf with PyYAML. A pinned release is
-  # extended with the local slice rather than consuming a moving branch.
-  python-yaml:
-    plugin: nil
-    build-packages:
-      - curl
-    override-build: |
-      set -eux
-      release_dir="${CRAFT_PART_BUILD}/chisel-releases"
-      mkdir -p "${release_dir}"
-      curl -fsSL \
-        "https://github.com/canonical/chisel-releases/archive/23bf48f85a7f92a5ce58308cea0ca2aebc092eb1.tar.gz" \
-        | tar -xz -C "${release_dir}" --strip-components=1
-      cp "${CRAFT_PROJECT_DIR}/chisel/python3-yaml.yaml" \
-        "${release_dir}/slices/python3-yaml.yaml"
-      mkdir -p "${CRAFT_PART_INSTALL}"
-      chisel cut \
-        --release "${release_dir}" \
-        --root "${CRAFT_PART_INSTALL}" \
-        --arch "${CRAFT_ARCH_BUILD_FOR}" \
-        --ignore=unmaintained \
-        --ignore=unstable \
-        python3-yaml_libs
-
   # The dynamic binaries resolve their runtime closure from the standard
   # multiarch library directories; the /opt library directory of the
   # Docker image does not exist in this rock.

@@ -6,15 +6,6 @@ if [ ! -f "$runtime_conf" ]; then
   exit 1
 fi
 
-controller_id=$(python3 -c "
-import yaml
-with open('$runtime_conf') as f:
-    print(yaml.safe_load(f)['controller-id'])
-" 2>/dev/null || true)
-if [ -z "$controller_id" ]; then
-  controller_id=0
-fi
-
 # Use a lockfile to prevent concurrent safe-mode instances and avoid
 # the TOCTOU race of the previous ps-grep guard. The Go-side snap
 # entry point (cmd/jujud/agent/safemode.go) also probes the controller
@@ -124,7 +115,7 @@ signal_safemode() {
 trap signal_safemode INT TERM HUP
 jujud=/usr/bin/jujud
 [ -x "$jujud" ] || jujud=/opt/jujud
-"$jujud" safe-mode --data-dir /var/lib/juju/controller --controller-id "$controller_id" "$@" &
+"$jujud" safe-mode --data-dir /var/lib/juju/controller "$@" &
 jujud_pid=$!
 kill_deadline=""
 while kill -0 "$jujud_pid" 2>/dev/null; do
