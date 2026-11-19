@@ -105,6 +105,28 @@ func (s *storageSuite) TestScope(c *gc.C) {
 	c.Assert(s.provider.Scope(), gc.Equals, storage.ScopeEnviron)
 }
 
+func (s *storageSuite) TestValidateConfigAccountTypes(c *gc.C) {
+	for _, accountType := range []string{
+		"Standard_LRS",
+		"StandardSSD_LRS",
+		"Premium_LRS",
+		"Premium_ZRS",
+		"StandardSSD_ZRS",
+	} {
+		cfg, err := storage.NewConfig("test", "azure", map[string]interface{}{
+			"account-type": accountType,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(s.provider.ValidateConfig(cfg), jc.ErrorIsNil)
+	}
+
+	invalidCfg, err := storage.NewConfig("test", "azure", map[string]interface{}{
+		"account-type": "Invalid_SKU",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(s.provider.ValidateConfig(invalidCfg), gc.ErrorMatches, `validating Azure storage config: account-type: unexpected value "Invalid_SKU"`)
+}
+
 func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 	makeVolumeParams := func(volume, machine string, size uint64) storage.VolumeParams {
 		return storage.VolumeParams{

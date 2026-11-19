@@ -49,28 +49,33 @@ check_storage_account_type_controller() {
 		fi
 	fi
 
+	# Create a custom storage pool for StandardSSD_ZRS.
+	juju create-storage-pool azure-zrs azure account-type=StandardSSD_ZRS 2>&1 | OUTPUT "${file}" || true
+
 	# Run the deploy steps for all cases.
-	echo "Deploying ps1..ps4" >>"${file}"
+	echo "Deploying ps1..ps5" >>"${file}"
 	# Default azure account type with no additional charm storage.
-	juju deploy postgresql ps1 2>&1 | OUTPUT "${file}" || true
+	juju deploy ./testcharms/charms/dummy-storage ps1 2>&1 | OUTPUT "${file}" || true
 	# Premium azure account type with no additional charm storage.
-	juju deploy postgresql ps2 --constraints "instance-type=Standard_D8as_v5 root-disk-source=azure-premium" 2>&1 | OUTPUT "${file}" || true
+	juju deploy ./testcharms/charms/dummy-storage ps2 --constraints "instance-type=Standard_D8as_v5 root-disk-source=azure-premium" 2>&1 | OUTPUT "${file}" || true
 	# Default azure account type with additional premium charm storage.
-	juju deploy postgresql ps3 --constraints "instance-type=Standard_D8as_v5" --storage pgdata=2G,azure-premium 2>&1 | OUTPUT "${file}" || true
+	juju deploy ./testcharms/charms/dummy-storage ps3 --constraints "instance-type=Standard_D8as_v5" --storage single-fs=2G,azure-premium 2>&1 | OUTPUT "${file}" || true
 	# Premium azure account type with additional default charm storage.
-	juju deploy postgresql ps4 --constraints "instance-type=Standard_D8as_v5 root-disk-source=azure-premium" --storage pgdata=2G,azure 2>&1 | OUTPUT "${file}" || true
+	juju deploy ./testcharms/charms/dummy-storage ps4 --constraints "instance-type=Standard_D8as_v5 root-disk-source=azure-premium" --storage single-fs=2G,azure 2>&1 | OUTPUT "${file}" || true
+	# StandardSSD_ZRS azure account type for both OS disk and charm storage.
+	juju deploy ./testcharms/charms/dummy-storage ps5 --constraints "instance-type=Standard_D8as_v5 root-disk-source=azure-zrs" --storage single-fs=2G,azure-zrs 2>&1 | OUTPUT "${file}" || true
 
 	# Wait for Juju to register machines for the deployed units and provide instance-ids.
-	echo "Waiting up to 5min for instance-ids for ps1..ps4" >>"${file}"
+	echo "Waiting up to 5min for instance-ids for ps1..ps5" >>"${file}"
 	timeout=300
 	interval=5
 	elapsed=0
 
 	# Array of apps to check, and their expected storageAccountType for OS disk and charm disk.
 	# Empty charm storageAccountType means no charm storage to validate.
-	apps=(ps1 ps2 ps3 ps4)
-	disk_os_storage_acct_types=(StandardSSD_LRS Premium_LRS StandardSSD_LRS Premium_LRS)
-	charm_storage_acct_types=("" "" Premium_LRS StandardSSD_LRS)
+	apps=(ps1 ps2 ps3 ps4 ps5)
+	disk_os_storage_acct_types=(StandardSSD_LRS Premium_LRS StandardSSD_LRS Premium_LRS StandardSSD_ZRS)
+	charm_storage_acct_types=("" "" Premium_LRS StandardSSD_LRS StandardSSD_ZRS)
 
 	# Wait for all apps to have instance-ids assigned.
 	# This would indicate that the VMs and storage have been provisioned.

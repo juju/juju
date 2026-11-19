@@ -295,6 +295,8 @@ In addition to generic storage providers, Microsoft Azure provides the following
   - `Standard_LRS`: Standard HDD
   - `StandardSSD_LRS`: Standard SSD — default (associated with pool `azure`)
   - `Premium_LRS`: Premium SSD (associated with pool `azure-premium`)
+  - `StandardSSD_ZRS`: Zone-redundant Standard SSD (only available in regions that support availability zones)
+  - `Premium_ZRS`: Zone-redundant Premium SSD (only available in regions that support availability zones)
 
 ```{ibnote}
 See more: [Azure Managed Disks Overview](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/managed-disks-overview)
