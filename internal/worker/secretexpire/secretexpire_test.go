@@ -4,8 +4,10 @@
 package secretexpire_test
 
 import (
+	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
@@ -19,6 +21,7 @@ import (
 	"github.com/juju/juju/internal/worker/secretexpire"
 	"github.com/juju/juju/internal/worker/secretexpire/mocks"
 	rotatemocks "github.com/juju/juju/internal/worker/secretrotate/mocks"
+	"github.com/juju/juju/internal/worker/secrettriggerschedule"
 	"github.com/juju/juju/testing"
 )
 
@@ -112,11 +115,6 @@ func (s *workerSuite) TestStartStop(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) advanceClock(c *gc.C, d time.Duration) {
-	err := s.clock.WaitAdvance(d, testing.LongWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *workerSuite) expectNoExpiry(c *gc.C) {
 	select {
 	case uris := <-s.expiredSecrets:
@@ -153,7 +151,8 @@ func (s *workerSuite) TestExpires(c *gc.C) {
 		Revision:        666,
 		NextTriggerTime: next,
 	}}
-	s.advanceClock(c, time.Hour)
+	s.waitAlarmArmed(c)
+	s.clock.Advance(time.Hour)
 	s.expectExpired(c, uri.ID+"/666")
 }
 
@@ -175,22 +174,26 @@ func (s *workerSuite) TestRetrigger(c *gc.C) {
 		Revision:        666,
 		NextTriggerTime: next,
 	}}
-	s.advanceClock(c, time.Hour)
+	s.waitAlarmArmed(c)
+	s.clock.Advance(time.Hour)
 	s.expectExpired(c, uri.ID+"/666")
+	s.waitAlarmArmed(c)
 
 	// Secret not removed, will retrigger in 5 minutes.
-	s.advanceClock(c, 2*time.Minute)
+	s.clock.Advance(2 * time.Minute)
 	s.expectNoExpiry(c)
 
-	s.advanceClock(c, 3*time.Minute)
+	s.clock.Advance(3 * time.Minute)
 	s.expectExpired(c, uri.ID+"/666")
+	s.waitAlarmArmed(c)
 
 	// Remove secret, will not retrigger.
 	s.expiryConfigChanges <- []corewatcher.SecretTriggerChange{{
 		URI:      uri,
 		Revision: 666,
 	}}
-	s.advanceClock(c, 5*time.Minute)
+	err = s.clock.WaitAdvance(5*time.Minute, testing.LongWait, 0)
+	c.Assert(err, jc.ErrorIsNil)
 	s.expectNoExpiry(c)
 }
 
@@ -211,7 +214,8 @@ func (s *workerSuite) TestSecretUpdateBeforeExpires(c *gc.C) {
 		Revision:        666,
 		NextTriggerTime: now.Add(2 * time.Hour),
 	}}
-	s.advanceClock(c, time.Hour)
+	s.waitAlarmArmed(c)
+	s.clock.Advance(time.Hour)
 	s.expectNoExpiry(c)
 
 	s.expiryConfigChanges <- []corewatcher.SecretTriggerChange{{
@@ -219,7 +223,8 @@ func (s *workerSuite) TestSecretUpdateBeforeExpires(c *gc.C) {
 		Revision:        666,
 		NextTriggerTime: now.Add(time.Hour),
 	}}
-	s.advanceClock(c, 2*time.Hour)
+	s.waitAlarmArmed(c)
+	s.clock.Advance(2 * time.Hour)
 	s.expectExpired(c, uri.ID+"/666")
 }
 
@@ -240,7 +245,8 @@ func (s *workerSuite) TestSecretUpdateBeforeExpiresNotTriggered(c *gc.C) {
 		Revision:        666,
 		NextTriggerTime: now.Add(time.Hour),
 	}}
-	s.advanceClock(c, 30*time.Minute)
+	s.waitAlarmArmed(c)
+	s.clock.Advance(30 * time.Minute)
 	s.expectNoExpiry(c)
 
 	s.expiryConfigChanges <- []corewatcher.SecretTriggerChange{{
@@ -248,11 +254,12 @@ func (s *workerSuite) TestSecretUpdateBeforeExpiresNotTriggered(c *gc.C) {
 		Revision:        666,
 		NextTriggerTime: now.Add(2 * time.Hour),
 	}}
-	s.advanceClock(c, 30*time.Minute)
+	s.waitAlarmArmed(c)
+	s.clock.Advance(30 * time.Minute)
 	s.expectNoExpiry(c)
 
 	// Final sanity check.
-	s.advanceClock(c, time.Hour)
+	s.clock.Advance(time.Hour)
 	s.expectExpired(c, uri.ID+"/666")
 }
 
@@ -273,7 +280,8 @@ func (s *workerSuite) TestNewSecretTriggersBefore(c *gc.C) {
 		Revision:        666,
 		NextTriggerTime: now.Add(time.Hour),
 	}}
-	s.advanceClock(c, 15*time.Minute)
+	s.waitAlarmArmed(c)
+	s.clock.Advance(15 * time.Minute)
 	s.expectNoExpiry(c)
 
 	// New secret with earlier expiry time triggers first.
@@ -283,11 +291,12 @@ func (s *workerSuite) TestNewSecretTriggersBefore(c *gc.C) {
 		Revision:        667,
 		NextTriggerTime: now.Add(30 * time.Minute),
 	}}
-	time.Sleep(testing.ShortWait) // ensure advanceClock happens after timer is updated
-	s.advanceClock(c, 15*time.Minute)
+	s.waitAlarmArmed(c)
+	s.clock.Advance(15 * time.Minute)
 	s.expectExpired(c, uri2.ID+"/667")
+	s.waitAlarmArmed(c)
 
-	s.advanceClock(c, 30*time.Minute)
+	s.clock.Advance(30 * time.Minute)
 	s.expectExpired(c, uri.ID+"/666", uri2.ID+"/667")
 }
 
@@ -309,7 +318,8 @@ func (s *workerSuite) TestManySecretsTrigger(c *gc.C) {
 		Revision:        666,
 		NextTriggerTime: next,
 	}}
-	s.advanceClock(c, time.Second) // ensure some fake time has elapsed
+	s.waitAlarmArmed(c)
+	s.clock.Advance(time.Second) // ensure some fake time has elapsed
 
 	uri2 := secrets.NewURI()
 	s.expiryConfigChanges <- []corewatcher.SecretTriggerChange{{
@@ -317,8 +327,10 @@ func (s *workerSuite) TestManySecretsTrigger(c *gc.C) {
 		Revision:        667,
 		NextTriggerTime: next,
 	}}
+	s.expiryConfigChanges <- nil
+	assertNoAlarmArmed(c, s.clock)
 
-	s.advanceClock(c, 90*time.Minute)
+	s.clock.Advance(90 * time.Minute)
 	s.expectExpired(c, uri.ID+"/666", uri2.ID+"/667")
 }
 
@@ -339,14 +351,16 @@ func (s *workerSuite) TestDeleteSecretExpiry(c *gc.C) {
 		Revision:        666,
 		NextTriggerTime: now.Add(time.Hour),
 	}}
-	s.advanceClock(c, 30*time.Minute)
+	s.waitAlarmArmed(c)
+	s.clock.Advance(30 * time.Minute)
 	s.expectNoExpiry(c)
 
 	s.expiryConfigChanges <- []corewatcher.SecretTriggerChange{{
 		URI:      uri,
 		Revision: 666,
 	}}
-	s.advanceClock(c, 30*time.Hour)
+	err = s.clock.WaitAdvance(30*time.Hour, testing.LongWait, 0)
+	c.Assert(err, jc.ErrorIsNil)
 	s.expectNoExpiry(c)
 }
 
@@ -368,7 +382,8 @@ func (s *workerSuite) TestManySecretsDeleteOne(c *gc.C) {
 		Revision:        666,
 		NextTriggerTime: next,
 	}}
-	s.advanceClock(c, time.Second) // ensure some fake time has elapsed
+	s.waitAlarmArmed(c)
+	s.clock.Advance(time.Second) // ensure some fake time has elapsed
 
 	uri2 := secrets.NewURI()
 	s.expiryConfigChanges <- []corewatcher.SecretTriggerChange{{
@@ -376,18 +391,22 @@ func (s *workerSuite) TestManySecretsDeleteOne(c *gc.C) {
 		Revision:        667,
 		NextTriggerTime: next,
 	}}
-	s.advanceClock(c, 15*time.Minute)
+	s.expiryConfigChanges <- nil
+	assertNoAlarmArmed(c, s.clock)
+	s.clock.Advance(15 * time.Minute)
 	s.expectNoExpiry(c)
 
 	s.expiryConfigChanges <- []corewatcher.SecretTriggerChange{{
 		URI:      uri2,
 		Revision: 667,
 	}}
-	s.advanceClock(c, 15*time.Minute)
+	s.expiryConfigChanges <- nil
+	assertNoAlarmArmed(c, s.clock)
+	s.clock.Advance(15 * time.Minute)
 	// Secret 2 would have expired here.
 	s.expectNoExpiry(c)
 
-	s.advanceClock(c, 30*time.Minute)
+	s.clock.Advance(30 * time.Minute)
 	s.expectExpired(c, uri.ID+"/666")
 }
 
@@ -408,7 +427,8 @@ func (s *workerSuite) TestExpiryGranularity(c *gc.C) {
 		Revision:        666,
 		NextTriggerTime: now.Add(25 * time.Second),
 	}}
-	s.advanceClock(c, time.Second) // ensure some fake time has elapsed
+	s.waitAlarmArmed(c)
+	s.clock.Advance(time.Second) // ensure some fake time has elapsed
 
 	uri2 := secrets.NewURI()
 	s.expiryConfigChanges <- []corewatcher.SecretTriggerChange{{
@@ -416,7 +436,405 @@ func (s *workerSuite) TestExpiryGranularity(c *gc.C) {
 		Revision:        667,
 		NextTriggerTime: now.Add(39 * time.Second),
 	}}
-	// First secret won't expire before the one minute granularity.
-	s.advanceClock(c, 46*time.Second)
+	s.expiryConfigChanges <- nil
+	assertNoAlarmArmed(c, s.clock)
+	// Advance past both sub-minute trigger times so both expire together.
+	s.clock.Advance(46 * time.Second)
 	s.expectExpired(c, uri.ID+"/666", uri2.ID+"/667")
+}
+
+func (s *workerSuite) waitAlarmArmed(c *gc.C) {
+	select {
+	case <-s.clock.Alarms():
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for alarm to be armed")
+	}
+}
+
+func (s *workerSuite) TestExpireSameTriggerReAdd(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.expectWorker()
+
+	w, err := secretexpire.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	now := s.clock.Now()
+	next := now.Add(time.Hour)
+	uri := secrets.NewURI()
+	s.expiryConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:             uri,
+		Revision:        666,
+		NextTriggerTime: next,
+	}}
+	s.waitAlarmArmed(c)
+	s.clock.Advance(time.Hour)
+	s.expectExpired(c, uri.ID+"/666")
+	s.waitAlarmArmed(c) // wait for retry alarm to be armed
+
+	// The retry is scheduled for next+ExpireRetryDelay. Remove the only
+	// revision, then re-add a trigger for exactly that retry time.
+	s.expiryConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:      uri,
+		Revision: 666,
+	}}
+	// Unbuffered channel send blocks until the deletion is processed.
+	s.expiryConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:             uri,
+		Revision:        666,
+		NextTriggerTime: next.Add(secrets.ExpireRetryDelay),
+	}}
+	s.waitAlarmArmed(c)
+
+	s.clock.Advance(secrets.ExpireRetryDelay)
+	s.expectExpired(c, uri.ID+"/666")
+}
+
+func (s *workerSuite) TestExpireAtMinuteBoundary(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.clock = testclock.NewClock(time.Now().Truncate(time.Minute))
+	s.config.Clock = s.clock
+	s.expectWorker()
+
+	w, err := secretexpire.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	now := s.clock.Now()
+	uri := secrets.NewURI()
+	s.expiryConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:             uri,
+		Revision:        666,
+		NextTriggerTime: now.Add(time.Hour),
+	}}
+	s.waitAlarmArmed(c)
+	s.clock.Advance(time.Hour)
+	s.expectExpired(c, uri.ID+"/666")
+}
+
+func (s *workerSuite) TestExpireTimerFiresEarly(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.expectWorker()
+
+	start := time.Now()
+	clk := newEarlyAlarmClock(start)
+	s.config.Clock = clk
+
+	w, err := secretexpire.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	trigger := start.Add(time.Hour)
+	uri := secrets.NewURI()
+	s.expiryConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:             uri,
+		Revision:        666,
+		NextTriggerTime: trigger,
+	}}
+	clk.waitArmed(c)
+
+	// Fire two minutes before the trigger is due.
+	clk.Advance(58 * time.Minute)
+	c.Assert(clk.fire(clk.Now()), jc.IsTrue)
+	clk.waitArmed(c)
+	s.expectNoExpiry(c)
+
+	clk.Advance(2 * time.Minute)
+	c.Assert(clk.fire(clk.Now()), jc.IsTrue)
+	s.expectExpired(c, uri.ID+"/666")
+}
+
+func (s *workerSuite) TestExpireRetryBackoffAndCap(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.expectWorker()
+
+	w, err := secretexpire.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	now := s.clock.Now()
+	uri := secrets.NewURI()
+	s.expiryConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:             uri,
+		Revision:        666,
+		NextTriggerTime: now.Add(time.Hour),
+	}}
+	s.waitAlarmArmed(c)
+	s.clock.Advance(time.Hour)
+	s.expectExpired(c, uri.ID+"/666")
+
+	for attempt := range secrettriggerschedule.MaxTriggerRetries {
+		s.waitAlarmArmed(c)
+		delay := secrettriggerschedule.TriggerRetryDelay(secrets.ExpireRetryDelay, attempt)
+		if delay > secrets.ExpireRetryDelay {
+			s.clock.Advance(secrets.ExpireRetryDelay)
+			s.expectNoExpiry(c)
+			s.clock.Advance(delay - secrets.ExpireRetryDelay)
+		} else {
+			s.clock.Advance(delay)
+		}
+		s.expectExpired(c, uri.ID+"/666")
+	}
+
+	// After MaxTriggerRetries, retries continue at MaxTriggerRetryDelay cadence.
+	for range 2 {
+		s.waitAlarmArmed(c)
+		s.clock.Advance(secrets.ExpireRetryDelay)
+		s.expectNoExpiry(c)
+		s.clock.Advance(secrettriggerschedule.MaxTriggerRetryDelay - secrets.ExpireRetryDelay)
+		s.expectExpired(c, uri.ID+"/666")
+	}
+}
+
+func (s *workerSuite) TestStaleTriggerIgnoredDuringRetry(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.expectWorker()
+
+	w, err := secretexpire.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	now := s.clock.Now()
+	next := now.Add(time.Hour)
+	uri := secrets.NewURI()
+	s.expiryConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:             uri,
+		Revision:        666,
+		NextTriggerTime: next,
+	}}
+	s.waitAlarmArmed(c)
+	s.clock.Advance(time.Hour)
+	s.expectExpired(c, uri.ID+"/666")
+	s.waitAlarmArmed(c)
+
+	// A duplicate watcher event carrying the identical trigger time must not
+	// reset the pending retry backoff, re-arm the alarm, or cause a premature
+	// fire.
+	s.expiryConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:             uri,
+		Revision:        666,
+		NextTriggerTime: next,
+	}}
+	s.expiryConfigChanges <- nil
+	assertNoAlarmArmed(c, s.clock)
+
+	s.clock.Advance(time.Minute)
+	s.expectNoExpiry(c)
+
+	// The original pending retry still fires on schedule.
+	s.clock.Advance(secrets.ExpireRetryDelay - time.Minute)
+	s.expectExpired(c, uri.ID+"/666")
+}
+
+func (s *workerSuite) TestShortenedTriggerAcceptedDuringRetry(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.expectWorker()
+
+	w, err := secretexpire.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	now := s.clock.Now()
+	next := now.Add(time.Hour)
+	uri := secrets.NewURI()
+	s.expiryConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:             uri,
+		Revision:        666,
+		NextTriggerTime: next,
+	}}
+	s.waitAlarmArmed(c)
+	s.clock.Advance(time.Hour)
+	s.expectExpired(c, uri.ID+"/666")
+	s.waitAlarmArmed(c)
+
+	// Shortening the expiry time during a retry window must take effect
+	// immediately rather than waiting for the retry backoff.
+	s.expiryConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:             uri,
+		Revision:        666,
+		NextTriggerTime: next.Add(-10 * time.Minute),
+	}}
+	s.waitAlarmArmed(c)
+	s.clock.Advance(0)
+	s.expectExpired(c, uri.ID+"/666")
+}
+
+func (s *workerSuite) TestBatchDuplicateRevisionLastWins(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.expectWorker()
+
+	w, err := secretexpire.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	now := s.clock.Now()
+	uri := secrets.NewURI()
+	s.expiryConfigChanges <- []corewatcher.SecretTriggerChange{
+		{
+			URI:             uri,
+			Revision:        666,
+			NextTriggerTime: now.Add(2 * time.Hour),
+		},
+		{
+			URI:             uri,
+			Revision:        666,
+			NextTriggerTime: now.Add(time.Hour),
+		},
+	}
+	s.waitAlarmArmed(c)
+
+	s.clock.Advance(time.Hour)
+	s.expectExpired(c, uri.ID+"/666")
+}
+
+func (s *workerSuite) TestBatchDeleteAndReenableLastWins(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.expectWorker()
+
+	w, err := secretexpire.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	now := s.clock.Now()
+	uriDeleted := secrets.NewURI()
+	uriReenabled := secrets.NewURI()
+	s.expiryConfigChanges <- []corewatcher.SecretTriggerChange{
+		{
+			URI:             uriDeleted,
+			Revision:        666,
+			NextTriggerTime: now.Add(time.Hour),
+		},
+		{
+			URI:      uriDeleted,
+			Revision: 666,
+		},
+		{
+			URI:      uriReenabled,
+			Revision: 667,
+		},
+		{
+			URI:             uriReenabled,
+			Revision:        667,
+			NextTriggerTime: now.Add(time.Hour),
+		},
+	}
+	s.waitAlarmArmed(c)
+
+	s.clock.Advance(time.Hour)
+	s.expectExpired(c, uriReenabled.ID+"/667")
+	s.waitAlarmArmed(c)
+	s.clock.Advance(secrets.ExpireRetryDelay)
+	s.expectExpired(c, uriReenabled.ID+"/667")
+	s.expectNoExpiry(c)
+}
+
+func assertNoAlarmArmed(c *gc.C, clk *testclock.Clock) {
+	select {
+	case <-clk.Alarms():
+		c.Fatal("unexpected timer or alarm armed")
+	default:
+	}
+}
+
+type earlyAlarmClock struct {
+	*testclock.Clock
+	armed chan struct{}
+	mu    sync.Mutex
+	alarm *earlyAlarm
+}
+
+func newEarlyAlarmClock(now time.Time) *earlyAlarmClock {
+	return &earlyAlarmClock{
+		Clock: testclock.NewClock(now),
+		armed: make(chan struct{}, 10),
+	}
+}
+
+func (c *earlyAlarmClock) NewAlarm(_ time.Time) clock.Alarm {
+	al := &earlyAlarm{
+		clock: c,
+		ch:    make(chan time.Time, 1),
+		armed: true,
+	}
+	c.mu.Lock()
+	c.alarm = al
+	c.mu.Unlock()
+	c.notifyArmed()
+	return al
+}
+
+func (c *earlyAlarmClock) fire(now time.Time) bool {
+	c.mu.Lock()
+	al := c.alarm
+	c.mu.Unlock()
+	return al != nil && al.fire(now)
+}
+
+func (c *earlyAlarmClock) waitArmed(cc *gc.C) {
+	select {
+	case <-c.armed:
+	case <-time.After(testing.LongWait):
+		cc.Fatal("timed out waiting for alarm to be armed")
+	}
+}
+
+func (c *earlyAlarmClock) notifyArmed() {
+	select {
+	case c.armed <- struct{}{}:
+	default:
+	}
+}
+
+type earlyAlarm struct {
+	mu    sync.Mutex
+	clock *earlyAlarmClock
+	ch    chan time.Time
+	armed bool
+}
+
+func (a *earlyAlarm) Chan() <-chan time.Time { return a.ch }
+
+func (a *earlyAlarm) Stop() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	was := a.armed
+	a.armed = false
+	return was
+}
+
+func (a *earlyAlarm) Reset(time.Time) bool {
+	a.mu.Lock()
+	was := a.armed
+	a.armed = true
+	a.mu.Unlock()
+	a.clock.notifyArmed()
+	return was
+}
+
+func (a *earlyAlarm) fire(now time.Time) bool {
+	a.mu.Lock()
+	if !a.armed {
+		a.mu.Unlock()
+		return false
+	}
+	a.armed = false
+	a.mu.Unlock()
+	a.ch <- now
+	return true
 }
