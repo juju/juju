@@ -4002,14 +4002,13 @@ func (w *secretsRotationWatcher) merge(details []corewatcher.SecretTriggerChange
 		deletedDetails := corewatcher.SecretTriggerChange{
 			URI: knownDetails.URI,
 		}
-		for i, detail := range details {
-			if detail.URI.ID == changeID {
-				details[i] = deletedDetails
-				return details, nil
+		filtered := details[:0]
+		for _, detail := range details {
+			if detail.URI.ID != knownDetails.URI.ID {
+				filtered = append(filtered, detail)
 			}
 		}
-		details = append(details, deletedDetails)
-		return details, nil
+		return append(filtered, deletedDetails), nil
 	}
 	if doc.TxnRevno > knownDetails.txnRevNo {
 		uriStr := w.backend.localID(doc.DocID)
@@ -4172,24 +4171,24 @@ func (w *secretsExpiryWatcher) merge(details []corewatcher.SecretTriggerChange, 
 			URI:      knownDetails.uri,
 			Revision: knownDetails.revision,
 		}
-		// If an earlier event was received for the same
-		// revision, update what we know here.
-		for i, detail := range details {
-			if detail.URI.ID == knownDetails.uri.ID {
-				if knownDetails.willExpire {
-					details[i] = deletedDetails
-				} else {
-					details = append(details[:i], details[i+1:]...)
+		// Remove any pending earlier events for the same revision and append
+		// the deletion at the tail if it was previously going to expire or
+		// already had a pending cancellation in this batch.
+		filtered := details[:0]
+		hadPendingCancel := false
+		for _, detail := range details {
+			if detail.URI.ID == knownDetails.uri.ID && detail.Revision == knownDetails.revision {
+				if detail.NextTriggerTime.IsZero() {
+					hadPendingCancel = true
 				}
-				return details, nil
+				continue
 			}
+			filtered = append(filtered, detail)
 		}
-		// Only send an update if a deleted revision was
-		// previously going to expire.
-		if knownDetails.willExpire {
-			details = append(details, deletedDetails)
+		if knownDetails.willExpire || hadPendingCancel {
+			filtered = append(filtered, deletedDetails)
 		}
-		return details, nil
+		return filtered, nil
 	}
 	if doc.TxnRevno > knownDetails.txnRevNo {
 		uriStr, _ := splitSecretRevision(w.backend.localID(doc.DocID))
