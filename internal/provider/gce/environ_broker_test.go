@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/internal/provider/gce"
 	"github.com/juju/juju/internal/provider/gce/internal/google"
 	"github.com/juju/juju/internal/storage"
+	coretools "github.com/juju/juju/internal/tools"
 )
 
 type environBrokerSuite struct {
@@ -73,7 +74,7 @@ func (s *environBrokerSuite) expectImageMetadata() {
 		Name:         new("n1-standard-1"),
 		GuestCpus:    new(int32(s.spec.InstanceType.CpuCores)),
 		MemoryMb:     new(int32(s.spec.InstanceType.Mem)),
-		Architecture: new(s.spec.InstanceType.Arch),
+		Architecture: new(computepb.MachineType_X86_64.String()),
 	}}, nil)
 	s.StartInstArgs.ImageMetadata = []*imagemetadata.ImageMetadata{{
 		Id:   "ubuntu-220-jammy-v20141212",
@@ -713,6 +714,82 @@ func (s *environBrokerSuite) TestBuildInstanceSpec(c *tc.C) {
 		Networking: instances.InstanceTypeNetworking{},
 		VirtType:   new("kvm"),
 	})
+}
+
+func (s *environBrokerSuite) TestBuildInstanceSpecArm64Selection(c *tc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	// An arm64 agent must be able to select an ARM64 machine type with no
+	// arch constraint: the agent architecture drives the selection.
+	s.StartInstArgs.Tools = []*coretools.Tools{{
+		Version: semversion.Binary{Arch: arch.ARM64, Release: "ubuntu"},
+		URL:     "https://example.org",
+	}}
+	s.StartInstArgs.Constraints = constraints.Value{}
+	s.StartInstArgs.ImageMetadata = []*imagemetadata.ImageMetadata{{
+		Id:   "ubuntu-2204-jammy-v20141212",
+		Arch: arch.ARM64,
+	}}
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   new("home-zone"),
+		Status: new("UP"),
+	}}, nil)
+	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*computepb.MachineType{{
+		Id:           new(uint64(1)),
+		Name:         new("n1-standard-1"),
+		GuestCpus:    new(int32(2)),
+		MemoryMb:     new(int32(3750)),
+		Architecture: new(computepb.MachineType_X86_64.String()),
+	}, {
+		Id:           new(uint64(2)),
+		Name:         new("t2a-standard-2"),
+		GuestCpus:    new(int32(2)),
+		MemoryMb:     new(int32(8192)),
+		Architecture: new(computepb.MachineType_ARM64.String()),
+	}}, nil)
+
+	spec, err := gce.BuildInstanceSpec(env, c.Context(), s.StartInstArgs)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(spec.InstanceType.Name, tc.Equals, "t2a-standard-2")
+	c.Check(spec.InstanceType.Arch, tc.Equals, arch.ARM64)
+	c.Check(spec.Image.Arch, tc.Equals, arch.ARM64)
+}
+
+func (s *environBrokerSuite) TestBuildInstanceSpecArm64Mismatch(c *tc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	// The default tools are amd64: when only ARM64 machine types are
+	// available, selection must fail cleanly instead of provisioning a
+	// machine the GCE API would reject.
+	s.StartInstArgs.Constraints = constraints.Value{}
+	s.StartInstArgs.ImageMetadata = []*imagemetadata.ImageMetadata{{
+		Id:   "ubuntu-2204-jammy-v20141212",
+		Arch: arch.AMD64,
+	}}
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   new("home-zone"),
+		Status: new("UP"),
+	}}, nil)
+	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*computepb.MachineType{{
+		Id:           new(uint64(2)),
+		Name:         new("t2a-standard-2"),
+		GuestCpus:    new(int32(2)),
+		MemoryMb:     new(int32(8192)),
+		Architecture: new(computepb.MachineType_ARM64.String()),
+	}}, nil)
+
+	_, err := gce.BuildInstanceSpec(env, c.Context(), s.StartInstArgs)
+
+	c.Assert(err, tc.ErrorMatches, `no instance types in us-east1 matching constraints "arch=amd64"`)
 }
 
 func (s *environBrokerSuite) TestBuildInstanceSpecWithImageID(c *tc.C) {
