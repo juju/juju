@@ -147,7 +147,10 @@ func (s *workerSuite) TestWorkerTimerSchedulesOnlyRequiredJob(c *tc.C) {
 	timerChan := make(chan time.Time)
 	timer := NewMockTimer(ctrl)
 	timer.EXPECT().Chan().Return(timerChan).MaxTimes(2)
-	timer.EXPECT().Reset(gomock.Any()).Return(true)
+	gomock.InOrder(
+		timer.EXPECT().Reset(jobCheckMaxInterval).Return(true),
+		timer.EXPECT().Reset(jobCheckMinInterval).Return(true),
+	)
 	timer.EXPECT().Stop().Return(true)
 	s.clk.EXPECT().NewTimer(jobCheckMaxInterval).Return(timer)
 
@@ -168,7 +171,8 @@ func (s *workerSuite) TestWorkerTimerSchedulesOnlyRequiredJob(c *tc.C) {
 		Force:        false,
 		ScheduledFor: now.Add(-time.Hour),
 	}
-	s.svc.EXPECT().GetAllJobs(gomock.Any()).DoAndReturn(func(context.Context) ([]removal.Job, error) {
+	initial := s.svc.EXPECT().GetAllJobs(gomock.Any()).Return(nil, nil)
+	s.svc.EXPECT().GetAllJobs(gomock.Any()).After(initial).DoAndReturn(func(context.Context) ([]removal.Job, error) {
 		return []removal.Job{dueJob, scheduledJob}, nil
 	})
 
@@ -205,6 +209,9 @@ func (s *workerSuite) TestWorkerTimerSchedulesOnlyRequiredJob(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	// Establish watcher readiness before polling can start.
+	ch <- []string(nil)
+
 	// Once the worker is scheduled in the runner, fire the timer to ensure only
 	// the required worker is started.
 	select {
@@ -219,6 +226,216 @@ func (s *workerSuite) TestWorkerTimerSchedulesOnlyRequiredJob(c *tc.C) {
 		c.Fatal("timed out waiting for job execution")
 	}
 
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestWorkerPollingBackoff(c *tc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+
+	changes := make(chan []string)
+	s.svc.EXPECT().WatchRemovals(gomock.Any()).Return(watchertest.NewMockStringsWatcher(changes), nil)
+
+	now := time.Now().UTC()
+	futureJob := removal.Job{
+		UUID:         "future-job",
+		RemovalType:  removal.RelationJob,
+		EntityUUID:   "relation-uuid",
+		Force:        true,
+		ScheduledFor: now.Add(time.Hour),
+	}
+	initial := s.svc.EXPECT().GetAllJobs(gomock.Any()).Return(nil, nil)
+	gomock.InOrder(
+		initial,
+		s.svc.EXPECT().GetAllJobs(gomock.Any()).Return([]removal.Job{futureJob}, nil),
+		s.svc.EXPECT().GetAllJobs(gomock.Any()).Return([]removal.Job{futureJob}, nil),
+		s.svc.EXPECT().GetAllJobs(gomock.Any()).Return(nil, nil),
+	)
+	s.clk.EXPECT().Now().Return(now).Times(2)
+
+	ticks := make(chan time.Time)
+	intervals := make(chan time.Duration)
+	timer := NewMockTimer(ctrl)
+	timer.EXPECT().Chan().After(initial).Return(ticks).AnyTimes()
+	timer.EXPECT().Reset(gomock.Any()).DoAndReturn(func(d time.Duration) bool {
+		intervals <- d
+		return true
+	}).Times(4)
+	timer.EXPECT().Stop().Return(true)
+	s.clk.EXPECT().NewTimer(jobCheckMaxInterval).Return(timer)
+
+	w, err := NewWorker(Config{
+		RemovalService: s.svc,
+		Clock:          s.clk,
+		Logger:         loggertesting.WrapCheckLog(c),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	// An empty initial event makes the watcher ready and starts idle polling.
+	changes <- []string(nil)
+	c.Check(<-intervals, tc.Equals, 30*time.Second)
+
+	// A notification wakes the idle worker without waiting for its timer.
+	// Even a future forced job keeps checks short without executing early.
+	changes <- []string{futureJob.UUID.String()}
+	c.Check(<-intervals, tc.Equals, time.Second)
+	ticks <- now
+	c.Check(<-intervals, tc.Equals, 1500*time.Millisecond)
+
+	// Once all jobs are gone, the worker returns to idle polling.
+	ticks <- now
+	c.Check(<-intervals, tc.Equals, 30*time.Second)
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestWorkerBackoffWhileJobRunning(c *tc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+
+	changes := make(chan []string)
+	s.svc.EXPECT().WatchRemovals(gomock.Any()).Return(watchertest.NewMockStringsWatcher(changes), nil)
+
+	now := time.Now().UTC()
+	job := removal.Job{
+		UUID:         "running-job",
+		RemovalType:  removal.RelationJob,
+		EntityUUID:   "relation-uuid",
+		ScheduledFor: now.Add(-time.Hour),
+	}
+	s.svc.EXPECT().GetAllJobs(gomock.Any()).Return([]removal.Job{job}, nil).Times(2)
+	s.clk.EXPECT().Now().Return(now)
+	started := make(chan struct{})
+	s.svc.EXPECT().ExecuteJob(gomock.Any(), job).DoAndReturn(func(ctx context.Context, _ removal.Job) error {
+		close(started)
+		<-ctx.Done()
+		return nil
+	})
+
+	ticks := make(chan time.Time)
+	intervals := make(chan time.Duration)
+	timer := NewMockTimer(ctrl)
+	timer.EXPECT().Chan().Return(ticks).AnyTimes()
+	timer.EXPECT().Reset(gomock.Any()).DoAndReturn(func(d time.Duration) bool {
+		intervals <- d
+		return true
+	}).Times(2)
+	timer.EXPECT().Stop().Return(true)
+	s.clk.EXPECT().NewTimer(jobCheckMaxInterval).Return(timer)
+
+	w, err := NewWorker(Config{
+		RemovalService: s.svc,
+		Clock:          s.clk,
+		Logger:         loggertesting.WrapCheckLog(c),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	changes <- []string{job.UUID.String()}
+	c.Check(<-intervals, tc.Equals, time.Second)
+	<-started
+
+	// A running job is not started again, but still contributes to the pending
+	// job set and therefore continues polling with backoff.
+	ticks <- now
+	c.Check(<-intervals, tc.Equals, 1500*time.Millisecond)
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestWorkerBackoffCapAndReset(c *tc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+
+	changes := make(chan []string)
+	s.svc.EXPECT().WatchRemovals(gomock.Any()).Return(watchertest.NewMockStringsWatcher(changes), nil)
+
+	now := time.Now().UTC()
+	jobA := removal.Job{
+		UUID:         "job-a",
+		ScheduledFor: now.Add(time.Hour),
+	}
+	jobB := removal.Job{
+		UUID:         "job-b",
+		ScheduledFor: now.Add(time.Hour),
+	}
+	jobC := removal.Job{
+		UUID:         "job-c",
+		ScheduledFor: now.Add(time.Hour),
+	}
+	initial := s.svc.EXPECT().GetAllJobs(gomock.Any()).Return([]removal.Job{jobA}, nil)
+	gomock.InOrder(
+		initial,
+		s.svc.EXPECT().GetAllJobs(gomock.Any()).Return([]removal.Job{jobA}, nil).Times(10),
+		s.svc.EXPECT().GetAllJobs(gomock.Any()).Return([]removal.Job{jobA}, nil).Times(2),
+		s.svc.EXPECT().GetAllJobs(gomock.Any()).Return([]removal.Job{jobA, jobB}, nil),
+		s.svc.EXPECT().GetAllJobs(gomock.Any()).Return([]removal.Job{jobB, jobA}, nil),
+		s.svc.EXPECT().GetAllJobs(gomock.Any()).Return([]removal.Job{jobB}, nil).Times(2),
+		s.svc.EXPECT().GetAllJobs(gomock.Any()).Return([]removal.Job{jobC}, nil).Times(2),
+		s.svc.EXPECT().GetAllJobs(gomock.Any()).Return(nil, nil),
+	)
+	s.clk.EXPECT().Now().Return(now).AnyTimes()
+
+	ticks := make(chan time.Time)
+	intervals := make(chan time.Duration)
+	timer := NewMockTimer(ctrl)
+	timer.EXPECT().Chan().After(initial).Return(ticks).AnyTimes()
+	timer.EXPECT().Reset(gomock.Any()).DoAndReturn(func(d time.Duration) bool {
+		intervals <- d
+		return true
+	}).Times(20)
+	timer.EXPECT().Stop().Return(true)
+	s.clk.EXPECT().NewTimer(jobCheckMaxInterval).Return(timer)
+
+	w, err := NewWorker(Config{
+		RemovalService: s.svc,
+		Clock:          s.clk,
+		Logger:         loggertesting.WrapCheckLog(c),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	changes <- []string{jobA.UUID.String()}
+	delay := <-intervals
+	c.Check(delay, tc.Equals, time.Second)
+	for check := 1; check < 10; check++ {
+		ticks <- now
+		next := <-intervals
+		c.Check(next > delay, tc.IsTrue)
+		if check < 9 {
+			c.Check(next < 30*time.Second, tc.IsTrue)
+		} else {
+			c.Check(next, tc.Equals, 30*time.Second)
+		}
+		delay = next
+	}
+	ticks <- now
+	c.Check(<-intervals, tc.Equals, 30*time.Second)
+
+	// A scheduling notification resets even when the job UUIDs are unchanged.
+	changes <- []string{jobA.UUID.String()}
+	c.Check(<-intervals, tc.Equals, time.Second)
+	ticks <- now
+	c.Check(<-intervals, tc.Equals, 1500*time.Millisecond)
+
+	// Polling also detects new jobs, while row ordering does not reset backoff.
+	ticks <- now
+	c.Check(<-intervals, tc.Equals, time.Second)
+	ticks <- now
+	c.Check(<-intervals, tc.Equals, 1500*time.Millisecond)
+
+	// A completed job resets the remaining jobs to the shortest delay.
+	ticks <- now
+	c.Check(<-intervals, tc.Equals, time.Second)
+	ticks <- now
+	c.Check(<-intervals, tc.Equals, 1500*time.Millisecond)
+
+	// Replacing a job also resets the delay when the count stays the same.
+	ticks <- now
+	c.Check(<-intervals, tc.Equals, time.Second)
+	ticks <- now
+	c.Check(<-intervals, tc.Equals, 1500*time.Millisecond)
+	ticks <- now
+	c.Check(<-intervals, tc.Equals, 30*time.Second)
 	workertest.CleanKill(c, w)
 }
 
