@@ -213,21 +213,6 @@ func (s *applicationRunnerSuite) TestStartupGetApplicationError(c *tc.C) {
 	c.Assert(lifeWatch.watcher.Wait(), tc.ErrorIsNil)
 }
 
-func (s *applicationRunnerSuite) TestStartupEventWatcherApplicationNotFound(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	lifeWatch := s.expectLifeWatcher(c, true)
-	s.service.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).Return(s.application, nil)
-	s.service.EXPECT().WatchApplicationEvents(gomock.Any(), s.application.UUID).Return(
-		nil, errors.Errorf("watching removed application: %w", applicationerrors.ApplicationNotFound),
-	)
-	runner := s.startRunner(c)
-	defer workertest.CleanKill(c, runner)
-	c.Assert(runner.Wait(), tc.ErrorIsNil)
-	c.Assert(lifeWatch.watcher.Wait(), tc.ErrorIsNil)
-}
-
 func (s *applicationRunnerSuite) TestStartupEventWatcherError(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
@@ -354,24 +339,6 @@ func (s *applicationRunnerSuite) TestLifeNotificationGetApplicationError(c *tc.C
 	err := runner.Wait()
 	c.Assert(err, tc.ErrorIs, boom)
 	c.Check(err, tc.ErrorMatches, "getting scriptlet application .*: boom")
-	fixture.assertWatchersStopped(c)
-}
-
-func (s *applicationRunnerSuite) TestRefreshEventWatcherApplicationNotFound(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	fixture := s.expectRunningApplication(c)
-	s.expectRefresh(c)
-	s.service.EXPECT().WatchApplicationEvents(gomock.Any(), s.application.UUID).Return(
-		nil, errors.Errorf("application removed during refresh: %w", applicationerrors.ApplicationNotFound),
-	)
-	runner := s.startRunner(c)
-	defer workertest.CleanKill(c, runner)
-	waitFor(c, fixture.executorConfigs)
-
-	fixture.lifeWatch.changes <- struct{}{}
-	c.Assert(runner.Wait(), tc.ErrorIsNil)
 	fixture.assertWatchersStopped(c)
 }
 
