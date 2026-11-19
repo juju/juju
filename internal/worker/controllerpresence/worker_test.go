@@ -253,6 +253,7 @@ func (s *WorkerSuite) TestNewConnectionTrackerBrokenImmediately(c *tc.C) {
 		return f(ctx, s.connection)
 	})
 	ch := make(chan struct{})
+	// Model a break after the initial check but before the Broken select.
 	s.connection.EXPECT().IsBroken(gomock.Any()).DoAndReturn(func(context.Context) bool {
 		close(ch)
 		return false
