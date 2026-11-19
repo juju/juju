@@ -2730,6 +2730,87 @@ func (s *modelStateSuite) TestGetMachineFullStatusesNoDefaultRouteSource(c *tc.C
 	})
 }
 
+// An IPv4-only route change must not change IPv6 public-address selection in
+// unit, machine or status queries, even when those queries share a view.
+func (s *modelStateSuite) TestPublicAddressesIgnoreIPv4DefaultRouteForIPv6(c *tc.C) {
+	_, units := s.createIAASApplicationWithNUnits(c, "foo", 1)
+	var machineUUID coremachine.UUID
+	var machineName coremachine.Name
+	err := s.DB().QueryRowContext(c.Context(), `
+SELECT m.uuid, m.name
+FROM unit AS u
+JOIN machine AS m ON m.net_node_uuid = u.net_node_uuid
+WHERE u.uuid = ?`, units[0].String()).Scan(&machineUUID, &machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	netService := networkservice.NewService(
+		networkstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c)),
+		loggertesting.WrapCheckLog(c))
+	interfaces := []domainnetwork.NetInterface{
+		{
+			Name:        "eth0",
+			Type:        corenetwork.EthernetDevice,
+			MACAddress:  new("00:11:22:33:44:55"),
+			IsAutoStart: true,
+			IsEnabled:   true,
+			Addrs: []domainnetwork.NetAddr{
+				{
+					InterfaceName: "eth0",
+					AddressValue:  "10.1.0.10/24",
+					AddressType:   corenetwork.IPv4Address,
+					ConfigType:    corenetwork.ConfigStatic,
+					Origin:        corenetwork.OriginMachine,
+					Scope:         corenetwork.ScopeCloudLocal,
+				},
+				{
+					InterfaceName: "eth0",
+					AddressValue:  "2001:db8:2::20/64",
+					AddressType:   corenetwork.IPv6Address,
+					ConfigType:    corenetwork.ConfigStatic,
+					Origin:        corenetwork.OriginMachine,
+					Scope:         corenetwork.ScopePublic,
+				},
+			},
+		},
+		{
+			Name:        "eth1",
+			Type:        corenetwork.EthernetDevice,
+			MACAddress:  new("00:11:22:33:44:66"),
+			IsAutoStart: true,
+			IsEnabled:   true,
+			Addrs: []domainnetwork.NetAddr{{
+				InterfaceName: "eth1",
+				AddressValue:  "2001:db8:1::10/64",
+				AddressType:   corenetwork.IPv6Address,
+				ConfigType:    corenetwork.ConfigStatic,
+				Origin:        corenetwork.OriginMachine,
+				Scope:         corenetwork.ScopePublic,
+			}},
+		},
+	}
+	err = netService.SetMachineNetConfig(c.Context(), machineUUID, interfaces)
+	c.Assert(err, tc.ErrorIsNil)
+	before, err := netService.GetUnitPublicAddress(c.Context(), "foo/0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(before.Value, tc.Equals, "2001:db8:1::10")
+
+	interfaces[0].IsDefaultGateway = true
+	interfaces[0].GatewayAddress = new("10.1.0.1")
+	err = netService.SetMachineNetConfig(c.Context(), machineUUID, interfaces)
+	c.Assert(err, tc.ErrorIsNil)
+	unitAddress, err := netService.GetUnitPublicAddress(c.Context(), "foo/0")
+	c.Assert(err, tc.ErrorIsNil)
+	machineAddress, err := netService.GetMachinePublicAddress(c.Context(), machineUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	statuses, err := s.state.GetMachineFullStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(unitAddress.Value, tc.Equals, before.Value)
+	c.Check(machineAddress.Value, tc.Equals, before.Value)
+	c.Check(statuses[machineName].DNSName, tc.Equals, before.Value)
+	c.Check(statuses[machineName].IPAddresses, tc.DeepEquals, []string{
+		"2001:db8:1::10", "2001:db8:2::20", "10.1.0.10",
+	})
+}
+
 func (s *modelStateSuite) TestGetMachineFullStatusesEmptyModel(c *tc.C) {
 	statuses, err := s.state.GetMachineFullStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)

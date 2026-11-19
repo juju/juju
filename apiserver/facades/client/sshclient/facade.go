@@ -133,8 +133,8 @@ func (facade *Facade) PrivateAddress(ctx context.Context, args params.Entities) 
 
 // AllAddresses reports all addresses that might have SSH listening for each
 // entity in args. The result is ordered with public addresses first and the
-// default route device preferred within each scope and type. Machines and
-// units are supported as entity types.
+// default route device preferred for primary IPv4 addresses within each scope.
+// Machines and units are supported as entity types.
 func (facade *Facade) AllAddresses(ctx context.Context, args params.Entities) (params.SSHAddressesResults, error) {
 	if err := facade.checkIsModelAdmin(ctx); err != nil {
 		return params.SSHAddressesResults{}, errors.Trace(err)

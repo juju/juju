@@ -2226,37 +2226,22 @@ LEFT JOIN container_type AS ct ON c.container_type_id = ct.id;
 SELECT 
 	m.uuid AS &machineSpaceAddress.machine_uuid,
 	ipa.address_value AS &machineSpaceAddress.address_value,
-	iact.name AS &machineSpaceAddress.config_type_name,
-	iat.name AS &machineSpaceAddress.type_name,
-	iao.name AS &machineSpaceAddress.origin_name,
-	ias.name AS &machineSpaceAddress.scope_name,
-	sn.space_uuid AS &machineSpaceAddress.space_uuid,
-	sn.cidr AS &machineSpaceAddress.cidr
+	ipa.config_type_name AS &machineSpaceAddress.config_type_name,
+	ipa.type_name AS &machineSpaceAddress.type_name,
+	ipa.origin_name AS &machineSpaceAddress.origin_name,
+	ipa.scope_name AS &machineSpaceAddress.scope_name,
+	ipa.space_uuid AS &machineSpaceAddress.space_uuid,
+	ipa.cidr AS &machineSpaceAddress.cidr
 FROM machine AS m
-JOIN link_layer_device AS lld ON m.net_node_uuid = lld.net_node_uuid
-JOIN ip_address AS ipa ON lld.uuid = ipa.device_uuid
-JOIN ip_address_config_type AS iact ON ipa.config_type_id = iact.id
-JOIN ip_address_type AS iat ON ipa.type_id = iat.id
-JOIN ip_address_origin AS iao ON ipa.origin_id = iao.id
-JOIN ip_address_scope AS ias ON ipa.scope_id = ias.id
-LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
-WHERE     ipa.scope_id NOT IN (3, 4)
+JOIN v_ip_address_selection AS ipa ON m.net_node_uuid = ipa.net_node_uuid
+WHERE ipa.scope_id NOT IN (3, 4)
 ORDER BY
     m.uuid,
-    CASE
-        WHEN ipa.scope_id = 1 THEN 0
-        WHEN ipa.scope_id = 2 THEN 1
-        WHEN ipa.scope_id = 0 THEN 2
-        ELSE 3
-    END,
+    ipa.scope_rank,
     ipa.type_id,
     ipa.is_secondary,
-    lld.is_default_gateway DESC,
-    CASE
-        WHEN ipa.origin_id = 1 THEN 0
-        WHEN ipa.origin_id = 0 THEN 1
-        ELSE 2
-    END,
+    ipa.default_route_rank,
+    ipa.origin_rank,
     ipa.address_value
 `, machineSpaceAddress{})
 	if err != nil {
@@ -2269,6 +2254,7 @@ ORDER BY
 		resAddr []machineSpaceAddress
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		res, resTags, resAddr = nil, nil, nil
 		err := tx.Query(ctx, stmt).GetAll(&res)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)

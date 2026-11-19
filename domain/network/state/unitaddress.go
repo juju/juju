@@ -26,9 +26,10 @@ import (
 // (k8s or machines).
 //
 // Addresses are ordered by public scope, address type, primary status,
-// default route device, origin and value. If several devices carry a default
-// route, or a device has several primary addresses, origin and value decide
-// between them because no route metric is stored.
+// default route device (for primary IPv4 addresses), origin and value. If
+// several devices carry a default route, or a device has several primary
+// addresses, origin and value decide between them because no route metric is
+// stored.
 //
 // The following errors may be returned:
 // - [uniterrors.UnitNotFound] if the unit does not exist
@@ -51,39 +52,15 @@ WITH unit_net_node AS (
     FROM   unit AS u
     WHERE  u.uuid = $entityUUID.uuid
 )
-SELECT ipa.address_value AS &SpaceAddress.address_value,
-       iact.name AS &SpaceAddress.config_type_name,
-       iat.name AS &SpaceAddress.type_name,
-       iao.name AS &SpaceAddress.origin_name,
-       ias.name AS &SpaceAddress.scope_name,
-       ipa.device_uuid AS &SpaceAddress.device_uuid,
-       sn.space_uuid AS &SpaceAddress.space_uuid,
-       sn.cidr AS &SpaceAddress.cidr
-FROM      unit_net_node AS unn
-JOIN      ip_address AS ipa ON unn.net_node_uuid = ipa.net_node_uuid
-JOIN      link_layer_device AS lld ON ipa.device_uuid = lld.uuid
-JOIN      ip_address_config_type AS iact ON ipa.config_type_id = iact.id
-JOIN      ip_address_type AS iat ON ipa.type_id = iat.id
-JOIN      ip_address_origin AS iao ON ipa.origin_id = iao.id
-JOIN      ip_address_scope AS ias ON ipa.scope_id = ias.id
-LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
+SELECT &SpaceAddress.*
+FROM   unit_net_node AS unn
+JOIN   v_ip_address_selection AS ipa ON unn.net_node_uuid = ipa.net_node_uuid
 ORDER BY
-    CASE
-        WHEN ipa.scope_id = 1 THEN 0
-        WHEN ipa.scope_id = 2 THEN 1
-        WHEN ipa.scope_id = 0 THEN 2
-        WHEN ipa.scope_id = 3 THEN 3
-        WHEN ipa.scope_id = 4 THEN 4
-        ELSE 5
-    END,
+    ipa.scope_rank,
     ipa.type_id,
     ipa.is_secondary,
-    lld.is_default_gateway DESC,
-    CASE
-        WHEN ipa.origin_id = 1 THEN 0
-        WHEN ipa.origin_id = 0 THEN 1
-        ELSE 2
-    END,
+    ipa.default_route_rank,
+    ipa.origin_rank,
     ipa.address_value
 `, SpaceAddress{}, entityUUID{})
 	if err != nil {
@@ -91,6 +68,7 @@ ORDER BY
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		address = nil
 		if err := st.checkUnitNotDead(ctx, tx, ident); err != nil {
 			return errors.Capture(err)
 		}
