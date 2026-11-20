@@ -39,7 +39,8 @@ import (
 // attempt with the specified login.
 //
 // authorizedKeys may be empty, in which case the file
-// will be created and left empty.
+// will be created if it does not already exist, and
+// any existing keys will be preserved.
 func InitUbuntuUser(host, login, authorizedKeys string, privateKeys string, read io.Reader, write io.Writer) error {
 	logger.Infof("initialising %q, user %q", host, login)
 
@@ -50,7 +51,11 @@ func InitUbuntuUser(host, login, authorizedKeys string, privateKeys string, read
 	//
 	// Note that we explicitly do not allocate a PTY, so we
 	// get a failure if sudo prompts.
-	cmd := ssh.Command("ubuntu@"+host, []string{"sudo", "-n", "true"}, nil)
+	var probeOptions ssh.Options
+	if privateKeys != "" {
+		probeOptions.SetIdentities(privateKeys)
+	}
+	cmd := ssh.Command("ubuntu@"+host, []string{"sudo", "-n", "true"}, &probeOptions)
 	if cmd.Run() == nil {
 		logger.Infof("ubuntu user is already initialised")
 		return nil
@@ -61,12 +66,16 @@ func InitUbuntuUser(host, login, authorizedKeys string, privateKeys string, read
 	if login != "" {
 		host = login + "@" + host
 	}
-	script := fmt.Sprintf(initUbuntuScript, utils.ShQuote(authorizedKeys))
+	script := fmt.Sprintf(
+		initUbuntuScript,
+		utils.ShQuote(authorizedKeys),
+		utils.ShQuote(ensureAuthorizedKeysScript),
+	)
 	var options ssh.Options
 	options.AllowPasswordAuthentication()
 	options.EnablePTY()
 	// private Keys were set
-	if privateKeys != "" && len(privateKeys) > 0 {
+	if privateKeys != "" {
 		options.SetIdentities(privateKeys)
 	}
 
@@ -93,10 +102,23 @@ temp=$(mktemp)
 echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' > $temp
 install -m 0440 $temp /etc/sudoers.d/90-juju-ubuntu
 rm $temp
-su ubuntu -c 'install -D -m 0600 /dev/null ~/.ssh/authorized_keys'
 export authorized_keys=%s
-if [ ! -z "$authorized_keys" ]; then
-    su ubuntu -c 'printf "%%s\n" "$authorized_keys" >> ~/.ssh/authorized_keys'
+su -s /bin/sh ubuntu -c %s`
+
+// ensureAuthorizedKeysScript creates ~ubuntu/.ssh/authorized_keys if missing
+// and appends any keys from $authorized_keys that are not already present.
+// Pre-existing keys must be preserved rather than truncated.
+const ensureAuthorizedKeysScript = `set -e
+umask 077
+install -d -m 0700 ~/.ssh
+touch ~/.ssh/authorized_keys
+chmod 0600 ~/.ssh/authorized_keys
+if [ -n "$authorized_keys" ]; then
+    [ -s ~/.ssh/authorized_keys ] && [ -n "$(tail -c 1 ~/.ssh/authorized_keys)" ] && echo >> ~/.ssh/authorized_keys
+    printf '%s\n' "$authorized_keys" | while IFS= read -r line || [ -n "$line" ]; do
+        [ -z "$line" ] && continue
+        grep -qxF -e "$line" ~/.ssh/authorized_keys 2>/dev/null || printf '%s\n' "$line" >> ~/.ssh/authorized_keys
+    done
 fi`
 
 // DetectBaseAndHardwareCharacteristics detects the OS

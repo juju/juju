@@ -5,5 +5,7 @@
 package sshprovisioner
 
 const (
-	DetectionScript = detectionScript
+	DetectionScript            = detectionScript
+	InitUbuntuScript           = initUbuntuScript
+	EnsureAuthorizedKeysScript = ensureAuthorizedKeysScript
 )
