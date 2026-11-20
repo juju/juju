@@ -56,357 +56,62 @@ func (s *unitAddressSuite) TestGetPublicAddressWithCloudServiceError(c *tc.C) {
 	unitName := unit.Name("foo/0")
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
-	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(nil, errors.New("boom"))
+	s.st.EXPECT().GetUnitPublicAddresses(gomock.Any(), "foo").Return(nil, errors.New("boom"))
 
 	_, err := s.service(c).GetUnitPublicAddress(c.Context(), unitName)
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *unitAddressSuite) TestGetPublicAddressNonMatchingAddresses(c *tc.C) {
+func (s *unitAddressSuite) TestGetPublicAddressNoAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := unit.Name("foo/0")
-
-	nonMatchingScopeAddrs := network.SpaceAddresses{
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.1",
-				ConfigType: network.ConfigStatic,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeMachineLocal,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.2",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeMachineLocal,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.1.1",
-				ConfigType: network.ConfigStatic,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeMachineLocal,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.1.2",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeMachineLocal,
-			},
-		},
-	}
-
-	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unit.Name("foo/0")).Return(unit.UUID("foo-uuid"), nil)
-	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo-uuid")).Return(nonMatchingScopeAddrs, nil)
+	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
+	s.st.EXPECT().GetUnitPublicAddresses(gomock.Any(), "foo").Return(nil, nil)
 
 	_, err := s.service(c).GetUnitPublicAddress(c.Context(), unitName)
 	c.Assert(err, tc.ErrorMatches, "no public address.*")
 }
 
-func (s *unitAddressSuite) TestGetPublicAddressMatchingAddress(c *tc.C) {
+// The state query supplies the complete selection, including cloud-local
+// fallback and default-route ordering. The service returns its first address.
+func (s *unitAddressSuite) TestGetPublicAddressUsesStateSelection(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := unit.Name("foo/0")
-
-	matchingScopeAddrs := network.SpaceAddresses{
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.1",
-				ConfigType: network.ConfigStatic,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeMachineLocal,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.2",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopePublic,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.3",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeCloudLocal,
-			},
-		},
-	}
-
+	addresses := network.NewSpaceAddresses("10.1.0.123", "10.0.0.123")
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
-	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(matchingScopeAddrs, nil)
+	s.st.EXPECT().GetUnitPublicAddresses(gomock.Any(), "foo").Return(addresses, nil)
 
-	addr, err := s.service(c).GetUnitPublicAddress(c.Context(), unitName)
+	address, err := s.service(c).GetUnitPublicAddress(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
-	// Since the second address is higher in hierarchy of scope match, it should
-	// be returned.
-	c.Check(addr, tc.DeepEquals, matchingScopeAddrs[1])
+	c.Check(address, tc.DeepEquals, addresses[0])
 }
 
-func (s *unitAddressSuite) TestGetPublicAddressMatchingAddressSameOrigin(c *tc.C) {
+// TestGetPublicAddressesPreservesStateOrder checks that the service keeps the
+// default-route preference established by the state query instead of sorting
+// the addresses again by value.
+func (s *unitAddressSuite) TestGetPublicAddressesPreservesStateOrder(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	// Arrange
 	unitName := unit.Name("foo/0")
-
-	matchingScopeAddrs := network.SpaceAddresses{
-		{
-			SpaceID: network.AlphaSpaceId,
-			Origin:  network.OriginProvider,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.1",
-				ConfigType: network.ConfigStatic,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeMachineLocal,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			Origin:  network.OriginProvider,
-			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.2",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopePublic,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			Origin:  network.OriginProvider,
-			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.3",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopePublic,
-			},
-		},
-	}
-
-	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
-	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(matchingScopeAddrs, nil)
-
-	addr, err := s.service(c).GetUnitPublicAddress(c.Context(), unitName)
-	c.Assert(err, tc.ErrorIsNil)
-	// Since the second address is higher in hierarchy of scope match, it should
-	// be returned.
-	c.Check(addr, tc.DeepEquals, matchingScopeAddrs[1])
-}
-
-func (s *unitAddressSuite) TestGetPublicAddressMatchingAddressOneProviderOnly(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitName := unit.Name("foo/0")
-
-	matchingScopeAddrs := network.SpaceAddresses{
-		{
-			SpaceID: network.AlphaSpaceId,
-			Origin:  network.OriginMachine,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.1",
-				ConfigType: network.ConfigStatic,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeMachineLocal,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			Origin:  network.OriginMachine,
-			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.2",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopePublic,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			Origin:  network.OriginProvider,
-			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.3",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopePublic,
-			},
-		},
-	}
-
-	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
-	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(matchingScopeAddrs, nil)
-
-	addr, err := s.service(c).GetUnitPublicAddress(c.Context(), unitName)
-	c.Assert(err, tc.ErrorIsNil)
-	// Since the second address is higher in hierarchy of scope match, it should
-	// be returned.
-	c.Check(addr, tc.DeepEquals, matchingScopeAddrs[2])
-}
-
-func (s *unitAddressSuite) TestGetPublicAddressMatchingAddressOneProviderOtherUnknown(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitName := unit.Name("foo/0")
-
-	matchingScopeAddrs := network.SpaceAddresses{
-		{
-			SpaceID: network.AlphaSpaceId,
-			Origin:  network.OriginMachine,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.1",
-				ConfigType: network.ConfigStatic,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeMachineLocal,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			Origin:  network.OriginUnknown,
-			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.2",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopePublic,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			Origin:  network.OriginProvider,
-			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.3",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopePublic,
-			},
-		},
-	}
-
-	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
-	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(matchingScopeAddrs, nil)
-
-	addr, err := s.service(c).GetUnitPublicAddress(c.Context(), unitName)
-	c.Assert(err, tc.ErrorIsNil)
-	// Since the second address is higher in hierarchy of scope match, it should
-	// be returned.
-	c.Check(addr, tc.DeepEquals, matchingScopeAddrs[2])
-}
-
-func (s *unitAddressSuite) TestGetPublicAddresses(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitName := unit.Name("foo/0")
-
 	unitAddresses := network.SpaceAddresses{
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.1/24",
-				ConfigType: network.ConfigStatic,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopePublic,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.2/24",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopePublic,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.2/24",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeMachineLocal,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.3/24",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeCloudLocal,
-			},
-		},
+		network.NewSpaceAddress("10.1.0.123", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("10.0.0.123", network.WithScope(network.ScopeCloudLocal)),
 	}
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
-	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(unitAddresses, nil)
+	s.st.EXPECT().GetUnitPublicAddresses(gomock.Any(), "foo").Return(unitAddresses, nil)
 
+	// Act
 	addrs, err := s.service(c).GetUnitPublicAddresses(c.Context(), unitName)
+
+	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	// The two public addresses should be returned.
-	c.Check(addrs, tc.DeepEquals, unitAddresses[0:2])
-}
-
-func (s *unitAddressSuite) TestGetPublicAddressesCloudLocal(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitName := unit.Name("foo/0")
-
-	unitAddresses := network.SpaceAddresses{
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.1/24",
-				ConfigType: network.ConfigStatic,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeCloudLocal,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.2/24",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeCloudLocal,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.2/24",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeMachineLocal,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.3/24",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeMachineLocal,
-			},
-		},
-	}
-
-	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
-	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(unitAddresses, nil)
-
-	addrs, err := s.service(c).GetUnitPublicAddresses(c.Context(), unitName)
-	c.Assert(err, tc.ErrorIsNil)
-	// The two cloud-local addresses should be returned because there are no
-	// public ones.
-	c.Check(addrs, tc.DeepEquals, unitAddresses[0:2])
+	c.Check(addrs.Values(), tc.DeepEquals, []string{
+		"10.1.0.123", "10.0.0.123",
+	})
 }
 
 func (s *unitAddressSuite) TestGetPublicAddressesNoAddresses(c *tc.C) {
@@ -415,7 +120,7 @@ func (s *unitAddressSuite) TestGetPublicAddressesNoAddresses(c *tc.C) {
 	unitName := unit.Name("foo/0")
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
-	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(network.SpaceAddresses{}, nil)
+	s.st.EXPECT().GetUnitPublicAddresses(gomock.Any(), "foo").Return(network.SpaceAddresses{}, nil)
 
 	_, err := s.service(c).GetUnitPublicAddresses(c.Context(), unitName)
 	c.Assert(err, tc.Satisfies, network.IsNoAddressError)
@@ -692,8 +397,7 @@ func (s *unitAddressSuite) TestGetPrivateAddressMatchingAddress(c *tc.C) {
 
 	addrs, err := s.service(c).GetUnitPrivateAddress(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
-	// Since the second address is higher in hierarchy of scope match, it should
-	// be returned.
+	// The provider-origin address should be returned.
 	c.Check(addrs, tc.DeepEquals, matchingScopeAddrs[1])
 }
 

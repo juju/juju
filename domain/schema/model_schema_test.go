@@ -429,6 +429,7 @@ func (s *modelSchemaSuite) TestModelViews(c *tc.C) {
 		"v_endpoint",
 		"v_hardware_characteristics",
 		"v_ip_address_with_names",
+		"v_ip_address_selection",
 		"v_machine_agent_version",
 		"v_machine_cloud_instance_status",
 		"v_machine_constraint",
