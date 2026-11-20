@@ -4902,7 +4902,7 @@ ORDER BY r.relation_id
 			}
 			statuses = append(statuses, status)
 		}
-		return nil
+		return rows.Err()
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) fetching inserted relation statuses: %s",
 		errors.ErrorStack(err)))
@@ -4937,7 +4937,7 @@ JOIN relation r  ON re.relation_uuid = r.uuid
 			}
 			epUUIDsByRelID[relID] = append(epUUIDsByRelID[relID], corerelation.EndpointUUID(epUUID))
 		}
-		return nil
+		return rows.Err()
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) fetching inserted relation endpoint: %s", errors.ErrorStack(err)))
 	return epUUIDsByRelID
@@ -4989,7 +4989,7 @@ ORDER BY r.relation_id, rne.cidr
 			result = append(result, currentCIDRs)
 		}
 
-		return nil
+		return rows.Err()
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) fetching relation network egress: %s", errors.ErrorStack(err)))
 	return result
