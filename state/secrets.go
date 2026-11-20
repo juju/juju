@@ -4002,14 +4002,7 @@ func (w *secretsRotationWatcher) merge(details []corewatcher.SecretTriggerChange
 		deletedDetails := corewatcher.SecretTriggerChange{
 			URI: knownDetails.URI,
 		}
-		for i, detail := range details {
-			if detail.URI.ID == changeID {
-				details[i] = deletedDetails
-				return details, nil
-			}
-		}
-		details = append(details, deletedDetails)
-		return details, nil
+		return corewatcher.MergeLastWins(details, []corewatcher.SecretTriggerChange{deletedDetails}, secretRotateTriggerKey), nil
 	}
 	if doc.TxnRevno > knownDetails.txnRevNo {
 		uriStr := w.backend.localID(doc.DocID)
@@ -4021,12 +4014,18 @@ func (w *secretsRotationWatcher) merge(details []corewatcher.SecretTriggerChange
 			txnRevNo: doc.TxnRevno,
 			URI:      uri,
 		}
-		details = append(details, corewatcher.SecretTriggerChange{
+		details = corewatcher.MergeLastWins(details, []corewatcher.SecretTriggerChange{{
 			URI:             uri,
 			NextTriggerTime: doc.NextRotateTime.UTC(),
-		})
+		}}, secretRotateTriggerKey)
 	}
 	return details, nil
+}
+
+// secretRotateTriggerKey identifies pending secret rotation trigger changes
+// by the secret URI they apply to.
+func secretRotateTriggerKey(d corewatcher.SecretTriggerChange) string {
+	return d.URI.ID
 }
 
 func (w *secretsRotationWatcher) loop() (err error) {
@@ -4172,24 +4171,25 @@ func (w *secretsExpiryWatcher) merge(details []corewatcher.SecretTriggerChange, 
 			URI:      knownDetails.uri,
 			Revision: knownDetails.revision,
 		}
-		// If an earlier event was received for the same
-		// revision, update what we know here.
-		for i, detail := range details {
-			if detail.URI.ID == knownDetails.uri.ID {
-				if knownDetails.willExpire {
-					details[i] = deletedDetails
-				} else {
-					details = append(details[:i], details[i+1:]...)
+		// Remove any pending earlier events for the same revision and append
+		// the deletion at the tail if it was previously going to expire or
+		// already had a pending cancellation in this batch.
+		deletedKey := secretRevisionTriggerKey(deletedDetails)
+		filtered := make([]corewatcher.SecretTriggerChange, 0, len(details)+1)
+		hadPendingCancel := false
+		for _, detail := range details {
+			if secretRevisionTriggerKey(detail) == deletedKey {
+				if detail.NextTriggerTime.IsZero() {
+					hadPendingCancel = true
 				}
-				return details, nil
+				continue
 			}
+			filtered = append(filtered, detail)
 		}
-		// Only send an update if a deleted revision was
-		// previously going to expire.
-		if knownDetails.willExpire {
-			details = append(details, deletedDetails)
+		if knownDetails.willExpire || hadPendingCancel {
+			filtered = append(filtered, deletedDetails)
 		}
-		return details, nil
+		return filtered, nil
 	}
 	if doc.TxnRevno > knownDetails.txnRevNo {
 		uriStr, _ := splitSecretRevision(w.backend.localID(doc.DocID))
@@ -4206,19 +4206,25 @@ func (w *secretsExpiryWatcher) merge(details []corewatcher.SecretTriggerChange, 
 		}
 		// The event we send depends on if the revision is set to expire.
 		if willExpire {
-			details = append(details, corewatcher.SecretTriggerChange{
+			details = corewatcher.MergeLastWins(details, []corewatcher.SecretTriggerChange{{
 				URI:             uri,
 				Revision:        doc.Revision,
 				NextTriggerTime: doc.ExpireTime.UTC(),
-			})
+			}}, secretRevisionTriggerKey)
 		} else if knownDetails.willExpire {
-			details = append(details, corewatcher.SecretTriggerChange{
+			details = corewatcher.MergeLastWins(details, []corewatcher.SecretTriggerChange{{
 				URI:      uri,
 				Revision: doc.Revision,
-			})
+			}}, secretRevisionTriggerKey)
 		}
 	}
 	return details, nil
+}
+
+// secretRevisionTriggerKey identifies pending secret revision expiry trigger
+// changes by the secret URI and revision they apply to.
+func secretRevisionTriggerKey(d corewatcher.SecretTriggerChange) string {
+	return secretRevisionKey(d.URI, d.Revision)
 }
 
 func (w *secretsExpiryWatcher) loop() (err error) {

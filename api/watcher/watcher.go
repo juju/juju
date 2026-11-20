@@ -917,23 +917,9 @@ func NewSecretsTriggerWatcher(
 	return w
 }
 
-// mergeChanges combines the changes in current and newChanges, such that we end up with
-// only one change per trigger change in the result; the most recent change wins.
-func (w *secretsTriggerWatcher) mergeChanges(current, newChanges []watcher.SecretTriggerChange) []watcher.SecretTriggerChange {
-	chMap := make(map[string]watcher.SecretTriggerChange)
-	for _, c := range current {
-		chMap[c.URI.ID] = c
-	}
-	for _, c := range newChanges {
-		chMap[c.URI.ID] = c
-	}
-	result := make([]watcher.SecretTriggerChange, len(chMap))
-	i := 0
-	for _, c := range chMap {
-		result[i] = c
-		i++
-	}
-	return result
+type secretTriggerKey struct {
+	uri string
+	rev int
 }
 
 func (w *secretsTriggerWatcher) loop(initialChanges []params.SecretTriggerChange) error {
@@ -942,21 +928,22 @@ func (w *secretsTriggerWatcher) loop(initialChanges []params.SecretTriggerChange
 	go w.commonLoop()
 
 	copyChanges := func(changes []params.SecretTriggerChange) []watcher.SecretTriggerChange {
-		result := make([]watcher.SecretTriggerChange, len(changes))
-		for i, ch := range changes {
+		result := make([]watcher.SecretTriggerChange, 0, len(changes))
+		for _, ch := range changes {
 			uri, err := secrets.ParseURI(ch.URI)
 			if err != nil {
 				logger.Errorf("ignoring invalid secret URI: %q", ch.URI)
 				continue
 			}
-			result[i] = watcher.SecretTriggerChange{
+			result = append(result, watcher.SecretTriggerChange{
 				URI:             uri,
 				Revision:        ch.Revision,
 				NextTriggerTime: ch.NextTriggerTime,
-			}
+			})
 		}
 		return result
 	}
+
 	out := w.out
 	changes := copyChanges(initialChanges)
 	for {
@@ -971,7 +958,9 @@ func (w *secretsTriggerWatcher) loop(initialChanges []params.SecretTriggerChange
 				return nil
 			}
 			newChanges := copyChanges(data.(*params.SecretTriggerWatchResult).Changes)
-			changes = w.mergeChanges(changes, newChanges)
+			changes = watcher.MergeLastWins(changes, newChanges, func(c watcher.SecretTriggerChange) secretTriggerKey {
+				return secretTriggerKey{uri: c.URI.ID, rev: c.Revision}
+			})
 			out = w.out
 		case out <- changes:
 			out = nil
@@ -1012,25 +1001,6 @@ func NewSecretBackendRotateWatcher(
 	return w
 }
 
-// mergeChanges combines the changes in current and newChanges, such that we end up with
-// only one change per trigger change in the result; the most recent change wins.
-func (w *secretBackendRotateWatcher) mergeChanges(current, newChanges []watcher.SecretBackendRotateChange) []watcher.SecretBackendRotateChange {
-	chMap := make(map[string]watcher.SecretBackendRotateChange)
-	for _, c := range current {
-		chMap[c.ID] = c
-	}
-	for _, c := range newChanges {
-		chMap[c.ID] = c
-	}
-	result := make([]watcher.SecretBackendRotateChange, len(chMap))
-	i := 0
-	for _, c := range chMap {
-		result[i] = c
-		i++
-	}
-	return result
-}
-
 func (w *secretBackendRotateWatcher) loop(initialChanges []params.SecretBackendRotateChange) error {
 	w.call = makeWatcherAPICaller(w.caller, "SecretBackendsRotateWatcher", w.watcherId)
 	w.commonWatcher.init()
@@ -1061,7 +1031,9 @@ func (w *secretBackendRotateWatcher) loop(initialChanges []params.SecretBackendR
 				return nil
 			}
 			newChanges := copyChanges(data.(*params.SecretBackendRotateWatchResult).Changes)
-			changes = w.mergeChanges(changes, newChanges)
+			changes = watcher.MergeLastWins(changes, newChanges, func(c watcher.SecretBackendRotateChange) string {
+				return c.ID
+			})
 			out = w.out
 		case out <- changes:
 			out = nil
