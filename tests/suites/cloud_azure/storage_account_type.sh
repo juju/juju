@@ -59,11 +59,11 @@ check_storage_account_type_controller() {
 		# Default azure account type with no additional charm storage.
 		juju deploy juju-qa-dummy-storage ps1 --channel latest/stable --revision 1 --base ubuntu@24.04 2>&1 | OUTPUT "${file}" || exit 1
 		# Premium azure account type with no additional charm storage.
-		juju deploy juju-qa-dummy-storage ps2 --channel latest/stable --revision 1 --base ubuntu@24.04 --constraints "instance-type=Standard_D8as_v5 root-disk-source=azure-premium" 2>&1 | OUTPUT "${file}" || exit 1
+		juju deploy juju-qa-dummy-storage ps2 --channel latest/stable --revision 1 --base ubuntu@24.04 --constraints "instance-type=Standard_D2as_v5 root-disk-source=azure-premium" 2>&1 | OUTPUT "${file}" || exit 1
 		# Default azure account type with additional premium charm storage.
-		juju deploy juju-qa-dummy-storage ps3 --channel latest/stable --revision 1 --base ubuntu@24.04 --constraints "instance-type=Standard_D8as_v5" --storage single-fs=2G,azure-premium 2>&1 | OUTPUT "${file}" || exit 1
+		juju deploy juju-qa-dummy-storage ps3 --channel latest/stable --revision 1 --base ubuntu@24.04 --constraints "instance-type=Standard_D2as_v5" --storage single-fs=2G,azure-premium 2>&1 | OUTPUT "${file}" || exit 1
 		# Premium azure account type with additional default charm storage.
-		juju deploy juju-qa-dummy-storage ps4 --channel latest/stable --revision 1 --base ubuntu@24.04 --constraints "instance-type=Standard_D8as_v5 root-disk-source=azure-premium" --storage single-fs=2G,azure 2>&1 | OUTPUT "${file}" || exit 1
+		juju deploy juju-qa-dummy-storage ps4 --channel latest/stable --revision 1 --base ubuntu@24.04 --constraints "instance-type=Standard_D2as_v5 root-disk-source=azure-premium" --storage single-fs=2G,azure 2>&1 | OUTPUT "${file}" || exit 1
 	) || return 1
 
 	# Wait for Juju to register machines for the deployed units and provide instance-ids.
