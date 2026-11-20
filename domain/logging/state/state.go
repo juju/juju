@@ -79,8 +79,15 @@ func (st *State) GetLokiConfig(ctx context.Context) (logging.LokiConfig, error) 
 		return logging.LokiConfig{}, errors.Errorf("getting database: %w", err)
 	}
 
+	// Work around dqlite encoding NULL BOOLEAN values as false. Remove the
+	// cast once a dqlite release containing canonical/dqlite#883 is bundled.
 	stmt, err := st.Prepare(`
-SELECT &lokiConfig.* FROM logging_loki_config
+SELECT l.uuid AS &lokiConfig.uuid,
+       l.endpoint AS &lokiConfig.endpoint,
+       l.ca_cert AS &lokiConfig.ca_cert,
+       CAST(l.insecure_skip_verify AS INTEGER) AS &lokiConfig.insecure_skip_verify,
+       l.org_id AS &lokiConfig.org_id
+FROM logging_loki_config AS l
 `, lokiConfig{})
 	if err != nil {
 		return logging.LokiConfig{}, errors.Errorf("preparing select statement: %w", err)
