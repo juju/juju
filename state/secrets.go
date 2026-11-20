@@ -4002,7 +4002,7 @@ func (w *secretsRotationWatcher) merge(details []corewatcher.SecretTriggerChange
 		deletedDetails := corewatcher.SecretTriggerChange{
 			URI: knownDetails.URI,
 		}
-		return replacePendingTriggerDetails(details, deletedDetails, secretRotateTriggerKey), nil
+		return corewatcher.MergeLastWins(details, []corewatcher.SecretTriggerChange{deletedDetails}, secretRotateTriggerKey), nil
 	}
 	if doc.TxnRevno > knownDetails.txnRevNo {
 		uriStr := w.backend.localID(doc.DocID)
@@ -4014,20 +4014,12 @@ func (w *secretsRotationWatcher) merge(details []corewatcher.SecretTriggerChange
 			txnRevNo: doc.TxnRevno,
 			URI:      uri,
 		}
-		details = replacePendingTriggerDetails(details, corewatcher.SecretTriggerChange{
+		details = corewatcher.MergeLastWins(details, []corewatcher.SecretTriggerChange{{
 			URI:             uri,
 			NextTriggerTime: doc.NextRotateTime.UTC(),
-		}, secretRotateTriggerKey)
+		}}, secretRotateTriggerKey)
 	}
 	return details, nil
-}
-
-// replacePendingTriggerDetails removes any pending changes matching the key
-// of updated and appends updated at the tail, so a batch carries at most one
-// change per key. It delegates to MergeLastWins so the controller-side batch
-// semantics cannot drift from the agent-side merge in api/watcher.
-func replacePendingTriggerDetails[T any, K comparable](details []T, updated T, key func(T) K) []T {
-	return corewatcher.MergeLastWins(details, []T{updated}, key)
 }
 
 // secretRotateTriggerKey identifies pending secret rotation trigger changes
@@ -4214,16 +4206,16 @@ func (w *secretsExpiryWatcher) merge(details []corewatcher.SecretTriggerChange, 
 		}
 		// The event we send depends on if the revision is set to expire.
 		if willExpire {
-			details = replacePendingTriggerDetails(details, corewatcher.SecretTriggerChange{
+			details = corewatcher.MergeLastWins(details, []corewatcher.SecretTriggerChange{{
 				URI:             uri,
 				Revision:        doc.Revision,
 				NextTriggerTime: doc.ExpireTime.UTC(),
-			}, secretRevisionTriggerKey)
+			}}, secretRevisionTriggerKey)
 		} else if knownDetails.willExpire {
-			details = replacePendingTriggerDetails(details, corewatcher.SecretTriggerChange{
+			details = corewatcher.MergeLastWins(details, []corewatcher.SecretTriggerChange{{
 				URI:      uri,
 				Revision: doc.Revision,
-			}, secretRevisionTriggerKey)
+			}}, secretRevisionTriggerKey)
 		}
 	}
 	return details, nil

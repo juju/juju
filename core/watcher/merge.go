@@ -8,9 +8,6 @@ package watcher
 // updated key moves to the tail after earlier events for other keys).
 // A merged batch therefore carries at most one entry per key and the
 // latest value wins.
-//
-// Agent-side and controller-side trigger watchers must use this single
-// implementation so their batching semantics cannot drift apart.
 func MergeLastWins[T any, K comparable](current, newChanges []T, key func(T) K) []T {
 	combined := make([]T, 0, len(current)+len(newChanges))
 	combined = append(combined, current...)
