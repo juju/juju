@@ -1,5 +1,11 @@
 run_shellcheck() {
-	OUT=$(shellcheck --shell=bash --severity=warning tests/main.sh tests/includes/*.sh tests/suites/**/*.sh 2>&1 || true)
+	local -a shell_scripts=(
+		tests/main.sh
+		tests/includes/*.sh
+		tests/lib/*.sh
+		tests/suites/**/*.sh
+	)
+	OUT=$(shellcheck --shell=bash --severity=warning "${shell_scripts[@]}" 2>&1 || true)
 	if [ -n "${OUT}" ]; then
 		echo ""
 		echo "$(red 'Found some issues:')"

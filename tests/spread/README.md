@@ -1,8 +1,9 @@
 # Spread integration tests
 
 This directory contains Juju's integration tests written for
-[spread](https://github.com/canonical/spread) (the `adhoc`/LXD backend). They
-are the migration target for the legacy bash suites under `tests/suites/`.
+[spread](https://github.com/canonical/spread) using the `lxd` and `ec2`
+backends. They are the migration target for the legacy bash suites under
+`tests/suites/`.
 
 Each subdirectory of a suite (e.g. `deploy/deploy-charm/`) is one *task*; a
 `task.yaml` file defines the task's `execute` (and optional `prepare`/`restore`
@@ -72,7 +73,8 @@ first failure instead of continuing.
 
 ### Reusing the runner instance (important for speed)
 
-On a fresh runner instance, spread builds `juju` and `jujud-controller` inside
+On a fresh runner instance, spread builds `juju` and `jujuagentd` (the agent
+binary formerly known as `jujud`) inside
 it (~10–15 min). Keep an instance alive across runs to skip the rebuild:
 
 ```sh
@@ -161,6 +163,8 @@ Most knobs are overridable via environment variables (see `spread.yaml`):
 | `BOOTSTRAP_ARCH` / `MODEL_ARCH` | Architecture constraints | *(empty)* |
 | `BASE` | Base image of the runner instance (`noble`, `jammy`, …) | `noble` |
 | `DISK` / `CPU` / `MEM` | Runner instance sizing | `40` / `8` / `16` |
+| `EC2_INSTANCE_TYPE` | EC2 instance type for the `ec2` backend | `m5.xlarge` |
+| `EC2_INSTANCE_PROFILE` | Pre-provisioned profile for the EC2 runner | *(required for `ec2`)* |
 
 Example: run the deploy suite with an explicit runner image:
 
@@ -170,13 +174,60 @@ BASE=jammy spread -v lxd:ubuntu-22.04:tests/spread/deploy/...
 
 These variables are exported into the runner instance (via the `$(HOST: ...)`
 expressions in `spread.yaml`), so they can be set on the host before invoking
-`spread`. No spread-specific config file is needed beyond `spread.yaml`.
+`spread`. AWS credentials never ride in EC2 user-data: both backends deliver
+them to the runner over the spread SSH channel (see "Running against AWS").
+No spread-specific config file is needed beyond `spread.yaml`.
 
-## Running against AWS (local proof-of-concept)
+## Running against AWS
 
-The `lxd` backend runner instance is only the *runner*; Juju boots the
-controller wherever `BOOTSTRAP_PROVIDER` points. To run a test against AWS,
-set the provider and pass the credentials on the command line:
+There are two ways to run tests against AWS:
+
+### 1. Native `ec2` backend (recommended)
+
+The `ec2` backend provisions EC2 instances as runner VMs via spread. This is
+the preferred approach because the runner is on real AWS infrastructure:
+
+```sh
+AWS_ACCESS_KEY_ID=... \
+AWS_SECRET_ACCESS_KEY=... \
+AWS_DEFAULT_REGION=us-east-1 \
+EC2_INSTANCE_PROFILE=juju-spread-ec2 \
+spread -v ec2:ubuntu-22.04:tests/spread/deploy/deploy-charm
+```
+
+The backend creates an EC2 key pair, security group, and Ubuntu AMI instance
+for each job, and tears them down on completion. Set `EC2_INSTANCE_TYPE` to
+override the default `m5.xlarge`. `EC2_INSTANCE_PROFILE` must name a
+pre-provisioned profile attached to the runner instance; its role trusts
+`ec2.amazonaws.com` and carries the permission set from
+`internal/provider/ec2/iam_docs.go`, serving runner-side tooling such as
+`aws-cli` via IMDS.
+
+`juju bootstrap aws` inside the runner authenticates with the same AWS
+credentials as the host, exported through the backend `environment:` block
+over the spread SSH channel. The runner profile cannot drive the bootstrap
+itself: juju's ec2 credential detection never queries IMDS, and an
+instance-role credential is incompatible with the bootstrap instance-role
+constraint the controller would need (`environs/bootstrap` rejects the
+combination), so the controller runs with the same access-key credential
+as the client.
+
+The `ec2` backend automatically sets `BOOTSTRAP_PROVIDER=ec2` and
+`BOOTSTRAP_CLOUD=aws`, so the Juju controller is bootstrapped onto AWS natively.
+The `deploy-charm` test runs on both backends:
+
+```sh
+# LXD runner → Juju on LXD
+spread -v lxd:ubuntu-22.04:tests/spread/deploy/deploy-charm
+
+# EC2 runner → Juju on AWS
+spread -v ec2:ubuntu-22.04:tests/spread/deploy/deploy-charm
+```
+
+### 2. LXD runner bootstrapping Juju onto AWS
+
+The `lxd` backend can also bootstrap a Juju controller on AWS from inside the
+LXD runner instance:
 
 ```sh
 BOOTSTRAP_PROVIDER=ec2 \
@@ -187,13 +238,84 @@ AWS_DEFAULT_REGION=... \
 spread -reuse -v lxd:ubuntu-22.04:tests/spread/deploy/deploy-charm
 ```
 
-Notes:
+This is useful for testing the cloud bootstrap path without needing a native
+EC2 runner.
+
+### Provisioning the EC2 instance profile
+
+`EC2_INSTANCE_PROFILE` references an instance profile and role created once by
+an account administrator. The role's permission policy mirrors
+`internal/provider/ec2/iam_docs.go` and must stay in sync with it.
+
+With the CI credentials, record the principal that needs `iam:PassRole`:
+
+```sh
+aws sts get-caller-identity
+```
+
+With administrator credentials, create the role and profile, and grant the CI
+principal only `iam:PassRole` on that role (restricted to `ec2.amazonaws.com`):
+
+```sh
+# trust.json: only ec2.amazonaws.com may assume the role (sts:AssumeRole)
+aws iam create-role --role-name juju-spread-ec2 \
+  --assume-role-policy-document file://trust.json \
+  --description "Juju spread test controller role"
+# permissions.json: the Juju AWS permission set mirrored from iam_docs.go
+aws iam put-role-policy --role-name juju-spread-ec2 \
+  --policy-name juju-controller-permissions \
+  --policy-document file://permissions.json
+aws iam create-instance-profile --instance-profile-name juju-spread-ec2
+aws iam add-role-to-instance-profile \
+  --instance-profile-name juju-spread-ec2 --role-name juju-spread-ec2
+# passrole.json: iam:PassRole on the role, iam:PassedToService=ec2.amazonaws.com
+aws iam put-user-policy --user-name <ci-user> \
+  --policy-name juju-spread-ec2-passrole \
+  --policy-document file://passrole.json
+```
+
+Use `put-role-policy` with the role name instead of `put-user-policy` when
+the CI principal is an assumed role rather than an IAM user.
+
+Verify with the CI credentials that the grant is effective — a
+`DryRunOperation` error means authorized, `UnauthorizedOperation` means it is
+not:
+
+```sh
+aws ec2 run-instances --dry-run --instance-type m5.xlarge \
+  --iam-instance-profile Name=juju-spread-ec2 \
+  --image-id "$(aws ec2 describe-images --owners 099720109477 \
+    --filters 'Name=name,Values=ubuntu/images/hvm-ssd*/ubuntu-jammy-22.04-amd64-server-*' \
+    --query 'sort_by(Images,&CreationDate)[-1].ImageId' --output text)"
+```
+
+Finally expose the profile to CI as the repository secret
+`EC2_INSTANCE_PROFILE=juju-spread-ec2` (Settings → Secrets and variables →
+Actions → Secrets). The profile name is not sensitive, but the workflow reads
+it from `secrets.EC2_INSTANCE_PROFILE`, so it is stored alongside the AWS
+credentials.
+
+### CI
+
+The `spread.yml` workflow has both `spread-lxd` and `spread-ec2` jobs. The
+`ec2` job requires `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
+`AWS_DEFAULT_REGION`, and `EC2_INSTANCE_PROFILE` repository secrets.
+
+The `ec2` backend's `allocate`/`discard` scripts execute on the **runner
+host**, not inside the test VM, so that host needs `aws-cli` (snap, classic;
+the `Ensure runner-side tools` step installs it if missing) and the core
+tools `ssh`, `base64`, `curl`, `od`, and `sed` (all in a standard Ubuntu
+server image; `xxd` is deliberately not used). The `aws-cli` install inside
+the backend `prepare` runs in the test VM and does not cover the runner
+host. For local runs the same tools must be on `PATH`.
+
+### Notes
 
 - The AWS-specific bash tests (bundle `image-id` variants) are **not yet
-  ported** to `tests/spread/deploy/`; the above runs a generic test against a
-  cloud-bootstrapped controller, which validates the non-lxd code path.
-- Never commit AWS credentials. CI credentials are still to be arranged (see
-  the migration plan, Step 5).
+  ported** to `tests/spread/deploy/`.
+- Never commit AWS credentials.
+- Keep `-reuse` for multiple iterations to avoid repeated EC2 provisioning
+  overhead.
 
 ## Notes
 
