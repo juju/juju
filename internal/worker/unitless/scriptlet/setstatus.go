@@ -1,13 +1,18 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package unitless
+package scriptlet
 
 import (
 	"github.com/canonical/starlark/starlark"
 
 	"github.com/juju/juju/internal/errors"
 )
+
+func init() {
+	registry := GlobalEnvRegistry()
+	registry.AddAppMethod(setStatusBuiltin)
+}
 
 // IntentSetStatus indicates an application status update.
 const IntentSetStatus IntentType = "set-status"

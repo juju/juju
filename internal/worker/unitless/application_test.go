@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/worker/unitless/scriptlet"
 )
 
 type applicationRunnerSuite struct {
@@ -396,9 +397,9 @@ func (s *applicationRunnerSuite) TestDispatchesEventsInOrderAndLogsIntents(c *tc
 	defer ctrl.Finish()
 
 	fixture := s.expectRunningApplication(c)
-	fixture.executor.intents = []Intent{
-		{Type: IntentSetStatus, Args: map[string]any{"status": "active"}},
-		{Type: IntentSetStatus, Args: map[string]any{"status": "waiting"}},
+	fixture.executor.intents = []scriptlet.Intent{
+		{Type: scriptlet.IntentSetStatus, Args: map[string]any{"status": "active"}},
+		{Type: scriptlet.IntentSetStatus, Args: map[string]any{"status": "waiting"}},
 	}
 	first := domainunitless.Event{
 		Name:  "config_changed",
@@ -516,7 +517,7 @@ func (s *applicationRunnerSuite) TestExecutorErrorContinuesAndDiscardsIntents(c 
 
 	fixture := s.expectRunningApplication(c)
 	fixture.executor.err = errors.New("boom")
-	fixture.executor.intents = []Intent{{Type: IntentSetStatus}}
+	fixture.executor.intents = []scriptlet.Intent{{Type: scriptlet.IntentSetStatus}}
 
 	first := domainunitless.Event{Name: "config_changed"}
 	second := domainunitless.Event{Name: "update_status"}
@@ -672,7 +673,7 @@ func (s *applicationRunnerSuite) TestShutdownCancelsEventExecutionAndStopsBatch(
 	contexts := make(chan context.Context, 1)
 	s.config.NewExecutor = func(_ context.Context, config ExecutorConfig) (Executor, error) {
 		fixture.executorConfigs <- config
-		return applicationExecutorFunc(func(ctx context.Context, _ domainunitless.Event) ([]Intent, error) {
+		return applicationExecutorFunc(func(ctx context.Context, _ domainunitless.Event) ([]scriptlet.Intent, error) {
 			contexts <- ctx
 			<-ctx.Done()
 			return nil, ctx.Err()
@@ -838,8 +839,8 @@ func (w *applicationNotifyWatcher) Changes() <-chan struct{} {
 	return w.MockNotifyWatcher.Changes()
 }
 
-type applicationExecutorFunc func(context.Context, domainunitless.Event) ([]Intent, error)
+type applicationExecutorFunc func(context.Context, domainunitless.Event) ([]scriptlet.Intent, error)
 
-func (f applicationExecutorFunc) Handle(ctx context.Context, event domainunitless.Event) ([]Intent, error) {
+func (f applicationExecutorFunc) Handle(ctx context.Context, event domainunitless.Event) ([]scriptlet.Intent, error) {
 	return f(ctx, event)
 }
