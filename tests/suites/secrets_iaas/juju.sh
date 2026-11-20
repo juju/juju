@@ -101,20 +101,19 @@ check_secrets() {
 
 	echo "Checking secret expiry across revisions"
 	expiry_secret_uri=$(juju_exec_output --unit dummy-source/0 -- secret-add --owner unit --expire 10s expire-test=rev1)
-	expiry_secret_id=${expiry_secret_uri##*/}
 	juju exec --unit dummy-source/0 -- secret-set "$expiry_secret_uri" --expire 20s expire-test=rev2
 
 	echo "Checking secret-expired hook for revision 1"
 	attempt=0
 	while true; do
-		num_hooks=$(juju show-status-log dummy-source/0 --format json -n 100 | yq -r "[.[] | select(.message != null) | select(.message | contains(\"running secret-expired hook\") and .message | contains(\"${expiry_secret_id}/1\"))] | length")
+		num_hooks=$(juju show-status-log dummy-source/0 --format json -n 100 | yq -r "[.[] | select(.message != null) | select(.message | contains(\"running secret-expired hook\") and .message | contains(\"${expiry_secret_uri}/1\"))] | length")
 		if [ "$num_hooks" -ge 1 ]; then
 			break
 		fi
 		attempt=$((attempt + 1))
 		if [ $attempt -eq 15 ]; then
 			# shellcheck disable=SC2046
-			echo $(red "expected secret-expired hook for ${expiry_secret_id}/1, got $num_hooks")
+			echo $(red "expected secret-expired hook for ${expiry_secret_uri}/1, got $num_hooks")
 			exit 1
 		fi
 		sleep 2
@@ -123,20 +122,37 @@ check_secrets() {
 	echo "Checking secret-expired hook for revision 2"
 	attempt=0
 	while true; do
-		num_hooks=$(juju show-status-log dummy-source/0 --format json -n 100 | yq -r "[.[] | select(.message != null) | select(.message | contains(\"running secret-expired hook\") and .message | contains(\"${expiry_secret_id}/2\"))] | length")
+		num_hooks=$(juju show-status-log dummy-source/0 --format json -n 100 | yq -r "[.[] | select(.message != null) | select(.message | contains(\"running secret-expired hook\") and .message | contains(\"${expiry_secret_uri}/2\"))] | length")
 		if [ "$num_hooks" -ge 1 ]; then
 			break
 		fi
 		attempt=$((attempt + 1))
-		if [ $attempt -eq 15 ]; then
+		if [ $attempt -eq 10 ]; then
 			# shellcheck disable=SC2046
-			echo $(red "expected secret-expired hook for ${expiry_secret_id}/2, got $num_hooks")
+			echo $(red "expected secret-expired hook for ${expiry_secret_uri}/2, got $num_hooks")
 			exit 1
 		fi
 		sleep 2
 	done
 
 	juju exec --unit dummy-source/0 -- secret-remove "$expiry_secret_uri"
+
+	echo "Checking: no further secret-expired hooks after secret-remove"
+	base_expired_hooks=$(juju show-status-log dummy-source/0 --format json -n 100 | yq -r "[.[] | select(.message != null) | select(.message | contains(\"running secret-expired hook\") and .message | contains(\"${expiry_secret_uri}\"))] | length")
+	attempt=0
+	while true; do
+		sleep 2
+		num_hooks=$(juju show-status-log dummy-source/0 --format json -n 100 | yq -r "[.[] | select(.message != null) | select(.message | contains(\"running secret-expired hook\") and .message | contains(\"${expiry_secret_uri}\"))] | length")
+		if [ "$num_hooks" -gt "$base_expired_hooks" ]; then
+			# shellcheck disable=SC2046
+			echo $(red "unexpected extra secret-expired hooks for ${expiry_secret_uri}: base $base_expired_hooks, got $num_hooks")
+			exit 1
+		fi
+		attempt=$((attempt + 1))
+		if [ $attempt -eq 10 ]; then
+			break
+		fi
+	done
 
 	echo "Checking: secret-remove"
 	juju exec --unit dummy-source/0 -- secret-remove "$secret_owned_by_dummy_source_0"

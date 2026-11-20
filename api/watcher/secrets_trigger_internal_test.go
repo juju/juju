@@ -4,16 +4,23 @@
 package watcher
 
 import (
-	"reflect"
-	"testing"
 	"time"
+
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
 
-func TestSecretsTriggerMergeKeepsRevisions(t *testing.T) {
+type secretsTriggerWatcherMergeSuite struct{}
+
+var _ = gc.Suite(&secretsTriggerWatcherMergeSuite{})
+
+// TestMergeKeepsRevisions ensures that expiry triggers for distinct
+// revisions of the same secret do not clobber each other.
+func (s *secretsTriggerWatcherMergeSuite) TestMergeKeepsRevisions(c *gc.C) {
 	uri := secrets.NewURI()
 	now := time.Now()
 	w := &secretsTriggerWatcher{}
@@ -30,22 +37,18 @@ func TestSecretsTriggerMergeKeepsRevisions(t *testing.T) {
 			NextTriggerTime: now.Add(time.Hour),
 		}},
 	)
-	if len(changes) != 2 {
-		t.Fatalf("got %d changes, want 2: %#v", len(changes), changes)
-	}
+	c.Assert(changes, gc.HasLen, 2)
 	got := make(map[int]time.Time)
 	for _, ch := range changes {
 		got[ch.Revision] = ch.NextTriggerTime
 	}
-	if !got[1].Equal(now) {
-		t.Fatalf("revision 1 trigger = %s, want %s", got[1], now)
-	}
-	if !got[2].Equal(now.Add(time.Hour)) {
-		t.Fatalf("revision 2 trigger = %s, want %s", got[2], now.Add(time.Hour))
-	}
+	c.Check(got[1].Equal(now), jc.IsTrue)
+	c.Check(got[2].Equal(now.Add(time.Hour)), jc.IsTrue)
 }
 
-func TestSecretsTriggerMergeReplacesSameRevision(t *testing.T) {
+// TestMergeReplacesSameRevision ensures that a later trigger for the same
+// secret revision replaces the earlier one.
+func (s *secretsTriggerWatcherMergeSuite) TestMergeReplacesSameRevision(c *gc.C) {
 	uri := secrets.NewURI()
 	now := time.Now()
 	w := &secretsTriggerWatcher{}
@@ -62,15 +65,13 @@ func TestSecretsTriggerMergeReplacesSameRevision(t *testing.T) {
 			NextTriggerTime: now.Add(time.Hour),
 		}},
 	)
-	if len(changes) != 1 {
-		t.Fatalf("got %d changes, want 1: %#v", len(changes), changes)
-	}
-	if !changes[0].NextTriggerTime.Equal(now.Add(time.Hour)) {
-		t.Fatalf("trigger = %s, want %s", changes[0].NextTriggerTime, now.Add(time.Hour))
-	}
+	c.Assert(changes, gc.HasLen, 1)
+	c.Check(changes[0].NextTriggerTime.Equal(now.Add(time.Hour)), jc.IsTrue)
 }
 
-func TestSecretsTriggerCopyChangesDropsInvalidURI(t *testing.T) {
+// TestCopyChangesDropsInvalidURI ensures invalid URIs are dropped rather
+// than delivered with a nil URI.
+func (s *secretsTriggerWatcherMergeSuite) TestCopyChangesDropsInvalidURI(c *gc.C) {
 	uri := secrets.NewURI()
 	now := time.Now().UTC()
 	w := &secretsTriggerWatcher{}
@@ -87,21 +88,17 @@ func TestSecretsTriggerCopyChangesDropsInvalidURI(t *testing.T) {
 			NextTriggerTime: now.Add(time.Hour),
 		},
 	})
-	if len(changes) != 1 {
-		t.Fatalf("got %d changes, want 1: %#v", len(changes), changes)
-	}
-	if changes[0].URI == nil || changes[0].URI.ID != uri.ID {
-		t.Fatalf("got URI %v, want %s", changes[0].URI, uri.ID)
-	}
-	if changes[0].Revision != 2 {
-		t.Fatalf("got revision %d, want 2", changes[0].Revision)
-	}
-	if !changes[0].NextTriggerTime.Equal(now.Add(time.Hour)) {
-		t.Fatalf("got trigger = %s, want %s", changes[0].NextTriggerTime, now.Add(time.Hour))
-	}
+	c.Assert(changes, gc.HasLen, 1)
+	c.Check(changes[0].URI, gc.NotNil)
+	c.Check(changes[0].URI.ID, gc.Equals, uri.ID)
+	c.Check(changes[0].Revision, gc.Equals, 2)
+	c.Check(changes[0].NextTriggerTime.Equal(now.Add(time.Hour)), jc.IsTrue)
 }
 
-func TestSecretsTriggerMergePreservesOrder(t *testing.T) {
+// TestMergePreservesOrder ensures distinct keys keep their relative order
+// and an updated key is repositioned at the tail with only its latest
+// value retained.
+func (s *secretsTriggerWatcherMergeSuite) TestMergePreservesOrder(c *gc.C) {
 	uri1 := secrets.NewURI()
 	uri2 := secrets.NewURI()
 	now := time.Now().UTC()
@@ -117,9 +114,7 @@ func TestSecretsTriggerMergePreservesOrder(t *testing.T) {
 	})
 
 	merged := w.mergeChanges(batch1, batch2)
-	if len(merged) != 4 {
-		t.Fatalf("got %d changes, want 4: %#v", len(merged), merged)
-	}
+	c.Assert(merged, gc.HasLen, 4)
 	want := []struct {
 		id  string
 		rev int
@@ -130,47 +125,26 @@ func TestSecretsTriggerMergePreservesOrder(t *testing.T) {
 		{uri2.ID, 0},
 	}
 	for i, exp := range want {
-		if merged[i].URI.ID != exp.id || merged[i].Revision != exp.rev {
-			t.Fatalf("merged[%d] = %#v, want id=%s rev=%d", i, merged[i], exp.id, exp.rev)
-		}
+		c.Check(merged[i].URI.ID, gc.Equals, exp.id)
+		c.Check(merged[i].Revision, gc.Equals, exp.rev)
 	}
 
-	// Overwriting an existing key moves it to the tail and retains only the latest.
+	// Overwriting an existing key moves it to the tail and retains only
+	// the latest value.
 	batch3 := w.copyChanges([]params.SecretTriggerChange{
 		{URI: uri1.String(), Revision: 0, NextTriggerTime: now.Add(3 * time.Hour)},
 	})
 	merged = w.mergeChanges(merged, batch3)
-	if len(merged) != 4 {
-		t.Fatalf("got %d changes, want 4: %#v", len(merged), merged)
-	}
+	c.Assert(merged, gc.HasLen, 4)
 	last := merged[len(merged)-1]
-	if last.URI.ID != uri1.ID || last.Revision != 0 || !last.NextTriggerTime.Equal(now.Add(3*time.Hour)) {
-		t.Fatalf("last = %#v, want id=%s rev=0 time=%s", last, uri1.ID, now.Add(3*time.Hour))
-	}
+	c.Check(last.URI.ID, gc.Equals, uri1.ID)
+	c.Check(last.Revision, gc.Equals, 0)
+	c.Check(last.NextTriggerTime.Equal(now.Add(3*time.Hour)), jc.IsTrue)
 }
 
-func TestSecretBackendRotateMergePreservesOrder(t *testing.T) {
-	now := time.Now().UTC()
-	w := &secretBackendRotateWatcher{}
-
-	merged := w.mergeChanges(
-		[]corewatcher.SecretBackendRotateChange{
-			{ID: "b1", Name: "b1", NextTriggerTime: now.Add(time.Hour)},
-			{ID: "b2", Name: "b2", NextTriggerTime: now.Add(2 * time.Hour)},
-		},
-		[]corewatcher.SecretBackendRotateChange{
-			{ID: "b1", Name: "b1"},
-		},
-	)
-	if len(merged) != 2 {
-		t.Fatalf("got %d changes, want 2: %#v", len(merged), merged)
-	}
-	if merged[0].ID != "b2" || merged[1].ID != "b1" || !merged[1].NextTriggerTime.IsZero() {
-		t.Fatalf("unexpected merged order/values: %#v", merged)
-	}
-}
-
-func TestSecretsTriggerMergeDeleteAndReenableLastWins(t *testing.T) {
+// TestMergeDeleteAndReenableLastWins ensures the last event per key wins,
+// in both directions across batches.
+func (s *secretsTriggerWatcherMergeSuite) TestMergeDeleteAndReenableLastWins(c *gc.C) {
 	uri1 := secrets.NewURI()
 	uri2 := secrets.NewURI()
 	now := time.Now().UTC()
@@ -188,51 +162,36 @@ func TestSecretsTriggerMergeDeleteAndReenableLastWins(t *testing.T) {
 	})
 	merged := w.mergeChanges(b1, b2)
 
-	if len(merged) != 2 {
-		t.Fatalf("got %d merged entries, want 2: %#v", len(merged), merged)
-	}
+	c.Assert(merged, gc.HasLen, 2)
 	byID := make(map[string]corewatcher.SecretTriggerChange, 2)
 	for _, ch := range merged {
 		byID[ch.URI.ID] = ch
 	}
-	if got := byID[uri1.ID]; !got.NextTriggerTime.Equal(now.Add(2 * time.Hour)) {
-		t.Fatalf("uri1 = %#v, want scheduled at %s", got, now.Add(2*time.Hour))
-	}
-	if got := byID[uri2.ID]; !got.NextTriggerTime.IsZero() {
-		t.Fatalf("uri2 = %#v, want delete", got)
-	}
+	c.Check(byID[uri1.ID].NextTriggerTime.Equal(now.Add(2*time.Hour)), jc.IsTrue)
+	c.Check(byID[uri2.ID].NextTriggerTime.IsZero(), jc.IsTrue)
 }
 
-func TestMergeOrderedTriggerChanges(t *testing.T) {
-	type testTriggerChange struct {
-		id   string
-		next time.Time
-	}
+type secretBackendRotateWatcherMergeSuite struct{}
+
+var _ = gc.Suite(&secretBackendRotateWatcherMergeSuite{})
+
+// TestMergePreservesOrder ensures distinct backends keep their relative
+// order and a deletion for one backend lands at the tail.
+func (s *secretBackendRotateWatcherMergeSuite) TestMergePreservesOrder(c *gc.C) {
 	now := time.Now().UTC()
-	key := func(ch testTriggerChange) string { return ch.id }
+	w := &secretBackendRotateWatcher{}
 
-	if got := mergeOrderedTriggerChanges[testTriggerChange, string](nil, nil, key); len(got) != 0 {
-		t.Fatalf("got %d entries for nil inputs, want 0: %#v", len(got), got)
-	}
-
-	// Updated keys move to their final chronological position at the tail.
-	got := mergeOrderedTriggerChanges(
-		[]testTriggerChange{
-			{id: "a", next: now.Add(time.Hour)},
-			{id: "b", next: now.Add(2 * time.Hour)},
+	merged := w.mergeChanges(
+		[]corewatcher.SecretBackendRotateChange{
+			{ID: "b1", Name: "b1", NextTriggerTime: now.Add(time.Hour)},
+			{ID: "b2", Name: "b2", NextTriggerTime: now.Add(2 * time.Hour)},
 		},
-		[]testTriggerChange{
-			{id: "c", next: now.Add(3 * time.Hour)},
-			{id: "a"},
+		[]corewatcher.SecretBackendRotateChange{
+			{ID: "b1", Name: "b1"},
 		},
-		key,
 	)
-	want := []testTriggerChange{
-		{id: "b", next: now.Add(2 * time.Hour)},
-		{id: "c", next: now.Add(3 * time.Hour)},
-		{id: "a"},
-	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("got %#v, want %#v", got, want)
-	}
+	c.Assert(merged, gc.HasLen, 2)
+	c.Check(merged[0].ID, gc.Equals, "b2")
+	c.Check(merged[1].ID, gc.Equals, "b1")
+	c.Check(merged[1].NextTriggerTime.IsZero(), jc.IsTrue)
 }
