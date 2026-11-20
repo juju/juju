@@ -22,6 +22,9 @@ import (
 // SequenceNamespace for the sequence table.
 const SequenceNamespace = sequence.StaticNamespace("relation")
 
+// SettingsSequenceNamespace is qualified by relation UUID for settings changes.
+const SettingsSequenceNamespace = sequence.StaticNamespace("relation-settings")
+
 // GetRelationEndpointUUIDArgs represents the arguments required to retrieve
 // the UUID of a relation endpoint.
 type GetRelationEndpointUUIDArgs struct {
