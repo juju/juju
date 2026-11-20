@@ -272,6 +272,14 @@ type ProxyManager interface {
 	ProxyToApplication(ctx context.Context, appName, remotePort string) (proxy.Proxier, error)
 }
 
+// ControllerServiceUpdater updates the controller's Kubernetes Service, which
+// is created at bootstrap and fronts the controller's API and SSH servers.
+type ControllerServiceUpdater interface {
+	// UpdateControllerServiceSSHPort sets the SSH server port on the
+	// controller Service.
+	UpdateControllerServiceSSHPort(ctx context.Context, port int) error
+}
+
 // ServiceManager provides the API to manipulate services.
 type ServiceManager interface {
 	// GetService returns the service for the specified application.
