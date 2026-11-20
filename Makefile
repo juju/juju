@@ -18,9 +18,16 @@ GOOS=$(shell go env GOOS)
 GOARCH=$(shell go env GOARCH)
 GOHOSTOS=$(shell go env GOHOSTOS)
 GOHOSTARCH=$(shell go env GOHOSTARCH)
-GO_MOD_VERSION=$(shell grep "^go" go.mod | awk '{print $$2}')
-GO_INSTALLED_VERSION=$(shell GOARCH=$(uname -m) go version | awk '{print $$3}' | sed -e /.*go/s///)
-GO_INSTALL_PATH=$(if $(value GOBIN),$(value GOBIN),$(shell GOARCH=$(uname -m) go env GOPATH)/bin)
+GO_INSTALL_PATH=$(shell go env GOBIN)
+
+# The last path element must match the installed executable name.
+GO_DEVELOPMENT_TOOLS = \
+	github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0 \
+	github.com/daixiang0/gci@latest \
+	golang.org/x/tools/cmd/stress@latest \
+	mvdan.cc/sh/v3/cmd/shfmt@v3.7.0 \
+	github.com/google/go-licenses@latest \
+	golang.org/x/vuln/cmd/govulncheck@latest
 
 # Build number passed in must be a monotonic int representing
 # the build.
@@ -585,18 +592,28 @@ rebuild-export:
 # PPA includes the required mongodb-server binaries.
 install-snap-dependencies:
 ## install-snap-dependencies: Install the supported snap dependencies
-ifeq ($(shell if [ "$(GO_INSTALLED_VERSION)" \> "$(GO_MOD_VERSION)" -o "$(GO_INSTALLED_VERSION)" = "$(GO_MOD_VERSION)" ]; then echo 1; fi),1)
-	@echo 'Using installed go-$(GO_MOD_VERSION)'
-endif
-ifeq ("$(GO_INSTALLED_VERSION)","")
-	@echo 'Installing go-$(GO_MOD_VERSION) snap'
-	@sudo snap install go --channel=$(GO_MOD_VERSION)/stable --classic
-else
-ifeq ($(shell if [ "$(GO_INSTALLED_VERSION)" \< "$(GO_MOD_VERSION)" ]; then echo 1; fi),1)
-	$(warning "warning: version of go too low: use 'snap refresh go --channel=$(GO_MOD_VERSION)'")
-	$(error "error Installed go version '$(GO_INSTALLED_VERSION)' less than required go version '$(GO_MOD_VERSION)'")
-endif
-endif
+	@command -v go >/dev/null 2>&1 || { \
+		echo "Go is required: install Go before installing dependencies" >&2; \
+		exit 1; \
+	}
+	@if ! command -v yq >/dev/null 2>&1; then \
+		echo 'Installing yq snap'; \
+		if ! sudo snap install yq; then \
+			echo "Failed to install the yq snap" >&2; \
+			exit 1; \
+		fi; \
+		if ! command -v yq >/dev/null 2>&1; then \
+			echo "yq was installed but is not on PATH" >&2; \
+			exit 1; \
+		fi; \
+	fi; \
+	if ! json_input=$$(printf '%s\n' '{"value":"ok"}' | yq -p=json -r '.value' 2>/dev/null) || \
+		[ "$$json_input" != "ok" ] || \
+		! json_output=$$(printf '%s\n' 'value: ok' | yq -o=json '.value' 2>/dev/null) || \
+		[ "$$json_output" != '"ok"' ]; then \
+		echo "Incompatible yq on PATH: install yq v4 and ensure it is selected before other versions" >&2; \
+		exit 1; \
+	fi
 
 WAIT_FOR_DPKG=bash -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
 
@@ -608,10 +625,49 @@ install-sqlite3-dependencies:
 	@sudo apt-get update
 	@sudo apt-get --yes install libsqlite3-dev
 
+.PHONY: install-development-system-dependencies
+install-development-system-dependencies: install-sqlite3-dependencies
+## install-development-system-dependencies: Install development system packages
+	@echo Installing development system packages
+	@$(WAIT_FOR_DPKG)
+	@sudo apt-get --yes install build-essential bzip2 curl git jq python3 shellcheck wget
+
 .PHONY: install-dependencies
-install-dependencies: install-snap-dependencies install-sqlite3-dependencies
+install-dependencies: install-snap-dependencies install-development-system-dependencies
 ## install-dependencies: Install all the dependencies
 	@echo "Installing dependencies"
+	@$(MAKE) install-development-go-tools
+
+.PHONY: install-development-go-tools
+# The golangci-lint version check expects "golangci-lint has version X.Y.Z".
+install-development-go-tools:
+## install-development-go-tools: Install missing Go development tools
+	@set -e; \
+	gobin="$(GO_INSTALL_PATH)"; \
+	PATH="$$PATH:$$gobin"; export PATH; \
+	for module in $(GO_DEVELOPMENT_TOOLS); do \
+		tool=$${module##*/}; \
+		tool=$${tool%@*}; \
+		if ! command -v "$$tool" >/dev/null 2>&1; then \
+			if [ -e "$$gobin/$$tool" ] || [ -L "$$gobin/$$tool" ]; then \
+				echo "Cannot install $$tool: $$gobin/$$tool already exists" >&2; \
+				exit 1; \
+			fi; \
+			echo "Installing $$tool"; \
+			GOOS='' GOARCH='' go install "$$module"; \
+		fi; \
+		if [ "$$tool" = golangci-lint ]; then \
+			version=$$(golangci-lint --version) || { \
+				echo "Cannot determine golangci-lint version on PATH" >&2; exit 1; \
+			}; \
+			version=$$(printf '%s\n' "$$version" | tr -s ' ' | cut -d ' ' -f 4 | cut -d '.' -f 1,2); \
+			if [ "$$version" != "2.14" ]; then \
+				echo "Incompatible golangci-lint on PATH: use version 2.14.x" >&2; \
+				exit 1; \
+			fi; \
+		fi; \
+	done; \
+	echo "Ensure $$gobin is on PATH when running development checks."
 
 .PHONY: install-etc
 # Install bash_completion
@@ -765,7 +821,7 @@ STATIC_ANALYSIS_JOB ?=
 .PHONY: static-analysis
 static-analysis: dqlite-install-if-missing
 ## static-analysis: Check the go code using static-analysis
-	@cd tests && CGO_ENABLED=1 \
+	@cd tests && PATH="${PATH}:$(GO_INSTALL_PATH)" CGO_ENABLED=1 \
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		./main.sh static_analysis ${STATIC_ANALYSIS_JOB}
 
@@ -776,7 +832,7 @@ docs:
         "------------------------------------------------------------- \n" \
         "* watch, build and serve the documentation:  make docs-run \n" \
         "* only build:                                make docs-html \n" \
-        "* verify autogenerated docs are up to date:   make docs-verify-docs \n" \
+        "* verify autogenerated docs are up to date:  make docs-verify-docs \n" \
         "* only serve:                                make docs-serve \n" \
         "* clean built doc files:                     make docs-clean-doc \n" \
         "* clean full environment:                    make docs-clean \n" \
