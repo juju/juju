@@ -24,9 +24,11 @@ test_provisioning_info() {
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"lxd" | "localhost")
 			run "run_provisioning_with_proposed_agent_stream"
+			run "run_provisioning_remove_machine_isolation"
 			;;
 		*)
 			echo "Skipping provisioning with proposed stream test (not supported on non-LXD)"
+			echo "Skipping remove machine isolation test (not supported on non-LXD)"
 			;;
 		esac
 	)
@@ -362,4 +364,50 @@ run_provisioning_no_error_state() {
 	echo "No machines in error state — provisioning healthy"
 
 	destroy_model "provisioning-no-errors"
+}
+
+# run_provisioning_remove_machine_isolation verifies that a machine whose
+# instance cannot be stopped does not block the removal of another machine.
+# See https://github.com/juju/juju/issues/23659.
+run_provisioning_remove_machine_isolation() {
+	echo
+
+	file="${TEST_DIR}/test-provisioning-remove-isolation.log"
+	ensure "provisioning-remove-isolation" "${file}"
+
+	juju add-machine
+	juju add-machine
+	wait_for_machine_agent_status "0" "started"
+	wait_for_machine_agent_status "1" "started"
+
+	instance_0=$(juju show-machine 0 --format json | yq -r '.machines["0"]["instance-id"]')
+
+	# LXD refuses to delete a container with deletion protection, so stopping
+	# machine 0's instance keeps failing until the protection is lifted.
+	lxc config set "${instance_0}" security.protection.delete=true
+
+	# Removing both at once makes it likely they are stopped in the same batch.
+	juju remove-machine --no-prompt 0 1
+
+	echo "Verify machine 1 is removed while machine 0 cannot be stopped"
+	result=0
+	wait_for_or_fail "! machine_exists 1" 180 || result=1
+	machine_exists 0 || result=1
+
+	lxc config unset "${instance_0}" security.protection.delete
+	if [[ ${result} -ne 0 ]]; then
+		echo "ERROR: Machine 1 was not removed while machine 0 could not be stopped" >&2
+		juju machines
+		return 1
+	fi
+
+	echo "Verify machine 0 is removed once it can be stopped"
+	wait_for_or_fail "! machine_exists 0" 180
+
+	destroy_model "provisioning-remove-isolation"
+}
+
+# machine_exists returns whether the machine is in the current model.
+machine_exists() {
+	[[ "$(juju status --format json | yq ".machines | has(\"${1}\")")" == "true" ]]
 }
