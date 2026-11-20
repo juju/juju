@@ -639,13 +639,9 @@ func (w *secretBackendRotationWatcher) merge(details []corewatcher.SecretBackend
 			ID:   knownDetails.ID,
 			Name: knownDetails.Name,
 		}
-		filtered := details[:0]
-		for _, detail := range details {
-			if detail.ID != knownDetails.ID {
-				filtered = append(filtered, detail)
-			}
-		}
-		return append(filtered, deletedDetails), nil
+		return replaceDeletedTriggerDetails(details, deletedDetails, func(d corewatcher.SecretBackendRotateChange) string {
+			return d.ID
+		}), nil
 	}
 	if doc.TxnRevno > knownDetails.txnRevNo {
 		ID := w.backend.localID(doc.DocID)

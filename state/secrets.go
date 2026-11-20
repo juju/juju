@@ -4002,13 +4002,9 @@ func (w *secretsRotationWatcher) merge(details []corewatcher.SecretTriggerChange
 		deletedDetails := corewatcher.SecretTriggerChange{
 			URI: knownDetails.URI,
 		}
-		filtered := details[:0]
-		for _, detail := range details {
-			if detail.URI.ID != knownDetails.URI.ID {
-				filtered = append(filtered, detail)
-			}
-		}
-		return append(filtered, deletedDetails), nil
+		return replaceDeletedTriggerDetails(details, deletedDetails, func(d corewatcher.SecretTriggerChange) string {
+			return d.URI.ID
+		}), nil
 	}
 	if doc.TxnRevno > knownDetails.txnRevNo {
 		uriStr := w.backend.localID(doc.DocID)
@@ -4026,6 +4022,19 @@ func (w *secretsRotationWatcher) merge(details []corewatcher.SecretTriggerChange
 		})
 	}
 	return details, nil
+}
+
+// replaceDeletedTriggerDetails removes any pending changes matching deleted's
+// key in place and appends deleted at the tail.
+func replaceDeletedTriggerDetails[T any, K comparable](details []T, deleted T, key func(T) K) []T {
+	deletedKey := key(deleted)
+	filtered := details[:0]
+	for _, detail := range details {
+		if key(detail) != deletedKey {
+			filtered = append(filtered, detail)
+		}
+	}
+	return append(filtered, deleted)
 }
 
 func (w *secretsRotationWatcher) loop() (err error) {
