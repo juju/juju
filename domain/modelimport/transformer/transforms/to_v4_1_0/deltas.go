@@ -255,6 +255,142 @@ func (d deltas) UnitResource(
 	return result, nil
 }
 
+// CharmContainerMount converts v4_0_12 CharmContainerMount rows to v4_1_0. The
+// charm_container_key column is part of the primary key and became NOT NULL in
+// 4.1.0. Juju always writes the key, so a NULL key indicates data corruption
+// and the transform halts with an error rather than inventing a container.
+func (d deltas) CharmContainerMount(_ context.Context, src []v4_0_12.CharmContainerMount, _ *v4_0_12.ModelExport) ([]v4_1_0.CharmContainerMount, error) {
+	result := make([]v4_1_0.CharmContainerMount, 0, len(src))
+	for _, m := range src {
+		if m.CharmContainerKey == nil {
+			return nil, errors.Errorf("charm container mount %d for charm %q has no container key",
+				m.ArrayIndex, m.CharmUUID)
+		}
+		result = append(result, v4_1_0.CharmContainerMount{
+			ArrayIndex:        m.ArrayIndex,
+			CharmUUID:         m.CharmUUID,
+			CharmContainerKey: *m.CharmContainerKey,
+			Storage:           m.Storage,
+			Location:          m.Location,
+		})
+	}
+	return result, nil
+}
+
+// CharmManifestBase preserves each row's descriptive attributes, but rejects
+// duplicate positions. The legacy key included nullable descriptive columns,
+// allowing multiple rows where the 4.1.0 position-only key permits just one.
+// There is no lossless representation of these duplicates in 4.1.0.
+func (d deltas) CharmManifestBase(_ context.Context, src []v4_0_12.CharmManifestBase, _ *v4_0_12.ModelExport) ([]v4_1_0.CharmManifestBase, error) {
+	type position struct {
+		charmUUID        string
+		arrayIndex       int64
+		nestedArrayIndex int64
+	}
+	seen := make(map[position]struct{}, len(src))
+	result := make([]v4_1_0.CharmManifestBase, 0, len(src))
+	for _, base := range src {
+		key := position{base.CharmUUID, base.ArrayIndex, base.NestedArrayIndex}
+		if _, exists := seen[key]; exists {
+			return nil, errors.Errorf("duplicate charm manifest base position (%d, %d) for charm %q",
+				base.ArrayIndex, base.NestedArrayIndex, base.CharmUUID)
+		}
+		seen[key] = struct{}{}
+		result = append(result, v4_1_0.CharmManifestBase(base))
+	}
+	return result, nil
+}
+
+// ApplicationExposedEndpointSpace converts v4_0_12 rows that expose a specific
+// endpoint to spaces. In 4.0.12 a row with no endpoint exposed all endpoints;
+// in 4.1.0 those rows move to application_exposed_space, see
+// ApplicationExposedSpace.
+func (d deltas) ApplicationExposedEndpointSpace(
+	_ context.Context, src []v4_0_12.ApplicationExposedEndpointSpace, _ *v4_0_12.ModelExport,
+) ([]v4_1_0.ApplicationExposedEndpointSpace, error) {
+	result := make([]v4_1_0.ApplicationExposedEndpointSpace, 0, len(src))
+	for _, e := range src {
+		if e.ApplicationEndpointUUID == nil {
+			continue
+		}
+		result = append(result, v4_1_0.ApplicationExposedEndpointSpace{
+			ApplicationUUID:         e.ApplicationUUID,
+			ApplicationEndpointUUID: *e.ApplicationEndpointUUID,
+			SpaceUUID:               e.SpaceUUID,
+		})
+	}
+	return result, nil
+}
+
+// ApplicationExposedEndpointCidr converts v4_0_12 rows that expose a specific
+// endpoint to CIDRs. In 4.0.12 a row with no endpoint exposed all endpoints;
+// in 4.1.0 those rows move to application_exposed_cidr, see
+// ApplicationExposedCidr.
+func (d deltas) ApplicationExposedEndpointCidr(
+	_ context.Context, src []v4_0_12.ApplicationExposedEndpointCidr, _ *v4_0_12.ModelExport,
+) ([]v4_1_0.ApplicationExposedEndpointCidr, error) {
+	result := make([]v4_1_0.ApplicationExposedEndpointCidr, 0, len(src))
+	for _, e := range src {
+		if e.ApplicationEndpointUUID == nil {
+			continue
+		}
+		result = append(result, v4_1_0.ApplicationExposedEndpointCidr{
+			ApplicationUUID:         e.ApplicationUUID,
+			ApplicationEndpointUUID: *e.ApplicationEndpointUUID,
+			Cidr:                    e.Cidr,
+		})
+	}
+	return result, nil
+}
+
+// ApplicationExposedSpace derives exposure on all endpoints to spaces from
+// v4_0_12 application_exposed_endpoint_space rows with no endpoint. A NULL
+// endpoint did not participate in uniqueness in 4.0.12, so duplicate rows are
+// collapsed.
+func (d deltas) ApplicationExposedSpace(_ context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.ApplicationExposedSpace, error) {
+	result := make([]v4_1_0.ApplicationExposedSpace, 0)
+	seen := make(map[v4_1_0.ApplicationExposedSpace]struct{})
+	for _, e := range src.ApplicationExposedEndpointSpace {
+		if e.ApplicationEndpointUUID != nil {
+			continue
+		}
+		row := v4_1_0.ApplicationExposedSpace{
+			ApplicationUUID: e.ApplicationUUID,
+			SpaceUUID:       e.SpaceUUID,
+		}
+		if _, ok := seen[row]; ok {
+			continue
+		}
+		seen[row] = struct{}{}
+		result = append(result, row)
+	}
+	return result, nil
+}
+
+// ApplicationExposedCidr derives exposure on all endpoints to CIDRs from
+// v4_0_12 application_exposed_endpoint_cidr rows with no endpoint. A NULL
+// endpoint did not participate in uniqueness in 4.0.12, so duplicate rows are
+// collapsed.
+func (d deltas) ApplicationExposedCidr(_ context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.ApplicationExposedCidr, error) {
+	result := make([]v4_1_0.ApplicationExposedCidr, 0)
+	seen := make(map[v4_1_0.ApplicationExposedCidr]struct{})
+	for _, e := range src.ApplicationExposedEndpointCidr {
+		if e.ApplicationEndpointUUID != nil {
+			continue
+		}
+		row := v4_1_0.ApplicationExposedCidr{
+			ApplicationUUID: e.ApplicationUUID,
+			Cidr:            e.Cidr,
+		}
+		if _, ok := seen[row]; ok {
+			continue
+		}
+		seen[row] = struct{}{}
+		result = append(result, row)
+	}
+	return result, nil
+}
+
 // MachineReprovision returns no rows for 4.0.12 payloads. The source schema has
 // no machine reprovision table.
 func (d deltas) MachineReprovision(_ context.Context, _ *v4_0_12.ModelExport) ([]v4_1_0.MachineReprovision, error) {

@@ -416,3 +416,181 @@ func (s *deltasSuite) TestRemovalEmpty(c *tc.C) {
 	c.Check(got, tc.NotNil)
 	c.Check(got, tc.HasLen, 0)
 }
+
+// TestCharmContainerMountCopiesKey verifies that every field is carried through
+// and the container key, now NOT NULL, is dereferenced.
+func (s *deltasSuite) TestCharmContainerMountCopiesKey(c *tc.C) {
+	src := []v4_0_12.CharmContainerMount{
+		{ArrayIndex: 0, CharmUUID: "charm-uuid", CharmContainerKey: new("c1"),
+			Storage: new("data"), Location: new("/data")},
+		{ArrayIndex: 1, CharmUUID: "charm-uuid", CharmContainerKey: new("c1")},
+	}
+
+	got, err := deltas{}.CharmContainerMount(c.Context(), src, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, []v4_1_0.CharmContainerMount{
+		{ArrayIndex: 0, CharmUUID: "charm-uuid", CharmContainerKey: "c1",
+			Storage: new("data"), Location: new("/data")},
+		{ArrayIndex: 1, CharmUUID: "charm-uuid", CharmContainerKey: "c1"},
+	})
+}
+
+// TestCharmContainerMountRejectsNullKey verifies that a mount without a
+// container key is rejected and that no partial result is returned.
+func (s *deltasSuite) TestCharmContainerMountRejectsNullKey(c *tc.C) {
+	src := []v4_0_12.CharmContainerMount{
+		{ArrayIndex: 0, CharmUUID: "charm-uuid", CharmContainerKey: new("c1")},
+		{ArrayIndex: 1, CharmUUID: "charm-uuid"},
+	}
+
+	got, err := deltas{}.CharmContainerMount(c.Context(), src, nil)
+	c.Check(err, tc.ErrorMatches,
+		`charm container mount 1 for charm "charm-uuid" has no container key`)
+	c.Check(got, tc.IsNil)
+}
+
+// TestCharmManifestBasePreservesRows covers nullable attributes and positions
+// distinguished by either index or the charm UUID.
+func (s *deltasSuite) TestCharmManifestBasePreservesRows(c *tc.C) {
+	src := []v4_0_12.CharmManifestBase{
+		{CharmUUID: "charm-a", ArrayIndex: 0, NestedArrayIndex: 0, Risk: "stable"},
+		{CharmUUID: "charm-a", ArrayIndex: 0, NestedArrayIndex: 1, OsID: new(int64(0)),
+			Track: new("22.04"), Risk: "edge", Branch: new("test"), ArchitectureID: new(int64(0))},
+		{CharmUUID: "charm-a", ArrayIndex: 1, NestedArrayIndex: 0, Risk: "stable"},
+		{CharmUUID: "charm-b", ArrayIndex: 0, NestedArrayIndex: 0, Risk: "stable"},
+	}
+	got, err := deltas{}.CharmManifestBase(c.Context(), src, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	want := make([]v4_1_0.CharmManifestBase, len(src))
+	for i, base := range src {
+		want[i] = v4_1_0.CharmManifestBase(base)
+	}
+	c.Check(got, tc.DeepEquals, want)
+}
+
+// TestCharmManifestBaseRejectsDuplicatePosition checks both identical rows and
+// rows whose descriptive attributes differed under the legacy key.
+func (s *deltasSuite) TestCharmManifestBaseRejectsDuplicatePosition(c *tc.C) {
+	base := v4_0_12.CharmManifestBase{
+		CharmUUID: "charm-a", ArrayIndex: 2, NestedArrayIndex: 3, Risk: "stable",
+	}
+	for _, track := range []*string{nil, new("24.04")} {
+		duplicate := base
+		duplicate.Track = track
+		got, err := deltas{}.CharmManifestBase(c.Context(), []v4_0_12.CharmManifestBase{base, duplicate}, nil)
+		c.Check(err, tc.ErrorMatches, `duplicate charm manifest base position \(2, 3\) for charm "charm-a"`)
+		c.Check(got, tc.IsNil)
+	}
+}
+
+func (s *deltasSuite) TestCharmManifestBaseEmpty(c *tc.C) {
+	got, err := deltas{}.CharmManifestBase(c.Context(), nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.NotNil)
+	c.Check(got, tc.HasLen, 0)
+}
+
+// TestCharmContainerMountEmpty verifies that a model without container mounts
+// produces an empty, non-nil slice, as the generated copy of other tables does.
+func (s *deltasSuite) TestCharmContainerMountEmpty(c *tc.C) {
+	got, err := deltas{}.CharmContainerMount(c.Context(), nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.NotNil)
+	c.Check(got, tc.HasLen, 0)
+}
+
+// TestApplicationExposedEndpointSpaceKeepsEndpointRows verifies that only rows
+// exposing a specific endpoint are carried into the per-endpoint table.
+func (s *deltasSuite) TestApplicationExposedEndpointSpaceKeepsEndpointRows(c *tc.C) {
+	src := []v4_0_12.ApplicationExposedEndpointSpace{
+		{ApplicationUUID: "app-uuid", ApplicationEndpointUUID: new("ep-uuid"), SpaceUUID: "space0"},
+		{ApplicationUUID: "app-uuid", SpaceUUID: "space1"},
+	}
+
+	got, err := deltas{}.ApplicationExposedEndpointSpace(c.Context(), src, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, []v4_1_0.ApplicationExposedEndpointSpace{
+		{ApplicationUUID: "app-uuid", ApplicationEndpointUUID: "ep-uuid", SpaceUUID: "space0"},
+	})
+}
+
+// TestApplicationExposedEndpointCidrKeepsEndpointRows verifies that only rows
+// exposing a specific endpoint are carried into the per-endpoint table.
+func (s *deltasSuite) TestApplicationExposedEndpointCidrKeepsEndpointRows(c *tc.C) {
+	src := []v4_0_12.ApplicationExposedEndpointCidr{
+		{ApplicationUUID: "app-uuid", ApplicationEndpointUUID: new("ep-uuid"), Cidr: "10.0.0.0/24"},
+		{ApplicationUUID: "app-uuid", Cidr: "10.0.1.0/24"},
+	}
+
+	got, err := deltas{}.ApplicationExposedEndpointCidr(c.Context(), src, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, []v4_1_0.ApplicationExposedEndpointCidr{
+		{ApplicationUUID: "app-uuid", ApplicationEndpointUUID: "ep-uuid", Cidr: "10.0.0.0/24"},
+	})
+}
+
+// TestApplicationExposedSpaceFromWildcardRows verifies that rows without an
+// endpoint become exposure on all endpoints, collapsing duplicates that the
+// 4.0.12 primary key permitted.
+func (s *deltasSuite) TestApplicationExposedSpaceFromWildcardRows(c *tc.C) {
+	src := &v4_0_12.ModelExport{
+		ApplicationExposedEndpointSpace: []v4_0_12.ApplicationExposedEndpointSpace{
+			{ApplicationUUID: "app-uuid", ApplicationEndpointUUID: new("ep-uuid"), SpaceUUID: "space0"},
+			{ApplicationUUID: "app-uuid", SpaceUUID: "space1"},
+			{ApplicationUUID: "app-uuid", SpaceUUID: "space1"},
+			{ApplicationUUID: "other-uuid", SpaceUUID: "space1"},
+		},
+	}
+
+	got, err := deltas{}.ApplicationExposedSpace(c.Context(), src)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, []v4_1_0.ApplicationExposedSpace{
+		{ApplicationUUID: "app-uuid", SpaceUUID: "space1"},
+		{ApplicationUUID: "other-uuid", SpaceUUID: "space1"},
+	})
+}
+
+// TestApplicationExposedCidrFromWildcardRows verifies that rows without an
+// endpoint become exposure on all endpoints, collapsing duplicates that the
+// 4.0.12 primary key permitted.
+func (s *deltasSuite) TestApplicationExposedCidrFromWildcardRows(c *tc.C) {
+	src := &v4_0_12.ModelExport{
+		ApplicationExposedEndpointCidr: []v4_0_12.ApplicationExposedEndpointCidr{
+			{ApplicationUUID: "app-uuid", ApplicationEndpointUUID: new("ep-uuid"), Cidr: "10.0.0.0/24"},
+			{ApplicationUUID: "app-uuid", Cidr: "10.0.1.0/24"},
+			{ApplicationUUID: "app-uuid", Cidr: "10.0.1.0/24"},
+			{ApplicationUUID: "app-uuid", Cidr: "10.0.2.0/24"},
+		},
+	}
+
+	got, err := deltas{}.ApplicationExposedCidr(c.Context(), src)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, []v4_1_0.ApplicationExposedCidr{
+		{ApplicationUUID: "app-uuid", Cidr: "10.0.1.0/24"},
+		{ApplicationUUID: "app-uuid", Cidr: "10.0.2.0/24"},
+	})
+}
+
+// TestApplicationExposedEmpty verifies that a model without exposure produces
+// empty, non-nil slices for every exposure table.
+func (s *deltasSuite) TestApplicationExposedEmpty(c *tc.C) {
+	endpointSpaces, err := deltas{}.ApplicationExposedEndpointSpace(c.Context(), nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(endpointSpaces, tc.NotNil)
+	c.Check(endpointSpaces, tc.HasLen, 0)
+
+	endpointCIDRs, err := deltas{}.ApplicationExposedEndpointCidr(c.Context(), nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(endpointCIDRs, tc.NotNil)
+	c.Check(endpointCIDRs, tc.HasLen, 0)
+
+	spaces, err := deltas{}.ApplicationExposedSpace(c.Context(), &v4_0_12.ModelExport{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(spaces, tc.NotNil)
+	c.Check(spaces, tc.HasLen, 0)
+
+	cidrs, err := deltas{}.ApplicationExposedCidr(c.Context(), &v4_0_12.ModelExport{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cidrs, tc.NotNil)
+	c.Check(cidrs, tc.HasLen, 0)
+}

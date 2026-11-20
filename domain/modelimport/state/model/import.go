@@ -98,6 +98,10 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 	if err != nil {
 		return errors.Errorf("preparing ApplicationEndpoint insert statement: %w", err)
 	}
+	stmtApplicationExposedCidr, err := sqlair.Prepare(`INSERT INTO "application_exposed_cidr" (*) VALUES ($ApplicationExposedCidr.*)`, v4_1_0.ApplicationExposedCidr{})
+	if err != nil {
+		return errors.Errorf("preparing ApplicationExposedCidr insert statement: %w", err)
+	}
 	stmtApplicationExposedEndpointCidr, err := sqlair.Prepare(`INSERT INTO "application_exposed_endpoint_cidr" (*) VALUES ($ApplicationExposedEndpointCidr.*)`, v4_1_0.ApplicationExposedEndpointCidr{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationExposedEndpointCidr insert statement: %w", err)
@@ -105,6 +109,10 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 	stmtApplicationExposedEndpointSpace, err := sqlair.Prepare(`INSERT INTO "application_exposed_endpoint_space" (*) VALUES ($ApplicationExposedEndpointSpace.*)`, v4_1_0.ApplicationExposedEndpointSpace{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationExposedEndpointSpace insert statement: %w", err)
+	}
+	stmtApplicationExposedSpace, err := sqlair.Prepare(`INSERT INTO "application_exposed_space" (*) VALUES ($ApplicationExposedSpace.*)`, v4_1_0.ApplicationExposedSpace{})
+	if err != nil {
+		return errors.Errorf("preparing ApplicationExposedSpace insert statement: %w", err)
 	}
 	stmtApplicationExtraEndpoint, err := sqlair.Prepare(`INSERT INTO "application_extra_endpoint" (*) VALUES ($ApplicationExtraEndpoint.*)`, v4_1_0.ApplicationExtraEndpoint{})
 	if err != nil {
@@ -1061,6 +1069,11 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 				return errors.Errorf("inserting ApplicationEndpoint (table application_endpoint): %w", err)
 			}
 		}
+		if len(p.ApplicationExposedCidr) > 0 {
+			if err := tx.Query(ctx, stmtApplicationExposedCidr, p.ApplicationExposedCidr).Run(); err != nil {
+				return errors.Errorf("inserting ApplicationExposedCidr (table application_exposed_cidr): %w", err)
+			}
+		}
 		if len(p.ApplicationExposedEndpointCidr) > 0 {
 			if err := tx.Query(ctx, stmtApplicationExposedEndpointCidr, p.ApplicationExposedEndpointCidr).Run(); err != nil {
 				return errors.Errorf("inserting ApplicationExposedEndpointCidr (table application_exposed_endpoint_cidr): %w", err)
@@ -1069,6 +1082,11 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 		if len(p.ApplicationExposedEndpointSpace) > 0 {
 			if err := tx.Query(ctx, stmtApplicationExposedEndpointSpace, p.ApplicationExposedEndpointSpace).Run(); err != nil {
 				return errors.Errorf("inserting ApplicationExposedEndpointSpace (table application_exposed_endpoint_space): %w", err)
+			}
+		}
+		if len(p.ApplicationExposedSpace) > 0 {
+			if err := tx.Query(ctx, stmtApplicationExposedSpace, p.ApplicationExposedSpace).Run(); err != nil {
+				return errors.Errorf("inserting ApplicationExposedSpace (table application_exposed_space): %w", err)
 			}
 		}
 		if len(p.ApplicationExtraEndpoint) > 0 {

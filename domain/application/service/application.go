@@ -371,12 +371,11 @@ type ApplicationState interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	IsApplicationExposed(ctx context.Context, appUUID coreapplication.UUID) (bool, error)
 
-	// NamespaceForWatchApplicationExposed returns the namespace identifier
-	// for application exposed endpoints changes. The first return value is the
-	// namespace for the application exposed endpoints to spaces table, and the
-	// second is the namespace for the application exposed endpoints to CIDRs
-	// table.
-	NamespaceForWatchApplicationExposed() (string, string)
+	// NamespaceForWatchApplicationExposed returns the namespace identifiers
+	// for application exposed changes. These are the tables holding exposure
+	// on all endpoints and on specific endpoints, to both spaces and CIDRs.
+	// Implementations must return at least one namespace.
+	NamespaceForWatchApplicationExposed() []string
 
 	// NamespaceForWatchUnitForLegacyUniter returns the namespace identifiers
 	// for unit changes needed for the uniter. The first return value is the
