@@ -88,7 +88,6 @@ func PrepareController(
 	store jujuclient.ClientStore,
 	args PrepareParams,
 ) (environs.BootstrapEnviron, error) {
-
 	if err := args.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -100,53 +99,59 @@ func PrepareController(
 		return nil, errors.Annotatef(err, "error reading controller %q info", args.ControllerName)
 	}
 
-	cloudType, ok := args.ModelConfig["type"].(string)
-	if !ok {
-		return nil, errors.NotFoundf("cloud type in base configuration")
-	}
-
-	p, err := environs.Provider(cloudType)
+	cfg, err := config.New(config.NoDefaults, args.ModelConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	cfg, details, err := prepare(ctx, p, args)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	do := func() error {
-		if err := decorateAndWriteInfo(
-			store, details, args.ControllerName, cfg.Name(),
-		); err != nil {
-			return errors.Annotatef(err, "cannot create controller %q info", args.ControllerName)
-		}
-		return nil
-	}
-
-	var env environs.BootstrapEnviron
-	openParams := environs.OpenParams{
+	env, err := OpenController(isCAASController, ctx, environs.OpenParams{
 		ControllerUUID: args.ControllerConfig.ControllerUUID(),
 		Cloud:          args.Cloud,
 		Config:         cfg,
-	}
-	if isCAASController {
-		details.ModelType = model.CAAS
-		env, err = caas.Open(ctx, p, openParams, environs.NoopCredentialInvalidator())
-	} else {
-		details.ModelType = model.IAAS
-		env, err = environs.Open(ctx, p, openParams, environs.NoopCredentialInvalidator())
-	}
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := env.PrepareForBootstrap(ctx, args.ControllerName); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := do(); err != nil {
-		return nil, errors.Trace(err)
+	details := prepareControllerInfo(args, cfg)
+	details.ModelType = model.IAAS
+	if isCAASController {
+		details.ModelType = model.CAAS
+	}
+	if err := decorateAndWriteInfo(store, details, args.ControllerName, cfg.Name()); err != nil {
+		return nil, errors.Annotatef(err, "cannot create controller %q info", args.ControllerName)
 	}
 	return env, nil
+}
+
+// OpenController opens the provider environment without preparing the provider
+// or constructing client registration details. Each workflow owns those steps.
+func OpenController(
+	isK8sController bool,
+	ctx environs.BootstrapContext,
+	args environs.OpenParams,
+) (environs.BootstrapEnviron, error) {
+	if args.Config == nil {
+		return nil, errors.NotValidf("nil model configuration")
+	}
+	p, err := environs.Provider(args.Config.Type())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := p.ValidateCloud(ctx, args.Cloud); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if args.Cloud.SkipTLSVerify {
+		if len(args.Cloud.CACertificates) > 0 && args.Cloud.CACertificates[0] != "" {
+			return nil, errors.NotValidf("cloud with both skip-TLS-verify=true and CA certificates")
+		}
+		logger.Warningf(ctx, "cloud %v is configured to skip validity checks on the server's certificate", args.Cloud.Name)
+	}
+	if isK8sController {
+		return caas.Open(ctx, p, args, environs.NoopCredentialInvalidator())
+	}
+	return environs.Open(ctx, p, args, environs.NoopCredentialInvalidator())
 }
 
 // decorateAndWriteInfo decorates the info struct with information
@@ -178,22 +183,10 @@ func decorateAndWriteInfo(
 	return nil
 }
 
-func prepare(
-	ctx environs.BootstrapContext,
-	p environs.EnvironProvider,
-	args PrepareParams,
-) (*config.Config, prepareDetails, error) {
+// prepareControllerInfo constructs registration details for fresh bootstrap.
+// PrepareParams and the model configuration have already been validated.
+func prepareControllerInfo(args PrepareParams, cfg *config.Config) prepareDetails {
 	var details prepareDetails
-
-	cfg, err := config.New(config.NoDefaults, args.ModelConfig)
-	if err != nil {
-		return cfg, details, errors.Trace(err)
-	}
-
-	err = p.ValidateCloud(ctx, args.Cloud)
-	if err != nil {
-		return cfg, details, errors.Trace(err)
-	}
 
 	// We store the base configuration only; we don't want the
 	// default attributes, generated secrets/certificates, or
@@ -203,24 +196,12 @@ func prepare(
 	maps.Copy(details.Config, args.ModelConfig)
 	delete(details.Config, config.UUIDKey)
 
-	// TODO(axw) change signature of CACert() to not return a bool.
-	// It's no longer possible to have a controller config without
-	// a CA certificate.
-	caCert, ok := args.ControllerConfig.CACert()
-	if !ok {
-		return cfg, details, errors.New("controller config is missing CA certificate")
-	}
+	caCert, _ := args.ControllerConfig.CACert()
 
 	// We want to store attributes describing how a controller has been configured.
 	// These do not include the CACert or UUID since they will be replaced with new
 	// values when/if we need to use this configuration.
 	details.ControllerConfig = make(controller.Config)
-	for k, v := range args.ControllerConfig {
-		if k == controller.CACertKey || k == controller.ControllerUUIDKey {
-			continue
-		}
-		details.ControllerConfig[k] = v
-	}
 	for k, v := range args.ControllerConfig {
 		if k == controller.CACertKey || k == controller.ControllerUUIDKey {
 			continue
@@ -247,14 +228,7 @@ func prepare(
 	details.CloudStorageEndpoint = args.Cloud.StorageEndpoint
 	details.Credential = args.CredentialName
 
-	if args.Cloud.SkipTLSVerify {
-		if len(args.Cloud.CACertificates) > 0 && args.Cloud.CACertificates[0] != "" {
-			return cfg, details, errors.NotValidf("cloud with both skip-TLS-verify=true and CA certificates")
-		}
-		logger.Warningf(ctx, "controller %v is configured to skip validity checks on the server's certificate", args.ControllerName)
-	}
-
-	return cfg, details, nil
+	return details
 }
 
 type prepareDetails struct {

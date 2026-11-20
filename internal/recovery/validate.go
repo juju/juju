@@ -7,59 +7,16 @@ import (
 	"bytes"
 	"context"
 	"os"
-
-	"gopkg.in/yaml.v3"
+	"strconv"
 
 	"github.com/juju/juju/controller"
 	corebackups "github.com/juju/juju/core/backups"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/semversion"
-	domainlife "github.com/juju/juju/domain/life"
 	domainrecovery "github.com/juju/juju/domain/recovery"
+	recoveryservice "github.com/juju/juju/domain/recovery/service"
 	"github.com/juju/juju/internal/errors"
 )
-
-// controllerDumpPayload mirrors the fields of the controller database
-// dump that preflight validation needs. Unknown fields are ignored; the
-// full decode happens agent-side during the load stage.
-type controllerDumpPayload struct {
-	Controller []struct {
-		UUID         string  `yaml:"uuid"`
-		ModelUUID    string  `yaml:"model_uuid"`
-		CACert       *string `yaml:"ca_cert"`
-		CAPrivateKey *string `yaml:"ca_private_key"`
-	} `yaml:"controller"`
-	Cloud []struct {
-		UUID        string `yaml:"uuid"`
-		Name        string `yaml:"name"`
-		CloudTypeID int64  `yaml:"cloud_type_id"`
-	} `yaml:"cloud"`
-	CloudType []struct {
-		ID   *int64 `yaml:"id"`
-		Type string `yaml:"type"`
-	} `yaml:"cloud_type"`
-	Model []struct {
-		UUID        string `yaml:"uuid"`
-		Name        string `yaml:"name"`
-		CloudUUID   string `yaml:"cloud_uuid"`
-		ModelTypeID int64  `yaml:"model_type_id"`
-	} `yaml:"model"`
-	ModelType []struct {
-		ID   *int64 `yaml:"id"`
-		Type string `yaml:"type"`
-	} `yaml:"model_type"`
-	ControllerConfig []struct {
-		Key   string `yaml:"key"`
-		Value string `yaml:"value"`
-	} `yaml:"controller_config"`
-}
-
-// controllerDumpEnvelope is the top-level shape of controller.yaml. The
-// envelope version is intentionally not parsed here: the agent-version
-// gate implies matching dump formats, and the loader validates them.
-type controllerDumpEnvelope struct {
-	Payload controllerDumpPayload `yaml:"payload"`
-}
 
 // ValidateArchive reads the backup archive at archivePath and returns
 // its validated summary. When expectedSHA256 is not empty it must match
@@ -111,12 +68,12 @@ func parseArchiveInfo(ctx context.Context, logger corelogger.Logger, contents *A
 		return nil, errors.Errorf("%s does not record the source agent version", metadataPath)
 	}
 
-	var dump controllerDumpEnvelope
-	if err := yaml.Unmarshal(contents.ControllerDump, &dump); err != nil {
+	payload, err := recoveryservice.DecodeControllerPreflight(contents.ControllerDump)
+	if err != nil {
 		return nil, errors.Errorf("parsing %s: %w", controllerDumpPath, err)
 	}
 
-	info, err := buildArchiveInfo(ctx, logger, meta, &dump.Payload, contents.ModelDumps)
+	info, err := buildArchiveInfo(ctx, logger, meta, payload, contents.ModelDumps)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -125,7 +82,7 @@ func parseArchiveInfo(ctx context.Context, logger corelogger.Logger, contents *A
 
 // buildArchiveInfo resolves clouds and model types from the controller
 // dump and cross-checks the model dump inventory against the model table.
-func buildArchiveInfo(ctx context.Context, logger corelogger.Logger, meta *corebackups.Metadata, payload *controllerDumpPayload, modelDumps map[string]string) (*domainrecovery.ArchiveInfo, error) {
+func buildArchiveInfo(ctx context.Context, logger corelogger.Logger, meta *corebackups.Metadata, payload *recoveryservice.ControllerPreflightDump, modelDumps map[string]string) (*domainrecovery.ArchiveInfo, error) {
 	cloudTypes := make(map[int64]string)
 	for _, ct := range payload.CloudType {
 		if ct.ID != nil {
@@ -138,6 +95,10 @@ func buildArchiveInfo(ctx context.Context, logger corelogger.Logger, meta *coreb
 			modelTypes[*mt.ID] = mt.Type
 		}
 	}
+	cloudRegions := make(map[string]string, len(payload.CloudRegion))
+	for _, cr := range payload.CloudRegion {
+		cloudRegions[cr.UUID] = cr.Name
+	}
 	type cloudRef struct {
 		name     string
 		provider string
@@ -148,39 +109,62 @@ func buildArchiveInfo(ctx context.Context, logger corelogger.Logger, meta *coreb
 	}
 
 	info := &domainrecovery.ArchiveInfo{
+		// Only machine allocation requires a base; Kubernetes has none.
+		SourceBase:          meta.Origin.Base,
+		SourceArch:          meta.Origin.Arch,
+		MachineName:         meta.Origin.Machine,
 		AgentVersion:        meta.Origin.Version,
 		ControllerUUID:      meta.Controller.UUID,
 		ControllerModelUUID: meta.Origin.Model,
 		HANodes:             meta.Controller.HANodes,
+		ControllerConfig:    make(map[string]string, len(payload.ControllerConfig)),
 	}
 	for _, cc := range payload.ControllerConfig {
+		// A NULL row value records no setting at all; reporting it as an
+		// empty string would override the config default with a blank.
+		if cc.Value == nil {
+			continue
+		}
+		info.ControllerConfig[cc.Key] = *cc.Value
 		if cc.Key == controller.ControllerName {
-			info.ControllerName = cc.Value
+			info.ControllerName = *cc.Value
 		}
 	}
 
 	if len(payload.Controller) == 0 {
 		return nil, errors.Errorf("%s records no controller row", controllerDumpPath)
 	}
-	controller := payload.Controller[0]
-	if controller.CACert == nil || controller.CAPrivateKey == nil {
+	controllerRow := payload.Controller[0]
+	if controllerRow.CaCert == nil || controllerRow.CaPrivateKey == nil {
 		return nil, errors.Errorf("%s records no controller CA material", controllerDumpPath)
 	}
-	info.CACert = *controller.CACert
-	info.CAPrivateKey = *controller.CAPrivateKey
-	if controller.ModelUUID != "" &&
-		info.ControllerModelUUID != controller.ModelUUID {
+	info.CACert = *controllerRow.CaCert
+	info.CAPrivateKey = *controllerRow.CaPrivateKey
+	if controllerRow.ModelUUID != "" &&
+		info.ControllerModelUUID != controllerRow.ModelUUID {
 		return nil, errors.Errorf(
 			"controller model mismatch: metadata records %q, controller row records %q",
-			info.ControllerModelUUID, controller.ModelUUID)
+			info.ControllerModelUUID, controllerRow.ModelUUID)
 	}
 	// The manifest and the dump must agree on the controller's identity:
 	// the recovered controller adopts the manifest's uuid, so a divergent
 	// dump row means the archive is internally inconsistent.
-	if controller.UUID != "" && controller.UUID != info.ControllerUUID {
+	if controllerRow.UUID != "" && controllerRow.UUID != info.ControllerUUID {
 		return nil, errors.Errorf(
 			"controller uuid mismatch: metadata records %q, controller row records %q",
-			info.ControllerUUID, controller.UUID)
+			info.ControllerUUID, controllerRow.UUID)
+	}
+	// api-port and ssh-server-port are derived columns of the controller
+	// config view rather than rows of the controller_config table, so the
+	// dump stores them outside it.
+	if controllerRow.ApiPort != nil && *controllerRow.ApiPort != "" {
+		info.ControllerConfig[controller.APIPort] = *controllerRow.ApiPort
+	}
+	if len(payload.ControllerSSHServerPort) > 0 && payload.ControllerSSHServerPort[0].Port > 0 {
+		if _, ok := info.ControllerConfig[controller.SSHServerPort]; !ok {
+			info.ControllerConfig[controller.SSHServerPort] = strconv.FormatInt(
+				payload.ControllerSSHServerPort[0].Port, 10)
+		}
 	}
 
 	if len(payload.Model) == 0 {
@@ -213,6 +197,15 @@ func buildArchiveInfo(ctx context.Context, logger corelogger.Logger, meta *coreb
 		if m.UUID == info.ControllerModelUUID {
 			info.CloudName = mi.CloudName
 			info.CloudType = mi.CloudType
+			if m.CloudRegionUUID != nil && *m.CloudRegionUUID != "" {
+				regionName, ok := cloudRegions[*m.CloudRegionUUID]
+				if !ok {
+					return nil, errors.Errorf(
+						"controller model %q references unknown cloud region %q",
+						m.Name, *m.CloudRegionUUID)
+				}
+				info.CloudRegion = regionName
+			}
 		}
 	}
 	if info.CloudType == "" {
@@ -243,129 +236,46 @@ func buildArchiveInfo(ctx context.Context, logger corelogger.Logger, meta *coreb
 		if mi.ModelType != "caas" || mi.UUID == info.ControllerModelUUID {
 			continue
 		}
-		apps, err := inventoryFromModelDump(ctx, logger, modelDumps[mi.UUID])
+		apps, err := readModelInventory(ctx, logger, modelDumps[mi.UUID])
 		if err != nil {
 			return nil, errors.Errorf("model %q: %w", mi.Name, err)
 		}
 		mi.Applications = apps
 	}
+
+	// The controller model dump carries the provisioning inputs a
+	// replacement controller must reuse: its model config (which holds
+	// provider settings such as an LXD project), its constraints and the
+	// storage pools it was bootstrapped with.
+	controllerModel, err := readControllerModelProvisioning(ctx, modelDumps[info.ControllerModelUUID])
+	if err != nil {
+		return nil, errors.Errorf("controller model %q: %w", info.ControllerModelUUID, err)
+	}
+	info.ControllerModelConfig = controllerModel.Config
+	info.ModelConstraints = controllerModel.ModelConstraints
+	info.ControllerConstraints = controllerModel.ControllerConstraints
+	info.StoragePools = controllerModel.StoragePools
 	return info, nil
 }
 
-// modelDumpInventory mirrors the model-dump tables the substrate
-// inventory reads. Unknown tables and fields are ignored.
-//
-// Life filtering excludes only dead rows: dying entities still exist
-// in the cluster, so they count as surviving substrate the preflight
-// must account for.
-type modelDumpInventory struct {
-	Application []struct {
-		UUID   string          `yaml:"uuid"`
-		Name   string          `yaml:"name"`
-		LifeID domainlife.Life `yaml:"life_id"`
-	} `yaml:"application"`
-	Unit []struct {
-		Name            string          `yaml:"name"`
-		LifeID          domainlife.Life `yaml:"life_id"`
-		ApplicationUUID string          `yaml:"application_uuid"`
-		NetNodeUUID     string          `yaml:"net_node_uuid"`
-	} `yaml:"unit"`
-	StorageFilesystem []struct {
-		UUID       string          `yaml:"uuid"`
-		ProviderID string          `yaml:"provider_id"`
-		LifeID     domainlife.Life `yaml:"life_id"`
-	} `yaml:"storage_filesystem"`
-	StorageFilesystemAttachment []struct {
-		StorageFilesystemUUID string          `yaml:"storage_filesystem_uuid"`
-		NetNodeUUID           string          `yaml:"net_node_uuid"`
-		LifeID                domainlife.Life `yaml:"life_id"`
-	} `yaml:"storage_filesystem_attachment"`
-}
-
-// inventoryFromModelDump extracts the surviving-substrate inventory of
-// one Kubernetes model: its alive applications, their alive units, and
-// the persistent volume claim names recorded by alive storage
-// filesystems.
-// A claim name is attributed to the application whose unit attaches it.
-func inventoryFromModelDump(ctx context.Context, logger corelogger.Logger, filename string) ([]domainrecovery.ApplicationInfo, error) {
+// readModelInventory opens a staged model dump and streams it through the
+// domain service's Kubernetes substrate inventory decoder.
+func readModelInventory(ctx context.Context, logger corelogger.Logger, filename string) ([]domainrecovery.ApplicationInfo, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, errors.Errorf("opening dump: %w", err)
 	}
 	defer func() { _ = file.Close() }()
+	return recoveryservice.DecodeModelInventory(ctx, logger, contextReader{ctx: ctx, reader: file})
+}
 
-	var envelope struct {
-		Payload modelDumpInventory `yaml:"payload"`
+// readControllerModelProvisioning opens the staged controller model dump and
+// streams it through the domain service's provisioning-inputs decoder.
+func readControllerModelProvisioning(ctx context.Context, filename string) (recoveryservice.ControllerModelProvisioning, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return recoveryservice.ControllerModelProvisioning{}, errors.Errorf("opening dump: %w", err)
 	}
-	if err := yaml.NewDecoder(contextReader{ctx: ctx, reader: file}).Decode(&envelope); err != nil {
-		return nil, errors.Errorf("decoding dump: %w", err)
-	}
-	inv := envelope.Payload
-
-	// unitAppByNode maps a unit's net node to the unit's application,
-	// resolving which application each attached volume belongs to.
-	unitAppByNode := make(map[string]string, len(inv.Unit))
-	for _, u := range inv.Unit {
-		if u.LifeID == domainlife.Dead {
-			continue
-		}
-		if u.NetNodeUUID == "" {
-			logger.Debugf(ctx, "unit %q has no net node, its volume attachments are not attributed", u.Name)
-			continue
-		}
-		unitAppByNode[u.NetNodeUUID] = u.ApplicationUUID
-	}
-	// provider_id is the persistent volume claim name: its unique index
-	// is how the running controller re-attaches volumes it finds in the
-	// cluster, so it is the name the substrate check must verify.
-	filesystemClaim := make(map[string]string, len(inv.StorageFilesystem))
-	for _, fs := range inv.StorageFilesystem {
-		if fs.ProviderID == "" || fs.LifeID == domainlife.Dead {
-			continue
-		}
-		filesystemClaim[fs.UUID] = fs.ProviderID
-	}
-	claimsByApp := make(map[string][]string)
-	for _, att := range inv.StorageFilesystemAttachment {
-		if att.LifeID == domainlife.Dead {
-			continue
-		}
-		claim, ok := filesystemClaim[att.StorageFilesystemUUID]
-		if !ok {
-			logger.Debugf(ctx, "attachment references unknown filesystem %q, skipped", att.StorageFilesystemUUID)
-			continue
-		}
-		app, ok := unitAppByNode[att.NetNodeUUID]
-		if !ok || app == "" {
-			logger.Debugf(ctx, "attachment of claim %q has no living unit to attribute it to, skipped", claim)
-			continue
-		}
-		claimsByApp[app] = append(claimsByApp[app], claim)
-	}
-
-	inventory := make([]domainrecovery.ApplicationInfo, 0, len(inv.Application))
-	for _, app := range inv.Application {
-		// Dead applications are recorded in the recovery summary as
-		// pending removals; their substrate is not checked.
-		if app.LifeID == domainlife.Dead {
-			continue
-		}
-		// An alive application without its identity is not a row the
-		// dump format produces; the dump is corrupt.
-		if app.UUID == "" || app.Name == "" {
-			return nil, errors.Errorf("dump records an alive application with an empty uuid or name")
-		}
-		info := domainrecovery.ApplicationInfo{
-			UUID:                  app.UUID,
-			Name:                  app.Name,
-			FilesystemProviderIDs: claimsByApp[app.UUID],
-		}
-		for _, u := range inv.Unit {
-			if u.ApplicationUUID == app.UUID && u.LifeID != domainlife.Dead {
-				info.Units = append(info.Units, u.Name)
-			}
-		}
-		inventory = append(inventory, info)
-	}
-	return inventory, nil
+	defer func() { _ = file.Close() }()
+	return recoveryservice.DecodeControllerModelProvisioning(contextReader{ctx: ctx, reader: file})
 }

@@ -28,18 +28,19 @@ type configFunc func() *config.Config
 type setConfigFunc func(*config.Config) error
 
 type mockEnviron struct {
-	storage          storage.Storage
-	allInstances     allInstancesFunc
-	instances        instancesFunc
-	startInstance    startInstanceFunc
-	stopInstances    stopInstancesFunc
-	getToolsSources  getToolsSourcesFunc
-	config           configFunc
-	setConfig        setConfigFunc
-	storageProviders jujustorage.StaticProviderRegistry
-	modelRules       firewall.IngressRules
-	supportsIPv6     bool
-	environs.Environ // stub out other methods with panics
+	storage           storage.Storage
+	allInstances      allInstancesFunc
+	instances         instancesFunc
+	startInstance     startInstanceFunc
+	stopInstances     stopInstancesFunc
+	getToolsSources   getToolsSourcesFunc
+	config            configFunc
+	setConfig         setConfigFunc
+	storageProviders  jujustorage.StaticProviderRegistry
+	modelRules        firewall.IngressRules
+	supportsIPv6      bool
+	openModelPortsErr error
+	environs.Environ  // stub out other methods with panics
 }
 
 func (env *mockEnviron) Storage() storage.Storage {
@@ -102,6 +103,9 @@ func (env *mockEnviron) StorageProvider(t jujustorage.ProviderType) (jujustorage
 }
 
 func (env *mockEnviron) OpenModelPorts(_ context.Context, rules firewall.IngressRules) error {
+	if env.openModelPortsErr != nil {
+		return env.openModelPortsErr
+	}
 	env.modelRules = append(env.modelRules, rules...)
 	return nil
 }

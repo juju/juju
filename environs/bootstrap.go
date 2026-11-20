@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
@@ -117,6 +118,12 @@ type BootstrapResult struct {
 
 	// Base is the instance's base.
 	Base corebase.Base
+
+	// InstanceID is the provider-assigned ID of the allocated bootstrap
+	// machine, taken from the started instance itself. It is empty when
+	// the bootstrap did not allocate a machine, such as for Kubernetes
+	// controllers.
+	InstanceID instance.Id
 
 	// CloudBootstrapFinalizer is a function that must be called finalize the
 	// bootstrap process by transferring the tools and installing the

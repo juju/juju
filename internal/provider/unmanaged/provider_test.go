@@ -62,7 +62,7 @@ func (s *providerSuite) TestPrepareForBootstrap(c *tc.C) {
 // TestBootstrapNoCloudEndpoint ensures that error messages are correctly
 // returned when no cloud endpoint is specified during bootstrap.
 func (s *providerSuite) TestBootstrapNoCloudEndpoint(c *tc.C) {
-	_, err := s.testBootstrap(c, testBootstrapArgs{})
+	_, _, err := s.testBootstrap(c, testBootstrapArgs{})
 	c.Assert(err, tc.ErrorMatches,
 		`validating cloud spec: missing address of host to bootstrap: please specify "juju bootstrap unmanaged/\[user@\]<host>"`)
 }
@@ -70,7 +70,7 @@ func (s *providerSuite) TestBootstrapNoCloudEndpoint(c *tc.C) {
 // TestBootstrap executes the bootstrap process for an unmanaged provider,
 // verifying key provisioning behaviors and call logic.
 func (s *providerSuite) TestBootstrap(c *tc.C) {
-	ctx, err := s.testBootstrap(c, testBootstrapArgs{
+	ctx, _, err := s.testBootstrap(c, testBootstrapArgs{
 		endpoint: "hostname",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -79,10 +79,20 @@ func (s *providerSuite) TestBootstrap(c *tc.C) {
 	s.CheckCall(c, 2, "DetectBaseAndHardwareCharacteristics", "hostname", "")
 }
 
+// TestBootstrapInstanceID verifies that the bootstrap result reports the
+// unmanaged provider's bootstrap instance ID.
+func (s *providerSuite) TestBootstrapInstanceID(c *tc.C) {
+	_, result, err := s.testBootstrap(c, testBootstrapArgs{
+		endpoint: "hostname",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.InstanceID, tc.Equals, unmanaged.BootstrapInstanceId)
+}
+
 // TestBootstrapUserHost tests the bootstrap process for an unmanaged provider
 // with a "user@host" endpoint configuration.
 func (s *providerSuite) TestBootstrapUserHost(c *tc.C) {
-	ctx, err := s.testBootstrap(c, testBootstrapArgs{
+	ctx, _, err := s.testBootstrap(c, testBootstrapArgs{
 		endpoint: "user@hostwithuser",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -94,7 +104,7 @@ func (s *providerSuite) TestBootstrapUserHost(c *tc.C) {
 // TestBootstrapSSHUserHost tests the bootstrap process for an unmanaged
 // provider with a "ssh:user@host" endpoint configuration.
 func (s *providerSuite) TestBootstrapUserSSHHost(c *tc.C) {
-	ctx, err := s.testBootstrap(c, testBootstrapArgs{
+	ctx, _, err := s.testBootstrap(c, testBootstrapArgs{
 		endpoint: "ssh:user@host",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -106,7 +116,7 @@ func (s *providerSuite) TestBootstrapUserSSHHost(c *tc.C) {
 // TestBootstrapUserHostAuthorizedKeys tests bootstrapping with authorized SSH
 // keys for a user on a specified host.
 func (s *providerSuite) TestBootstrapUserHostAuthorizedKeys(c *tc.C) {
-	ctx, err := s.testBootstrap(c, testBootstrapArgs{
+	ctx, _, err := s.testBootstrap(c, testBootstrapArgs{
 		endpoint: "userwithauth@host",
 		params: environs.BootstrapParams{
 			AuthorizedKeys: []string{"key1", "key2"},
@@ -145,7 +155,7 @@ type testBootstrapArgs struct {
 	params   environs.BootstrapParams
 }
 
-func (s *providerSuite) testBootstrap(c *tc.C, args testBootstrapArgs) (environs.BootstrapContext, error) {
+func (s *providerSuite) testBootstrap(c *tc.C, args testBootstrapArgs) (environs.BootstrapContext, *environs.BootstrapResult, error) {
 	minimal := unmanaged.MinimalConfigValues()
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, tc.ErrorIsNil)
@@ -155,18 +165,18 @@ func (s *providerSuite) testBootstrap(c *tc.C, args testBootstrapArgs) (environs
 	}
 	err = unmanaged.ProviderInstance.ValidateCloud(c.Context(), cloudSpec)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	env, err := unmanaged.ProviderInstance.Open(c.Context(), environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: testConfig,
 	}, environs.NoopCredentialInvalidator())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	ctx := envtesting.BootstrapContext(c.Context(), c)
-	_, err = env.Bootstrap(ctx, args.params)
-	return ctx, err
+	result, err := env.Bootstrap(ctx, args.params)
+	return ctx, result, err
 }
 
 func (s *providerSuite) TestNullAlias(c *tc.C) {

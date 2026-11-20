@@ -43,6 +43,7 @@ func (s *metadataSuite) TestAsJSONBuffer(c *tc.C) {
 		`"Hostname":"myhost",`+
 		`"Version":"1.21-alpha3",`+
 		`"Base":"ubuntu@22.04",`+
+		`"Arch":"amd64",`+
 		`"ControllerUUID":"",`+
 		`"HANodes":0,`+
 		`"ControllerMachineID":"",`+
@@ -59,6 +60,7 @@ func (s *metadataSuite) createTestMetadata(c *tc.C) *backups.Metadata {
 		Hostname: "myhost",
 		Version:  semversion.MustParse("1.21-alpha3"),
 		Base:     "ubuntu@22.04",
+		Arch:     "amd64",
 	}
 
 	meta.SetID("20140909-115934.asdf-zxcv-qwe")
@@ -96,6 +98,7 @@ func (s *metadataSuite) TestAsJSONBufferV2NonHA(c *tc.C) {
 		`"Hostname":"myhost",`+
 		`"Version":"1.21-alpha3",`+
 		`"Base":"ubuntu@22.04",`+
+		`"Arch":"amd64",`+
 		`"ControllerUUID":"controller-uuid",`+
 		`"HANodes":0,`+
 		`"ControllerMachineID":"10",`+
@@ -125,6 +128,7 @@ func (s *metadataSuite) TestAsJSONBufferV2HA(c *tc.C) {
 		`"Hostname":"myhost",`+
 		`"Version":"1.21-alpha3",`+
 		`"Base":"ubuntu@22.04",`+
+		`"Arch":"amd64",`+
 		`"ControllerUUID":"controller-uuid",`+
 		`"HANodes":3,`+
 		`"ControllerMachineID":"10",`+
@@ -144,6 +148,8 @@ func (s *metadataSuite) TestNewMetadataJSONReaderV2(c *tc.C) {
 		`"Machine":"0",` +
 		`"Hostname":"myhost",` +
 		`"Version":"1.21-alpha3",` +
+		`"Base":"ubuntu@22.04",` +
+		`"Arch":"amd64",` +
 		`"ControllerUUID":"controller-uuid",` +
 		`"HANodes":3,` +
 		`"ControllerMachineID":"10",` +
@@ -164,11 +170,60 @@ func (s *metadataSuite) TestNewMetadataJSONReaderV2(c *tc.C) {
 	c.Check(meta.Origin.Machine, tc.Equals, "0")
 	c.Check(meta.Origin.Hostname, tc.Equals, "myhost")
 	c.Check(meta.Origin.Version.String(), tc.Equals, "1.21-alpha3")
+	c.Check(meta.Origin.Base, tc.Equals, "ubuntu@22.04")
+	c.Check(meta.Origin.Arch, tc.Equals, "amd64")
 	c.Check(meta.FormatVersion, tc.Equals, int64(2))
 	c.Check(meta.Controller.UUID, tc.Equals, "controller-uuid")
 	c.Check(meta.Controller.HANodes, tc.Equals, int64(3))
 	c.Check(meta.Controller.MachineInstanceID, tc.Equals, "inst-10101010")
 	c.Check(meta.Controller.MachineID, tc.Equals, "10")
+}
+
+// TestMetadataArchRoundTrip checks that the source controller's
+// architecture survives a metadata serialisation round trip: what
+// backup creation records is what recovery reads back.
+func (s *metadataSuite) TestMetadataArchRoundTrip(c *tc.C) {
+	meta := s.createTestMetadata(c)
+	meta.FormatVersion = 2
+	err := meta.MarkComplete(10, "123af2cef", meta.Started.Add(time.Minute))
+	c.Assert(err, tc.ErrorIsNil)
+
+	buf, err := meta.AsJSONBuffer()
+	c.Assert(err, tc.ErrorIsNil)
+	decoded, err := backups.NewMetadataJSONReader(buf)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(decoded.Origin.Arch, tc.Equals, "amd64")
+	c.Check(decoded.Origin.Base, tc.Equals, "ubuntu@22.04")
+}
+
+// TestNewMetadataJSONReaderV2WithoutArch checks the behaviour on a
+// metadata manifest that does not record an architecture, as produced
+// by archives created before the field existed: decoding succeeds and
+// the architecture is left empty for the recovery gates to reject.
+func (s *metadataSuite) TestNewMetadataJSONReaderV2WithoutArch(c *tc.C) {
+	file := bytes.NewBufferString(`{` +
+		`"ID":"20140909-115934.asdf-zxcv-qwe",` +
+		`"FormatVersion":2,` +
+		`"Stored":"0001-01-01T00:00:00Z",` +
+		`"Started":"2014-09-09T11:59:34Z",` +
+		`"Finished":"2014-09-09T12:00:34Z",` +
+		`"Notes":"",` +
+		`"ModelUUID":"asdf-zxcv-qwe",` +
+		`"Machine":"0",` +
+		`"Hostname":"myhost",` +
+		`"Version":"1.21-alpha3",` +
+		`"Base":"ubuntu@22.04",` +
+		`"ControllerUUID":"controller-uuid",` +
+		`"HANodes":3,` +
+		`"ControllerMachineID":"10",` +
+		`"ControllerMachineInstanceID":"inst-10101010"` +
+		`}` + "\n")
+	meta, err := backups.NewMetadataJSONReader(file)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(meta.Origin.Base, tc.Equals, "ubuntu@22.04")
+	c.Check(meta.Origin.Arch, tc.Equals, "")
 }
 
 func (s *metadataSuite) TestNewMetadataJSONReaderUnsupported(c *tc.C) {

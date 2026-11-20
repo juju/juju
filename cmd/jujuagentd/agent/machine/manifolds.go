@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	"github.com/juju/loggo/v3"
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
@@ -41,6 +40,7 @@ import (
 	"github.com/juju/juju/internal/charmhub"
 	containerbroker "github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/container/lxd"
+	"github.com/juju/juju/internal/errors"
 	internalhttp "github.com/juju/juju/internal/http"
 	internallease "github.com/juju/juju/internal/lease"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -358,10 +358,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 	//  2) to decide how to deal with fatal, non-recoverable errors
 	//     e.g. apicaller.ErrConnectImpossible.
 	connectFilter := func(err error) error {
-		cause := errors.Cause(err)
-		if cause == apicaller.ErrConnectImpossible {
+		if errors.Is(err, apicaller.ErrConnectImpossible) {
 			return jworker.ErrTerminateAgent
-		} else if cause == apicaller.ErrChangedPassword {
+		} else if errors.Is(err, apicaller.ErrChangedPassword) {
 			return dependency.ErrBounce
 		}
 		return err
@@ -372,7 +371,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 	) {
 		conn, err := apicaller.NewExternalControllerConnection(ctx, apiInfo)
 		if err != nil {
-			return nil, "", errors.Trace(err)
+			return nil, "", errors.Capture(err)
 		}
 		return crosscontroller.NewClient(conn), conn.IPAddr(), nil
 	}
@@ -1442,7 +1441,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		// The backup creator resolves the controller machine's cloud instance ID
-		// from the controller model: this agent runs on a provider machine.
+		// and base from the controller model: this agent runs on a provider machine.
 		backupName: ifController(backup.Manifold(backup.ManifoldConfig{
 			LeaseManagerName:        leaseManagerName,
 			DomainServicesName:      domainServicesName,
@@ -1453,6 +1452,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ControllerTag:           config.ControllerAgentTag,
 			LocalConfigReader:       config.StartupValueProvider,
 			MachineInstanceIDGetter: backup.MachineInstanceID,
+			MachineBaseGetter:       backup.MachineBase,
 			Clock:                   config.Clock,
 			Logger:                  internallogger.GetLogger("juju.worker.backup"),
 			NewWorker:               backup.NewWorker,
@@ -1567,8 +1567,8 @@ func K8sManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:                config.Clock,
 		})),
 
-		// The backup creator records no machine instance ID: this agent runs on
-		// Kubernetes, where the controller has no provider machine.
+		// The backup creator records no machine instance ID or base: this agent
+		// runs on Kubernetes, where the controller has no provider machine.
 		backupName: ifController(backup.Manifold(backup.ManifoldConfig{
 			LeaseManagerName:        leaseManagerName,
 			DomainServicesName:      domainServicesName,
@@ -1579,6 +1579,7 @@ func K8sManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ControllerTag:           config.ControllerAgentTag,
 			LocalConfigReader:       config.StartupValueProvider,
 			MachineInstanceIDGetter: backup.NoMachineInstanceID,
+			MachineBaseGetter:       backup.NoMachineBase,
 			Clock:                   config.Clock,
 			Logger:                  internallogger.GetLogger("juju.worker.backup"),
 			NewWorker:               backup.NewWorker,
