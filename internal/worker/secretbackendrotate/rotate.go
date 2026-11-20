@@ -23,6 +23,14 @@ type logger interface{}
 
 var _ logger = struct{}{}
 
+// errResetRequired is returned when a rotation's confirmation window
+// elapses without an updated trigger time from the controller. The
+// worker exits with it so that the runner created by NewWithReset can
+// replace it with a fresh instance that re-reads the rotation state
+// from the controller.
+var errResetRequired = errors.ConstError(
+	"secret backend token rotation watcher reset required")
+
 // Logger represents the methods used by the worker to log information.
 type Logger interface {
 	Infof(string, ...any)
@@ -72,6 +80,42 @@ func NewWorker(config Config) (worker.Worker, error) {
 		Work: w.loop,
 	})
 	return w, errors.Trace(err)
+}
+
+// NewWithReset returns a worker that runs the secret backend token
+// rotation worker described by config, restarting it after a short
+// delay whenever it exits with errResetRequired. Any other error is
+// fatal and is returned from Wait.
+func NewWithReset(config Config) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	r := worker.NewRunner(worker.RunnerParams{
+		Clock: config.Clock,
+		IsFatal: func(err error) bool {
+			return !errors.Is(err, errResetRequired)
+		},
+		RestartDelay: worker.DefaultRestartDelay,
+		Logger:       runnerLogger{config.Logger},
+	})
+	if err := r.StartWorker("secret-backend-token-rotation", func() (worker.Worker, error) {
+		return NewWorker(config)
+	}); err != nil {
+		_ = worker.Stop(r)
+		return nil, errors.Trace(err)
+	}
+	return r, nil
+}
+
+// runnerLogger adapts the package Logger to the runner logger
+// interface; error-level runner logs are emitted as warnings.
+type runnerLogger struct {
+	Logger
+}
+
+// Errorf is part of the logger interface accepted by worker.NewRunner.
+func (l runnerLogger) Errorf(format string, args ...any) {
+	l.Logger.Warningf(format, args...)
 }
 
 type tokenRotateInfo struct {
@@ -143,6 +187,7 @@ func (w *Worker) rotate(now time.Time) error {
 	w.nextTrigger = time.Time{}
 
 	var toRotate []string
+	var resetRequired bool
 	for id, info := range w.backendInfo {
 		w.config.Logger.Debugf(
 			"checking %s: rotate at %s... time diff %s",
@@ -152,16 +197,23 @@ func (w *Worker) rotate(now time.Time) error {
 			continue
 		}
 		if info.schedule.Fired {
-			// resyncWatcher clears the whole map, so any bumps
-			// queued above are discarded; nothing is rotated.
-			return w.resyncWatcher()
+			// Record the reset so the worker exits with errResetRequired
+			// below, but keep processing any other due entries so
+			// their rotations are not discarded.
+			resetRequired = true
+			w.config.Logger.Warningf(
+				"restarting secret backend token rotation watcher for %q",
+				info.backendName,
+			)
+			continue
 		}
 		toRotate = append(toRotate, id)
 		// Keep the entry awaiting confirmation of the new rotation time via
 		// the watcher. If the confirmation does not arrive within
-		// RotateRetryDelay, resync the watcher so the worker re-reads the
-		// rotation state from the controller. This prevents the watcher
-		// from becoming stale.
+		// RotateRetryDelay, exit with errResetRequired so the runner
+		// created by NewWithReset restarts the worker: a fresh watcher
+		// re-reads the rotation state from the controller, preventing
+		// the watcher from becoming stale.
 		info.schedule = info.schedule.AfterFire(w.config.Logger, "secret backend token rotation", info.backendName, secrets.RotateRetryDelay, now)
 		w.backendInfo[id] = info
 	}
@@ -171,21 +223,11 @@ func (w *Worker) rotate(now time.Time) error {
 			return errors.Annotatef(err, "cannot rotate secret backend tokens for backend ids %q", toRotate)
 		}
 	}
+	if resetRequired {
+		return errResetRequired
+	}
 	w.computeNextRotateTime()
 	return nil
-}
-
-func (w *Worker) resyncWatcher() error {
-	w.config.Logger.Warningf("resyncing secret backend token rotation watcher")
-	if w.watcher != nil {
-		if err := worker.Stop(w.watcher); err != nil {
-			w.config.Logger.Warningf("stopping token rotation watcher for resync: %v", err)
-		}
-		w.watcher = nil
-	}
-	clear(w.backendInfo)
-	w.computeNextRotateTime()
-	return w.startWatcher()
 }
 
 func (w *Worker) startWatcher() error {

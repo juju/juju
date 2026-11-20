@@ -39,7 +39,7 @@ func (c ManifoldConfig) start(context dependency.Context) (worker.Worker, error)
 	if err := context.Get(c.APICallerName, &apiCaller); err != nil {
 		return nil, err
 	}
-	return NewWorker(Config{
+	return NewWithReset(Config{
 		SecretBackendManagerFacade: secretsbackendmanager.NewClient(apiCaller),
 		Logger:                     c.Logger,
 		Clock:                      clock.WallClock,

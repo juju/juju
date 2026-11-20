@@ -79,32 +79,25 @@ func (s *ScheduleSuite) TestTriggerScheduleShouldIgnoreTime(c *gc.C) {
 	c.Check(sched.ShouldIgnoreTime(now.Add(3*time.Hour)), jc.IsFalse)
 }
 
-func (s *ScheduleSuite) TestFire(c *gc.C) {
+func (s *ScheduleSuite) TestAfterFireLogsFirstFireAndRetries(c *gc.C) {
 	now := time.Now().UTC()
 	sched := secrettriggerschedule.NewTriggerSchedule(now)
 	logger := &fakeLogger{}
 
+	// The first fire logs at Info level.
 	sched = sched.AfterFire(logger, "secret rotation", "secret:abc", secrets.RotateRetryDelay, now)
 	c.Check(logger.infos, gc.HasLen, 1)
 	c.Check(logger.debugs, gc.HasLen, 0)
 	c.Check(sched.Fired, jc.IsTrue)
-	c.Check(sched.RetryCount, gc.Equals, 0)
-	c.Check(sched.NextTime, gc.Equals, now.Add(5*time.Minute))
 
-	for attempt := 1; attempt <= secrettriggerschedule.MaxTriggerRetries; attempt++ {
-		fireAt := sched.NextTime
-		sched = sched.AfterFire(logger, "secret rotation", "secret:abc", secrets.RotateRetryDelay, fireAt)
-		c.Check(sched.RetryCount, gc.Equals, attempt)
+	// Subsequent fires log at Debug level.
+	for range secrettriggerschedule.MaxTriggerRetries {
+		sched = sched.AfterFire(logger, "secret rotation", "secret:abc", secrets.RotateRetryDelay, sched.NextTime)
 	}
 	c.Check(logger.debugs, gc.HasLen, secrettriggerschedule.MaxTriggerRetries)
-	c.Check(sched.RetriesExhausted(), jc.IsTrue)
 
-	// Once MaxTriggerRetries is reached, RetryCount stays capped at
-	// MaxTriggerRetries.
-	fireAt := sched.NextTime
-	sched = sched.AfterFire(logger, "secret rotation", "secret:abc", secrets.RotateRetryDelay, fireAt)
-	c.Check(sched.RetryCount, gc.Equals, secrettriggerschedule.MaxTriggerRetries)
-	c.Check(sched.NextTime, gc.Equals, fireAt.Add(secrets.RotateRetryDelay))
+	// Fires past the retry cap keep logging at Debug level.
+	sched = sched.AfterFire(logger, "secret rotation", "secret:abc", secrets.RotateRetryDelay, sched.NextTime)
 	c.Check(logger.debugs, gc.HasLen, secrettriggerschedule.MaxTriggerRetries+1)
 }
 

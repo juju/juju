@@ -352,7 +352,7 @@ func (s *workerSuite) TestManySecretsDeleteOne(c *gc.C) {
 	s.expectRotated(c, uri.String())
 }
 
-func (s *workerSuite) TestRotateGranularity(c *gc.C) {
+func (s *workerSuite) TestRotateSubMinuteTriggerFiresExactly(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -536,6 +536,6 @@ func (s *workerSuite) TestChangesChannelClosed(c *gc.C) {
 	scheduletest.WaitTimerArmed(c, s.clock)
 
 	close(s.rotateConfigChanges)
-	workertest.CheckKilled(c, w)
-	c.Check(w.Wait(), gc.ErrorMatches, "secret rotation change channel closed")
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, gc.ErrorMatches, "secret rotation change channel closed")
 }

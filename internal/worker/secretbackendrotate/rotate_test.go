@@ -359,7 +359,7 @@ func (s *workerSuite) TestManyBackendsDeleteOne(c *gc.C) {
 	s.expectRotated(c, "some-backend-id")
 }
 
-func (s *workerSuite) TestRotateGranularity(c *gc.C) {
+func (s *workerSuite) TestRotateSubMinuteTriggerFiresExactly(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -428,28 +428,14 @@ func (s *workerSuite) TestSameTokenTriggerReAdd(c *gc.C) {
 	s.expectRotated(c, "some-backend-id")
 }
 
-func (s *workerSuite) TestTokenRotationResyncsWhenUnconfirmed(c *gc.C) {
+func (s *workerSuite) TestTokenRotationExitsWhenUnconfirmed(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
 	s.expectWorker()
 
-	resyncedWatcher := mocks.NewMockSecretBackendRotateWatcher(ctrl)
-	resyncedChanges := make(chan []corewatcher.SecretBackendRotateChange)
-	resyncCalled := make(chan struct{})
-	s.facade.EXPECT().WatchTokenRotationChanges().DoAndReturn(
-		func() (corewatcher.SecretBackendRotateWatcher, error) {
-			close(resyncCalled)
-			return resyncedWatcher, nil
-		},
-	)
-	resyncedWatcher.EXPECT().Changes().AnyTimes().Return(resyncedChanges)
-	resyncedWatcher.EXPECT().Kill().AnyTimes()
-	resyncedWatcher.EXPECT().Wait().Return(nil).MinTimes(1)
-
 	w, err := secretbackendrotate.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
 	s.rotateConfigChanges <- []corewatcher.SecretBackendRotateChange{{
@@ -461,36 +447,21 @@ func (s *workerSuite) TestTokenRotationResyncsWhenUnconfirmed(c *gc.C) {
 	s.clock.Advance(time.Hour)
 	s.expectRotated(c, "some-backend-id")
 
-	// No watcher update: after RotateRetryDelay the worker resyncs the watcher.
+	// No watcher update: after RotateRetryDelay the worker exits with
+	// errResetRequired so the runner created by NewWithReset restarts
+	// it with a fresh watcher.
 	scheduletest.WaitTimerArmed(c, s.clock)
 	s.clock.Advance(secrets.RotateRetryDelay)
-	select {
-	case <-resyncCalled:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for watcher resync after unconfirmed token rotation")
-	}
-	s.expectNoRotates(c)
-
-	// The resynced watcher reports the updated rotation time from the
-	// controller.
-	resyncedChanges <- []corewatcher.SecretBackendRotateChange{{
-		ID:              "some-backend-id",
-		Name:            "some-backend",
-		NextTriggerTime: now.Add(3 * time.Hour),
-	}}
-	scheduletest.WaitTimerArmed(c, s.clock)
-	s.clock.Advance(2*time.Hour - secrets.RotateRetryDelay)
-	s.expectRotated(c, "some-backend-id")
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, gc.ErrorMatches,
+		"rotating secret backends: secret backend token rotation watcher reset required")
 }
 
-func (s *workerSuite) TestTokenRotationResyncError(c *gc.C) {
+func (s *workerSuite) TestRotationSentForDueEntriesWhenUnconfirmed(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
 	s.expectWorker()
-	s.facade.EXPECT().WatchTokenRotationChanges().Return(
-		nil, errors.New("resync boom"),
-	)
 
 	w, err := secretbackendrotate.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
@@ -500,15 +471,39 @@ func (s *workerSuite) TestTokenRotationResyncError(c *gc.C) {
 		ID:              "some-backend-id",
 		Name:            "some-backend",
 		NextTriggerTime: now.Add(time.Hour),
+	}, {
+		ID:              "some-backend-id2",
+		Name:            "some-backend2",
+		NextTriggerTime: now.Add(time.Hour + secrets.RotateRetryDelay),
 	}}
 	scheduletest.WaitTimerArmed(c, s.clock)
 	s.clock.Advance(time.Hour)
 	s.expectRotated(c, "some-backend-id")
 
+	// No watcher update for some-backend-id: after RotateRetryDelay
+	// its confirmation window expires at the same deadline
+	// some-backend-id2 becomes due. The due rotation is still
+	// performed before the worker exits with errResetRequired so the
+	// runner created by NewWithReset restarts it with a fresh watcher.
 	scheduletest.WaitTimerArmed(c, s.clock)
 	s.clock.Advance(secrets.RotateRetryDelay)
-	workertest.CheckKilled(c, w)
-	c.Check(w.Wait(), gc.ErrorMatches, "rotating secret backends: resync boom")
+	s.expectRotated(c, "some-backend-id2")
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, gc.ErrorMatches,
+		"rotating secret backends: secret backend token rotation watcher reset required")
+}
+
+func (s *workerSuite) TestStartWatcherError(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.facade.EXPECT().WatchTokenRotationChanges().Return(nil, errors.New("watch boom"))
+
+	w, err := secretbackendrotate.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, gc.ErrorMatches, "watch boom")
 }
 
 func (s *workerSuite) TestRotateBackendTokensError(c *gc.C) {
@@ -531,9 +526,9 @@ func (s *workerSuite) TestRotateBackendTokensError(c *gc.C) {
 	}}
 	scheduletest.WaitTimerArmed(c, s.clock)
 	s.clock.Advance(time.Hour)
-	workertest.CheckKilled(c, w)
+	err = workertest.CheckKilled(c, w)
 	c.Check(
-		w.Wait(),
+		err,
 		gc.ErrorMatches,
 		`rotating secret backends: cannot rotate secret backend tokens for backend ids \["some-backend-id"\]: rotate boom`,
 	)
@@ -556,8 +551,8 @@ func (s *workerSuite) TestChangesChannelClosed(c *gc.C) {
 	scheduletest.WaitTimerArmed(c, s.clock)
 
 	close(s.rotateConfigChanges)
-	workertest.CheckKilled(c, w)
-	c.Check(w.Wait(), gc.ErrorMatches, "secret rotation change channel closed")
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, gc.ErrorMatches, "secret rotation change channel closed")
 }
 
 func (s *workerSuite) TestTokenRotationAtMinuteBoundary(c *gc.C) {
