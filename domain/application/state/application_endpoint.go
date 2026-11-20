@@ -901,8 +901,15 @@ AND    application_uuid = $entityUUID.uuid
 	}
 
 	if len(result) != len(bindingNames) {
-		return nil, errors.Errorf("one or more of the provided endpoints %q do not exist",
-			strings.Join(bindingNames.SortedValues(), ", ")).
+		// Report only the endpoints that were not found, so that the
+		// user knows exactly which ones are missing.
+		found := set.NewStrings()
+		for _, r := range result {
+			found.Add(r.Name)
+		}
+		missing := bindingNames.Difference(found)
+		return nil, errors.Errorf("endpoints %q do not exist",
+			strings.Join(missing.SortedValues(), ", ")).
 			Add(applicationerrors.EndpointNotFound)
 	}
 	return transform.SliceToMap(result, func(in bindingToTable) (string, bindingToTable) {
