@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 
+	"github.com/juju/juju/core/database"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // ModelService is the interface that provides model information.
@@ -200,7 +202,7 @@ func (t *trackerWorker) loop() error {
 	ctx := t.catacomb.Context(context.Background())
 
 	modelWatcher, err := t.modelService.WatchModel(ctx)
-	if errors.Is(err, modelerrors.NotFound) {
+	if internalerrors.IsOneOf(err, modelerrors.NotFound, database.ErrDBNotFound, database.ErrDBDead) {
 		t.logger.Infof(ctx, "model %q has been removed, stopping tracker worker", t.modelUUID)
 		t.removeObjects(ctx)
 		return nil
@@ -245,7 +247,7 @@ func (t *trackerWorker) loop() error {
 // should stop (model is dead or not found).
 func (t *trackerWorker) checkModel(ctx context.Context) (bool, error) {
 	m, err := t.modelService.Model(ctx)
-	if errors.Is(err, modelerrors.NotFound) {
+	if internalerrors.IsOneOf(err, modelerrors.NotFound, database.ErrDBNotFound, database.ErrDBDead) {
 		t.logger.Infof(ctx, "model %q has been removed, stopping tracker worker", t.modelUUID)
 		t.removeObjects(ctx)
 		return true, nil

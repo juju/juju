@@ -237,7 +237,7 @@ func (s *environInstSuite) TestListMachineTypes(c *tc.C) {
 		Name:         new("n1-standard-1"),
 		GuestCpus:    new(int32(2)),
 		MemoryMb:     new(int32(4096)),
-		Architecture: new("amd64"),
+		Architecture: new("X86_64"),
 	}}, nil)
 
 	_, err := env.InstanceTypes(c.Context(), constraints.Value{})
