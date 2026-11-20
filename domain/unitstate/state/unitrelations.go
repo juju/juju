@@ -15,7 +15,10 @@ import (
 	"github.com/juju/juju/core/quota"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/deployment/charm"
+	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	domainsequence "github.com/juju/juju/domain/sequence"
+	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/domain/unitstate/internal"
 	"github.com/juju/juju/internal/errors"
 )
@@ -327,10 +330,36 @@ func (st *State) updateUnitSettingsHash(ctx context.Context, tx *sqlair.TX, unit
 		RelationUnitUUID: unitUUID,
 		Hash:             hash,
 	}
+	currentStmt, err := st.Prepare(`
+SELECT re.relation_uuid AS &relationSettingsHash.relation_uuid,
+       COALESCE(rush.sha256, '') AS &relationSettingsHash.sha256,
+       COALESCE(rush.revision, 0) AS &relationSettingsHash.revision
+FROM relation_unit AS ru
+JOIN relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
+LEFT JOIN relation_unit_settings_hash AS rush ON rush.relation_unit_uuid = ru.uuid
+WHERE ru.uuid = $unitSettingsHash.relation_unit_uuid
+`, arg, relationSettingsHash{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	var current relationSettingsHash
+	if err := tx.Query(ctx, currentStmt, arg).Get(&current); err != nil {
+		return errors.Capture(err)
+	}
+	if current.Hash == hash && current.Revision != 0 {
+		return nil
+	}
+	namespace := domainsequence.MakePrefixNamespace(domainrelation.SettingsSequenceNamespace, current.RelationUUID)
+	revision, err := sequencestate.NextValueWithStart(ctx, st, tx, namespace, 1)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	arg.Revision = int64(revision)
 	stmt, err := st.Prepare(`
 INSERT INTO relation_unit_settings_hash (*)
 VALUES ($unitSettingsHash.*)
-ON CONFLICT (relation_unit_uuid) DO UPDATE SET sha256 = excluded.sha256
+ON CONFLICT (relation_unit_uuid) DO UPDATE
+SET sha256 = excluded.sha256, revision = excluded.revision
 `, unitSettingsHash{})
 	if err != nil {
 		return errors.Capture(err)
@@ -500,10 +529,36 @@ func (st *State) updateApplicationSettingsHash(
 		RelationEndpointUUID: endpointUUID,
 		Hash:                 hash,
 	}
+	currentStmt, err := st.Prepare(`
+SELECT re.relation_uuid AS &relationSettingsHash.relation_uuid,
+       COALESCE(rash.sha256, '') AS &relationSettingsHash.sha256,
+       COALESCE(rash.revision, 0) AS &relationSettingsHash.revision
+FROM relation_endpoint AS re
+LEFT JOIN relation_application_settings_hash AS rash
+    ON rash.relation_endpoint_uuid = re.uuid
+WHERE re.uuid = $applicationSettingsHash.relation_endpoint_uuid
+`, arg, relationSettingsHash{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	var current relationSettingsHash
+	if err := tx.Query(ctx, currentStmt, arg).Get(&current); err != nil {
+		return errors.Capture(err)
+	}
+	if current.Hash == hash && current.Revision != 0 {
+		return nil
+	}
+	namespace := domainsequence.MakePrefixNamespace(domainrelation.SettingsSequenceNamespace, current.RelationUUID)
+	revision, err := sequencestate.NextValueWithStart(ctx, st, tx, namespace, 1)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	arg.Revision = int64(revision)
 	stmt, err := st.Prepare(`
 INSERT INTO relation_application_settings_hash (*) 
 VALUES ($applicationSettingsHash.*) 
-ON CONFLICT (relation_endpoint_uuid) DO UPDATE SET sha256 = excluded.sha256
+ON CONFLICT (relation_endpoint_uuid) DO UPDATE
+SET sha256 = excluded.sha256, revision = excluded.revision
 `, applicationSettingsHash{})
 	if err != nil {
 		return errors.Capture(err)
