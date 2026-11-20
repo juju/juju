@@ -137,6 +137,13 @@ type relationUnitAndApp struct {
 type applicationSettingsHash struct {
 	RelationEndpointUUID string `db:"relation_endpoint_uuid"`
 	Hash                 string `db:"sha256"`
+	Revision             int64  `db:"revision"`
+}
+
+type relationSettingsHash struct {
+	RelationUUID string `db:"relation_uuid"`
+	Hash         string `db:"sha256"`
+	Revision     int64  `db:"revision"`
 }
 
 type relationSetting struct {
@@ -157,6 +164,7 @@ func (s relationSetting) Value() string {
 type unitSettingsHash struct {
 	RelationUnitUUID string `db:"relation_unit_uuid"`
 	Hash             string `db:"sha256"`
+	Revision         int64  `db:"revision"`
 }
 
 type relationAndApplicationUUID struct {
