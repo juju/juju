@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 
-	coreassumes "github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/objectstore"
@@ -984,8 +983,8 @@ func validateAddCharmArgs(args charm.AddCharmArgs) (*internalcharm.Meta, error) 
 // validateScriptletSources returns the scriptlet sources of the charm, if
 // the charm exposes any. The charm metadata must be valid, see
 // [validateAddCharmArgs]. A charm must not mix scriptlets with hooks or a
-// dispatch file, and it must have scriptlets if and only if it assumes the
-// unitless feature.
+// dispatch file, and it must have scriptlets if and only if it requires a
+// unitless environment.
 func validateScriptletSources(ch internalcharm.Charm, meta *internalcharm.Meta) ([]internalcharm.ScriptletSource, error) {
 	var scriptletSources []internalcharm.ScriptletSource
 	if scriptletCharm, ok := ch.(scriptletSourcesCharm); ok {
@@ -1003,15 +1002,14 @@ func validateScriptletSources(ch internalcharm.Charm, meta *internalcharm.Meta) 
 		)
 	}
 
-	assumesUnitless := coreassumes.HasFeature(meta.Assumes, "unitless")
-	if hasScriptlets && !assumesUnitless {
+	if hasScriptlets && !meta.Unitless {
 		return nil, errors.Errorf(
-			"charm has scriptlets but does not assume unitless: %w",
+			"charm has scriptlets but does not set unitless: true: %w",
 			applicationerrors.CharmMetadataNotValid,
 		)
-	} else if assumesUnitless && !hasScriptlets {
+	} else if meta.Unitless && !hasScriptlets {
 		return nil, errors.Errorf(
-			"charm assumes unitless but has no scriptlets: %w",
+			"charm sets unitless: true but has no scriptlets: %w",
 			applicationerrors.CharmMetadataNotValid,
 		)
 	}

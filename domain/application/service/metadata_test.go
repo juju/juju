@@ -43,6 +43,18 @@ var metadataTestCases = [...]struct {
 		},
 	},
 	{
+		name: "unitless",
+		input: charm.Metadata{
+			Name:     "foo",
+			RunAs:    charm.RunAsDefault,
+			Unitless: true,
+		},
+		output: internalcharm.Meta{
+			Name:     "foo",
+			Unitless: true,
+		},
+	},
+	{
 		name: "common",
 		input: charm.Metadata{
 			Name:        "foo",
