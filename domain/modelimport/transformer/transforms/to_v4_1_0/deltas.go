@@ -24,6 +24,25 @@ var _ Deltas = deltas{}
 // 4.0.12 -> 4.1.0 transform.
 func NewDeltas() Deltas { return deltas{} }
 
+// CharmMetadata copies all v4_0_12 fields and defaults Unitless to false.
+// Charms exported from 4.0.12 do not require a unitless environment.
+func (d deltas) CharmMetadata(_ context.Context, src []v4_0_12.CharmMetadata, _ *v4_0_12.ModelExport) ([]v4_1_0.CharmMetadata, error) {
+	result := make([]v4_1_0.CharmMetadata, len(src))
+	for i, metadata := range src {
+		result[i] = v4_1_0.CharmMetadata{
+			CharmUUID:      metadata.CharmUUID,
+			Name:           metadata.Name,
+			Description:    metadata.Description,
+			Summary:        metadata.Summary,
+			Subordinate:    metadata.Subordinate,
+			MinJujuVersion: metadata.MinJujuVersion,
+			RunAsID:        metadata.RunAsID,
+			Assumes:        metadata.Assumes,
+		}
+	}
+	return result, nil
+}
+
 // Offer copies all v4_0_12 fields and leaves Description nil. Offers exported
 // from a 4.0.12 model carry no offer description; on import the offer falls
 // back to the charm metadata description.
