@@ -697,6 +697,16 @@ func (s *DeploySuite) TestUnitlessCharm(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *DeploySuite) TestVirtualCharmAssumeDoesNotRequireUnitless(c *tc.C) {
+	charmDir := newVirtualCharmArchive(c, false)
+	curl := charm.MustParseURL("local:unitless-0")
+	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
+	withCharmDeployable(s.fakeAPI, curl, defaultBase, charmDir.Meta(), false, 3, nil, nil)
+
+	err := s.runDeploy(c, charmDir.Path, "--num-units", "3", "--base", "ubuntu@22.04")
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *DeploySuite) TestNumUnitsUnitlessCharm(c *tc.C) {
 	charmDir := newUnitlessCharmArchive(c)
 	curl := charm.MustParseURL("local:unitless-0")
@@ -1466,21 +1476,24 @@ func vanillaFakeModelAPI(cfgAttrs map[string]any) *fakeDeployAPI {
 	return fakeAPI
 }
 
-// newUnitlessCharmArchive returns a minimal charm archive that declares the
-// unitless assumes feature. The unitless example charm is a charmcraft
-// project, so it cannot be packed from source here; the deploy tests only
-// need the feature to drive the unitless validation.
+// newUnitlessCharmArchive returns a minimal charm archive that requires a
+// unitless environment.
 func newUnitlessCharmArchive(c *tc.C) *charm.CharmArchive {
+	return newVirtualCharmArchive(c, true)
+}
+
+func newVirtualCharmArchive(c *tc.C, unitless bool) *charm.CharmArchive {
 	dir := filepath.Join(c.MkDir(), "unitless")
 	c.Assert(os.Mkdir(dir, 0o755), tc.ErrorIsNil)
 
-	metadata := `
+	metadata := fmt.Sprintf(`
 name: unitless
 summary: Unitless charm
 description: Unitless charm
+unitless: %t
 assumes:
-- unitless
-`
+- virtual-charm >= 1.0
+`, unitless)
 	c.Assert(os.WriteFile(filepath.Join(dir, "metadata.yaml"), []byte(metadata), 0o644), tc.ErrorIsNil)
 
 	manifest := `
