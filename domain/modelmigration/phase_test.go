@@ -21,7 +21,7 @@ func TestPhaseSuite(t *testing.T) {
 
 // TestPhaseRoundTrip asserts every persisted phase converts to its domain
 // value and back, and that the domain value matches the primary key seeded in
-// domain/schema/controller/sql/0031-model-migration.PATCH.sql exactly.
+// domain/schema/dqlite/controller/sql/0130-model-migration.sql exactly.
 func (s *phaseSuite) TestPhaseRoundTrip(c *tc.C) {
 	expected := map[migration.Phase]modelmigration.Phase{
 		migration.QUIESCE:     modelmigration.PhaseQuiesce,

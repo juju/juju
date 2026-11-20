@@ -74,7 +74,7 @@ jobs:
         run: "pip install sqlfluff==3.0.7"
 
       - name: Lint SQL
-        run: "sqlfluff lint --config .github/.sqlfluff domain/schema/**/sql/*.sql"
+        run: "sqlfluff lint --config .github/.sqlfluff domain/schema/dqlite/*/sql/*.sql"
 
   conventional-commits:
     name: Check conventional commits

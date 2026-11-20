@@ -16,10 +16,11 @@ These rules apply to `domain/schema/` and its sub-packages and supplement the
   a file existed in a beta. Check the applicable upgrade policy and migration
   path before deciding.
 - For incremental changes within the same major.minor version, add a
-  `.PATCH.sql` file under `controller/sql/` or `model/sql/`. Register it in
-  `controllerPostPatchFilesByVersion` in [controller.go](controller.go) or
-  `modelPostPatchFilesByVersion` in [model.go](model.go), at the version where
-  it is first applied. File creation alone does not register a post-patch.
+  `.PATCH.sql` file under `dqlite/controller/sql/` or `dqlite/model/sql/`.
+  Register it in `controllerPostPatchFilesByVersion` in
+  [controller.go](controller.go) or `modelPostPatchFilesByVersion` in
+  [model.go](model.go), at the version where it is first applied. File
+  creation alone does not register a post-patch.
 - Verify fresh database creation and supported cumulative in-place upgrades,
   including preservation or intentional transformation of existing data. Use
   the schema suites in [controller_schema_test.go](controller_schema_test.go)

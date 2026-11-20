@@ -9,24 +9,24 @@ import (
 	"github.com/juju/juju/core/database/schema"
 	"github.com/juju/juju/core/semversion"
 	coreversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/domain/schema/controller/triggers"
+	"github.com/juju/juju/domain/schema/dqlite/controller/triggers"
 )
 
-//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/cloud-triggers.gen.go -package=triggers -tables=cloud,cloud_ca_cert,cloud_credential,cloud_credential_attribute
-//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/controller-triggers.gen.go -package=triggers -tables=controller_config,controller_node,external_controller,controller_api_address,controller_agent_address,controller_client_address,controller_peer_address
-//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/migration-triggers.gen.go -package=triggers -tables=model_migration_export,model_migration_export_phase,model_migration_export_minion_sync,model_migration_import
-//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/upgrade-triggers.gen.go -package=triggers -tables=upgrade_info,upgrade_info_controller_node
-//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path,object_store_drain_info,object_store_backend
-//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/secret-triggers.gen.go -package=triggers -tables=secret_backend_rotation,model_secret_backend
-//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/model-triggers.gen.go -package=triggers -tables=model
-//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/model-authorized-keys-triggers.gen.go -package=triggers -tables=model_authorized_keys
-//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/user-authentication-triggers.gen.go -package=triggers -tables=user_authentication
-//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/logging-triggers.gen.go -package=triggers -tables=logging_loki_config
-//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/tracing-triggers.gen.go -package=triggers -tables=workload_tracing_config
-//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/model-database-deletion-triggers.gen.go -package=triggers -tables=model_database_deletion
-//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/ssh-triggers.gen.go -package=triggers -tables=controller_ssh_server_port
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./dqlite/controller/triggers/cloud-triggers.gen.go -package=triggers -tables=cloud,cloud_ca_cert,cloud_credential,cloud_credential_attribute
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./dqlite/controller/triggers/controller-triggers.gen.go -package=triggers -tables=controller_config,controller_node,external_controller,controller_api_address,controller_agent_address,controller_client_address,controller_peer_address
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./dqlite/controller/triggers/migration-triggers.gen.go -package=triggers -tables=model_migration_export,model_migration_export_phase,model_migration_export_minion_sync,model_migration_import
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./dqlite/controller/triggers/upgrade-triggers.gen.go -package=triggers -tables=upgrade_info,upgrade_info_controller_node
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./dqlite/controller/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path,object_store_drain_info,object_store_backend
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./dqlite/controller/triggers/secret-triggers.gen.go -package=triggers -tables=secret_backend_rotation,model_secret_backend
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./dqlite/controller/triggers/model-triggers.gen.go -package=triggers -tables=model
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./dqlite/controller/triggers/model-authorized-keys-triggers.gen.go -package=triggers -tables=model_authorized_keys
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./dqlite/controller/triggers/user-authentication-triggers.gen.go -package=triggers -tables=user_authentication
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./dqlite/controller/triggers/logging-triggers.gen.go -package=triggers -tables=logging_loki_config
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./dqlite/controller/triggers/tracing-triggers.gen.go -package=triggers -tables=workload_tracing_config
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./dqlite/controller/triggers/model-database-deletion-triggers.gen.go -package=triggers -tables=model_database_deletion
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./dqlite/controller/triggers/ssh-triggers.gen.go -package=triggers -tables=controller_ssh_server_port
 
-//go:embed controller/sql/*.sql
+//go:embed dqlite/controller/sql/*.sql
 var controllerSchemaDir embed.FS
 
 const (
@@ -86,7 +86,7 @@ func ControllerDDLForVersion(version semversion.Number) *schema.Schema {
 		panic("Cannot return the controller DDL for a different major.minor version")
 	}
 
-	patches, err := readPatches(controllerSchemaDir, "controller/sql")
+	patches, err := readPatches(controllerSchemaDir, "dqlite/controller/sql")
 	if err != nil {
 		panic(err)
 	}
@@ -141,7 +141,7 @@ func ControllerDDLForVersion(version semversion.Number) *schema.Schema {
 			postPatchFiles = append(postPatchFiles, postPatch.files...)
 		}
 	}
-	postPatches, err := readPostPatches(controllerSchemaDir, "controller/sql", postPatchFiles)
+	postPatches, err := readPostPatches(controllerSchemaDir, "dqlite/controller/sql", postPatchFiles)
 	if err != nil {
 		panic(err)
 	}

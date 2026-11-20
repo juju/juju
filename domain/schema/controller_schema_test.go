@@ -37,7 +37,7 @@ func (s *controllerSchemaSuite) TestCheckNoUnusedPostPatchFiles(c *tc.C) {
 		encodedPatches = encodedPatches.Union(set.NewStrings(postPatch.files...))
 	}
 
-	embedded, err := controllerSchemaDir.ReadDir("controller/sql")
+	embedded, err := controllerSchemaDir.ReadDir("dqlite/controller/sql")
 	c.Assert(err, tc.ErrorIsNil)
 
 	embeddedPatches := set.NewStrings()

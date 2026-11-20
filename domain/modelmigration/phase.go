@@ -11,9 +11,9 @@ import (
 
 // Phase is the database representation of an export migration phase. Its values
 // mirror the primary keys seeded into the model_migration_phase lookup table
-// (domain/schema/controller/sql/0031-model-migration.PATCH.sql). The code-only
-// sentinels migration.UNKNOWN and migration.NONE are never persisted and have
-// no value here.
+// (domain/schema/dqlite/controller/sql/0130-model-migration.sql).
+// The code-only sentinels migration.UNKNOWN and migration.NONE are never
+// persisted and have no value here.
 type Phase int
 
 const (

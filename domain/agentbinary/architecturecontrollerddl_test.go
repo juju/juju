@@ -13,7 +13,7 @@ import (
 
 // architectureControllerDDLSuite contains a set of tests for asserting the const
 // values defined for [Architecture] align with the DDL values defined in
-// domain/schema/model/sql/0070-platform.sql.
+// domain/schema/dqlite/model/sql/0070-platform.sql.
 type architectureControllerDDLSuite struct {
 	schematesting.ModelSuite
 }
