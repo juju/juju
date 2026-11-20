@@ -97,16 +97,9 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		}
 	}
 
-	isControllerModel, err := domainServices.ModelInfo().IsControllerModel(ctx)
-	if err != nil {
-		return nil, errors.Annotate(err, "checking if the model is the controller model")
-	}
-
 	firewallerAPI := &firewallerAPIAdapter{
 		machineSvc:       domainServices.Machine(),
 		modelConfigSvc:   domainServices.Config(),
-		ctrlConfigSvc:    domainServices.ControllerConfig(),
-		ctrlSSHSvc:       domainServices.ControllerSSH(),
 		networkSvc:       domainServices.Network(),
 		relationSvc:      domainServices.Relation(),
 		extControllerSvc: domainServices.ExternalController(),
@@ -133,7 +126,6 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		EnvironModelFirewaller:    modelFw,
 		EnvironInstances:          environ,
 		EnvironIPV6CIDRSupport:    envIPV6CIDRSupport,
-		IsControllerModel:         isControllerModel,
 		Mode:                      mode,
 		NewCrossModelFacadeFunc:   crossmodelFirewallerFacadeFunc(cfg.NewControllerConnection),
 		Logger:                    cfg.Logger,
