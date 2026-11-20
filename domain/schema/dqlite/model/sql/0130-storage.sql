@@ -82,63 +82,6 @@ CREATE TABLE model_storage_pool (
     REFERENCES storage_pool (uuid)
 );
 
--- This table stores storage directive values for each named storage item
--- defined by the application's current charm. If the charm is updated, then
--- so too will be the rows in this table to reflect the current charm's
--- storage definitions.
-CREATE TABLE application_storage_directive (
-    application_uuid TEXT NOT NULL,
-    charm_uuid TEXT NOT NULL,
-    storage_name TEXT NOT NULL,
-    storage_pool_uuid TEXT NOT NULL,
-    size_mib INT NOT NULL,
-    count INT NOT NULL,
-    CONSTRAINT fk_application_storage_directive_application
-    FOREIGN KEY (application_uuid)
-    REFERENCES application (uuid),
-    CONSTRAINT fk_application_storage_directive_storage_pool
-    FOREIGN KEY (storage_pool_uuid)
-    REFERENCES storage_pool (uuid),
-    CONSTRAINT fk_application_storage_directive_charm_storage
-    FOREIGN KEY (charm_uuid, storage_name)
-    REFERENCES charm_storage (charm_uuid, name),
-    PRIMARY KEY (application_uuid, charm_uuid, storage_name)
-);
-
--- Note that this is not unique; it speeds access by application.
-CREATE INDEX idx_application_storage_directive
-ON application_storage_directive (application_uuid);
-
--- This table stores storage directive values for each named storage item
--- defined by the unit's current charm. If the charm is updated, then
--- so too will be the rows in this table to reflect the current charm's
--- storage definitions.
--- Note: usually we just get the storage directives off the application
--- but need to allow for a unit's charm to temporarily diverge from that
--- of its application.
-CREATE TABLE unit_storage_directive (
-    unit_uuid TEXT NOT NULL,
-    charm_uuid TEXT NOT NULL,
-    storage_name TEXT NOT NULL,
-    storage_pool_uuid TEXT NOT NULL,
-    size_mib INT NOT NULL,
-    count INT NOT NULL,
-    CONSTRAINT fk_unit_storage_directive_unit
-    FOREIGN KEY (unit_uuid)
-    REFERENCES unit (uuid),
-    CONSTRAINT fk_unit_storage_directive_storage_pool
-    FOREIGN KEY (storage_pool_uuid)
-    REFERENCES storage_pool (uuid),
-    CONSTRAINT fk_unit_storage_directive_charm_storage
-    FOREIGN KEY (charm_uuid, storage_name)
-    REFERENCES charm_storage (charm_uuid, name),
-    PRIMARY KEY (unit_uuid, charm_uuid, storage_name)
-);
-
--- Note that this is not unique; it speeds access by unit.
-CREATE INDEX idx_unit_storage_directive
-ON unit_storage_directive (unit_uuid);
-
 
 
 CREATE TABLE storage_instance (
@@ -170,49 +113,6 @@ CREATE TABLE storage_instance (
 CREATE UNIQUE INDEX idx_storage_instance_id
 ON storage_instance (storage_id);
 
--- storage_unit_owner is used to indicate when
--- a unit is the owner of a storage instance.
--- This is different to a storage attachment.
-CREATE TABLE storage_unit_owner (
-    storage_instance_uuid TEXT NOT NULL PRIMARY KEY,
-    unit_uuid TEXT NOT NULL,
-    CONSTRAINT fk_storage_owner_storage_instance
-    FOREIGN KEY (storage_instance_uuid)
-    REFERENCES storage_instance (uuid),
-    CONSTRAINT fk_storage_owner_unit
-    FOREIGN KEY (unit_uuid)
-    REFERENCES unit (uuid)
-);
-
-CREATE INDEX idx_storage_unit_owner_unit
-ON storage_unit_owner (unit_uuid, storage_instance_uuid);
-
-CREATE TABLE storage_attachment (
-    uuid TEXT NOT NULL PRIMARY KEY,
-    storage_instance_uuid TEXT NOT NULL,
-    unit_uuid TEXT NOT NULL,
-    life_id INT NOT NULL,
-    CONSTRAINT fk_storage_attachment_storage_instance
-    FOREIGN KEY (storage_instance_uuid)
-    REFERENCES storage_instance (uuid),
-    CONSTRAINT fk_storage_attachment_unit
-    FOREIGN KEY (unit_uuid)
-    REFERENCES unit (uuid),
-    CONSTRAINT fk_storage_attachment_life
-    FOREIGN KEY (life_id)
-    REFERENCES life (id)
-);
-
--- Order of columns is important for this index. The storage_instance_uuid MUST
--- come first so that an index exists for this column. A seperate index
--- idx_storage_attachment_unit already exists for the unit_uuid.
-CREATE UNIQUE INDEX idx_storage_attachment_unit_uuid_storage_instance_uuid
-ON storage_attachment (storage_instance_uuid, unit_uuid);
-
--- Note that this is not unique; it speeds access by unit.
-CREATE INDEX idx_storage_attachment_unit
-ON storage_attachment (unit_uuid);
-
 CREATE TABLE storage_volume_status_value (
     id INT PRIMARY KEY,
     status TEXT NOT NULL
@@ -230,19 +130,6 @@ INSERT INTO storage_volume_status_value VALUES
 (5, 'detached'),
 (6, 'destroying'),
 (7, 'tombstone');
-
-CREATE TABLE storage_volume_status (
-    volume_uuid TEXT NOT NULL PRIMARY KEY,
-    status_id INT NOT NULL,
-    message TEXT,
-    updated_at DATETIME,
-    CONSTRAINT fk_storage_volume_status_storage_volume
-    FOREIGN KEY (volume_uuid)
-    REFERENCES storage_volume (uuid),
-    CONSTRAINT fk_storage_volume_status_status
-    FOREIGN KEY (status_id)
-    REFERENCES storage_volume_status_value (id)
-);
 
 CREATE TABLE storage_provision_scope (
     id INT PRIMARY KEY,
@@ -278,6 +165,19 @@ CREATE TABLE storage_volume (
     CONSTRAINT fk_storage_volume_provision_scope_id
     FOREIGN KEY (provision_scope_id)
     REFERENCES storage_provision_scope (id)
+);
+
+CREATE TABLE storage_volume_status (
+    volume_uuid TEXT NOT NULL PRIMARY KEY,
+    status_id INT NOT NULL,
+    message TEXT,
+    updated_at DATETIME,
+    CONSTRAINT fk_storage_volume_status_storage_volume
+    FOREIGN KEY (volume_uuid)
+    REFERENCES storage_volume (uuid),
+    CONSTRAINT fk_storage_volume_status_status
+    FOREIGN KEY (status_id)
+    REFERENCES storage_volume_status_value (id)
 );
 
 CREATE UNIQUE INDEX idx_storage_volume_id
@@ -359,19 +259,6 @@ INSERT INTO storage_filesystem_status_value VALUES
 (6, 'destroying'),
 (7, 'tombstone');
 
-CREATE TABLE storage_filesystem_status (
-    filesystem_uuid TEXT NOT NULL PRIMARY KEY,
-    status_id INT NOT NULL,
-    message TEXT,
-    updated_at DATETIME,
-    CONSTRAINT fk_storage_filesystem_status_storage_filesystem
-    FOREIGN KEY (filesystem_uuid)
-    REFERENCES storage_filesystem (uuid),
-    CONSTRAINT fk_storage_filesystem_status_status
-    FOREIGN KEY (status_id)
-    REFERENCES storage_filesystem_status_value (id)
-);
-
 -- storage_filesystem describes a filsystem held by a storage_instance.
 --
 -- obliterate_on_cleanup can only be set when life_id is not-alive(>0), to
@@ -392,6 +279,19 @@ CREATE TABLE storage_filesystem (
     CONSTRAINT fk_storage_filesystem_provision_scope_id
     FOREIGN KEY (provision_scope_id)
     REFERENCES storage_provision_scope (id)
+);
+
+CREATE TABLE storage_filesystem_status (
+    filesystem_uuid TEXT NOT NULL PRIMARY KEY,
+    status_id INT NOT NULL,
+    message TEXT,
+    updated_at DATETIME,
+    CONSTRAINT fk_storage_filesystem_status_storage_filesystem
+    FOREIGN KEY (filesystem_uuid)
+    REFERENCES storage_filesystem (uuid),
+    CONSTRAINT fk_storage_filesystem_status_status
+    FOREIGN KEY (status_id)
+    REFERENCES storage_filesystem_status_value (id)
 );
 
 CREATE UNIQUE INDEX idx_storage_filesystem_id
@@ -497,3 +397,103 @@ CREATE TABLE storage_volume_attachment_plan_attr (
 
 CREATE UNIQUE INDEX idx_storage_vol_attachment_plan_attr
 ON storage_volume_attachment_plan_attr (attachment_plan_uuid, "key");
+
+-- This table stores storage directive values for each named storage item
+-- defined by the application's current charm. If the charm is updated, then
+-- so too will be the rows in this table to reflect the current charm's
+-- storage definitions.
+CREATE TABLE application_storage_directive (
+    application_uuid TEXT NOT NULL,
+    charm_uuid TEXT NOT NULL,
+    storage_name TEXT NOT NULL,
+    storage_pool_uuid TEXT NOT NULL,
+    size_mib INT NOT NULL,
+    count INT NOT NULL,
+    CONSTRAINT fk_application_storage_directive_application
+    FOREIGN KEY (application_uuid)
+    REFERENCES application (uuid),
+    CONSTRAINT fk_application_storage_directive_storage_pool
+    FOREIGN KEY (storage_pool_uuid)
+    REFERENCES storage_pool (uuid),
+    CONSTRAINT fk_application_storage_directive_charm_storage
+    FOREIGN KEY (charm_uuid, storage_name)
+    REFERENCES charm_storage (charm_uuid, name),
+    PRIMARY KEY (application_uuid, charm_uuid, storage_name)
+);
+
+-- Note that this is not unique; it speeds access by application.
+CREATE INDEX idx_application_storage_directive
+ON application_storage_directive (application_uuid);
+
+-- This table stores storage directive values for each named storage item
+-- defined by the unit's current charm. If the charm is updated, then
+-- so too will be the rows in this table to reflect the current charm's
+-- storage definitions.
+-- Note: usually we just get the storage directives off the application
+-- but need to allow for a unit's charm to temporarily diverge from that
+-- of its application.
+CREATE TABLE unit_storage_directive (
+    unit_uuid TEXT NOT NULL,
+    charm_uuid TEXT NOT NULL,
+    storage_name TEXT NOT NULL,
+    storage_pool_uuid TEXT NOT NULL,
+    size_mib INT NOT NULL,
+    count INT NOT NULL,
+    CONSTRAINT fk_unit_storage_directive_unit
+    FOREIGN KEY (unit_uuid)
+    REFERENCES unit (uuid),
+    CONSTRAINT fk_unit_storage_directive_storage_pool
+    FOREIGN KEY (storage_pool_uuid)
+    REFERENCES storage_pool (uuid),
+    CONSTRAINT fk_unit_storage_directive_charm_storage
+    FOREIGN KEY (charm_uuid, storage_name)
+    REFERENCES charm_storage (charm_uuid, name),
+    PRIMARY KEY (unit_uuid, charm_uuid, storage_name)
+);
+
+-- Note that this is not unique; it speeds access by unit.
+CREATE INDEX idx_unit_storage_directive
+ON unit_storage_directive (unit_uuid);
+
+-- storage_unit_owner is used to indicate when
+-- a unit is the owner of a storage instance.
+-- This is different to a storage attachment.
+CREATE TABLE storage_unit_owner (
+    storage_instance_uuid TEXT NOT NULL PRIMARY KEY,
+    unit_uuid TEXT NOT NULL,
+    CONSTRAINT fk_storage_owner_storage_instance
+    FOREIGN KEY (storage_instance_uuid)
+    REFERENCES storage_instance (uuid),
+    CONSTRAINT fk_storage_owner_unit
+    FOREIGN KEY (unit_uuid)
+    REFERENCES unit (uuid)
+);
+
+CREATE INDEX idx_storage_unit_owner_unit
+ON storage_unit_owner (unit_uuid, storage_instance_uuid);
+
+CREATE TABLE storage_attachment (
+    uuid TEXT NOT NULL PRIMARY KEY,
+    storage_instance_uuid TEXT NOT NULL,
+    unit_uuid TEXT NOT NULL,
+    life_id INT NOT NULL,
+    CONSTRAINT fk_storage_attachment_storage_instance
+    FOREIGN KEY (storage_instance_uuid)
+    REFERENCES storage_instance (uuid),
+    CONSTRAINT fk_storage_attachment_unit
+    FOREIGN KEY (unit_uuid)
+    REFERENCES unit (uuid),
+    CONSTRAINT fk_storage_attachment_life
+    FOREIGN KEY (life_id)
+    REFERENCES life (id)
+);
+
+-- Order of columns is important for this index. The storage_instance_uuid MUST
+-- come first so that an index exists for this column. A seperate index
+-- idx_storage_attachment_unit already exists for the unit_uuid.
+CREATE UNIQUE INDEX idx_storage_attachment_unit_uuid_storage_instance_uuid
+ON storage_attachment (storage_instance_uuid, unit_uuid);
+
+-- Note that this is not unique; it speeds access by unit.
+CREATE INDEX idx_storage_attachment_unit
+ON storage_attachment (unit_uuid);

@@ -13,8 +13,9 @@ type Architecture int
 // Exhaustive list of supported architectures for agent binaries within a Juju
 // controller installation. These sets of values MUST be kept inline with the
 // enum values defined in the database DDL. See
-// domain/schema/model/sql/0007-platform.sql and
-// domain/schema/controller/sql/0007-platform.sql
+// domain/schema/dqlite/model/sql/0070-platform.sql and
+// domain/schema/dqlite/controller/sql/0110-platform-core.sql and
+// domain/schema/dqlite/controller/sql/0250-platform.sql.
 const (
 	AMD64 Architecture = iota
 	ARM64

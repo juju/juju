@@ -19,6 +19,10 @@
 // implemented as generic generated triggers, unless there's a good reason to
 // implement them as a logical custom trigger.
 //
+// SQLite/dqlite SQL patches, trigger packages and release DDL live under
+// dqlite/controller and dqlite/model. The schema package owns their assembly;
+// callers do not need to import the dialect-specific directories.
+//
 // # Schema evolution
 //
 // Controllers support in-place upgrades only within the same major.minor

@@ -25,7 +25,9 @@ type ReadFileDirFS interface {
 
 // readPatches reads all the patch files in the given baseDir from the provided
 // file system. We exclude any post patch files, which are identified by their
-// file name suffix .PATCH.sql.
+// file name suffix .PATCH.sql. Base patches are applied in lexicographic
+// filename order; their names must place dependencies before their consumers.
+// Leave gaps between numbers so new dependencies can be inserted.
 func readPatches(fs ReadFileDirFS, baseDir string) ([]func() schema.Patch, error) {
 	entries, err := fs.ReadDir(baseDir)
 	if err != nil {
