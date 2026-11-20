@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/worker/secrettriggerschedule"
 )
 
 // logger is here to stop the desire of creating a package level logger.
@@ -23,10 +24,18 @@ type logger interface{}
 
 var _ logger = struct{}{}
 
+// errResetRequired is returned when the retries for an expired secret
+// revision are exhausted without the controller confirming the expiry.
+// The worker exits with it so that it can be replaced by a fresh
+// instance that re-reads the expiry state from the controller.
+var errResetRequired = errors.ConstError(
+	"secret revision expiry watcher reset required")
+
 // Logger represents the methods used by the worker to log information.
 type Logger interface {
-	Debugf(string, ...interface{})
-	Warningf(string, ...interface{})
+	Infof(string, ...any)
+	Debugf(string, ...any)
+	Warningf(string, ...any)
 }
 
 // SecretManagerFacade instances provide a watcher for secret revision expiry changes.
@@ -81,19 +90,53 @@ func New(config Config) (worker.Worker, error) {
 	return w, errors.Trace(err)
 }
 
+// NewWithReset returns a worker that runs the secret expiry worker
+// described by config, restarting it after a short delay whenever it
+// exits with errResetRequired. Any other error is fatal and is
+// returned from Wait.
+func NewWithReset(config Config) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	r := worker.NewRunner(worker.RunnerParams{
+		Clock: config.Clock,
+		IsFatal: func(err error) bool {
+			return !errors.Is(err, errResetRequired)
+		},
+		RestartDelay: worker.DefaultRestartDelay,
+		Logger:       runnerLogger{config.Logger},
+	})
+	if err := r.StartWorker("secret-expiry", func() (worker.Worker, error) {
+		return New(config)
+	}); err != nil {
+		_ = worker.Stop(r)
+		return nil, errors.Trace(err)
+	}
+	return r, nil
+}
+
+// runnerLogger adapts the package Logger to the runner logger
+// interface; error-level runner logs are emitted as warnings.
+type runnerLogger struct {
+	Logger
+}
+
+// Errorf is part of the logger interface accepted by worker.NewRunner.
+func (l runnerLogger) Errorf(format string, args ...any) {
+	l.Logger.Warningf(format, args...)
+}
+
 type secretRevisionExpiryInfo struct {
-	uri        *secrets.URI
-	revision   int
-	expireTime time.Time
-	retryCount int
+	uri      *secrets.URI
+	revision int
+	schedule secrettriggerschedule.TriggerSchedule
 }
 
 func (s secretRevisionExpiryInfo) GoString() string {
-	interval := s.expireTime.Sub(time.Now())
-	if interval < 0 {
-		return fmt.Sprintf("%s expiry: %v ago at %s", expiryKey(s.uri, s.revision), -interval, s.expireTime.Format(time.RFC3339))
-	}
-	return fmt.Sprintf("%s expiry: in %v at %s", expiryKey(s.uri, s.revision), interval, s.expireTime.Format(time.RFC3339))
+	return fmt.Sprintf(
+		"%s expiry: at %s",
+		expiryKey(s.uri, s.revision), s.schedule.NextTime.Format(time.RFC3339),
+	)
 }
 
 // Worker fires events when secret revisions should be expired.
@@ -101,6 +144,7 @@ type Worker struct {
 	catacomb catacomb.Catacomb
 	config   Config
 
+	watcher         watcher.SecretTriggerWatcher
 	secretRevisions map[string]secretRevisionExpiryInfo
 
 	alarm       clock.Alarm
@@ -118,11 +162,10 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop() (err error) {
-	changes, err := w.config.SecretManagerFacade.WatchSecretRevisionsExpiryChanges(w.config.SecretOwners...)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := w.catacomb.Add(changes); err != nil {
+	defer func() {
+		secrettriggerschedule.Stop(w.alarm)
+	}()
+	if err := w.startWatcher(); err != nil {
 		return errors.Trace(err)
 	}
 	for {
@@ -133,51 +176,82 @@ func (w *Worker) loop() (err error) {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case ch, ok := <-changes.Changes():
+		case ch, ok := <-w.watcher.Changes():
 			if !ok {
 				return errors.New("secret revision expiry change channel closed")
 			}
 			w.handleSecretRevisionExpiryChanges(ch)
 		case now := <-timeout:
-			w.expire(now)
+			if err := w.expire(now); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 }
 
-func (w *Worker) expire(now time.Time) {
+func (w *Worker) expire(now time.Time) error {
 	w.config.Logger.Debugf("processing secret expiry for %q at %s", w.config.SecretOwners, now)
+	// The active alarm has fired and is no longer armed until
+	// computeNextExpireTime schedules the next deadline.
+	w.nextTrigger = time.Time{}
 
 	var toExpire []string
+	var resetRequired bool
 	for id, info := range w.secretRevisions {
-		w.config.Logger.Debugf("expire %s at %s... time diff %s", id, info.expireTime, info.expireTime.Sub(now))
-		// A one minute granularity is acceptable for secret expiry.
-		if info.expireTime.Truncate(time.Minute).Before(now) {
-			if info.retryCount > 0 {
-				w.config.Logger.Warningf("retry attempt %d to expire secret %q revision %d", info.retryCount, info.uri, info.revision)
-			}
-			toExpire = append(toExpire, expiryKey(info.uri, info.revision))
-			// Once secret revision has been queued for expiry, requeue it
-			// a short time later. The charm is expected to delete the revision
-			// on expiry; if not, the expire hook will run until it does.
-			newInfo := info
-			newInfo.expireTime = info.expireTime.Add(secrets.ExpireRetryDelay)
-			newInfo.retryCount++
-			w.secretRevisions[id] = newInfo
+		w.config.Logger.Debugf(
+			"expire %s at %s... time diff %s",
+			id, info.schedule.NextTime, info.schedule.NextTime.Sub(now),
+		)
+		if info.schedule.NextTime.After(now) {
+			continue
 		}
+		if info.schedule.RetriesExhausted() {
+			// Record the reset so the worker exits with errResetRequired
+			// below, but keep processing any other due entries so
+			// their expiries are not discarded.
+			resetRequired = true
+			w.config.Logger.Warningf(
+				"restarting secret expiry watcher for %q",
+				w.config.SecretOwners, secrettriggerschedule.MaxTriggerRetries,
+			)
+			continue
+		}
+		key := expiryKey(info.uri, info.revision)
+		toExpire = append(toExpire, key)
+		// Once secret revision has been queued for expiry, requeue it
+		// every ExpireRetryDelay up to MaxTriggerRetries attempts. The
+		// charm is expected to delete the revision on expiry. If not,
+		// exit with errResetRequired once MaxTriggerRetries is
+		// exhausted. Restarting with a fresh watcher guards against
+		// the watcher becoming stale and re-reads the expiry state
+		// from the controller.
+		info.schedule = info.schedule.AfterFire(w.config.Logger, "secret revision expiry", key, secrets.ExpireRetryDelay, now)
+		w.secretRevisions[id] = info
 	}
-
 	if len(toExpire) > 0 {
 		select {
 		case <-w.catacomb.Dying():
-			return
+			return nil
 		case w.config.ExpireRevisions <- toExpire:
 		}
 	}
+	if resetRequired {
+		return errResetRequired
+	}
 	w.computeNextExpireTime()
+	return nil
 }
 
-func expiryKey(uri *secrets.URI, revision int) string {
-	return fmt.Sprintf("%s/%d", uri.ID, revision)
+func (w *Worker) startWatcher() error {
+	changes, err := w.config.SecretManagerFacade.WatchSecretRevisionsExpiryChanges(w.config.SecretOwners...)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := w.catacomb.Add(changes); err != nil {
+		return errors.Trace(err)
+	}
+	w.watcher = changes
+	return nil
 }
 
 func (w *Worker) handleSecretRevisionExpiryChanges(changes []watcher.SecretTriggerChange) {
@@ -187,66 +261,44 @@ func (w *Worker) handleSecretRevisionExpiryChanges(changes []watcher.SecretTrigg
 	}
 
 	for _, ch := range changes {
+		key := expiryKey(ch.URI, ch.Revision)
 		// Next trigger time of 0 means the expiry has been deleted.
 		if ch.NextTriggerTime.IsZero() {
-			w.config.Logger.Debugf("secret revision %d no longer expires: %v", ch.URI.ID, ch.Revision)
-			delete(w.secretRevisions, expiryKey(ch.URI, ch.Revision))
+			w.config.Logger.Debugf("secret revision no longer expires: %s", key)
+			delete(w.secretRevisions, key)
 			continue
 		}
-		w.secretRevisions[expiryKey(ch.URI, ch.Revision)] = secretRevisionExpiryInfo{
-			uri:        ch.URI,
-			revision:   ch.Revision,
-			expireTime: ch.NextTriggerTime,
+		if existing, ok := w.secretRevisions[key]; ok && existing.schedule.ShouldIgnoreTime(ch.NextTriggerTime) {
+			w.config.Logger.Debugf(
+				"ignoring stale expiry change for %s (next %s)",
+				key, ch.NextTriggerTime,
+			)
+			continue
+		}
+		w.secretRevisions[key] = secretRevisionExpiryInfo{
+			uri:      ch.URI,
+			revision: ch.Revision,
+			schedule: secrettriggerschedule.NewTriggerSchedule(ch.NextTriggerTime),
 		}
 	}
 	w.computeNextExpireTime()
 }
 
+func expiryKey(uri *secrets.URI, revision int) string {
+	return fmt.Sprintf("%s/%d", uri.ID, revision)
+}
+
 func (w *Worker) computeNextExpireTime() {
 	w.config.Logger.Debugf("computing next expire time for secret revisions %#v", w.secretRevisions)
 
-	if len(w.secretRevisions) == 0 {
-		w.alarm = nil
-		return
-	}
-
-	// Find the minimum (next) expireTime from all the secrets.
-	var soonestExpireTime time.Time
-	now := w.config.Clock.Now()
-	for id, info := range w.secretRevisions {
-		if !soonestExpireTime.IsZero() && info.expireTime.After(soonestExpireTime) {
-			continue
-		}
-		// Account for the worker not running when a secret
-		// revision should have been expired.
-		if info.expireTime.Before(now) {
-			info.expireTime = now
-			w.secretRevisions[id] = info
-		}
-		soonestExpireTime = info.expireTime
-	}
-	// There's no need to start or reset the alarm if there's no changes to make.
-	if soonestExpireTime.IsZero() || w.nextTrigger == soonestExpireTime {
-		return
-	}
-
-	w.config.Logger.Debugf("next secret revision for %q will expire at %s", w.config.SecretOwners, soonestExpireTime)
-
-	w.nextTrigger = soonestExpireTime
-	if w.alarm == nil {
-		w.alarm = w.config.Clock.NewAlarm(w.nextTrigger)
-	} else {
-		// See the docs on (*time.Timer).Reset() that says it isn't safe to call
-		// on a non-stopped channel, and if it is stopped, you need to check
-		// if the channel needs to be drained anyway. It isn't safe to drain
-		// unconditionally in case another goroutine has already noticed,
-		// but make an attempt.
-		if !w.alarm.Stop() {
-			select {
-			case <-w.alarm.Chan():
-			default:
-			}
-		}
-		w.alarm.Reset(w.nextTrigger)
+	soonest := secrettriggerschedule.SoonestTime(w.secretRevisions, func(info secretRevisionExpiryInfo) time.Time {
+		return info.schedule.NextTime
+	})
+	var changed bool
+	w.alarm, w.nextTrigger, changed = secrettriggerschedule.ScheduleAlarm(
+		w.config.Clock, w.alarm, w.nextTrigger, soonest,
+	)
+	if changed && w.alarm != nil {
+		w.config.Logger.Debugf("next secret revision for %q will expire at %s", w.config.SecretOwners, w.nextTrigger)
 	}
 }

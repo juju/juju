@@ -12,7 +12,9 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/worker/secrettriggerschedule"
 )
 
 // logger is here to stop the desire of creating a package level logger.
@@ -21,9 +23,19 @@ type logger interface{}
 
 var _ logger = struct{}{}
 
+// errResetRequired is returned when a rotation's confirmation window
+// elapses without an updated trigger time from the controller. The
+// worker exits with it so that the runner created by NewWithReset can
+// replace it with a fresh instance that re-reads the rotation state
+// from the controller.
+var errResetRequired = errors.ConstError(
+	"secret backend token rotation watcher reset required")
+
 // Logger represents the methods used by the worker to log information.
 type Logger interface {
-	Debugf(string, ...interface{})
+	Infof(string, ...any)
+	Debugf(string, ...any)
+	Warningf(string, ...any)
 }
 
 // SecretBackendManagerFacade instances provide a watcher for secret rotation changes.
@@ -70,15 +82,52 @@ func NewWorker(config Config) (worker.Worker, error) {
 	return w, errors.Trace(err)
 }
 
+// NewWithReset returns a worker that runs the secret backend token
+// rotation worker described by config, restarting it after a short
+// delay whenever it exits with errResetRequired. Any other error is
+// fatal and is returned from Wait.
+func NewWithReset(config Config) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	r := worker.NewRunner(worker.RunnerParams{
+		Clock: config.Clock,
+		IsFatal: func(err error) bool {
+			return !errors.Is(err, errResetRequired)
+		},
+		RestartDelay: worker.DefaultRestartDelay,
+		Logger:       runnerLogger{config.Logger},
+	})
+	if err := r.StartWorker("secret-backend-token-rotation", func() (worker.Worker, error) {
+		return NewWorker(config)
+	}); err != nil {
+		_ = worker.Stop(r)
+		return nil, errors.Trace(err)
+	}
+	return r, nil
+}
+
+// runnerLogger adapts the package Logger to the runner logger
+// interface; error-level runner logs are emitted as warnings.
+type runnerLogger struct {
+	Logger
+}
+
+// Errorf is part of the logger interface accepted by worker.NewRunner.
+func (l runnerLogger) Errorf(format string, args ...any) {
+	l.Logger.Warningf(format, args...)
+}
+
 type tokenRotateInfo struct {
-	ID          string
 	backendName string
-	rotateTime  time.Time
-	whenFunc    func(rotateTime time.Time) time.Duration
+	schedule    secrettriggerschedule.TriggerSchedule
 }
 
 func (s tokenRotateInfo) GoString() string {
-	return fmt.Sprintf("%s token rotation: in %v at %s", s.backendName, s.whenFunc(s.rotateTime), s.rotateTime.Format(time.RFC3339))
+	return fmt.Sprintf(
+		"%s token rotation: at %s",
+		s.backendName, s.schedule.NextTime.Format(time.RFC3339),
+	)
 }
 
 // Worker fires events when secrets should be rotated.
@@ -86,6 +135,7 @@ type Worker struct {
 	catacomb catacomb.Catacomb
 	config   Config
 
+	watcher     watcher.SecretBackendRotateWatcher
 	backendInfo map[string]tokenRotateInfo
 
 	timer       clock.Timer
@@ -103,11 +153,10 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop() (err error) {
-	changes, err := w.config.SecretBackendManagerFacade.WatchTokenRotationChanges()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := w.catacomb.Add(changes); err != nil {
+	defer func() {
+		secrettriggerschedule.Stop(w.timer)
+	}()
+	if err := w.startWatcher(); err != nil {
 		return errors.Trace(err)
 	}
 	for {
@@ -118,7 +167,7 @@ func (w *Worker) loop() (err error) {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case ch, ok := <-changes.Changes():
+		case ch, ok := <-w.watcher.Changes():
 			if !ok {
 				return errors.New("secret rotation change channel closed")
 			}
@@ -133,25 +182,63 @@ func (w *Worker) loop() (err error) {
 
 func (w *Worker) rotate(now time.Time) error {
 	w.config.Logger.Debugf("processing secret backend token rotation at %s", now)
+	// The active timer has fired and is no longer armed until
+	// computeNextRotateTime schedules the next deadline.
+	w.nextTrigger = time.Time{}
 
 	var toRotate []string
+	var resetRequired bool
 	for id, info := range w.backendInfo {
-		w.config.Logger.Debugf("checking %s: rotate at %s... time diff %s", id, info.rotateTime, info.rotateTime.Sub(now))
-		// A one minute granularity is acceptable for secret rotation.
-		if info.rotateTime.Truncate(time.Minute).Before(now) {
-			w.config.Logger.Debugf("rotating token for %s", info.backendName)
-			toRotate = append(toRotate, id)
-			// Once backend has been queued for rotation, delete it here since
-			// it will re-appear via the watcher after the rotation is actually
-			// performed and the last rotated time is updated.
-			delete(w.backendInfo, id)
+		w.config.Logger.Debugf(
+			"checking %s: rotate at %s... time diff %s",
+			id, info.schedule.NextTime, info.schedule.NextTime.Sub(now),
+		)
+		if info.schedule.NextTime.After(now) {
+			continue
 		}
+		if info.schedule.Fired {
+			// Record the reset so the worker exits with errResetRequired
+			// below, but keep processing any other due entries so
+			// their rotations are not discarded.
+			resetRequired = true
+			w.config.Logger.Warningf(
+				"restarting secret backend token rotation watcher for %q",
+				info.backendName,
+			)
+			continue
+		}
+		toRotate = append(toRotate, id)
+		// Keep the entry awaiting confirmation of the new rotation time via
+		// the watcher. If the confirmation does not arrive within
+		// RotateRetryDelay, exit with errResetRequired so the runner
+		// created by NewWithReset restarts the worker: a fresh watcher
+		// re-reads the rotation state from the controller, preventing
+		// the watcher from becoming stale.
+		info.schedule = info.schedule.AfterFire(w.config.Logger, "secret backend token rotation", info.backendName, secrets.RotateRetryDelay, now)
+		w.backendInfo[id] = info
 	}
 
-	if err := w.config.SecretBackendManagerFacade.RotateBackendTokens(toRotate...); err != nil {
-		return errors.Annotatef(err, "cannot rotate secret backend tokens for backend ids %q", toRotate)
+	if len(toRotate) > 0 {
+		if err := w.config.SecretBackendManagerFacade.RotateBackendTokens(toRotate...); err != nil {
+			return errors.Annotatef(err, "cannot rotate secret backend tokens for backend ids %q", toRotate)
+		}
+	}
+	if resetRequired {
+		return errResetRequired
 	}
 	w.computeNextRotateTime()
+	return nil
+}
+
+func (w *Worker) startWatcher() error {
+	changes, err := w.config.SecretBackendManagerFacade.WatchTokenRotationChanges()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := w.catacomb.Add(changes); err != nil {
+		return errors.Trace(err)
+	}
+	w.watcher = changes
 	return nil
 }
 
@@ -168,11 +255,16 @@ func (w *Worker) handleTokenRotateChanges(changes []watcher.SecretBackendRotateC
 			delete(w.backendInfo, ch.ID)
 			continue
 		}
+		if existing, ok := w.backendInfo[ch.ID]; ok && existing.schedule.ShouldIgnoreTime(ch.NextTriggerTime) {
+			w.config.Logger.Debugf(
+				"ignoring stale token rotation change for %q (next %s)",
+				ch.Name, ch.NextTriggerTime,
+			)
+			continue
+		}
 		w.backendInfo[ch.ID] = tokenRotateInfo{
-			ID:          ch.ID,
 			backendName: ch.Name,
-			rotateTime:  ch.NextTriggerTime,
-			whenFunc:    func(rotateTime time.Time) time.Duration { return rotateTime.Sub(w.config.Clock.Now()) },
+			schedule:    secrettriggerschedule.NewTriggerSchedule(ch.NextTriggerTime),
 		}
 	}
 	w.computeNextRotateTime()
@@ -181,49 +273,17 @@ func (w *Worker) handleTokenRotateChanges(changes []watcher.SecretBackendRotateC
 func (w *Worker) computeNextRotateTime() {
 	w.config.Logger.Debugf("computing next rotated time for secret backends %#v", w.backendInfo)
 
-	if len(w.backendInfo) == 0 {
-		w.timer = nil
-		return
-	}
-
-	// Find the minimum (next) rotateTime from all the tokens.
-	var soonestRotateTime time.Time
-	for _, info := range w.backendInfo {
-		if !soonestRotateTime.IsZero() && info.rotateTime.After(soonestRotateTime) {
-			continue
-		}
-		soonestRotateTime = info.rotateTime
-	}
-	// There's no need to start or reset the timer if there's no changes to make.
-	if soonestRotateTime.IsZero() || w.nextTrigger == soonestRotateTime {
-		return
-	}
-
-	// Account for the worker not running when a secret
-	// should have been rotated.
-	now := w.config.Clock.Now()
-	if soonestRotateTime.Before(now) {
-		soonestRotateTime = now
-	}
-
-	nextDuration := soonestRotateTime.Sub(now)
-	w.config.Logger.Debugf("next token will rotate in %v at %s", nextDuration, soonestRotateTime)
-
-	w.nextTrigger = soonestRotateTime
-	if w.timer == nil {
-		w.timer = w.config.Clock.NewTimer(nextDuration)
-	} else {
-		// See the docs on Timer.Reset() that says it isn't safe to call
-		// on a non-stopped channel, and if it is stopped, you need to check
-		// if the channel needs to be drained anyway. It isn't safe to drain
-		// unconditionally in case another goroutine has already noticed,
-		// but make an attempt.
-		if !w.timer.Stop() {
-			select {
-			case <-w.timer.Chan():
-			default:
-			}
-		}
-		w.timer.Reset(nextDuration)
+	soonest := secrettriggerschedule.SoonestTime(w.backendInfo, func(info tokenRotateInfo) time.Time {
+		return info.schedule.NextTime
+	})
+	var changed bool
+	w.timer, w.nextTrigger, changed = secrettriggerschedule.ScheduleTimer(
+		w.config.Clock, w.timer, w.nextTrigger, soonest,
+	)
+	if changed && w.timer != nil {
+		w.config.Logger.Debugf(
+			"next token will rotate in %v at %s",
+			w.nextTrigger.Sub(w.config.Clock.Now()), w.nextTrigger,
+		)
 	}
 }

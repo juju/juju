@@ -155,7 +155,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					appName, _ := names.UnitApplication(unitTag.Id())
 					owners = append(owners, names.NewApplicationTag(appName))
 				}
-				return secretexpire.New(secretexpire.Config{
+				return secretexpire.NewWithReset(secretexpire.Config{
 					SecretManagerFacade: jujuSecretsAPI,
 					Clock:               config.Clock,
 					Logger:              config.Logger.Child("secretrevisionsexpire"),
