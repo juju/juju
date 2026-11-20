@@ -25,7 +25,7 @@
 # The 3.6 tests dumped the model database with `juju dump-db`; that
 # facade method is not implemented for dqlite models, so the assertions
 # here query the model databases through the db REPL
-# (`juju_db_repl`, see docs/reference/juju-db-repl.md) on the
+# (`jujud.db-repl`, see docs/reference/juju-db-repl.md) on the
 # controller machine.
 
 # model_db_scalar executes the given SQL against the named model's
@@ -41,7 +41,9 @@ model_db_scalar() {
 	sql=${2}
 
 	# The initial controller model is always named "controller" and
-	# hosts machine 0, the controller machine. stdin is piped, so juju
+	# hosts machine 0, the controller machine. The controller runs as the
+	# jujud snap, so the db REPL is the jujud.db-repl snap app rather
+	# than a machine-agent profile helper. stdin is piped, so juju
 	# ssh allocates no pty and the REPL output is plain text. The REPL
 	# prompts and its "connecting..." ticker are the only noise; the
 	# result scalar is the first bare number in the output.
@@ -50,8 +52,7 @@ model_db_scalar() {
 	# "model-model-x".
 	if ! out=$(
 		juju ssh -m controller 0 bash <<EOF 2>&1
-. /etc/profile.d/juju-introspection.sh
-juju_db_repl <<'SQL'
+sudo snap run jujud.db-repl <<'SQL'
 .switch model-${model_name}
 ${sql}
 .exit
