@@ -108,7 +108,8 @@ CREATE TRIGGER trg_log_relation_application_settings_hash_update
 AFTER UPDATE ON relation_application_settings_hash FOR EACH ROW
 WHEN 
 	NEW.relation_endpoint_uuid != OLD.relation_endpoint_uuid OR
-	NEW.sha256 != OLD.sha256
+	NEW.sha256 != OLD.sha256 OR
+	NEW.revision != OLD.revision
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -181,7 +182,8 @@ CREATE TRIGGER trg_log_relation_unit_settings_hash_update
 AFTER UPDATE ON relation_unit_settings_hash FOR EACH ROW
 WHEN 
 	NEW.relation_unit_uuid != OLD.relation_unit_uuid OR
-	NEW.sha256 != OLD.sha256
+	NEW.sha256 != OLD.sha256 OR
+	NEW.revision != OLD.revision
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
