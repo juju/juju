@@ -34,6 +34,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 		Summary:     "summary",
 		Description: "description",
 		Subordinate: true,
+		Unitless:    true,
 		Provides: map[string]internalcharm.Relation{
 			"foo": {Name: "foo", Role: internalcharm.RoleProvider, Interface: "bar", Optional: true, Limit: 1, Scope: internalcharm.ScopeContainer},
 		},
@@ -123,6 +124,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 			Summary:     "summary",
 			Description: "description",
 			Subordinate: true,
+			Unitless:    true,
 			Provides: map[string]params.CharmRelation{
 				"foo": {Name: "foo", Role: "provider", Interface: "bar", Optional: true, Limit: 1, Scope: "container"},
 			},

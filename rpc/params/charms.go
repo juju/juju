@@ -104,6 +104,7 @@ type CharmMeta struct {
 	Summary        string                       `json:"summary"`
 	Description    string                       `json:"description"`
 	Subordinate    bool                         `json:"subordinate"`
+	Unitless       bool                         `json:"unitless,omitempty"`
 	Provides       map[string]CharmRelation     `json:"provides,omitempty"`
 	Requires       map[string]CharmRelation     `json:"requires,omitempty"`
 	Peers          map[string]CharmRelation     `json:"peers,omitempty"`
