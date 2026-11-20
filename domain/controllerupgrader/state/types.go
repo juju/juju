@@ -7,7 +7,6 @@ package state
 // object store.
 type agentStoreBinary struct {
 	ArchitectureID int    `db:"architecture_id"`
-	StreamID       int    `db:"stream_id"`
 	Version        string `db:"version"`
 }
 

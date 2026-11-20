@@ -466,4 +466,29 @@ func (s *controllerModelStateSuite) TestGetAllAgentStoreBinariesForStream(c *tc.
 			Version:      ver2,
 		},
 	})
+
+	_, err = s.DB().ExecContext(c.Context(), `UPDATE agent_version SET stream_id = ?`,
+		int(agentbinary.AgentStreamDevel))
+	c.Assert(err, tc.ErrorIsNil)
+	vals, err = st.GetAllAgentStoreBinariesForStream(c.Context(), agentbinary.AgentStreamDevel)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(vals, tc.SameContents, []agentbinary.AgentBinary{
+		{Architecture: agentbinary.AMD64, Stream: agentbinary.AgentStreamDevel, Version: ver1},
+		{Architecture: agentbinary.AMD64, Stream: agentbinary.AgentStreamDevel, Version: ver2},
+		{Architecture: agentbinary.AMD64, Stream: agentbinary.AgentStreamDevel, Version: ver3},
+	})
+}
+
+func (s *controllerModelStateSuite) TestGetAllAgentStoreBinariesForStreamInvalidVersion(c *tc.C) {
+	s.seedModel(c)
+	s.setModelTargetAgentVersionAndStream(c, "4.0.0", agentbinary.AgentStreamReleased)
+	storeUUID := s.addObjectStore(c)
+	_, err := s.DB().ExecContext(c.Context(), `
+INSERT INTO agent_binary_store (version, architecture_id, object_store_uuid)
+VALUES (?, ?, ?)`, "invalid-version", int(agentbinary.AMD64), storeUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewControllerModelState(s.TxnRunnerFactory())
+	_, err = st.GetAllAgentStoreBinariesForStream(c.Context(), agentbinary.AgentStreamReleased)
+	c.Assert(err, tc.ErrorMatches, `.*parsing agent binary version "invalid-version".*`)
 }
