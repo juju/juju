@@ -149,7 +149,10 @@ check_secrets() {
 			exit 1
 		fi
 		attempt=$((attempt + 1))
-		if [ $attempt -eq 10 ]; then
+		# Revision 2 expires 20s after secret-set, i.e. roughly when this
+		# loop starts, so observe for well over that window to catch a
+		# stale trigger firing late under scheduler delay.
+		if [ $attempt -eq 30 ]; then
 			break
 		fi
 	done

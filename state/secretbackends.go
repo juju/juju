@@ -639,7 +639,7 @@ func (w *secretBackendRotationWatcher) merge(details []corewatcher.SecretBackend
 			ID:   knownDetails.ID,
 			Name: knownDetails.Name,
 		}
-		return replacePendingTriggerDetails(details, deletedDetails, secretBackendRotateTriggerKey), nil
+		return corewatcher.MergeLastWins(details, []corewatcher.SecretBackendRotateChange{deletedDetails}, secretBackendRotateTriggerKey), nil
 	}
 	if doc.TxnRevno > knownDetails.txnRevNo {
 		ID := w.backend.localID(doc.DocID)
@@ -648,11 +648,11 @@ func (w *secretBackendRotationWatcher) merge(details []corewatcher.SecretBackend
 			ID:       ID,
 			Name:     doc.Name,
 		}
-		details = replacePendingTriggerDetails(details, corewatcher.SecretBackendRotateChange{
+		details = corewatcher.MergeLastWins(details, []corewatcher.SecretBackendRotateChange{{
 			ID:              ID,
 			Name:            doc.Name,
 			NextTriggerTime: doc.NextRotateTime.UTC(),
-		}, secretBackendRotateTriggerKey)
+		}}, secretBackendRotateTriggerKey)
 	}
 	return details, nil
 }
