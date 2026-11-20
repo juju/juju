@@ -1,0 +1,7 @@
+name: unitless
+summary: Unitless charm
+description: Example of a unitless charm used for integration tests
+unitless: true
+assumes:
+  - virtual-charm >= 1.0
+  - virtual-charm < 2.0
