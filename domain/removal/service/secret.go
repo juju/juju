@@ -209,7 +209,7 @@ func (s *Service) deleteUnitOwnedSecrets(ctx context.Context, uUUID coreunit.UUI
 }
 
 func (s *Service) getSecretBackend(ctx context.Context) (provider.SecretsBackend, error) {
-	_, modelBackendCfg, err := s.controllerState.GetActiveModelSecretBackend(ctx, s.modelUUID.String())
+	modelBackendCfg, err := s.controllerState.GetActiveModelSecretBackend(ctx, s.modelUUID.String())
 	if err != nil {
 		return nil, errors.Errorf("getting model secret backend: %w", err)
 	}

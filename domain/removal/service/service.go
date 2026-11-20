@@ -77,9 +77,9 @@ type ControllerDBState interface {
 	ControllerState
 	ControllerOfferState
 
-	// GetActiveModelSecretBackend returns the active secret backend ID and
-	// config for the model with the input UUID.
-	GetActiveModelSecretBackend(ctx context.Context, modelUUID string) (string, *provider.ModelBackendConfig, error)
+	// GetActiveModelSecretBackend returns the active secret backend config for
+	// the model with the input UUID.
+	GetActiveModelSecretBackend(ctx context.Context, modelUUID string) (*provider.ModelBackendConfig, error)
 
 	// IsMigratingModel returns whether the model with the input UUID
 	// is currently migrating.
