@@ -621,10 +621,21 @@ juju-snap:
 	snapcraft pack --use-lxd
 	mv ${JUJU_SNAP_NAME} ${SNAP_BUILD_DIR}/
 
+# snapcraft keeps an incremental copy of the source in the LXD build instance
+# (parts/jujud/src) that updates by file mtime and never prunes files deleted
+# from the host tree, so deleted files keep being compiled and can ship
+# silently in the snap. Cleaning the part before every pack forces the snap to
+# be built from the current tree.
+#
+# Impact: about 20-30s extra per full pack; the build instance, its Go module
+# cache and its Go build cache survive the clean, and the dqlite part is not
+# rebuilt. The fast patch path (make jujud-snap-build) builds the binary on the
+# host and never reaches this target.
 .PHONY: jujud-snap
 jujud-snap:
 ## jujud-snap: Build the jujud controller snap from snaps/jujud/
 	$(call snap_stage,jujud)
+	snapcraft clean jujud --use-lxd
 	mkdir -p ${SNAP_BUILD_DIR}
 	snapcraft pack --use-lxd
 	mv ${JUJUD_SNAP_NAME} ${SNAP_BUILD_DIR}/
