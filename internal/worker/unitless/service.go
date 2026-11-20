@@ -17,9 +17,10 @@ type ScriptletService interface {
 	// execution should be scheduled.
 	WatchScriptletApplications(context.Context) (watcher.StringsWatcher, error)
 
-	// WatchScriptletApplicationDying emits when an application changes life or
-	// is removed. Its initial event indicates that the subscription is active.
-	WatchScriptletApplicationDying(
+	// WatchScriptletApplication emits when an application changes life or
+	// charm, or is removed. Its initial event indicates that the subscription
+	// is active.
+	WatchScriptletApplication(
 		ctx context.Context, applicationUUID coreapplication.UUID,
 	) (watcher.NotifyWatcher, error)
 
