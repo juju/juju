@@ -211,7 +211,7 @@ func (s *typesSuite) TestToSecretBackendK8s(c *tc.C) {
 			Endpoint:          "https://cloud1.com",
 			SkipTLSVerify:     true,
 			IsControllerCloud: false,
-			CACert:            "ca-cert1",
+			CACert:            sql.NullString{String: "ca-cert1", Valid: true},
 		},
 	}
 	credData := cloudCredentialRows{
@@ -299,7 +299,7 @@ func (s *typesSuite) TestToSecretBackendK8sDuplicateRows(c *tc.C) {
 			Endpoint:          "https://cloud1.com",
 			SkipTLSVerify:     true,
 			IsControllerCloud: false,
-			CACert:            "ca-cert1",
+			CACert:            sql.NullString{String: "ca-cert1", Valid: true},
 		},
 	}
 	credData := cloudCredentialRows{

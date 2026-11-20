@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"slices"
 	"sort"
 	"time"
 
@@ -242,9 +243,8 @@ func (rows secretBackendForK8sModelRows) toSecretBackend(controllerName string, 
 	for _, row := range rows {
 		if modelUUIDs.Contains(row.ModelUUID) {
 			// This model has already been added.
-			// It can be duplicated in rows if there is several credentials attributes
-			// for the same model. Those attributes are merged into a single
-			// creds data in the above credData.toCloudCredentials() call.
+			// Rows are repeated for credential attributes and CA certificates.
+			// Those values are merged in the conversions above.
 			continue
 		}
 		modelUUIDs.Add(row.ModelUUID)
@@ -333,7 +333,7 @@ type cloudRow struct {
 	IsControllerCloud bool `db:"is_controller_cloud"`
 
 	// CACert holds the ca cert.
-	CACert string `db:"ca_cert"`
+	CACert sql.NullString `db:"ca_cert"`
 }
 
 func (r cloudRow) toCloud() cloud.Cloud {
@@ -342,7 +342,6 @@ func (r cloudRow) toCloud() cloud.Cloud {
 		Endpoint:          r.Endpoint,
 		SkipTLSVerify:     r.SkipTLSVerify,
 		IsControllerCloud: r.IsControllerCloud,
-		CACertificates:    []string{r.CACert},
 	}
 }
 
@@ -351,7 +350,17 @@ type cloudRows []cloudRow
 func (rows cloudRows) toClouds() map[string]cloud.Cloud {
 	clouds := make(map[string]cloud.Cloud, len(rows))
 	for _, row := range rows {
-		clouds[row.ID] = row.toCloud()
+		cld, ok := clouds[row.ID]
+		if !ok {
+			cld = row.toCloud()
+		}
+		if row.CACert.Valid && !slices.Contains(cld.CACertificates, row.CACert.String) {
+			cld.CACertificates = append(cld.CACertificates, row.CACert.String)
+		}
+		clouds[row.ID] = cld
+	}
+	for _, cld := range clouds {
+		sort.Strings(cld.CACertificates)
 	}
 	return clouds
 }
