@@ -410,6 +410,7 @@ type CharmMetadata struct {
 	Description    *string `db:"description" json:"description" yaml:"description"`
 	Summary        *string `db:"summary" json:"summary" yaml:"summary"`
 	Subordinate    bool    `db:"subordinate" json:"subordinate" yaml:"subordinate"`
+	Unitless       bool    `db:"unitless" json:"unitless" yaml:"unitless"`
 	MinJujuVersion *string `db:"min_juju_version" json:"min_juju_version" yaml:"min_juju_version"`
 	RunAsID        *int64  `db:"run_as_id" json:"run_as_id" yaml:"run_as_id"`
 	Assumes        *string `db:"assumes" json:"assumes" yaml:"assumes"`
