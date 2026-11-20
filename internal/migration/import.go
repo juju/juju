@@ -224,7 +224,7 @@ func (i *ModelImporter) newControllerImportOps(
 	if info.SecretBackend != nil {
 		secretBackendName = info.SecretBackend.Name
 	}
-	agentStream := agentStreamFromModelConfig(view)
+	agentStream := agentStreamFromProjection(view)
 
 	return []controllerImportOp{
 		&opImportUsers{
@@ -713,9 +713,9 @@ func bootstrapImportedModel(
 	return nil
 }
 
-// agentStreamFromModelConfig reads the model's configured agent stream out of
+// agentStreamFromProjection reads the model's authoritative agent stream out of
 // the projection view, defaulting to the released stream when unset.
-func agentStreamFromModelConfig(view export.ProjectionView) agentbinary.AgentStream {
+func agentStreamFromProjection(view export.ProjectionView) agentbinary.AgentStream {
 	if view.AgentStream != "" {
 		return agentbinary.AgentStream(view.AgentStream)
 	}
