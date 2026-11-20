@@ -5,6 +5,7 @@ package charm_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -113,6 +114,53 @@ func (s *MetaSuite) TestReadMetaVersion2(c *tc.C) {
 	c.Assert(meta.Name, tc.Equals, "format2")
 	c.Assert(meta.Categories, tc.HasLen, 0)
 	c.Assert(meta.Terms, tc.HasLen, 0)
+}
+
+func (s *MetaSuite) TestUnitlessMetadataRoundTrip(c *tc.C) {
+	for _, test := range []struct {
+		field string
+		want  bool
+	}{
+		{field: "", want: false},
+		{field: "unitless: false", want: false},
+		{field: "unitless: true", want: true},
+	} {
+		c.Logf("metadata field: %q", test.field)
+		meta, err := charm.ReadMeta(strings.NewReader(
+			"name: foo\nsummary: test\ndescription: test\n" + test.field))
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(meta.Unitless, tc.Equals, test.want)
+
+		data, err := yaml.Marshal(meta)
+		c.Assert(err, tc.ErrorIsNil)
+		fromYAML, err := charm.ReadMeta(bytes.NewReader(data))
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(fromYAML.Unitless, tc.Equals, test.want)
+
+		data, err = json.Marshal(meta)
+		c.Assert(err, tc.ErrorIsNil)
+		var fromJSON charm.Meta
+		c.Assert(json.Unmarshal(data, &fromJSON), tc.ErrorIsNil)
+		c.Check(fromJSON.Unitless, tc.Equals, test.want)
+	}
+}
+
+func (s *MetaSuite) TestUnitlessMetadataRejectsNonBoolean(c *tc.C) {
+	for _, value := range []string{`"true"`, "1", "null", "[]", "{}"} {
+		c.Logf("unitless: %s", value)
+		_, err := charm.ReadMeta(strings.NewReader(
+			"name: foo\nsummary: test\ndescription: test\nunitless: " + value))
+		c.Check(err, tc.ErrorMatches, `metadata: unitless: expected bool, got .*`)
+	}
+}
+
+func (s *MetaSuite) TestModelMismatchUnitless(c *tc.C) {
+	meta := charm.Meta{Name: "virtual", Unitless: true}
+	for _, isK8s := range []bool{false, true} {
+		warning, err := meta.ModelMismatch(isK8s, "model")
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(warning, tc.Equals, "")
+	}
 }
 
 func (s *MetaSuite) TestValidTermFormat(c *tc.C) {
