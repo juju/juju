@@ -75,7 +75,7 @@ func (s *clientSuite) TestCreateTemplateVM(c *gc.C) {
 		{FuncName: "CreateImportSpec", Args: []interface{}{
 			UbuntuOVF,
 			types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"},
-			templateCisp,
+			&templateCisp,
 		}},
 		{FuncName: "ImportVApp", Args: []interface{}{
 			&types.VirtualMachineImportSpec{
