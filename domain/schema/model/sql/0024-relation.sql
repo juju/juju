@@ -157,11 +157,13 @@ CREATE INDEX idx_relation_unit_setting_unit
 ON relation_unit_setting (relation_unit_uuid);
 
 -- relation_unit_settings_hash holds a hash of all settings for a relation unit.
--- It allows watchers to easily determine when the relation units settings have
--- changed.
+-- The hash identifies content; the revision identifies committed changes.
+-- Revisions are allocated by a per-relation settings sequence, independently of
+-- the content, so A -> B -> A has three different watcher versions.
 CREATE TABLE relation_unit_settings_hash (
     relation_unit_uuid TEXT NOT NULL PRIMARY KEY,
     sha256 TEXT NOT NULL,
+    revision INTEGER NOT NULL DEFAULT 0 CHECK (revision >= 0),
     CONSTRAINT fk_relation_unit_setting_hash_relation_unit
     FOREIGN KEY (relation_unit_uuid)
     REFERENCES relation_unit (uuid)
@@ -207,11 +209,11 @@ CREATE INDEX idx_relation_ep_setting_ep
 ON relation_application_setting (relation_endpoint_uuid);
 
 -- relation_application_settings_hash holds a hash of all application settings
--- for a relation endpoint. It allows watchers to easily determine when the
--- relations application settings have changed.
+-- for a relation endpoint, alongside an independently allocated change revision.
 CREATE TABLE relation_application_settings_hash (
     relation_endpoint_uuid TEXT NOT NULL PRIMARY KEY,
     sha256 TEXT NOT NULL,
+    revision INTEGER NOT NULL DEFAULT 0 CHECK (revision >= 0),
     CONSTRAINT fk_relation_application_setting_hash_relation_endpoint
     FOREIGN KEY (relation_endpoint_uuid)
     REFERENCES relation_endpoint (uuid)
