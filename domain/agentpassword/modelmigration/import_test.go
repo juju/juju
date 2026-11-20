@@ -71,6 +71,44 @@ func (s *importSuite) TestImportUnitPasswordHashError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, ".*boom")
 }
 
+func (s *importSuite) TestImportApplicationPasswordHash(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.importService.EXPECT().SetApplicationPasswordHash(gomock.Any(), "foo", agentpassword.PasswordHash("hash")).Return(nil)
+
+	op := importOperation{
+		service: s.importService,
+	}
+
+	model := description.NewModel(description.ModelArgs{})
+	model.AddApplication(description.ApplicationArgs{
+		Name:         "foo",
+		PasswordHash: "hash",
+	})
+
+	err := op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportApplicationPasswordHashError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.importService.EXPECT().SetApplicationPasswordHash(gomock.Any(), "foo", agentpassword.PasswordHash("hash")).Return(errors.Errorf("boom"))
+
+	op := importOperation{
+		service: s.importService,
+	}
+
+	model := description.NewModel(description.ModelArgs{})
+	model.AddApplication(description.ApplicationArgs{
+		Name:         "foo",
+		PasswordHash: "hash",
+	})
+
+	err := op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorMatches, ".*boom")
+}
+
 func (s *importSuite) TestImportUnitPasswordHashMissingHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
