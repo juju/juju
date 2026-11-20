@@ -11,10 +11,12 @@ import (
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/domain/life"
+	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
+	domainsequence "github.com/juju/juju/domain/sequence"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -415,6 +417,19 @@ WHERE "key" IN (
 		return errors.Errorf("preparing unit relation state deletion: %w", err)
 	}
 
+	type sequenceNamespace struct {
+		Namespace string `db:"namespace"`
+	}
+	settingsSequence := sequenceNamespace{
+		Namespace: domainsequence.MakePrefixNamespace(domainrelation.SettingsSequenceNamespace, relationUUID.UUID).String(),
+	}
+	sequenceStmt, err := st.Prepare(`
+DELETE FROM sequence
+WHERE namespace = $sequenceNamespace.namespace`, settingsSequence)
+	if err != nil {
+		return errors.Errorf("preparing relation settings sequence deletion: %w", err)
+	}
+
 	relStmt, err := st.Prepare("DELETE FROM relation WHERE uuid = $entityUUID.uuid ", relationUUID)
 	if err != nil {
 		return errors.Errorf("preparing relation deletion: %w", err)
@@ -471,6 +486,11 @@ WHERE "key" IN (
 	err = tx.Query(ctx, unitStateStmt, relationUUID).Run()
 	if err != nil {
 		return errors.Errorf("running unit relation state deletion: %w", err)
+	}
+
+	err = tx.Query(ctx, sequenceStmt, settingsSequence).Run()
+	if err != nil {
+		return errors.Errorf("running relation settings sequence deletion: %w", err)
 	}
 
 	err = tx.Query(ctx, relStmt, relationUUID).Run()
