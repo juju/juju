@@ -57,8 +57,10 @@ var (
 	errCancelled = errors.New("cancelled")
 )
 
-// BootstrapParams holds the parameters for bootstrapping an environment.
-type BootstrapParams struct {
+// AllocationParams holds the controller allocation inputs shared by fresh
+// bootstrap and controller recovery: everything a provider needs to choose
+// and configure the controller instance.
+type AllocationParams struct {
 	// ModelConstraints are merged with the bootstrap constraints
 	// to choose the initial instance, and will be stored in the
 	// initial models' states.
@@ -82,19 +84,87 @@ type BootstrapParams struct {
 	// CloudRegion is the name of the cloud region that Juju will be bootstrapped in.
 	CloudRegion string
 
-	// CloudCredentialName is the name of the cloud credential that Juju will be
-	// bootstrapped with. This may be empty, for clouds that do not require
-	// credentials.
-	CloudCredentialName string
-
 	// CloudCredential contains the cloud credential that Juju will be
 	// bootstrapped with. This may be nil, for clouds that do not require
-	// credentialis.
+	// credentials.
 	CloudCredential *cloud.Credential
 
 	// ControllerConfig is the set of config attributes relevant
 	// to a controller.
 	ControllerConfig controller.Config
+
+	// Placement, if non-empty, holds an environment-specific placement
+	// directive used to choose the initial instance.
+	Placement string
+
+	// MetadataDir is an optional path to a local directory containing
+	// tools and/or image metadata.
+	MetadataDir string
+
+	// StoragePools is one or more named storage pools to create
+	// in the controller model.
+	StoragePools map[string]corestorage.Attrs
+
+	// Force is used to allow a bootstrap to be run on unsupported series.
+	Force bool
+
+	// BootstrapBase, if specified, is the base to use for the
+	// initial bootstrap machine.
+	BootstrapBase corebase.Base
+
+	// SupportedBootstrapBases is a supported set of bases to use for
+	// validating against the bootstrap base.
+	SupportedBootstrapBases []corebase.Base
+}
+
+// validateCommon checks the controller identity every allocation needs: the
+// controller config must carry a controller UUID and a CA certificate.
+func (p AllocationParams) validateCommon() error {
+	// The config may not have been built through NewConfig, so read the
+	// UUID defensively rather than panicking.
+	if uuid, _ := p.ControllerConfig[controller.ControllerUUIDKey].(string); uuid == "" {
+		return errors.New("controller configuration has no controller UUID")
+	}
+	if _, hasCACert := p.ControllerConfig.CACert(); !hasCACert {
+		return errors.New("controller configuration has no ca-cert")
+	}
+	return nil
+}
+
+// validateSupportedBases checks the base the controller is allocated on can be
+// validated against a supported set.
+func (p AllocationParams) validateSupportedBases() error {
+	if len(p.SupportedBootstrapBases) == 0 {
+		return errors.NotValidf("supported bootstrap bases")
+	}
+	return nil
+}
+
+// providerAllocationParams selects the allocation inputs a provider receives,
+// shared by fresh bootstrap and controller recovery.
+func providerAllocationParams(args AllocationParams) environs.BootstrapParams {
+	return environs.BootstrapParams{
+		CloudName:               args.Cloud.Name,
+		CloudRegion:             args.CloudRegion,
+		ControllerConfig:        args.ControllerConfig,
+		ModelConstraints:        args.ModelConstraints,
+		BootstrapConstraints:    args.BootstrapConstraints,
+		StoragePools:            args.StoragePools,
+		BootstrapBase:           args.BootstrapBase,
+		SupportedBootstrapBases: args.SupportedBootstrapBases,
+		Placement:               args.Placement,
+		Force:                   args.Force,
+	}
+}
+
+// BootstrapParams holds the parameters for bootstrapping an environment.
+type BootstrapParams struct {
+	AllocationParams
+
+	// CloudCredentialName is the name of the cloud credential that Juju will be
+	// bootstrapped with. This may be empty, for clouds that do not require
+	// credentials.
+	CloudCredentialName string
 
 	// ControllerInheritedConfig is the set of config attributes to be shared
 	// across all models in the same controller.
@@ -113,10 +183,6 @@ type BootstrapParams struct {
 	// cloud.
 	RegionInheritedConfig cloud.RegionConfig
 
-	// Placement, if non-empty, holds an environment-specific placement
-	// directive used to choose the initial instance.
-	Placement string
-
 	// BuildAgent reports whether we should build and upload the local agent
 	// binary and override the environment's specified agent-version.
 	// It is an error to specify BuildAgent with a nil BuildAgentTarball.
@@ -126,10 +192,6 @@ type BootstrapParams struct {
 	// build tools to upload. If this is nil, tools uploading will never
 	// take place.
 	BuildAgentTarball sync.BuildAgentTarballFunc
-
-	// MetadataDir is an optional path to a local directory containing
-	// tools and/or image metadata.
-	MetadataDir string
 
 	// AgentVersion, if set, determines the exact tools version that
 	// will be used to start the Juju agents.
@@ -156,13 +218,6 @@ type BootstrapParams struct {
 	// DialOpts contains the bootstrap dial options.
 	DialOpts environs.BootstrapDialOpts
 
-	// StoragePools is one or more named storage pools to create
-	// in the controller model.
-	StoragePools map[string]corestorage.Attrs
-
-	// Force is used to allow a bootstrap to be run on unsupported series.
-	Force bool
-
 	// ControllerCharmPath is a local controller charm archive.
 	ControllerCharmPath string
 
@@ -171,14 +226,6 @@ type BootstrapParams struct {
 
 	// ExtraAgentValuesForTesting are testing only values written to the agent config file.
 	ExtraAgentValuesForTesting map[string]string
-
-	// BootstrapBase, if specified, is the base to use for the
-	// initial bootstrap machine (deprecated use BootstrapBase).
-	BootstrapBase corebase.Base
-
-	// SupportedBootstrapBase is a supported set of bases to use for
-	// validating against the bootstrap base.
-	SupportedBootstrapBases []corebase.Base
 }
 
 // Validate validates the bootstrap parameters.
@@ -186,17 +233,14 @@ func (p BootstrapParams) Validate() error {
 	if p.AdminSecret == "" {
 		return errors.New("admin-secret is empty")
 	}
-	if p.ControllerConfig.ControllerUUID() == "" {
-		return errors.New("controller configuration has no controller UUID")
-	}
-	if _, hasCACert := p.ControllerConfig.CACert(); !hasCACert {
-		return errors.New("controller configuration has no ca-cert")
+	if err := p.AllocationParams.validateCommon(); err != nil {
+		return err
 	}
 	if p.CAPrivateKey == "" {
 		return errors.New("empty ca-private-key")
 	}
-	if len(p.SupportedBootstrapBases) == 0 {
-		return errors.NotValidf("supported bootstrap bases")
+	if err := p.AllocationParams.validateSupportedBases(); err != nil {
+		return err
 	}
 
 	// TODO(axw) validate other things.
@@ -748,20 +792,10 @@ func finaliseInstanceRole(
 // providerBootstrapParams selects the allocation inputs for fresh bootstrap.
 // Recovery constructs its provider parameters from the archived platform.
 func providerBootstrapParams(args BootstrapParams) environs.BootstrapParams {
-	return environs.BootstrapParams{
-		AuthorizedKeys:             args.BootstrapSSHAuthorizedKeys,
-		CloudName:                  args.Cloud.Name,
-		CloudRegion:                args.CloudRegion,
-		ControllerConfig:           args.ControllerConfig,
-		ModelConstraints:           args.ModelConstraints,
-		BootstrapConstraints:       args.BootstrapConstraints,
-		StoragePools:               args.StoragePools,
-		BootstrapBase:              args.BootstrapBase,
-		SupportedBootstrapBases:    args.SupportedBootstrapBases,
-		Placement:                  args.Placement,
-		Force:                      args.Force,
-		ExtraAgentValuesForTesting: args.ExtraAgentValuesForTesting,
-	}
+	params := providerAllocationParams(args.AllocationParams)
+	params.AuthorizedKeys = args.BootstrapSSHAuthorizedKeys
+	params.ExtraAgentValuesForTesting = args.ExtraAgentValuesForTesting
+	return params
 }
 
 // Bootstrap bootstraps the given environment. The supplied constraints are

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/cmd/cmdtesting"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -27,6 +28,7 @@ import (
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/semversion"
+	corestorage "github.com/juju/juju/core/storage"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/environs"
@@ -44,7 +46,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	_ "github.com/juju/juju/internal/provider/dummy"
-	corestorage "github.com/juju/juju/internal/storage"
+	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
@@ -265,7 +267,7 @@ func (s *bootstrapSuite) TestBootstrapWithStoragePools(c *tc.C) {
 			CAPrivateKey:            coretesting.CAKey,
 			SupportedBootstrapBases: supportedJujuBases,
 			SSHServerHostKey:        coretesting.SSHServerHostKey,
-			StoragePools: map[string]corestorage.Attrs{
+			StoragePools: map[string]internalstorage.Attrs{
 				"spool": {
 					"type": "loop",
 					"foo":  "bar",
@@ -274,7 +276,7 @@ func (s *bootstrapSuite) TestBootstrapWithStoragePools(c *tc.C) {
 		})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, tc.Equals, 1)
-	c.Assert(env.args.StoragePools, tc.DeepEquals, map[string]corestorage.Attrs{
+	c.Assert(env.args.StoragePools, tc.DeepEquals, map[string]internalstorage.Attrs{
 		"spool": {
 			"type": "loop",
 			"foo":  "bar",
@@ -435,7 +437,7 @@ func (s *bootstrapSuite) assertFinalizePodBootstrapConfig(c *tc.C, serviceType, 
 func validRecoveryParams(archivedVersion semversion.Number) bootstrap.RecoveryParams {
 	return bootstrap.RecoveryParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
-		Base:             jammyBootstrapBase,
+		BootstrapBase:    jammyBootstrapBase,
 		Arch:             arch.AMD64,
 		AgentVersion:     archivedVersion,
 	}
@@ -503,6 +505,108 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAAS(c *tc.C) {
 
 	// Allocation stops before the agent is installed.
 	c.Check(env.finalizerCount, tc.Equals, 0)
+}
+
+// TestBootstrapRecoveryIAASForwardsProvisioningInputs checks that every
+// archived allocation input reaches the provider: the constraints, the
+// controller config, the storage pools, the placement and the bootstrap image.
+// Losing any of them allocates a controller that does not match the source.
+func (s *bootstrapSuite) TestBootstrapRecoveryIAASForwardsProvisioningInputs(c *tc.C) {
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+
+	archivedVersion := coretesting.FakeVersionNumber
+	env := &recoveryBootstrapEnvironWithRegion{
+		recoveryBootstrapEnviron: &recoveryBootstrapEnviron{
+			bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+			result: &environs.BootstrapResult{
+				InstanceID: "test-instance",
+				Arch:       arch.ARM64,
+				Base:       jammyBootstrapBase,
+			},
+		},
+		region: simplestreams.CloudSpec{Region: "north", Endpoint: "https://cloud.example"},
+	}
+
+	storagePools := map[string]internalstorage.Attrs{
+		"pool-a": {
+			corestorage.BootstrapStoragePoolNameKey: "pool-a",
+			corestorage.BootstrapStoragePoolTypeKey: "lxd",
+			"source":                                "/dev/sda1",
+		},
+	}
+	params := validRecoveryParams(archivedVersion)
+	params.Arch = arch.ARM64
+	params.Cloud = cloud.Cloud{Name: "lxd", Type: "lxd"}
+	params.CloudRegion = "north"
+	params.ControllerName = "source-ctrl"
+	params.ModelConstraints = constraints.MustParse("cores=4 mem=2048")
+	params.BootstrapConstraints = constraints.MustParse(
+		"virt-type=virtual-machine mem=4096 zones=zone-a root-disk-source=pool-a")
+	params.StoragePools = storagePools
+	params.Placement = "zone=zone-a"
+	params.BootstrapImage = "images:bootstrap-image"
+	// The archived controller space config implies a space constraint, as it
+	// does on fresh bootstrap.
+	params.ControllerConfig = coretesting.FakeControllerConfig()
+	params.ControllerConfig[controller.JujuManagementSpace] = "space-a"
+
+	id, err := bootstrap.Recover(envtesting.BootstrapTestContext(c), env, params)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(id, tc.Equals, instance.Id("test-instance"))
+
+	args := env.args
+	c.Check(args.CloudName, tc.Equals, "lxd")
+	c.Check(args.CloudRegion, tc.Equals, "north")
+	c.Check(args.ControllerConfig[controller.JujuManagementSpace], tc.Equals, "space-a")
+	c.Check(args.StoragePools, tc.DeepEquals, storagePools)
+	c.Check(args.Placement, tc.Equals, "zone=zone-a")
+	c.Check(args.BootstrapBase, tc.Equals, jammyBootstrapBase)
+	c.Check(args.SupportedBootstrapBases, tc.DeepEquals, []corebase.Base{jammyBootstrapBase})
+
+	// The model constraints are passed through untouched.
+	c.Assert(args.ModelConstraints.CpuCores, tc.NotNil)
+	c.Check(*args.ModelConstraints.CpuCores, tc.Equals, uint64(4))
+	c.Assert(args.ModelConstraints.Mem, tc.NotNil)
+	c.Check(*args.ModelConstraints.Mem, tc.Equals, uint64(2048))
+
+	// The bootstrap constraints keep every archived attribute, with the
+	// archived architecture pinned over them.
+	c.Assert(args.BootstrapConstraints.Arch, tc.NotNil)
+	c.Check(*args.BootstrapConstraints.Arch, tc.Equals, arch.ARM64)
+	c.Assert(args.BootstrapConstraints.VirtType, tc.NotNil)
+	c.Check(*args.BootstrapConstraints.VirtType, tc.Equals, "virtual-machine")
+	c.Assert(args.BootstrapConstraints.Mem, tc.NotNil)
+	c.Check(*args.BootstrapConstraints.Mem, tc.Equals, uint64(4096))
+	c.Assert(args.BootstrapConstraints.RootDiskSource, tc.NotNil)
+	c.Check(*args.BootstrapConstraints.RootDiskSource, tc.Equals, "pool-a")
+	c.Assert(args.BootstrapConstraints.Zones, tc.NotNil)
+	c.Check(*args.BootstrapConstraints.Zones, tc.DeepEquals, []string{"zone-a"})
+	c.Assert(args.BootstrapConstraints.Spaces, tc.NotNil)
+	c.Check(*args.BootstrapConstraints.Spaces, tc.DeepEquals, []string{"space-a"})
+
+	ids := make([]string, 0, len(args.ImageMetadata))
+	for _, meta := range args.ImageMetadata {
+		ids = append(ids, meta.Id)
+	}
+	c.Check(ids, tc.DeepEquals, []string{"images:bootstrap-image"})
+}
+
+// The archived architecture is authoritative: an archived constraint naming a
+// different one is rejected rather than silently provisioning the wrong
+// platform.
+func (s *bootstrapSuite) TestBootstrapRecoveryIAASRejectsConstraintArchConflict(c *tc.C) {
+	env := &recoveryBootstrapEnviron{
+		bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+	}
+	params := validRecoveryParams(coretesting.FakeVersionNumber)
+	params.Arch = arch.AMD64
+	params.BootstrapConstraints = constraints.MustParse("arch=arm64")
+
+	id, err := bootstrap.Recover(envtesting.BootstrapTestContext(c), env, params)
+	c.Check(id, tc.Equals, instance.Id(""))
+	c.Check(err, tc.ErrorMatches,
+		`validating recovery parameters: recovery controller architecture "amd64" conflicts with constraint architecture "arm64" not valid`)
+	c.Check(env.bootstrapCount, tc.Equals, 0)
 }
 
 func (s *bootstrapSuite) TestBootstrapRecoveryIAASResultChecks(c *tc.C) {
@@ -652,7 +756,7 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASInvalidParams(c *tc.C) {
 		err:    ".*recovery without an agent version not valid",
 	}, {
 		name:   "no base",
-		mutate: func(p *bootstrap.RecoveryParams) { p.Base = corebase.Base{} },
+		mutate: func(p *bootstrap.RecoveryParams) { p.BootstrapBase = corebase.Base{} },
 		err:    ".*recovery without a controller base not valid",
 	}, {
 		name:   "no arch",
@@ -1968,6 +2072,18 @@ func (e *recoveryBootstrapEnviron) Bootstrap(
 		e.afterAllocate()
 	}
 	return e.result, nil
+}
+
+// recoveryBootstrapEnvironWithRegion is a recoveryBootstrapEnviron that reports
+// a region, so bootstrap image selection runs the simplestreams path.
+type recoveryBootstrapEnvironWithRegion struct {
+	*recoveryBootstrapEnviron
+
+	region simplestreams.CloudSpec
+}
+
+func (e recoveryBootstrapEnvironWithRegion) Region() (simplestreams.CloudSpec, error) {
+	return e.region, nil
 }
 
 type bootstrapEnvironWithRegion struct {

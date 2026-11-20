@@ -5,6 +5,7 @@ package commands
 
 import (
 	"context"
+	"maps"
 	"os"
 	"os/signal"
 	"time"
@@ -25,6 +26,7 @@ import (
 	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
+	internalstorage "github.com/juju/juju/internal/storage"
 )
 
 // recoveryAllocationTimeout bounds provider preparation and machine allocation
@@ -55,7 +57,7 @@ func provisionRecovery(
 		return errors.Capture(err)
 	}
 
-	controllerConfig, modelConfig, err := recoveryConfigs(info)
+	controllerConfig, modelConfig, err := recoveryConfigs(ctx, info, credentials.provider)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -109,16 +111,45 @@ func recoveryParamsFromArchive(info *recovery.ArchiveInfo) (bootstrap.RecoveryPa
 	if !arch.IsSupportedArch(targetArch) {
 		return bootstrap.RecoveryParams{}, errors.Errorf("archive does not record a usable controller architecture: %q", info.SourceArch)
 	}
+	// The archived architecture is authoritative: allocation pins it over
+	// whatever the recorded constraint says.
+	bootstrapConstraints := info.ControllerConstraints
+	bootstrapConstraints.Arch = &targetArch
 	return bootstrap.RecoveryParams{
+		AllocationParams: bootstrap.AllocationParams{
+			ControllerName:          info.ControllerName,
+			ModelConstraints:        info.ModelConstraints,
+			BootstrapConstraints:    bootstrapConstraints,
+			StoragePools:            cloneStoragePools(info.StoragePools),
+			BootstrapBase:           targetBase,
+			SupportedBootstrapBases: []base.Base{targetBase},
+		},
 		AgentVersion: info.AgentVersion,
-		Base:         targetBase,
 		Arch:         targetArch,
 	}, nil
+}
+
+// cloneStoragePools copies the archived storage pools so allocation cannot
+// mutate the validated archive summary. The bootstrap representation is shared
+// by value, so each pool's attributes are copied too.
+func cloneStoragePools(pools map[string]internalstorage.Attrs) map[string]internalstorage.Attrs {
+	if len(pools) == 0 {
+		return nil
+	}
+	cloned := make(map[string]internalstorage.Attrs, len(pools))
+	for name, attrs := range pools {
+		cloned[name] = maps.Clone(attrs)
+	}
+	return cloned
 }
 
 type recoveryTarget struct {
 	cloud jujucloud.Cloud
 	spec  cloudspec.CloudSpec
+
+	// provider is the cloud's provider, kept so configuration building does
+	// not look it up a second time.
+	provider environs.EnvironProvider
 }
 
 // recoveryCredentials resolves the archived cloud against the local cloud
@@ -143,12 +174,23 @@ func recoveryCredentials(ctx *cmd.Context, store jujuclient.ClientStore, info *r
 		cloud = &finalized
 	}
 	credential, _, regionName, _, err := common.GetOrDetectCredential(
-		ctx, store, provider, modelcmd.GetCredentialsParams{Cloud: *cloud},
+		ctx, store, provider, modelcmd.GetCredentialsParams{
+			Cloud:       *cloud,
+			CloudRegion: info.CloudRegion,
+		},
 	)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	region, err := common.ChooseCloudRegion(*cloud, regionName)
+	// The archived region is the one the controller model lives in:
+	// allocating anywhere else would move the replacement controller out of
+	// the location the archive records. A region this cloud definition does
+	// not know fails here rather than silently falling back.
+	targetRegion := info.CloudRegion
+	if targetRegion == "" {
+		targetRegion = regionName
+	}
+	region, err := common.ChooseCloudRegion(*cloud, targetRegion)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -157,31 +199,53 @@ func recoveryCredentials(ctx *cmd.Context, store jujuclient.ClientStore, info *r
 		return nil, errors.Capture(err)
 	}
 	spec.IsControllerCloud = true
-	return &recoveryTarget{cloud: *cloud, spec: spec}, nil
+	return &recoveryTarget{cloud: *cloud, spec: spec, provider: provider}, nil
 }
 
-// recoveryConfigs preserves the archived controller identity and CA so that
-// surviving agents can trust the replacement controller.
-func recoveryConfigs(info *recovery.ArchiveInfo) (controller.Config, *config.Config, error) {
+// recoveryConfigs builds the controller and controller model configuration the
+// replacement is allocated with. Archived settings are preserved so provider
+// specific values, such as an LXD project, allocate into the same target as the
+// source controller; the archived identity and agent version always win over a
+// stale stored value.
+func recoveryConfigs(
+	ctx context.Context,
+	info *recovery.ArchiveInfo,
+	provider environs.EnvironProvider,
+) (controller.Config, *config.Config, error) {
+	rawController := make(map[string]any, len(info.ControllerConfig)+1)
+	for k, v := range info.ControllerConfig {
+		rawController[k] = v
+	}
+	if info.ControllerName != "" {
+		rawController[controller.ControllerName] = info.ControllerName
+	}
 	controllerConfig, err := controller.NewConfig(
-		info.ControllerUUID,
-		info.CACert,
-		map[string]any{controller.ControllerName: info.ControllerName},
-	)
+		info.ControllerUUID, info.CACert, rawController)
 	if err != nil {
 		return nil, nil, errors.Capture(err)
 	}
-	// TODO(recovery): reconcile archived settings instead of relying on
-	// allocation defaults when restoring the controller model. The local
-	// bootstrap name is conventional; the archived UUID identifies the model.
-	modelConfig, err := config.New(config.UseDefaults, map[string]any{
-		"name":                 bootstrap.ControllerModelName,
-		"type":                 info.CloudType,
-		config.UUIDKey:         info.ControllerModelUUID,
-		config.AgentVersionKey: info.AgentVersion.String(),
-	})
+
+	rawModel := make(map[string]any, len(info.ControllerModelConfig)+4)
+	for k, v := range info.ControllerModelConfig {
+		rawModel[k] = v
+	}
+	rawModel[config.NameKey] = bootstrap.ControllerModelName
+	rawModel[config.TypeKey] = info.CloudType
+	rawModel[config.UUIDKey] = info.ControllerModelUUID
+	rawModel[config.AgentVersionKey] = info.AgentVersion.String()
+	// The local bootstrap name is conventional; the archived UUID identifies
+	// the model.
+	modelConfig, err := config.New(config.UseDefaults, rawModel)
 	if err != nil {
 		return nil, nil, errors.Capture(err)
+	}
+	if provider != nil {
+		// Let the provider coerce and validate its own attributes (such as
+		// LXD's project or EC2's vpc-id-force) via its standard Validate path.
+		modelConfig, err = provider.Validate(ctx, modelConfig, nil)
+		if err != nil {
+			return nil, nil, errors.Capture(err)
+		}
 	}
 	return controllerConfig, modelConfig, nil
 }
