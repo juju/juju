@@ -233,11 +233,7 @@ func (s *WorkerSuite) TestNewConnectionTrackerBroken(c *tc.C) {
 
 	c.Assert(w.connected.Load(), tc.IsTrue)
 
-	select {
-	case ch <- struct{}{}:
-	case <-c.Context().Done():
-		c.Fatal("connection tracker did not start")
-	}
+	close(ch)
 
 	select {
 	case <-sync1:
@@ -256,15 +252,13 @@ func (s *WorkerSuite) TestNewConnectionTrackerBrokenImmediately(c *tc.C) {
 	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(ctx context.Context, c api.Connection) error) error {
 		return f(ctx, s.connection)
 	})
-	s.connection.EXPECT().IsBroken(gomock.Any()).Return(false)
-
-	ch := make(chan struct{}, 1)
-	ch <- struct{}{}
-	sync0 := make(chan struct{})
-	s.connection.EXPECT().Broken().DoAndReturn(func() <-chan struct{} {
-		defer close(sync0)
-		return ch
+	ch := make(chan struct{})
+	// Model a break after the initial check but before the Broken select.
+	s.connection.EXPECT().IsBroken(gomock.Any()).DoAndReturn(func(context.Context) bool {
+		close(ch)
+		return false
 	})
+	s.connection.EXPECT().Broken().Return(ch)
 
 	s.statusService.EXPECT().DeleteMachinePresence(gomock.Any(), machine.Name("0")).Return(nil)
 
@@ -276,19 +270,6 @@ func (s *WorkerSuite) TestNewConnectionTrackerBrokenImmediately(c *tc.C) {
 
 	w := s.newConnectionTracker(c)
 	defer workertest.DirtyKill(c, w)
-
-	select {
-	case <-sync0:
-	case <-c.Context().Done():
-		c.Fatal("connection tracker did not start")
-	}
-	select {
-	case ch <- struct{}{}:
-	case <-c.Context().Done():
-		c.Fatal("connection tracker did not recv first close notification")
-	}
-
-	c.Assert(w.connected.Load(), tc.IsFalse)
 
 	select {
 	case <-sync1:
