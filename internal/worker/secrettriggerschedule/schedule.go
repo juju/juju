@@ -11,11 +11,11 @@ import (
 
 const (
 	// MaxTriggerRetries is the maximum retry count for a trigger before
-	// the worker should resync its watcher state from the controller.
-	// Retries run at fixed intervals of the worker's base delay, so with
-	// the 5-minute base delays used by the secret workers, retries run
-	// every 5 minutes and the resync happens 20 minutes after the initial
-	// fire.
+	// the worker should exit so it can be restarted with fresh watcher
+	// state from the controller. Retries run at fixed intervals of the
+	// worker's base delay, so with the 5-minute base delays used by the
+	// secret workers, retries run every 5 minutes and the restart
+	// happens 20 minutes after the initial fire.
 	MaxTriggerRetries = 3
 )
 
@@ -109,6 +109,11 @@ func SoonestTime[T any](entries map[string]T, triggerTime func(T) time.Time) tim
 // time, or zero if timer is nil or has already fired. If the schedule is
 // unchanged, timer and current are returned as-is with changed=false. If
 // soonest is zero and timer is non-nil, timer is stopped and nil is returned.
+//
+// The caller must pass back the current value returned by the previous
+// call (the deadline the timer was armed with), not a value derived
+// separately; otherwise the unchanged check in isScheduleUnchanged
+// misfires and the timer is needlessly reset or left stale.
 func ScheduleTimer(
 	clk clock.Clock, timer clock.Timer, current, soonest time.Time,
 ) (clock.Timer, time.Time, bool) {
@@ -134,6 +139,11 @@ func ScheduleTimer(
 // time, or zero if alarm is nil or has already fired. If the schedule is
 // unchanged, alarm and current are returned as-is with changed=false. If
 // soonest is zero and alarm is non-nil, alarm is stopped and nil is returned.
+//
+// The caller must pass back the current value returned by the previous
+// call (the deadline the alarm was armed with), not a value derived
+// separately; otherwise the unchanged check in isScheduleUnchanged
+// misfires and the alarm is needlessly reset or left stale.
 func ScheduleAlarm(
 	clk clock.Clock, alarm clock.Alarm, current, soonest time.Time,
 ) (clock.Alarm, time.Time, bool) {

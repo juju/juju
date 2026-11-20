@@ -414,7 +414,7 @@ func (s *workerSuite) TestManySecretsDeleteOne(c *gc.C) {
 	s.expectExpired(c, uri.ID+"/666")
 }
 
-func (s *workerSuite) TestExpiryGranularity(c *gc.C) {
+func (s *workerSuite) TestExpireSubMinuteTriggerFiresExactly(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -546,28 +546,14 @@ func (s *workerSuite) TestExpireTimerFiresEarly(c *gc.C) {
 	s.expectExpired(c, uri.ID+"/666")
 }
 
-func (s *workerSuite) TestExpireRetryBackoffAndResync(c *gc.C) {
+func (s *workerSuite) TestExpireRetriesExhaustedExitsWithResetRequired(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
 	s.expectWorker()
 
-	resyncedWatcher := rotatemocks.NewMockSecretTriggerWatcher(ctrl)
-	resyncedChanges := make(chan []corewatcher.SecretTriggerChange)
-	resyncCalled := make(chan struct{})
-	s.facade.EXPECT().WatchSecretRevisionsExpiryChanges(s.config.SecretOwners).DoAndReturn(
-		func(...names.Tag) (corewatcher.SecretTriggerWatcher, error) {
-			close(resyncCalled)
-			return resyncedWatcher, nil
-		},
-	)
-	resyncedWatcher.EXPECT().Changes().AnyTimes().Return(resyncedChanges)
-	resyncedWatcher.EXPECT().Kill().AnyTimes()
-	resyncedWatcher.EXPECT().Wait().Return(nil).MinTimes(1)
-
 	w, err := secretexpire.New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
 	uri := secrets.NewURI()
@@ -587,62 +573,71 @@ func (s *workerSuite) TestExpireRetryBackoffAndResync(c *gc.C) {
 		s.expectExpired(c, uri.ID+"/666")
 	}
 
-	// Once MaxTriggerRetries is reached, the next deadline resyncs the
-	// watcher instead of blindly re-firing.
+	// Once MaxTriggerRetries is reached, the next deadline exits with
+	// errResetRequired so the runner created by NewWithReset restarts
+	// the worker with a fresh watcher.
 	s.waitAlarmArmed(c)
 	s.clock.Advance(secrets.ExpireRetryDelay)
-	select {
-	case <-resyncCalled:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for watcher resync after exhausting retries")
-	}
-	s.expectNoExpiry(c)
-
-	// If the resynced watcher reports the revision is still due on the
-	// controller, expiry fires again.
-	resyncedChanges <- []corewatcher.SecretTriggerChange{{
-		URI:             uri,
-		Revision:        666,
-		NextTriggerTime: now.Add(time.Hour),
-	}}
-	s.waitAlarmArmed(c)
-	s.clock.Advance(0)
-	s.expectExpired(c, uri.ID+"/666")
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, gc.ErrorMatches, "secret revision expiry watcher reset required")
 }
 
-func (s *workerSuite) TestExpireResyncError(c *gc.C) {
+func (s *workerSuite) TestExpireDueEntrySentWhenRetriesExhausted(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
 	s.expectWorker()
-	s.facade.EXPECT().WatchSecretRevisionsExpiryChanges(s.config.SecretOwners).Return(
-		nil, errors.New("resync boom"),
-	)
 
 	w, err := secretexpire.New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 
 	now := s.clock.Now()
-	uri := secrets.NewURI()
+	uri1 := secrets.NewURI()
+	uri2 := secrets.NewURI()
 	s.expiryConfigChanges <- []corewatcher.SecretTriggerChange{{
-		URI:             uri,
+		URI:             uri1,
 		Revision:        666,
 		NextTriggerTime: now.Add(time.Hour),
+	}, {
+		URI:             uri2,
+		Revision:        777,
+		NextTriggerTime: now.Add(time.Hour + 4*secrets.ExpireRetryDelay),
 	}}
 	s.waitAlarmArmed(c)
 	s.clock.Advance(time.Hour)
-	s.expectExpired(c, uri.ID+"/666")
+	s.expectExpired(c, uri1.ID+"/666")
 
+	// Unconfirmed expiries for uri1 retry every ExpireRetryDelay.
 	for range secrettriggerschedule.MaxTriggerRetries {
 		s.waitAlarmArmed(c)
 		s.clock.Advance(secrets.ExpireRetryDelay)
-		s.expectExpired(c, uri.ID+"/666")
+		s.expectExpired(c, uri1.ID+"/666")
 	}
 
+	// uri1 has exhausted its retries at the deadline uri2 becomes due.
+	// uri2's expiry is still sent before the worker exits with
+	// errResetRequired so the runner created by NewWithReset restarts
+	// it with a fresh watcher.
 	s.waitAlarmArmed(c)
-	s.clock.Advance(secrets.ExpireRetryDelay)
-	workertest.CheckKilled(c, w)
-	c.Check(w.Wait(), gc.ErrorMatches, "resync boom")
+	s.clock.Advance(4 * secrets.ExpireRetryDelay)
+	s.expectExpired(c, uri2.ID+"/777")
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, gc.ErrorMatches, "secret revision expiry watcher reset required")
+}
+
+func (s *workerSuite) TestStartWatcherError(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.facade.EXPECT().WatchSecretRevisionsExpiryChanges(s.config.SecretOwners).Return(
+		nil, errors.New("watch boom"),
+	)
+
+	w, err := secretexpire.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, gc.ErrorMatches, "watch boom")
 }
 
 func (s *workerSuite) TestChangesChannelClosed(c *gc.C) {
@@ -662,8 +657,8 @@ func (s *workerSuite) TestChangesChannelClosed(c *gc.C) {
 	s.waitAlarmArmed(c)
 
 	close(s.expiryConfigChanges)
-	workertest.CheckKilled(c, w)
-	c.Check(w.Wait(), gc.ErrorMatches, "secret revision expiry change channel closed")
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, gc.ErrorMatches, "secret revision expiry change channel closed")
 }
 
 func (s *workerSuite) TestStaleTriggerIgnoredDuringRetry(c *gc.C) {

@@ -24,6 +24,13 @@ type logger interface{}
 
 var _ logger = struct{}{}
 
+// errResetRequired is returned when the retries for an expired secret
+// revision are exhausted without the controller confirming the expiry.
+// The worker exits with it so that it can be replaced by a fresh
+// instance that re-reads the expiry state from the controller.
+var errResetRequired = errors.ConstError(
+	"secret revision expiry watcher reset required")
+
 // Logger represents the methods used by the worker to log information.
 type Logger interface {
 	Infof(string, ...any)
@@ -81,6 +88,42 @@ func New(config Config) (worker.Worker, error) {
 		Work: w.loop,
 	})
 	return w, errors.Trace(err)
+}
+
+// NewWithReset returns a worker that runs the secret expiry worker
+// described by config, restarting it after a short delay whenever it
+// exits with errResetRequired. Any other error is fatal and is
+// returned from Wait.
+func NewWithReset(config Config) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	r := worker.NewRunner(worker.RunnerParams{
+		Clock: config.Clock,
+		IsFatal: func(err error) bool {
+			return !errors.Is(err, errResetRequired)
+		},
+		RestartDelay: worker.DefaultRestartDelay,
+		Logger:       runnerLogger{config.Logger},
+	})
+	if err := r.StartWorker("secret-expiry", func() (worker.Worker, error) {
+		return New(config)
+	}); err != nil {
+		_ = worker.Stop(r)
+		return nil, errors.Trace(err)
+	}
+	return r, nil
+}
+
+// runnerLogger adapts the package Logger to the runner logger
+// interface; error-level runner logs are emitted as warnings.
+type runnerLogger struct {
+	Logger
+}
+
+// Errorf is part of the logger interface accepted by worker.NewRunner.
+func (l runnerLogger) Errorf(format string, args ...any) {
+	l.Logger.Warningf(format, args...)
 }
 
 type secretRevisionExpiryInfo struct {
@@ -153,6 +196,7 @@ func (w *Worker) expire(now time.Time) error {
 	w.nextTrigger = time.Time{}
 
 	var toExpire []string
+	var resetRequired bool
 	for id, info := range w.secretRevisions {
 		w.config.Logger.Debugf(
 			"expire %s at %s... time diff %s",
@@ -162,18 +206,25 @@ func (w *Worker) expire(now time.Time) error {
 			continue
 		}
 		if info.schedule.RetriesExhausted() {
-			// resyncWatcher clears the whole map, so any bumps
-			// queued above are discarded; nothing is sent.
-			return w.resyncWatcher()
+			// Record the reset so the worker exits with errResetRequired
+			// below, but keep processing any other due entries so
+			// their expiries are not discarded.
+			resetRequired = true
+			w.config.Logger.Warningf(
+				"restarting secret expiry watcher for %q",
+				w.config.SecretOwners, secrettriggerschedule.MaxTriggerRetries,
+			)
+			continue
 		}
 		key := expiryKey(info.uri, info.revision)
 		toExpire = append(toExpire, key)
 		// Once secret revision has been queued for expiry, requeue it
 		// every ExpireRetryDelay up to MaxTriggerRetries attempts. The
 		// charm is expected to delete the revision on expiry. If not,
-		// resync the watcher once MaxTriggerRetries is exhausted. This
-		// guards against the watcher becoming stale and forces the
-		// worker to re-read the expiry state from the controller.
+		// exit with errResetRequired once MaxTriggerRetries is
+		// exhausted. Restarting with a fresh watcher guards against
+		// the watcher becoming stale and re-reads the expiry state
+		// from the controller.
 		info.schedule = info.schedule.AfterFire(w.config.Logger, "secret revision expiry", key, secrets.ExpireRetryDelay, now)
 		w.secretRevisions[id] = info
 	}
@@ -184,24 +235,11 @@ func (w *Worker) expire(now time.Time) error {
 		case w.config.ExpireRevisions <- toExpire:
 		}
 	}
+	if resetRequired {
+		return errResetRequired
+	}
 	w.computeNextExpireTime()
 	return nil
-}
-
-func (w *Worker) resyncWatcher() error {
-	w.config.Logger.Warningf(
-		"resyncing secret revision expiry watcher for %q after exhausting %d trigger retries",
-		w.config.SecretOwners, secrettriggerschedule.MaxTriggerRetries,
-	)
-	if w.watcher != nil {
-		if err := worker.Stop(w.watcher); err != nil {
-			w.config.Logger.Warningf("stopping expiry watcher for resync: %v", err)
-		}
-		w.watcher = nil
-	}
-	clear(w.secretRevisions)
-	w.computeNextExpireTime()
-	return w.startWatcher()
 }
 
 func (w *Worker) startWatcher() error {
