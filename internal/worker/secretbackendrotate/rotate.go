@@ -110,7 +110,7 @@ func (w *Worker) Wait() error {
 
 func (w *Worker) loop() (err error) {
 	defer func() {
-		secrettriggerschedule.StopTimer(w.timer)
+		secrettriggerschedule.Stop(w.timer)
 	}()
 	if err := w.startWatcher(); err != nil {
 		return errors.Trace(err)
@@ -143,11 +143,6 @@ func (w *Worker) rotate(now time.Time) error {
 	w.nextTrigger = time.Time{}
 
 	var toRotate []string
-	for _, info := range w.backendInfo {
-		if !info.schedule.NextTime.After(now) && info.schedule.Fired {
-			return w.resyncWatcher()
-		}
-	}
 	for id, info := range w.backendInfo {
 		w.config.Logger.Debugf(
 			"checking %s: rotate at %s... time diff %s",
@@ -156,10 +151,17 @@ func (w *Worker) rotate(now time.Time) error {
 		if info.schedule.NextTime.After(now) {
 			continue
 		}
+		if info.schedule.Fired {
+			// resyncWatcher clears the whole map, so any bumps
+			// queued above are discarded; nothing is rotated.
+			return w.resyncWatcher()
+		}
 		toRotate = append(toRotate, id)
-		// Keep the entry awaiting confirmation of the new rotation time via the
-		// watcher. If the watcher update is dropped we resync the watcher after
-		// RotateRetryDelay. The prevents the watcher from becoming stale.
+		// Keep the entry awaiting confirmation of the new rotation time via
+		// the watcher. If the confirmation does not arrive within
+		// RotateRetryDelay, resync the watcher so the worker re-reads the
+		// rotation state from the controller. This prevents the watcher
+		// from becoming stale.
 		info.schedule = info.schedule.AfterFire(w.config.Logger, "secret backend token rotation", info.backendName, secrets.RotateRetryDelay, now)
 		w.backendInfo[id] = info
 	}
@@ -174,10 +176,10 @@ func (w *Worker) rotate(now time.Time) error {
 }
 
 func (w *Worker) resyncWatcher() error {
-	w.config.Logger.Warningf("resyncing secret backend token rotation watcher after unconfirmed rotation")
+	w.config.Logger.Warningf("resyncing secret backend token rotation watcher")
 	if w.watcher != nil {
 		if err := worker.Stop(w.watcher); err != nil {
-			w.config.Logger.Debugf("stopping token rotation watcher for resync: %v", err)
+			w.config.Logger.Warningf("stopping token rotation watcher for resync: %v", err)
 		}
 		w.watcher = nil
 	}

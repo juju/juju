@@ -20,19 +20,7 @@ type ScheduleSuite struct{}
 
 var _ = gc.Suite(&ScheduleSuite{})
 
-func (s *ScheduleSuite) TestTriggerRetryDelay(c *gc.C) {
-	c.Check(secrettriggerschedule.TriggerRetryDelay(secrets.RotateRetryDelay, 0), gc.Equals, 5*time.Minute)
-	c.Check(secrettriggerschedule.TriggerRetryDelay(secrets.RotateRetryDelay, 1), gc.Equals, 10*time.Minute)
-	c.Check(secrettriggerschedule.TriggerRetryDelay(secrets.RotateRetryDelay, 2), gc.Equals, 15*time.Minute)
-	c.Check(secrettriggerschedule.TriggerRetryDelay(secrets.RotateRetryDelay, 3), gc.Equals, 25*time.Minute)
-	c.Check(secrettriggerschedule.TriggerRetryDelay(secrets.RotateRetryDelay, 4), gc.Equals, 40*time.Minute)
-	c.Check(secrettriggerschedule.TriggerRetryDelay(secrets.RotateRetryDelay, 5), gc.Equals, time.Hour)
-	c.Check(secrettriggerschedule.TriggerRetryDelay(secrettriggerschedule.MaxTriggerRetryDelay, 0), gc.Equals, secrettriggerschedule.MaxTriggerRetryDelay)
-	c.Check(secrettriggerschedule.TriggerRetryDelay(secrettriggerschedule.MaxTriggerRetryDelay, 1), gc.Equals, secrettriggerschedule.MaxTriggerRetryDelay)
-	c.Check(secrettriggerschedule.TriggerRetryDelay(2*time.Hour, 0), gc.Equals, secrettriggerschedule.MaxTriggerRetryDelay)
-}
-
-func (s *ScheduleSuite) TestTriggerScheduleBumped(c *gc.C) {
+func (s *ScheduleSuite) TestTriggerScheduleAfterFire(c *gc.C) {
 	now := time.Now().UTC()
 	sched := secrettriggerschedule.NewTriggerSchedule(now)
 	c.Check(sched.TriggerTime, gc.Equals, now)
@@ -41,20 +29,23 @@ func (s *ScheduleSuite) TestTriggerScheduleBumped(c *gc.C) {
 	c.Check(sched.RetryCount, gc.Equals, 0)
 	c.Check(sched.RetriesExhausted(), jc.IsFalse)
 
-	bumped := sched.Bumped(secrets.RotateRetryDelay, now)
+	logger := &fakeLogger{}
+	bumped := sched.AfterFire(logger, "secret rotation", "secret:abc", secrets.RotateRetryDelay, now)
 	c.Check(sched.Fired, jc.IsFalse)
 	c.Check(sched.RetryCount, gc.Equals, 0)
 	c.Check(sched.NextTime, gc.Equals, now)
 	sched = bumped
 	c.Check(sched.Fired, jc.IsTrue)
 	c.Check(sched.RetryCount, gc.Equals, 0)
-	c.Check(sched.NextTime, gc.Equals, now.Add(5*time.Minute))
+	c.Check(sched.NextTime, gc.Equals, now.Add(secrets.RotateRetryDelay))
 	c.Check(sched.RetriesExhausted(), jc.IsFalse)
 
+	// Retries run at fixed intervals of the base delay.
 	for attempt := 1; attempt <= secrettriggerschedule.MaxTriggerRetries; attempt++ {
 		fireAt := sched.NextTime
-		sched = sched.Bumped(secrets.RotateRetryDelay, fireAt)
+		sched = sched.AfterFire(logger, "secret rotation", "secret:abc", secrets.RotateRetryDelay, fireAt)
 		c.Check(sched.RetryCount, gc.Equals, attempt)
+		c.Check(sched.NextTime, gc.Equals, fireAt.Add(secrets.RotateRetryDelay))
 		if attempt < secrettriggerschedule.MaxTriggerRetries {
 			c.Check(sched.RetriesExhausted(), jc.IsFalse)
 		} else {
@@ -65,10 +56,10 @@ func (s *ScheduleSuite) TestTriggerScheduleBumped(c *gc.C) {
 	// Once MaxTriggerRetries is reached, RetryCount stays capped at
 	// MaxTriggerRetries and RetriesExhausted remains true.
 	fireAt := sched.NextTime
-	sched = sched.Bumped(secrets.RotateRetryDelay, fireAt)
+	sched = sched.AfterFire(logger, "secret rotation", "secret:abc", secrets.RotateRetryDelay, fireAt)
 	c.Check(sched.RetryCount, gc.Equals, secrettriggerschedule.MaxTriggerRetries)
 	c.Check(sched.RetriesExhausted(), jc.IsTrue)
-	c.Check(sched.NextTime, gc.Equals, fireAt.Add(secrettriggerschedule.MaxTriggerRetryDelay))
+	c.Check(sched.NextTime, gc.Equals, fireAt.Add(secrets.RotateRetryDelay))
 }
 
 func (s *ScheduleSuite) TestTriggerScheduleShouldIgnoreTime(c *gc.C) {
@@ -82,7 +73,7 @@ func (s *ScheduleSuite) TestTriggerScheduleShouldIgnoreTime(c *gc.C) {
 	// After firing (Fired == true), the identical trigger time is ignored,
 	// while both earlier (shortened schedule) and later trigger times are
 	// accepted.
-	sched = sched.Bumped(secrets.RotateRetryDelay, now.Add(2*time.Hour))
+	sched = sched.AfterFire(&fakeLogger{}, "secret rotation", "secret:abc", secrets.RotateRetryDelay, now.Add(2*time.Hour))
 	c.Check(sched.ShouldIgnoreTime(now.Add(2*time.Hour)), jc.IsTrue)
 	c.Check(sched.ShouldIgnoreTime(now.Add(time.Hour)), jc.IsFalse)
 	c.Check(sched.ShouldIgnoreTime(now.Add(3*time.Hour)), jc.IsFalse)
@@ -113,7 +104,7 @@ func (s *ScheduleSuite) TestFire(c *gc.C) {
 	fireAt := sched.NextTime
 	sched = sched.AfterFire(logger, "secret rotation", "secret:abc", secrets.RotateRetryDelay, fireAt)
 	c.Check(sched.RetryCount, gc.Equals, secrettriggerschedule.MaxTriggerRetries)
-	c.Check(sched.NextTime, gc.Equals, fireAt.Add(secrettriggerschedule.MaxTriggerRetryDelay))
+	c.Check(sched.NextTime, gc.Equals, fireAt.Add(secrets.RotateRetryDelay))
 	c.Check(logger.debugs, gc.HasLen, secrettriggerschedule.MaxTriggerRetries+1)
 }
 

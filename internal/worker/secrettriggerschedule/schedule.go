@@ -10,23 +10,22 @@ import (
 )
 
 const (
-	// MaxTriggerRetryDelay is the maximum backoff delay between trigger
-	// retries when confirmation from the controller has not arrived.
-	MaxTriggerRetryDelay = time.Hour
-
-	// MaxTriggerRetries is the maximum retry count for Fibonacci backoff
-	// on a trigger before the worker should resync its watcher state from
-	// the controller.
-	MaxTriggerRetries = 5
+	// MaxTriggerRetries is the maximum retry count for a trigger before
+	// the worker should resync its watcher state from the controller.
+	// Retries run at fixed intervals of the worker's base delay, so with
+	// the 5-minute base delays used by the secret workers, retries run
+	// every 5 minutes and the resync happens 20 minutes after the initial
+	// fire.
+	MaxTriggerRetries = 3
 )
 
-// TriggerSchedule tracks the scheduled trigger time and retry backoff state
+// TriggerSchedule tracks the scheduled trigger time and retry state
 // for a backend token rotation or secret revision expiry.
 type TriggerSchedule struct {
 	// TriggerTime is the trigger time last reported by the watcher.
 	TriggerTime time.Time
 	// NextTime is when the trigger should next fire (initially TriggerTime,
-	// then backed-off retry deadlines after firing).
+	// then fixed-interval retry deadlines after firing).
 	NextTime time.Time
 	// Fired reports whether the initial trigger has already fired.
 	Fired bool
@@ -67,52 +66,26 @@ type Logger interface {
 }
 
 // AfterFire logs the trigger firing (or retry) for kind and target, then
-// returns the schedule bumped to its next retry deadline.
+// returns the schedule bumped to its next retry deadline (baseDelay after
+// now). The returned schedule is a copy; the original is not modified.
 func (s TriggerSchedule) AfterFire(
 	logger Logger, kind, target string, baseDelay time.Duration, now time.Time,
 ) TriggerSchedule {
-	next := s.Bumped(baseDelay, now)
 	if s.Fired {
+		if s.RetryCount < MaxTriggerRetries {
+			s.RetryCount++
+		}
 		logger.Debugf(
 			"retrying %s (attempt %d/%d) for %s at %s (scheduled %s)",
-			kind, next.RetryCount, MaxTriggerRetries, target, now, s.NextTime)
+			kind, s.RetryCount, MaxTriggerRetries, target, now, s.NextTime)
 	} else {
+		s.Fired = true
 		logger.Infof(
 			"firing %s for %s at %s (scheduled %s)",
 			kind, target, now, s.NextTime)
 	}
-	return next
-}
-
-// Bumped returns a copy of s with Fired set, RetryCount incremented up to
-// MaxTriggerRetries on subsequent fires, and NextTime advanced to the next
-// retry deadline from now.
-func (s TriggerSchedule) Bumped(baseDelay time.Duration, now time.Time) TriggerSchedule {
-	if !s.Fired {
-		s.Fired = true
-	} else if s.RetryCount < MaxTriggerRetries {
-		s.RetryCount++
-	}
-	s.NextTime = now.Add(TriggerRetryDelay(baseDelay, s.RetryCount))
+	s.NextTime = now.Add(baseDelay)
 	return s
-}
-
-// TriggerRetryDelay returns the backoff delay for the given retry attempt
-// (0 is the first retry after initial firing), scaling baseDelay by the
-// Fibonacci sequence (1, 2, 3, 5, 8, ...) up to MaxTriggerRetryDelay.
-func TriggerRetryDelay(baseDelay time.Duration, retryCount int) time.Duration {
-	if baseDelay >= MaxTriggerRetryDelay {
-		return MaxTriggerRetryDelay
-	}
-	prev, curr := time.Duration(0), baseDelay
-	for range retryCount + 1 {
-		next := prev + curr
-		if next >= MaxTriggerRetryDelay {
-			return MaxTriggerRetryDelay
-		}
-		prev, curr = curr, next
-	}
-	return curr
 }
 
 // SoonestTime returns the earliest non-zero trigger time across entries, or
@@ -144,14 +117,14 @@ func ScheduleTimer(
 		return timer, current, false
 	}
 	if stopOnly {
-		StopTimer(timer)
+		Stop(timer)
 		return nil, time.Time{}, true
 	}
 	nextDuration := deadline.Sub(now)
 	if timer == nil {
 		return clk.NewTimer(nextDuration), deadline, true
 	}
-	StopTimer(timer)
+	Stop(timer)
 	timer.Reset(nextDuration)
 	return timer, deadline, true
 }
@@ -169,13 +142,13 @@ func ScheduleAlarm(
 		return alarm, current, false
 	}
 	if stopOnly {
-		StopTimer(alarm)
+		Stop(alarm)
 		return nil, time.Time{}, true
 	}
 	if alarm == nil {
 		return clk.NewAlarm(deadline), deadline, true
 	}
-	StopTimer(alarm)
+	Stop(alarm)
 	alarm.Reset(deadline)
 	return alarm, deadline, true
 }
@@ -210,8 +183,9 @@ type StoppableChannel interface {
 	Stop() bool
 }
 
-// StopTimer stops timer if non-nil and drains any buffered tick.
-func StopTimer(timer StoppableChannel) {
+// Stop stops the StoppableChannel (a clock.Timer or clock.Alarm) if
+// non-nil and drains any buffered tick.
+func Stop(timer StoppableChannel) {
 	if timer == nil {
 		return
 	}

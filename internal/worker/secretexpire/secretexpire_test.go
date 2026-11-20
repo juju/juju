@@ -580,26 +580,17 @@ func (s *workerSuite) TestExpireRetryBackoffAndResync(c *gc.C) {
 	s.clock.Advance(time.Hour)
 	s.expectExpired(c, uri.ID+"/666")
 
-	for attempt := range secrettriggerschedule.MaxTriggerRetries {
+	// Unconfirmed expiries retry every ExpireRetryDelay.
+	for range secrettriggerschedule.MaxTriggerRetries {
 		s.waitAlarmArmed(c)
-		delay := secrettriggerschedule.TriggerRetryDelay(secrets.ExpireRetryDelay, attempt)
-		if delay > secrets.ExpireRetryDelay {
-			s.clock.Advance(secrets.ExpireRetryDelay)
-			s.expectNoExpiry(c)
-			s.clock.Advance(delay - secrets.ExpireRetryDelay)
-		} else {
-			s.clock.Advance(delay)
-		}
+		s.clock.Advance(secrets.ExpireRetryDelay)
 		s.expectExpired(c, uri.ID+"/666")
 	}
 
 	// Once MaxTriggerRetries is reached, the next deadline resyncs the
 	// watcher instead of blindly re-firing.
 	s.waitAlarmArmed(c)
-	exhaustedDelay := secrettriggerschedule.TriggerRetryDelay(
-		secrets.ExpireRetryDelay, secrettriggerschedule.MaxTriggerRetries,
-	)
-	s.clock.Advance(exhaustedDelay)
+	s.clock.Advance(secrets.ExpireRetryDelay)
 	select {
 	case <-resyncCalled:
 	case <-time.After(testing.LongWait):
@@ -642,16 +633,14 @@ func (s *workerSuite) TestExpireResyncError(c *gc.C) {
 	s.clock.Advance(time.Hour)
 	s.expectExpired(c, uri.ID+"/666")
 
-	for attempt := range secrettriggerschedule.MaxTriggerRetries {
+	for range secrettriggerschedule.MaxTriggerRetries {
 		s.waitAlarmArmed(c)
-		s.clock.Advance(secrettriggerschedule.TriggerRetryDelay(secrets.ExpireRetryDelay, attempt))
+		s.clock.Advance(secrets.ExpireRetryDelay)
 		s.expectExpired(c, uri.ID+"/666")
 	}
 
 	s.waitAlarmArmed(c)
-	s.clock.Advance(secrettriggerschedule.TriggerRetryDelay(
-		secrets.ExpireRetryDelay, secrettriggerschedule.MaxTriggerRetries,
-	))
+	s.clock.Advance(secrets.ExpireRetryDelay)
 	workertest.CheckKilled(c, w)
 	c.Check(w.Wait(), gc.ErrorMatches, "resync boom")
 }
@@ -701,7 +690,7 @@ func (s *workerSuite) TestStaleTriggerIgnoredDuringRetry(c *gc.C) {
 	s.waitAlarmArmed(c)
 
 	// A duplicate watcher event carrying the identical trigger time must not
-	// reset the pending retry backoff, re-arm the alarm, or cause a premature
+	// reset the pending retry count, re-arm the alarm, or cause a premature
 	// fire.
 	s.expiryConfigChanges <- []corewatcher.SecretTriggerChange{{
 		URI:             uri,

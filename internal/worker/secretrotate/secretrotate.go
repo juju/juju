@@ -117,7 +117,7 @@ func (w *Worker) Wait() error {
 
 func (w *Worker) loop() (err error) {
 	defer func() {
-		secrettriggerschedule.StopTimer(w.timer)
+		secrettriggerschedule.Stop(w.timer)
 	}()
 	changes, err := w.config.SecretManagerFacade.WatchSecretsRotationChanges(w.config.SecretOwners...)
 	if err != nil {

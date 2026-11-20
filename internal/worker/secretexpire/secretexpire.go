@@ -120,7 +120,7 @@ func (w *Worker) Wait() error {
 
 func (w *Worker) loop() (err error) {
 	defer func() {
-		secrettriggerschedule.StopTimer(w.alarm)
+		secrettriggerschedule.Stop(w.alarm)
 	}()
 	if err := w.startWatcher(); err != nil {
 		return errors.Trace(err)
@@ -153,12 +153,6 @@ func (w *Worker) expire(now time.Time) error {
 	w.nextTrigger = time.Time{}
 
 	var toExpire []string
-	var retrying int
-	for _, info := range w.secretRevisions {
-		if !info.schedule.NextTime.After(now) && info.schedule.RetriesExhausted() {
-			return w.resyncWatcher()
-		}
-	}
 	for id, info := range w.secretRevisions {
 		w.config.Logger.Debugf(
 			"expire %s at %s... time diff %s",
@@ -167,24 +161,22 @@ func (w *Worker) expire(now time.Time) error {
 		if info.schedule.NextTime.After(now) {
 			continue
 		}
-		if info.schedule.Fired {
-			retrying++
+		if info.schedule.RetriesExhausted() {
+			// resyncWatcher clears the whole map, so any bumps
+			// queued above are discarded; nothing is sent.
+			return w.resyncWatcher()
 		}
 		key := expiryKey(info.uri, info.revision)
 		toExpire = append(toExpire, key)
 		// Once secret revision has been queued for expiry, requeue it
-		// with Fibonacci backoff up to MaxTriggerRetryDelay. The charm
-		// is expected to delete the revision on expiry. If not, resync
-		// the watcher once MaxTriggerRetries is exhausted. This guards
-		// against the watcher becoming stale and forces the worker to
-		// re-read the expiry state from the controller.
+		// every ExpireRetryDelay up to MaxTriggerRetries attempts. The
+		// charm is expected to delete the revision on expiry. If not,
+		// resync the watcher once MaxTriggerRetries is exhausted. This
+		// guards against the watcher becoming stale and forces the
+		// worker to re-read the expiry state from the controller.
 		info.schedule = info.schedule.AfterFire(w.config.Logger, "secret revision expiry", key, secrets.ExpireRetryDelay, now)
 		w.secretRevisions[id] = info
 	}
-	if retrying > 0 {
-		w.config.Logger.Warningf("%d secret revision expiry triggers retrying after failed confirmation", retrying)
-	}
-
 	if len(toExpire) > 0 {
 		select {
 		case <-w.catacomb.Dying():
@@ -203,7 +195,7 @@ func (w *Worker) resyncWatcher() error {
 	)
 	if w.watcher != nil {
 		if err := worker.Stop(w.watcher); err != nil {
-			w.config.Logger.Debugf("stopping expiry watcher for resync: %v", err)
+			w.config.Logger.Warningf("stopping expiry watcher for resync: %v", err)
 		}
 		w.watcher = nil
 	}
