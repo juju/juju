@@ -51,6 +51,8 @@ type Deltas interface {
 	Removal(ctx context.Context, src []v4_0_12.Removal, model *v4_0_12.ModelExport) ([]v4_1_0.Removal, error)
 	// SecretPermission: struct shape changed in 4.1.0.
 	SecretPermission(ctx context.Context, src []v4_0_12.SecretPermission, model *v4_0_12.ModelExport) ([]v4_1_0.SecretPermission, error)
+	// SecretRemoteUnitConsumer: struct shape changed in 4.1.0.
+	SecretRemoteUnitConsumer(ctx context.Context, src []v4_0_12.SecretRemoteUnitConsumer, model *v4_0_12.ModelExport) ([]v4_1_0.SecretRemoteUnitConsumer, error)
 	// Unit: struct shape changed in 4.1.0.
 	Unit(ctx context.Context, src []v4_0_12.Unit, model *v4_0_12.ModelExport) ([]v4_1_0.Unit, error)
 	// UnitResource: struct shape changed in 4.1.0.
@@ -963,11 +965,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.SecretReference[i] = v4_1_0.SecretReference(src.SecretReference[i])
 		}
 
-		dst.SecretRemoteUnitConsumer = make([]v4_1_0.SecretRemoteUnitConsumer, len(src.SecretRemoteUnitConsumer))
-		for i := range src.SecretRemoteUnitConsumer {
-			dst.SecretRemoteUnitConsumer[i] = v4_1_0.SecretRemoteUnitConsumer(src.SecretRemoteUnitConsumer[i])
-		}
-
 		dst.SecretReservation = make([]v4_1_0.SecretReservation, len(src.SecretReservation))
 		for i := range src.SecretReservation {
 			dst.SecretReservation[i] = v4_1_0.SecretReservation(src.SecretReservation[i])
@@ -1270,6 +1267,10 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 
 		if dst.SecretPermission, err = d.SecretPermission(ctx, src.SecretPermission, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("SecretPermission delta: %w", err)
+		}
+
+		if dst.SecretRemoteUnitConsumer, err = d.SecretRemoteUnitConsumer(ctx, src.SecretRemoteUnitConsumer, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("SecretRemoteUnitConsumer delta: %w", err)
 		}
 
 		if dst.Unit, err = d.Unit(ctx, src.Unit, &src); err != nil {

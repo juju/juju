@@ -2214,7 +2214,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "secret_remote_unit_consumer",
 			deleteSQL: `DELETE FROM "secret_remote_unit_consumer" AS t`,
-			insertSQL: `INSERT INTO "secret_remote_unit_consumer" ("secret_id", "unit_name", "current_revision") SELECT $SecretRemoteUnitConsumer.secret_id AS "secret_id", $SecretRemoteUnitConsumer.unit_name AS "unit_name", $SecretRemoteUnitConsumer.current_revision AS "current_revision"`,
+			insertSQL: `INSERT INTO "secret_remote_unit_consumer" ("secret_id", "offer_connection_uuid", "unit_name", "current_revision") SELECT $SecretRemoteUnitConsumer.secret_id AS "secret_id", $SecretRemoteUnitConsumer.offer_connection_uuid AS "offer_connection_uuid", $SecretRemoteUnitConsumer.unit_name AS "unit_name", $SecretRemoteUnitConsumer.current_revision AS "current_revision"`,
 			sample:    exporttypes.SecretRemoteUnitConsumer{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
 				return insertRows(ctx, tx, stmt, dump.SecretRemoteUnitConsumer, nil)

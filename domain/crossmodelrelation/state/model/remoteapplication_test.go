@@ -944,6 +944,8 @@ func (s *baseSuite) setupRemoteApplicationConsumer(c *tc.C) (offerUUID, relation
 	s.createCharm(c, synthCharmUUID)
 	s.createCharm(c, realCharmUUID)
 	s.createApplication(c, synthApplicationUUID, synthCharmUUID, offUUID)
+	s.query(c, `UPDATE application SET name = ? WHERE uuid = ?`,
+		coreapplication.RemoteApplicationNameFromUUID(synthApplicationUUID), synthApplicationUUID)
 	s.createApplication(c, realApplicationUUID, realCharmUUID, "")
 	relUUID := s.addRelation(c).String()
 

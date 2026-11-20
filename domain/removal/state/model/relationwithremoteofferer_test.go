@@ -299,6 +299,71 @@ VALUES (?, ?)`, relUUID.String(), "10.0.0.0/24")
 	}
 }
 
+func (s *relationWithRemoteOfferer) TestDeleteRelationWithRemoteOffererSecretConsumersIsolationAndRollback(c *tc.C) {
+	relUUID, _ := s.createRelationWithRemoteOfferer(c)
+	offerUUID := s.createOffer(c, "tracked-offer")
+	firstAppUUID, _ := s.createRemoteApplicationConsumer(c, "consumer-one", offerUUID)
+	secondAppUUID, _ := s.createRemoteApplicationConsumer(c, "consumer-two", offerUUID)
+	otherAppUUID, _ := s.createRemoteApplicationConsumer(c, "other", offerUUID)
+
+	// Offer connections normally describe the offering side of a relation.
+	// Exercise the defensive remote-offerer cleanup with valid consumer and
+	// offer parents, associating two connections with the relation selected
+	// for deletion. Tracking can outlive synthetic units or precede them.
+	_, err := s.DB().ExecContext(c.Context(), `
+UPDATE offer_connection SET remote_relation_uuid = ? WHERE uuid IN (?, ?)`,
+		relUUID.String(), firstAppUUID.String(), secondAppUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	consumers := []secretRemoteUnitConsumerRow{
+		{"secret-1", firstAppUUID.String(), "consumer-one/99", 1},
+		{"secret-2", firstAppUUID.String(), "consumer-one/99", 2},
+		{"secret-1", secondAppUUID.String(), "consumer-two/99", 3},
+		{"secret-1", otherAppUUID.String(), "other/99", 4},
+	}
+	s.addSecretRemoteUnitConsumers(c, consumers...)
+	var units int
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM unit WHERE application_uuid IN (?, ?, ?)`,
+		firstAppUUID.String(), secondAppUUID.String(), otherAppUUID.String()).Scan(&units)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(units, tc.Equals, 0)
+
+	s.advanceRelationLife(c, relUUID, life.Dying)
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = st.DeleteRelationWithRemoteOfferer(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIs, removalerrors.UnitsStillInScope)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+	c.Check(s.secretRemoteUnitConsumers(c), tc.SameContents, consumers)
+	var connections int
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM offer_connection WHERE remote_relation_uuid = ?`, relUUID.String()).Scan(&connections)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(connections, tc.Equals, 2)
+	var remoteConsumers int
+	err = s.DB().QueryRowContext(c.Context(), `SELECT COUNT(*) FROM application_remote_consumer`).Scan(&remoteConsumers)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(remoteConsumers, tc.Equals, 3)
+
+	err = st.DeleteRelationUnits(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.DeleteRelationWithRemoteOfferer(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.secretRemoteUnitConsumers(c), tc.SameContents, consumers[3:])
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM offer_connection WHERE remote_relation_uuid = ?`, relUUID.String()).Scan(&connections)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(connections, tc.Equals, 0)
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM offer_connection WHERE uuid = ?`, otherAppUUID.String()).Scan(&connections)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(connections, tc.Equals, 1)
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM application_remote_consumer WHERE offer_connection_uuid = ?`,
+		otherAppUUID.String()).Scan(&remoteConsumers)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(remoteConsumers, tc.Equals, 1)
+}
+
 func (s *relationWithRemoteOfferer) TestDeleteRelationWithRemoteOffererWhenRemoteAppHasMultipleRelations(c *tc.C) {
 	synthAppUUID, _ := s.createRemoteApplicationOfferer(c, "foo")
 	s.createIAASApplication(c, s.setupApplicationService(c), "app1",
