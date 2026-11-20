@@ -12,12 +12,17 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/authentication"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/pinger"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/rpcreflect"
 )
@@ -123,6 +128,109 @@ type rootSuite struct {
 
 func TestRootSuite(t *stdtesting.T) {
 	tc.Run(t, &rootSuite{})
+}
+
+type stubDelegator struct {
+	access   permission.Access
+	err      error
+	userName string
+	target   permission.ID
+	permErr  error
+}
+
+func (d *stubDelegator) SubjectPermissions(_ context.Context, userName string, target permission.ID) (permission.Access, error) {
+	d.userName = userName
+	d.target = target
+	return d.access, d.err
+}
+
+func (d *stubDelegator) PermissionError(names.Tag, permission.Access) error {
+	return d.permErr
+}
+
+func (r *rootSuite) TestUserAccessFromDelegator(c *tc.C) {
+	delegator := &stubDelegator{access: permission.WriteAccess}
+	handler := apiserver.APIHandlerWithAuthInfo(authentication.AuthInfo{
+		Tag:       names.NewUserTag("bob@external"),
+		Delegator: delegator,
+	})
+	modelTag := names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")
+
+	access, err := handler.UserAccess(c.Context(), modelTag)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(access, tc.Equals, permission.WriteAccess)
+	c.Check(delegator.userName, tc.Equals, "bob@external")
+	c.Check(delegator.target, tc.Equals, permission.ID{ObjectType: permission.Model, Key: modelTag.Id()})
+}
+
+func (r *rootSuite) TestUserAccessPermissionNotFound(c *tc.C) {
+	handler := apiserver.APIHandlerWithAuthInfo(authentication.AuthInfo{
+		Tag:       names.NewUserTag("bob"),
+		Delegator: &stubDelegator{err: accesserrors.PermissionNotFound},
+	})
+
+	access, err := handler.UserAccess(c.Context(), names.NewCloudTag("my-cloud"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(access, tc.Equals, permission.NoAccess)
+}
+
+func (r *rootSuite) TestUserAccessNonUserTag(c *tc.C) {
+	delegator := &stubDelegator{access: permission.AdminAccess}
+	handler := apiserver.APIHandlerWithAuthInfo(authentication.AuthInfo{
+		Tag:       names.NewMachineTag("0"),
+		Delegator: delegator,
+	})
+
+	access, err := handler.UserAccess(c.Context(), names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(access, tc.Equals, permission.NoAccess)
+	c.Check(delegator.userName, tc.Equals, "")
+}
+
+func (r *rootSuite) TestUserAccessNoDelegator(c *tc.C) {
+	handler := apiserver.APIHandlerWithAuthInfo(authentication.AuthInfo{
+		Tag: names.NewUserTag("bob"),
+	})
+
+	access, err := handler.UserAccess(c.Context(), names.NewCloudTag("my-cloud"))
+	c.Check(err, tc.ErrorIs, errors.NotImplemented)
+	c.Check(access, tc.Equals, permission.NoAccess)
+}
+
+func (r *rootSuite) TestRequireAccessSatisfied(c *tc.C) {
+	handler := apiserver.APIHandlerWithAuthInfo(authentication.AuthInfo{
+		Tag:       names.NewUserTag("bob"),
+		Delegator: &stubDelegator{access: permission.WriteAccess},
+	})
+
+	access, err := handler.RequireAccess(c.Context(), permission.ReadAccess, names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(access, tc.Equals, permission.WriteAccess)
+}
+
+func (r *rootSuite) TestRequireAccessBelowRequired(c *tc.C) {
+	permErr := &apiservererrors.AccessRequiredError{}
+	handler := apiserver.APIHandlerWithAuthInfo(authentication.AuthInfo{
+		Tag:       names.NewUserTag("bob"),
+		Delegator: &stubDelegator{access: permission.ReadAccess, permErr: permErr},
+	})
+
+	access, err := handler.RequireAccess(c.Context(), permission.WriteAccess, names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d"))
+	c.Check(err, tc.ErrorIs, authentication.ErrorEntityMissingPermission)
+	c.Check(err, tc.ErrorIs, permErr)
+	c.Check(access, tc.Equals, permission.NoAccess)
+}
+
+func (r *rootSuite) TestRequireAccessNoAccess(c *tc.C) {
+	handler := apiserver.APIHandlerWithAuthInfo(authentication.AuthInfo{
+		Tag:       names.NewUserTag("bob"),
+		Delegator: &stubDelegator{err: accesserrors.PermissionNotFound, permErr: apiservererrors.ErrPerm},
+	})
+
+	access, err := handler.RequireAccess(c.Context(), permission.AddModelAccess, names.NewCloudTag("my-cloud"))
+	c.Check(err, tc.ErrorIs, authentication.ErrorEntityMissingPermission)
+	c.Check(err, tc.ErrorIs, apiservererrors.ErrPerm)
+	c.Check(access, tc.Equals, permission.NoAccess)
 }
 
 func (r *rootSuite) TestFindMethodUnknownFacade(c *tc.C) {
