@@ -57,7 +57,7 @@ CREATE TABLE storage_pool_attribute (
 -- are trying to understand the composition of a storage_instance and not the
 -- purpose it may be fulfilling.
 CREATE TABLE storage_kind (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     kind TEXT NOT NULL
 );
 
@@ -214,7 +214,7 @@ CREATE INDEX idx_storage_attachment_unit
 ON storage_attachment (unit_uuid);
 
 CREATE TABLE storage_volume_status_value (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     status TEXT NOT NULL
 );
 
@@ -245,7 +245,7 @@ CREATE TABLE storage_volume_status (
 );
 
 CREATE TABLE storage_provision_scope (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     scope TEXT NOT NULL UNIQUE,
     CONSTRAINT chk_storage_provision_scope_scope_not_empty
     CHECK (scope <> '')
@@ -342,7 +342,7 @@ CREATE INDEX idx_storage_volume_attachment_block_device_uuid
 ON storage_volume_attachment (block_device_uuid);
 
 CREATE TABLE storage_filesystem_status_value (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     status TEXT NOT NULL
 );
 
@@ -445,7 +445,7 @@ CREATE INDEX idx_storage_filesystem_attachment_net_node_uuid
 ON storage_filesystem_attachment (net_node_uuid);
 
 CREATE TABLE storage_volume_device_type (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
     description TEXT
 );

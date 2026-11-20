@@ -1,5 +1,5 @@
 CREATE TABLE ssh_key_algorithm_type (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     type TEXT NOT NULL
 );
 

@@ -1,7 +1,7 @@
 -- Model database tables for secrets.
 
 CREATE TABLE secret_rotate_policy (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     policy TEXT NOT NULL,
     CONSTRAINT chk_empty_policy
     CHECK (policy != '')
@@ -251,7 +251,7 @@ CREATE UNIQUE INDEX idx_secret_remote_unit_consumer_secret_id_unit_name
 ON secret_remote_unit_consumer (secret_id, unit_name);
 
 CREATE TABLE secret_role (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     role TEXT
 );
 
@@ -263,7 +263,7 @@ INSERT INTO secret_role VALUES
 (2, 'manage');
 
 CREATE TABLE secret_grant_subject_type (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     type TEXT
 );
 
@@ -273,7 +273,7 @@ INSERT INTO secret_grant_subject_type VALUES
 (2, 'model');
 
 CREATE TABLE secret_grant_scope_type (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     type TEXT
 );
 

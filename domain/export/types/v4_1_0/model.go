@@ -16,7 +16,7 @@ type AgentBinaryStore struct {
 }
 
 type AgentStream struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
@@ -226,7 +226,7 @@ type ApplicationWorkloadVersion struct {
 }
 
 type Architecture struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
@@ -247,7 +247,7 @@ type BlockCommand struct {
 }
 
 type BlockCommandType struct {
-	ID       *int64 `db:"id" json:"id" yaml:"id"`
+	ID       int64  `db:"id" json:"id" yaml:"id"`
 	NameType string `db:"name_type" json:"name_type" yaml:"name_type"`
 }
 
@@ -275,7 +275,7 @@ type BlockDeviceLinkDevice struct {
 }
 
 type BlockDeviceProvenance struct {
-	ID    *int64 `db:"id" json:"id" yaml:"id"`
+	ID    int64  `db:"id" json:"id" yaml:"id"`
 	Value string `db:"value" json:"value" yaml:"value"`
 }
 
@@ -288,12 +288,12 @@ type ChangeLog struct {
 }
 
 type ChangeLogEditType struct {
-	ID       *int64  `db:"id" json:"id" yaml:"id"`
+	ID       int64   `db:"id" json:"id" yaml:"id"`
 	EditType *string `db:"edit_type" json:"edit_type" yaml:"edit_type"`
 }
 
 type ChangeLogNamespace struct {
-	ID          *int64  `db:"id" json:"id" yaml:"id"`
+	ID          int64   `db:"id" json:"id" yaml:"id"`
 	Namespace   *string `db:"namespace" json:"namespace" yaml:"namespace"`
 	Description *string `db:"description" json:"description" yaml:"description"`
 }
@@ -343,7 +343,7 @@ type CharmConfig struct {
 }
 
 type CharmConfigType struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
@@ -416,7 +416,7 @@ type CharmMetadata struct {
 }
 
 type CharmProvenance struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
@@ -432,12 +432,12 @@ type CharmRelation struct {
 }
 
 type CharmRelationRole struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
 type CharmRelationScope struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
@@ -450,17 +450,17 @@ type CharmResource struct {
 }
 
 type CharmResourceKind struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
 type CharmRunAsKind struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
 type CharmSource struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
@@ -478,7 +478,7 @@ type CharmStorage struct {
 }
 
 type CharmStorageKind struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Kind string `db:"kind" json:"kind" yaml:"kind"`
 }
 
@@ -535,7 +535,7 @@ type ConstraintZone struct {
 }
 
 type ContainerType struct {
-	ID    *int64 `db:"id" json:"id" yaml:"id"`
+	ID    int64  `db:"id" json:"id" yaml:"id"`
 	Value string `db:"value" json:"value" yaml:"value"`
 }
 
@@ -560,7 +560,7 @@ type FqdnAddress struct {
 }
 
 type HashKind struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
@@ -590,22 +590,22 @@ type IpAddress struct {
 }
 
 type IpAddressConfigType struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
 type IpAddressOrigin struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
 type IpAddressScope struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
 type IpAddressType struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
@@ -628,7 +628,7 @@ type K8sPodStatus struct {
 }
 
 type K8sPodStatusValue struct {
-	ID     *int64 `db:"id" json:"id" yaml:"id"`
+	ID     int64  `db:"id" json:"id" yaml:"id"`
 	Status string `db:"status" json:"status" yaml:"status"`
 }
 
@@ -640,7 +640,7 @@ type K8sService struct {
 }
 
 type Life struct {
-	ID    *int64 `db:"id" json:"id" yaml:"id"`
+	ID    int64  `db:"id" json:"id" yaml:"id"`
 	Value string `db:"value" json:"value" yaml:"value"`
 }
 
@@ -682,7 +682,7 @@ type LinkLayerDeviceRoute struct {
 }
 
 type LinkLayerDeviceType struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
@@ -735,7 +735,7 @@ type MachineCloudInstanceStatus struct {
 }
 
 type MachineCloudInstanceStatusValue struct {
-	ID     *int64 `db:"id" json:"id" yaml:"id"`
+	ID     int64  `db:"id" json:"id" yaml:"id"`
 	Status string `db:"status" json:"status" yaml:"status"`
 }
 
@@ -776,7 +776,7 @@ type MachinePlacement struct {
 }
 
 type MachinePlacementScope struct {
-	ID    *int64 `db:"id" json:"id" yaml:"id"`
+	ID    int64  `db:"id" json:"id" yaml:"id"`
 	Value string `db:"value" json:"value" yaml:"value"`
 }
 
@@ -812,7 +812,7 @@ type MachineStatus struct {
 }
 
 type MachineStatusValue struct {
-	ID     *int64 `db:"id" json:"id" yaml:"id"`
+	ID     int64  `db:"id" json:"id" yaml:"id"`
 	Status string `db:"status" json:"status" yaml:"status"`
 }
 
@@ -887,7 +887,7 @@ type NetNodeHostnameAddress struct {
 }
 
 type NetworkAddressScope struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
@@ -982,7 +982,7 @@ type OperationTaskStatus struct {
 }
 
 type OperationTaskStatusValue struct {
-	ID     *int64 `db:"id" json:"id" yaml:"id"`
+	ID     int64  `db:"id" json:"id" yaml:"id"`
 	Status string `db:"status" json:"status" yaml:"status"`
 }
 
@@ -1000,12 +1000,12 @@ type OperatorStatus struct {
 }
 
 type Os struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
 type PasswordHashAlgorithm struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
@@ -1024,7 +1024,7 @@ type PortRange struct {
 }
 
 type Protocol struct {
-	ID       *int64 `db:"id" json:"id" yaml:"id"`
+	ID       int64  `db:"id" json:"id" yaml:"id"`
 	Protocol string `db:"protocol" json:"protocol" yaml:"protocol"`
 }
 
@@ -1152,7 +1152,7 @@ type RemovalType struct {
 }
 
 type ResolveMode struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
@@ -1189,7 +1189,7 @@ type ResourceImageStore struct {
 }
 
 type ResourceOriginType struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
@@ -1200,12 +1200,12 @@ type ResourceRetrievedBy struct {
 }
 
 type ResourceRetrievedByType struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
 type ResourceState struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
@@ -1239,12 +1239,12 @@ type SecretDeletedValueRef struct {
 }
 
 type SecretGrantScopeType struct {
-	ID   *int64  `db:"id" json:"id" yaml:"id"`
+	ID   int64   `db:"id" json:"id" yaml:"id"`
 	Type *string `db:"type" json:"type" yaml:"type"`
 }
 
 type SecretGrantSubjectType struct {
-	ID   *int64  `db:"id" json:"id" yaml:"id"`
+	ID   int64   `db:"id" json:"id" yaml:"id"`
 	Type *string `db:"type" json:"type" yaml:"type"`
 }
 
@@ -1313,12 +1313,12 @@ type SecretRevisionObsolete struct {
 }
 
 type SecretRole struct {
-	ID   *int64  `db:"id" json:"id" yaml:"id"`
+	ID   int64   `db:"id" json:"id" yaml:"id"`
 	Role *string `db:"role" json:"role" yaml:"role"`
 }
 
 type SecretRotatePolicy struct {
-	ID     *int64 `db:"id" json:"id" yaml:"id"`
+	ID     int64  `db:"id" json:"id" yaml:"id"`
 	Policy string `db:"policy" json:"policy" yaml:"policy"`
 }
 
@@ -1367,7 +1367,7 @@ type SshConnectionRequest struct {
 }
 
 type SshKeyAlgorithmType struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Type string `db:"type" json:"type" yaml:"type"`
 }
 
@@ -1407,7 +1407,7 @@ type StorageFilesystemStatus struct {
 }
 
 type StorageFilesystemStatusValue struct {
-	ID     *int64 `db:"id" json:"id" yaml:"id"`
+	ID     int64  `db:"id" json:"id" yaml:"id"`
 	Status string `db:"status" json:"status" yaml:"status"`
 }
 
@@ -1433,7 +1433,7 @@ type StorageInstanceVolume struct {
 }
 
 type StorageKind struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Kind string `db:"kind" json:"kind" yaml:"kind"`
 }
 
@@ -1456,7 +1456,7 @@ type StoragePoolOrigin struct {
 }
 
 type StorageProvisionScope struct {
-	ID    *int64 `db:"id" json:"id" yaml:"id"`
+	ID    int64  `db:"id" json:"id" yaml:"id"`
 	Scope string `db:"scope" json:"scope" yaml:"scope"`
 }
 
@@ -1505,7 +1505,7 @@ type StorageVolumeAttachmentPlanAttr struct {
 }
 
 type StorageVolumeDeviceType struct {
-	ID          *int64  `db:"id" json:"id" yaml:"id"`
+	ID          int64   `db:"id" json:"id" yaml:"id"`
 	Name        string  `db:"name" json:"name" yaml:"name"`
 	Description *string `db:"description" json:"description" yaml:"description"`
 }
@@ -1518,7 +1518,7 @@ type StorageVolumeStatus struct {
 }
 
 type StorageVolumeStatusValue struct {
-	ID     *int64 `db:"id" json:"id" yaml:"id"`
+	ID     int64  `db:"id" json:"id" yaml:"id"`
 	Status string `db:"status" json:"status" yaml:"status"`
 }
 
@@ -1554,7 +1554,7 @@ type UnitAgentStatus struct {
 }
 
 type UnitAgentStatusValue struct {
-	ID     *int64 `db:"id" json:"id" yaml:"id"`
+	ID     int64  `db:"id" json:"id" yaml:"id"`
 	Status string `db:"status" json:"status" yaml:"status"`
 }
 
@@ -1629,12 +1629,12 @@ type UnitWorkloadVersion struct {
 }
 
 type VirtualPortType struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
 type WorkloadStatusValue struct {
-	ID     *int64 `db:"id" json:"id" yaml:"id"`
+	ID     int64  `db:"id" json:"id" yaml:"id"`
 	Status string `db:"status" json:"status" yaml:"status"`
 }
 
