@@ -23,6 +23,42 @@ func TestDeltasSuite(t *testing.T) {
 	tc.Run(t, &deltasSuite{})
 }
 
+func (s *deltasSuite) TestCharmMetadataDefaultsUnitlessToFalse(c *tc.C) {
+	src := v4_0_12.ModelExport{
+		CharmMetadata: []v4_0_12.CharmMetadata{{
+			CharmUUID:      "charm-uuid",
+			Name:           "foo",
+			Description:    new("description"),
+			Summary:        new("summary"),
+			Subordinate:    true,
+			MinJujuVersion: new("4.0.0"),
+			RunAsID:        new(int64(0)),
+			Assumes:        new(`{"assumes":["juju >= 4.0"]}`),
+		}, {
+			CharmUUID: "minimal-charm-uuid",
+			Name:      "minimal",
+		}},
+	}
+
+	got, err := NewTransform(NewDeltas())(c.Context(), src)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.CharmMetadata, tc.DeepEquals, []v4_1_0.CharmMetadata{{
+		CharmUUID:      "charm-uuid",
+		Name:           "foo",
+		Description:    new("description"),
+		Summary:        new("summary"),
+		Subordinate:    true,
+		Unitless:       false,
+		MinJujuVersion: new("4.0.0"),
+		RunAsID:        new(int64(0)),
+		Assumes:        new(`{"assumes":["juju >= 4.0"]}`),
+	}, {
+		CharmUUID: "minimal-charm-uuid",
+		Name:      "minimal",
+		Unitless:  false,
+	}})
+}
+
 // TestRelationApplicationSettingDropsEmptyValues verifies that a set value is
 // carried through while NULL and empty values are dropped, since the 4.1.0
 // value column is NOT NULL and disallows the empty string.

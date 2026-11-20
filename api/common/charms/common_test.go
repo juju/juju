@@ -50,6 +50,7 @@ func (s *suite) TestCharmInfo(c *tc.C) {
 		},
 		Meta: &params.CharmMeta{
 			Name:           "dummy",
+			Unitless:       true,
 			Description:    "cockroachdb",
 			MinJujuVersion: "2.9.0",
 			Resources: map[string]params.CharmResourceMeta{
@@ -112,6 +113,7 @@ func (s *suite) TestCharmInfo(c *tc.C) {
 		},
 		Meta: &charm.Meta{
 			Name:           "dummy",
+			Unitless:       true,
 			Description:    "cockroachdb",
 			MinJujuVersion: semversion.MustParse("2.9.0"),
 			Resources: map[string]resource.Meta{

@@ -4856,6 +4856,9 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "unitless": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false,

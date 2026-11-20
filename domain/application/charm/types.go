@@ -316,6 +316,7 @@ type Metadata struct {
 	Summary        string
 	Description    string
 	Subordinate    bool
+	Unitless       bool
 	Provides       map[string]Relation
 	Requires       map[string]Relation
 	Peers          map[string]Relation

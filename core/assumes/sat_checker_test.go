@@ -129,41 +129,61 @@ assumes:
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("expected assumes expression tree to be satisfied"))
 }
 
-func (s *SatCheckerSuite) TestUnitlessAssumeSatisfied(c *tc.C) {
+func (s *SatCheckerSuite) TestVirtualCharmAssumeSatisfied(c *tc.C) {
 	var fs FeatureSet
-	fs.Add(UnitlessFeature())
+	fs.Add(VirtualCharmFeature())
 
 	exprTree := mustParseAssumesExpr(c, `
 assumes:
-  - unitless
+  - virtual-charm
 `)
 
 	err := fs.Satisfies(exprTree)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *SatCheckerSuite) TestVersionedUnitlessAssumesSatisfied(c *tc.C) {
+func (s *SatCheckerSuite) TestVersionedVirtualCharmAssumesSatisfied(c *tc.C) {
 	var fs FeatureSet
-	fs.Add(UnitlessFeature())
+	fs.Add(VirtualCharmFeature())
 
 	exprTree := mustParseAssumesExpr(c, `
 assumes:
-  - unitless >= 1
-  - unitless < 1
+  - virtual-charm >= 1.0
+  - virtual-charm < 2.0
 `)
 
 	err := fs.Satisfies(exprTree)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *SatCheckerSuite) TestUnitlessAssumeNotSatisfied(c *tc.C) {
+func (s *SatCheckerSuite) TestVirtualCharmAssumeNotSatisfied(c *tc.C) {
 	exprTree := mustParseAssumesExpr(c, `
 assumes:
-  - unitless
+  - virtual-charm
 `)
 
 	err := (FeatureSet{}).Satisfies(exprTree)
-	c.Assert(err, tc.ErrorMatches, `(?s).*charm requires support for unitless applications.*`)
+	c.Check(err, tc.ErrorMatches, `(?s).*charm requires support for virtual charms.*`)
+}
+
+func (s *SatCheckerSuite) TestVirtualCharmAssumeVersionNotSatisfied(c *tc.C) {
+	var fs FeatureSet
+	fs.Add(VirtualCharmFeature())
+
+	for _, expression := range []string{"virtual-charm >= 1.0.1", "virtual-charm >= 1.1", "virtual-charm < 1.0"} {
+		exprTree := mustParseAssumesExpr(c, "assumes:\n  - "+expression)
+		err := fs.Satisfies(exprTree)
+		c.Check(err, tc.Satisfies, IsRequirementsNotSatisfiedError)
+		c.Check(err, tc.ErrorMatches, `(?s).*charm requires feature "virtual-charm".*model currently supports version 1.0.0.*`)
+	}
+}
+
+func (s *SatCheckerSuite) TestUnitlessIsNotASupportedFeature(c *tc.C) {
+	var fs FeatureSet
+	fs.Add(VirtualCharmFeature())
+
+	err := fs.Satisfies(mustParseAssumesExpr(c, "assumes:\n  - unitless"))
+	c.Check(err, tc.Satisfies, IsRequirementsNotSatisfiedError)
 }
 
 func genFeatureSet(c *tc.C) FeatureSet {

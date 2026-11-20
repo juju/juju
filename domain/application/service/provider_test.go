@@ -435,8 +435,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationUnitlessCharm(c *tc.C) {
 		},
 	}).MinTimes(1)
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
-		Name:    "unitless",
-		Assumes: unitlessAssumes(),
+		Name:     "unitless",
+		Unitless: true,
+		Assumes:  virtualCharmAssumes(),
 	}).MinTimes(1)
 
 	_, err := s.service.CreateIAASApplication(c.Context(), "unitless", s.charm, corecharm.Origin{
@@ -460,8 +461,8 @@ func (s *providerServiceSuite) TestCreateIAASApplicationUnitlessCharmWithUnits(c
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
-		Name:    "unitless",
-		Assumes: unitlessAssumes(),
+		Name:     "unitless",
+		Unitless: true,
 	}).MinTimes(1)
 	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{
 		Bases: []internalcharm.Base{
@@ -524,8 +525,9 @@ func (s *providerServiceSuite) TestCreateCAASApplicationUnitlessCharm(c *tc.C) {
 		},
 	}).MinTimes(1)
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
-		Name:    "unitless",
-		Assumes: unitlessAssumes(),
+		Name:     "unitless",
+		Unitless: true,
+		Assumes:  virtualCharmAssumes(),
 	}).MinTimes(1)
 
 	_, err := s.service.CreateCAASApplication(c.Context(), "unitless", s.charm, corecharm.Origin{
@@ -549,8 +551,8 @@ func (s *providerServiceSuite) TestCreateCAASApplicationUnitlessCharmWithUnits(c
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
-		Name:    "unitless",
-		Assumes: unitlessAssumes(),
+		Name:     "unitless",
+		Unitless: true,
 	}).MinTimes(1)
 	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{
 		Bases: []internalcharm.Base{
@@ -2626,7 +2628,7 @@ func (s *providerServiceSuite) TestGetSupportedFeatures(c *tc.C) {
 		Name:        "juju",
 		Description: assumes.UserFriendlyFeatureDescriptions["juju"],
 		Version:     &agentVersion,
-	}, assumes.UnitlessFeature())
+	}, assumes.VirtualCharmFeature())
 	c.Check(features, tc.DeepEquals, fs)
 }
 
@@ -2675,7 +2677,7 @@ func (s *providerServiceSuite) TestGetSupportedFeaturesNotSupported(c *tc.C) {
 		Name:        "juju",
 		Description: assumes.UserFriendlyFeatureDescriptions["juju"],
 		Version:     &agentVersion,
-	}, assumes.UnitlessFeature())
+	}, assumes.VirtualCharmFeature())
 	c.Check(features, tc.DeepEquals, fs)
 }
 

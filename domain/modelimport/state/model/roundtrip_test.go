@@ -28,6 +28,33 @@ func TestRoundTripSuite(t *testing.T) {
 	tc.Run(t, &roundTripSuite{})
 }
 
+func (s *roundTripSuite) TestUnitlessMetadataRoundTrip(c *tc.C) {
+	s.bootstrapModel(c)
+	now := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	payload := &v4_1_0.ModelExport{
+		Charm: []v4_1_0.Charm{
+			{UUID: "ordinary-charm", SourceID: 1, Revision: 1, ReferenceName: "ordinary", CreateTime: now},
+			{UUID: "virtual-charm", SourceID: 1, Revision: 1, ReferenceName: "virtual", CreateTime: now},
+		},
+		CharmMetadata: []v4_1_0.CharmMetadata{
+			{CharmUUID: "ordinary-charm", Name: "ordinary", Unitless: false},
+			{CharmUUID: "virtual-charm", Name: "virtual", Unitless: true},
+		},
+	}
+
+	data, err := yaml.Marshal(payload)
+	c.Assert(err, tc.ErrorIsNil)
+	decoded, err := export.DecodePayload(semversion.MustParse("4.1.0"), data)
+	c.Assert(err, tc.ErrorIsNil)
+	decodedPayload, ok := decoded.(v4_1_0.ModelExport)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(importstate.NewState(s.TxnRunnerFactory()).Import(c.Context(), &decodedPayload), tc.ErrorIsNil)
+
+	got, err := exportstate.NewState(s.TxnRunnerFactory()).Export(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.CharmMetadata, tc.SameContents, payload.CharmMetadata)
+}
+
 // TestImportExportRoundTrip imports a payload and re-exports it, asserting the
 // generated importer is a faithful write-mirror of the exporter. The payload
 // deliberately covers the following cases:

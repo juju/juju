@@ -150,8 +150,9 @@ func (s *charmStateSuite) TestAddCharmScriptlet(c *tc.C) {
 
 	id, _, err := st.AddCharm(c.Context(), charm.Charm{
 		Metadata: charm.Metadata{
-			Name:  "foo",
-			RunAs: charm.RunAsRoot,
+			Name:     "foo",
+			RunAs:    charm.RunAsRoot,
+			Unitless: true,
 		},
 		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
@@ -167,6 +168,10 @@ func (s *charmStateSuite) TestAddCharmScriptlet(c *tc.C) {
 		}},
 	}, nil, false)
 	c.Assert(err, tc.ErrorIsNil)
+
+	metadata, err := st.GetCharmMetadata(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(metadata.Unitless, tc.IsTrue)
 
 	var sources []charmScriptlet
 	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
