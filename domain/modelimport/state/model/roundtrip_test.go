@@ -100,6 +100,10 @@ func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
 			ApplicationUUID: appUUID, NetNodeUUID: netNodeUUID,
 			CharmUUID: charmUUID,
 		}},
+		UnitStateRelation: []v4_1_0.UnitStateRelation{
+			{UnitUUID: unitUUID, Key: 0, Value: "zero"},
+			{UnitUUID: unitUUID, Key: 1, Value: "one"},
+		},
 		UnitResource: []v4_1_0.UnitResource{{
 			ResourceUUID: resourceUUID, UnitUUID: unitUUID,
 			CharmResourceName: resourceName, AddedAt: now,
@@ -126,6 +130,7 @@ func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
 	c.Check(got.ProviderSpace, tc.SameContents, payload.ProviderSpace)
 	c.Check(got.UnitResource, tc.DeepEquals, payload.UnitResource)
 	c.Check(got.RelationStatus, tc.SameContents, payload.RelationStatus)
+	c.Check(got.UnitStateRelation, tc.SameContents, payload.UnitStateRelation)
 
 	data, err = yaml.Marshal(got)
 	c.Assert(err, tc.ErrorIsNil)
@@ -134,6 +139,7 @@ func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
 	reexported, ok := decoded.(v4_1_0.ModelExport)
 	c.Assert(ok, tc.IsTrue)
 	c.Check(reexported.RelationStatus, tc.SameContents, payload.RelationStatus)
+	c.Check(reexported.UnitStateRelation, tc.SameContents, payload.UnitStateRelation)
 	c.Check(reexported.RelationStatusType, tc.SameContents, got.RelationStatusType)
 
 	// The user space was imported; the alpha seed row was preserved exactly once

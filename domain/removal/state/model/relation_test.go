@@ -276,7 +276,7 @@ func (s *relationSuite) TestDeleteRelationUnitsSuccess(c *tc.C) {
 
 func (s *relationSuite) TestDeleteRelationUnitsInScopeFails(c *tc.C) {
 	rel, unitUUID, _ := s.addAppUnitRelationScope(c, domaincharm.CharmHubSource)
-	s.addUnitRelationState(c, unitUUID, "42", "checkpoint")
+	s.addUnitRelationState(c, unitUUID, 42, "checkpoint")
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -285,7 +285,7 @@ func (s *relationSuite) TestDeleteRelationUnitsInScopeFails(c *tc.C) {
 	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
 
 	var checkpoint string
-	err = s.DB().QueryRow(`SELECT value FROM unit_state_relation WHERE unit_uuid = ? AND "key" = '42'`,
+	err = s.DB().QueryRow(`SELECT value FROM unit_state_relation WHERE unit_uuid = ? AND "key" = 42`,
 		unitUUID).Scan(&checkpoint)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(checkpoint, tc.Equals, "checkpoint")
@@ -340,8 +340,8 @@ VALUES ('other-relation-uuid', 0, 43, 0)`)
 	c.Assert(err, tc.ErrorIsNil)
 
 	for _, u := range []string{unitUUID, otherUnitUUID} {
-		s.addUnitRelationState(c, u, "42", "removed checkpoint")
-		s.addUnitRelationState(c, u, "43", "retained checkpoint for "+u)
+		s.addUnitRelationState(c, u, 42, "removed checkpoint")
+		s.addUnitRelationState(c, u, 43, "retained checkpoint for "+u)
 	}
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
@@ -357,9 +357,10 @@ VALUES ('other-relation-uuid', 0, 43, 0)`)
 	defer rows.Close()
 	checkpoints := make(map[string]string)
 	for rows.Next() {
-		var u, key, value string
+		var u, value string
+		var key int
 		c.Assert(rows.Scan(&u, &key, &value), tc.ErrorIsNil)
-		c.Check(key, tc.Equals, "43")
+		c.Check(key, tc.Equals, 43)
 		checkpoints[u] = value
 	}
 	c.Assert(rows.Err(), tc.ErrorIsNil)
@@ -376,7 +377,7 @@ VALUES ('other-relation-uuid', 0, 43, 0)`)
 
 func (s *relationSuite) TestDeleteRelationRollsBackUnitState(c *tc.C) {
 	rel, unitUUID, _ := s.addAppUnitRelationScope(c, domaincharm.CharmHubSource)
-	s.addUnitRelationState(c, unitUUID, "42", "checkpoint")
+	s.addUnitRelationState(c, unitUUID, 42, "checkpoint")
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err := st.DeleteRelationUnits(c.Context(), rel)
@@ -394,7 +395,7 @@ END`)
 	c.Assert(err, tc.ErrorMatches, ".*relation deletion failed.*")
 
 	var checkpoint string
-	err = s.DB().QueryRow(`SELECT value FROM unit_state_relation WHERE unit_uuid = ? AND "key" = '42'`,
+	err = s.DB().QueryRow(`SELECT value FROM unit_state_relation WHERE unit_uuid = ? AND "key" = 42`,
 		unitUUID).Scan(&checkpoint)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(checkpoint, tc.Equals, "checkpoint")
@@ -815,7 +816,7 @@ func (s *relationSuite) TestIsUnitDyingAndBlockedDead(c *tc.C) {
 	}
 }
 
-func (s *relationSuite) addUnitRelationState(c *tc.C, unitUUID, key, value string) {
+func (s *relationSuite) addUnitRelationState(c *tc.C, unitUUID string, key int, value string) {
 	_, err := s.DB().Exec(`
 INSERT INTO unit_state_relation (unit_uuid, "key", value) VALUES (?, ?, ?)`,
 		unitUUID, key, value)
