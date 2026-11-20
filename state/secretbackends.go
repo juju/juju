@@ -639,7 +639,7 @@ func (w *secretBackendRotationWatcher) merge(details []corewatcher.SecretBackend
 			ID:   knownDetails.ID,
 			Name: knownDetails.Name,
 		}
-		return replaceDeletedTriggerDetails(details, deletedDetails, func(d corewatcher.SecretBackendRotateChange) string {
+		return replacePendingTriggerDetails(details, deletedDetails, func(d corewatcher.SecretBackendRotateChange) string {
 			return d.ID
 		}), nil
 	}
@@ -650,10 +650,12 @@ func (w *secretBackendRotationWatcher) merge(details []corewatcher.SecretBackend
 			ID:       ID,
 			Name:     doc.Name,
 		}
-		details = append(details, corewatcher.SecretBackendRotateChange{
+		details = replacePendingTriggerDetails(details, corewatcher.SecretBackendRotateChange{
 			ID:              ID,
 			Name:            doc.Name,
 			NextTriggerTime: doc.NextRotateTime.UTC(),
+		}, func(d corewatcher.SecretBackendRotateChange) string {
+			return d.ID
 		})
 	}
 	return details, nil

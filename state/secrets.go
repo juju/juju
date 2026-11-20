@@ -4002,7 +4002,7 @@ func (w *secretsRotationWatcher) merge(details []corewatcher.SecretTriggerChange
 		deletedDetails := corewatcher.SecretTriggerChange{
 			URI: knownDetails.URI,
 		}
-		return replaceDeletedTriggerDetails(details, deletedDetails, func(d corewatcher.SecretTriggerChange) string {
+		return replacePendingTriggerDetails(details, deletedDetails, func(d corewatcher.SecretTriggerChange) string {
 			return d.URI.ID
 		}), nil
 	}
@@ -4016,25 +4016,28 @@ func (w *secretsRotationWatcher) merge(details []corewatcher.SecretTriggerChange
 			txnRevNo: doc.TxnRevno,
 			URI:      uri,
 		}
-		details = append(details, corewatcher.SecretTriggerChange{
+		details = replacePendingTriggerDetails(details, corewatcher.SecretTriggerChange{
 			URI:             uri,
 			NextTriggerTime: doc.NextRotateTime.UTC(),
+		}, func(d corewatcher.SecretTriggerChange) string {
+			return d.URI.ID
 		})
 	}
 	return details, nil
 }
 
-// replaceDeletedTriggerDetails removes any pending changes matching deleted's
-// key in place and appends deleted at the tail.
-func replaceDeletedTriggerDetails[T any, K comparable](details []T, deleted T, key func(T) K) []T {
-	deletedKey := key(deleted)
-	filtered := details[:0]
+// replacePendingTriggerDetails removes any pending changes matching the key
+// of updated and appends updated at the tail, so a batch carries at most one
+// change per key.
+func replacePendingTriggerDetails[T any, K comparable](details []T, updated T, key func(T) K) []T {
+	updatedKey := key(updated)
+	filtered := make([]T, 0, len(details)+1)
 	for _, detail := range details {
-		if key(detail) != deletedKey {
+		if key(detail) != updatedKey {
 			filtered = append(filtered, detail)
 		}
 	}
-	return append(filtered, deleted)
+	return append(filtered, updated)
 }
 
 func (w *secretsRotationWatcher) loop() (err error) {
@@ -4183,7 +4186,7 @@ func (w *secretsExpiryWatcher) merge(details []corewatcher.SecretTriggerChange, 
 		// Remove any pending earlier events for the same revision and append
 		// the deletion at the tail if it was previously going to expire or
 		// already had a pending cancellation in this batch.
-		filtered := details[:0]
+		filtered := make([]corewatcher.SecretTriggerChange, 0, len(details)+1)
 		hadPendingCancel := false
 		for _, detail := range details {
 			if detail.URI.ID == knownDetails.uri.ID && detail.Revision == knownDetails.revision {
@@ -4214,15 +4217,19 @@ func (w *secretsExpiryWatcher) merge(details []corewatcher.SecretTriggerChange, 
 		}
 		// The event we send depends on if the revision is set to expire.
 		if willExpire {
-			details = append(details, corewatcher.SecretTriggerChange{
+			details = replacePendingTriggerDetails(details, corewatcher.SecretTriggerChange{
 				URI:             uri,
 				Revision:        doc.Revision,
 				NextTriggerTime: doc.ExpireTime.UTC(),
+			}, func(d corewatcher.SecretTriggerChange) string {
+				return d.URI.ID + "/" + strconv.Itoa(d.Revision)
 			})
 		} else if knownDetails.willExpire {
-			details = append(details, corewatcher.SecretTriggerChange{
+			details = replacePendingTriggerDetails(details, corewatcher.SecretTriggerChange{
 				URI:      uri,
 				Revision: doc.Revision,
+			}, func(d corewatcher.SecretTriggerChange) string {
+				return d.URI.ID + "/" + strconv.Itoa(d.Revision)
 			})
 		}
 	}

@@ -89,6 +89,37 @@ func (s *secretsExpiryWatcherMergeSuite) TestUnexpireThenDeletePreservesCancella
 	c.Check(got[0].NextTriggerTime.IsZero(), jc.IsTrue)
 }
 
+// TestExpireThenDeleteInOneBatch ensures that when a revision that was
+// expiring is deleted before a pending expiry trigger is delivered, the
+// pending trigger is removed and a single zero-time deletion is appended.
+func (s *secretsExpiryWatcherMergeSuite) TestExpireThenDeleteInOneBatch(c *gc.C) {
+	uri := secrets.NewURI()
+	changeID := "model-uuid:" + uri.ID + "/1"
+	next := time.Now()
+	w := &secretsExpiryWatcher{
+		known: map[string]expiryWatcherDetails{
+			changeID: {
+				uri:        uri,
+				revision:   1,
+				willExpire: true,
+			},
+		},
+	}
+	details := []corewatcher.SecretTriggerChange{
+		{URI: uri, Revision: 1, NextTriggerTime: next},
+	}
+
+	got, err := w.merge(details, watcher.Change{
+		Id:    changeID,
+		Revno: -1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.HasLen, 1)
+	c.Check(got[0].URI.ID, gc.Equals, uri.ID)
+	c.Check(got[0].Revision, gc.Equals, 1)
+	c.Check(got[0].NextTriggerTime.IsZero(), jc.IsTrue)
+}
+
 type secretsRotationWatcherMergeSuite struct{}
 
 var _ = gc.Suite(&secretsRotationWatcherMergeSuite{})
@@ -119,5 +150,37 @@ func (s *secretsRotationWatcherMergeSuite) TestDeleteRemovesPriorUpdates(c *gc.C
 	c.Assert(got, gc.HasLen, 2)
 	c.Check(got[0].URI.ID, gc.Equals, otherURI.ID)
 	c.Check(got[1].URI.ID, gc.Equals, uri.ID)
+	c.Check(got[1].NextTriggerTime.IsZero(), jc.IsTrue)
+}
+
+type secretBackendRotationWatcherMergeSuite struct{}
+
+var _ = gc.Suite(&secretBackendRotationWatcherMergeSuite{})
+
+// TestDeleteRemovesPriorUpdates ensures a deletion clears any older pending
+// updates for the same backend and appends the deletion at the tail.
+func (s *secretBackendRotationWatcherMergeSuite) TestDeleteRemovesPriorUpdates(c *gc.C) {
+	next := time.Now()
+	w := &secretBackendRotationWatcher{
+		known: map[string]secretBackendRotateWatcherDetails{
+			"backend-id/1": {ID: "backend-id/1", Name: "backend-1"},
+		},
+	}
+	details := []corewatcher.SecretBackendRotateChange{
+		{ID: "backend-id/1", Name: "backend-1", NextTriggerTime: next},
+		{ID: "backend-id/2", Name: "backend-2", NextTriggerTime: next.Add(time.Hour)},
+		{ID: "backend-id/1", Name: "backend-1", NextTriggerTime: next.Add(2 * time.Hour)},
+	}
+
+	got, err := w.merge(details, watcher.Change{
+		Id:    "backend-id/1",
+		Revno: -1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.HasLen, 2)
+	c.Check(got[0].ID, gc.Equals, "backend-id/2")
+	c.Check(got[0].NextTriggerTime.Equal(next.Add(time.Hour)), jc.IsTrue)
+	c.Check(got[1].ID, gc.Equals, "backend-id/1")
+	c.Check(got[1].Name, gc.Equals, "backend-1")
 	c.Check(got[1].NextTriggerTime.IsZero(), jc.IsTrue)
 }

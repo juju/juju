@@ -1020,7 +1020,6 @@ func (w *secretBackendRotateWatcher) mergeChanges(current, newChanges []watcher.
 // mergeOrderedTriggerChanges combines current and newChanges by key, keeping
 // only the final occurrence of each key at its final chronological position (an
 // updated key moves to the tail after earlier events for other keys).
-// The watcher which consumes these events relies on the ordering.
 func mergeOrderedTriggerChanges[T any, K comparable](current, newChanges []T, key func(T) K) []T {
 	combined := make([]T, 0, len(current)+len(newChanges))
 	combined = append(combined, current...)
