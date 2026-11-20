@@ -200,6 +200,11 @@ var modelPostPatchFilesByVersion = []struct {
 		"0064-machine-parent-delete-trigger.PATCH.sql",
 		"0065-log-transfer-progress.PATCH.sql",
 	},
+}, {
+	version: semversion.MustParse("4.0.17"),
+	files: []string{
+		"0066-agent-presence-token.PATCH.sql",
+	},
 }}
 
 // ModelDDL is used to create model databases.

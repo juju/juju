@@ -47,11 +47,13 @@ type unitName struct {
 type unitPresence struct {
 	UnitUUID string    `db:"unit_uuid"`
 	LastSeen time.Time `db:"last_seen"`
+	Token    string    `db:"token"`
 }
 
 type machinePresence struct {
 	MachineUUID string    `db:"machine_uuid"`
 	LastSeen    time.Time `db:"last_seen"`
+	Token       string    `db:"token"`
 }
 
 type remoteApplicationUUID struct {
