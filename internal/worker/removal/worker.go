@@ -5,9 +5,11 @@ package removal
 
 import (
 	"context"
+	"maps"
 	"time"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/retry"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 	"gopkg.in/tomb.v2"
@@ -19,9 +21,21 @@ import (
 	internalworker "github.com/juju/juju/internal/worker"
 )
 
-// jobCheckMaxInterval is the maximum time between checks of the removal table,
-// to see if any jobs need processing.
-const jobCheckMaxInterval = 10 * time.Second
+const (
+	// jobCheckMinInterval is the initial delay between checks while jobs remain.
+	jobCheckMinInterval = time.Second
+
+	// jobCheckMaxInterval caps the backoff and is the idle polling interval.
+	// New job notifications wake the worker without waiting for this check.
+	jobCheckMaxInterval = time.Second * 30
+
+	// jobCheckBackoffFactor reaches the maximum delay in ten checks.
+	jobCheckBackoffFactor = 1.5
+)
+
+var (
+	backoff = retry.ExpBackoff(jobCheckMinInterval, jobCheckMaxInterval, jobCheckBackoffFactor, false)
+)
 
 // Config holds configuration required to run the removal worker.
 type Config struct {
@@ -109,22 +123,43 @@ func (w *removalWorker) loop() (err error) {
 	timer := w.cfg.Clock.NewTimer(jobCheckMaxInterval)
 	defer timer.Stop()
 
+	// Receiving the initial event, even if empty, establishes watcher readiness.
+	// Only then can polling query jobs without missing changes during startup.
+	var (
+		timerChanges <-chan time.Time
+		previousJobs set.Strings
+		attempt      int
+	)
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case jobIDs := <-watch.Changes():
-			w.cfg.Logger.Infof(ctx, "got removal job changes: %v", jobIDs)
-			if err := w.processRemovalJobs(ctx); err != nil {
-				return errors.Capture(err)
-			}
-			timer.Reset(jobCheckMaxInterval)
-		case <-timer.Chan():
-			if err := w.processRemovalJobs(ctx); err != nil {
-				return errors.Capture(err)
-			}
-			timer.Reset(jobCheckMaxInterval)
+			w.cfg.Logger.Debugf(ctx, "got removal job changes: %v", jobIDs)
+			attempt = 0
+		case <-timerChanges:
 		}
+
+		jobs, err := w.processRemovalJobs(ctx)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		// A new or completed job resets the delay. Compare identities rather
+		// than counts or ordering, since additions can coincide with deletions.
+		if !maps.Equal(jobs, previousJobs) {
+			attempt = 0
+		}
+		previousJobs = jobs
+		interval := jobCheckMaxInterval
+		if !jobs.IsEmpty() {
+			interval = backoff(0, attempt)
+			attempt++
+		} else {
+			attempt = 0
+		}
+		timer.Reset(interval)
+		timerChanges = timer.Chan()
 	}
 }
 
@@ -132,24 +167,29 @@ func (w *removalWorker) loop() (err error) {
 // For each one whose scheduled start time has passed, we check to see if there
 // is an entry in our runner for it. If there is, it is already being processed
 // and we ignore it. Otherwise, it is commenced in a new runner.
+// It returns the pending job UUIDs, including running jobs and jobs not yet due,
+// so the caller can reset its polling backoff when the job set changes.
+//
 // This is safe due to the following conditions:
 // - This is the only method adding workers to the runner.
 // - It is only invoked from cases in the main event loop, so is Goroutine safe.
-func (w *removalWorker) processRemovalJobs(ctx context.Context) error {
+func (w *removalWorker) processRemovalJobs(ctx context.Context) (set.Strings, error) {
 	jobs, err := w.cfg.RemovalService.GetAllJobs(ctx)
 	if err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	running := set.NewStrings(w.runner.WorkerNames()...)
+	pending := set.NewStrings()
 	log := w.cfg.Logger
 
 	for _, j := range jobs {
 		id := j.UUID.String()
+		pending.Add(id)
 
 		// The worker for this job may have completed since we retrieved the
 		// worker names, but we don't fuss over it. The job will be picked up
-		// again in at most [jobCheckMaxInterval].
+		// again on the next check, at most [jobCheckMaxInterval] later.
 		if running.Contains(id) {
 			log.Debugf(ctx, "removal job %q already running", id)
 			continue
@@ -162,11 +202,11 @@ func (w *removalWorker) processRemovalJobs(ctx context.Context) error {
 
 		w.cfg.Logger.Infof(ctx, "scheduling %s job %q", j.RemovalType, id)
 		if err := w.runner.StartWorker(ctx, id, newJobWorker(w.cfg.RemovalService, j)); err != nil {
-			return errors.Capture(err)
+			return nil, errors.Capture(err)
 		}
 	}
 
-	return nil
+	return pending, nil
 }
 
 // Report data for display in the dependency engine report.
