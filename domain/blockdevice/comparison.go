@@ -18,6 +18,10 @@ const (
 	DevLinkByPartLabel = "/dev/disk/by-partlabel/"
 	DevLinkByFSUUID    = "/dev/disk/by-uuid/"
 
+	// DevLinkByLoopInode identifies a loop device by its backing device and
+	// inode, independently of filesystem metadata added during formatting.
+	DevLinkByLoopInode = "/dev/disk/by-loop-inode/"
+
 	// DevLinkAzureUDevLink is a strong identifier for Azure block devices.
 	// See [github.com/juju/juju/internal/provider/azure.azureDiskDeviceLink].
 	DevLinkAzureUDevLink = "/dev/disk/azure/scsi1/"
@@ -43,6 +47,7 @@ func SameDevice(left, right blockdevice.BlockDevice) bool {
 		case strings.HasPrefix(link, DevLinkByID):
 		case strings.HasPrefix(link, DevLinkByPartUUID):
 		case strings.HasPrefix(link, DevLinkByFSUUID):
+		case strings.HasPrefix(link, DevLinkByLoopInode):
 		case strings.HasPrefix(link, DevLinkAzureUDevLink):
 		default:
 			continue
