@@ -237,7 +237,7 @@ func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.Fea
 		Name:        "juju",
 		Description: assumes.UserFriendlyFeatureDescriptions["juju"],
 		Version:     &agentVersion,
-	}, assumes.UnitlessFeature())
+	}, assumes.VirtualCharmFeature())
 
 	supportedFeatureProvider, err := s.caasApplicationProvider(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
@@ -864,11 +864,9 @@ func (s *ProviderService) validateCreateApplicationArgs(
 	return args, nil
 }
 
-// isUnitlessCharm reports whether the charm is a unitless-only charm: one
-// that assumes the unitless feature and runs controller-side scriptlets
-// instead of traditional unit hooks. Such charms are deployed without units.
+// isUnitlessCharm reports whether the charm requires a unitless environment.
 func isUnitlessCharm(ch internalcharm.Charm) bool {
-	return assumes.HasFeature(ch.Meta().Assumes, "unitless")
+	return ch.Meta().Unitless
 }
 
 func (s *ProviderService) makeApplicationArg(
