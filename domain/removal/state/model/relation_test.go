@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	relationstate "github.com/juju/juju/domain/relation/state"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -377,9 +379,11 @@ VALUES ('other-relation-uuid', 0, 43, 0)`)
 func (s *relationSuite) TestDeleteRelationRollsBackUnitState(c *tc.C) {
 	rel, unitUUID, _ := s.addAppUnitRelationScope(c, domaincharm.CharmHubSource)
 	s.addUnitRelationState(c, unitUUID, "42", "checkpoint")
+	initialSequence, err := s.relationSettingsSequence(c, rel)
+	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err := st.DeleteRelationUnits(c.Context(), rel)
+	err = st.DeleteRelationUnits(c.Context(), rel)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Fail the final deletion to check that checkpoint cleanup rolls back.
@@ -400,6 +404,9 @@ END`)
 	c.Check(checkpoint, tc.Equals, "checkpoint")
 	_, err = st.GetRelationLife(c.Context(), rel)
 	c.Check(err, tc.ErrorIsNil)
+	currentSequence, err := s.relationSettingsSequence(c, rel)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(currentSequence, tc.Equals, initialSequence)
 }
 
 func (s *relationSuite) TestDeleteRelationUnitsInScopeSuccessHasSecretPermission(c *tc.C) {
@@ -880,10 +887,8 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.DB().Exec(
-		"INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256) VALUES (?, ?)",
-		relEndpoint, "hash",
-	)
+	relationState := relationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c), nil)
+	err = relationState.SetRelationApplicationSettings(c.Context(), corerelation.UUID(rel), coreapplication.UUID(app), map[string]string{"key": "value"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	node := "some-net-node-uuid"
@@ -907,9 +912,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.DB().Exec("INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256) VALUES (?, ?)",
-		relUnit, "hash",
-	)
+	err = relationState.SetRelationUnitSettings(c.Context(), corerelation.UnitUUID(relUnit), map[string]string{"key": "value"}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().Exec(
