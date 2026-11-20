@@ -352,6 +352,69 @@ func (s *sequenceSuite) TestSequencePrefixNamespace(c *tc.C) {
 	c.Assert(next, tc.Equals, uint64(1))
 }
 
+func (s *sequenceSuite) TestSequenceStartsAtOne(c *tc.C) {
+	namespace := domainsequence.MakePrefixNamespace(domainsequence.StaticNamespace("foo"), "bar")
+	for _, expected := range []uint64{1, 2} {
+		var next uint64
+		err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+			var err error
+			next, err = NextValueWithStart(ctx, s.state, tx, namespace, 1)
+			return err
+		})
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(next, tc.Equals, expected)
+	}
+}
+
+func (s *sequenceSuite) TestSequenceStartDoesNotResetExistingNamespace(c *tc.C) {
+	namespace := domainsequence.StaticNamespace("foo")
+	var next uint64
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		next, err = NextValue(ctx, s.state, tx, namespace)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(next, tc.Equals, uint64(0))
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		next, err = NextValueWithStart(ctx, s.state, tx, namespace, 10)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(next, tc.Equals, uint64(1))
+}
+
+func (s *sequenceSuite) TestSequenceMultipleStartsAtOne(c *tc.C) {
+	const n = 100
+	valuesCh := make(chan uint64, n)
+	eg, egCtx := errgroup.WithContext(c.Context())
+	for range n {
+		eg.Go(func() error {
+			var next uint64
+			err := s.TxnRunner().Txn(egCtx, func(ctx context.Context, tx *sqlair.TX) error {
+				var err error
+				next, err = NextValueWithStart(ctx, s.state, tx, domainsequence.StaticNamespace("foo"), 1)
+				return err
+			})
+			if err != nil {
+				return err
+			}
+			valuesCh <- next
+			return nil
+		})
+	}
+	c.Assert(eg.Wait(), tc.ErrorIsNil)
+	values := make([]uint64, n)
+	expected := make([]uint64, n)
+	for i := range n {
+		values[i] = <-valuesCh
+		expected[i] = uint64(i + 1)
+	}
+	slices.Sort(values)
+	c.Check(values, tc.DeepEquals, expected)
+}
+
 func (s *sequenceSuite) TestSequenceMultiple(c *tc.C) {
 	const n = 100
 	buf := make(chan uint64, n)

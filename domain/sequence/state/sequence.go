@@ -22,7 +22,13 @@ type sequence struct {
 // namespace.
 // The first such value starts at 0.
 func NextValue(ctx context.Context, preparer domain.Preparer, tx *sqlair.TX, namespace domainsequence.Namespace) (uint64, error) {
-	return incrementSequence(ctx, preparer, tx, 1, namespace)
+	return NextValueWithStart(ctx, preparer, tx, namespace, 0)
+}
+
+// NextValueWithStart returns the next sequence value, initialising a new
+// namespace at start. Existing namespaces are incremented regardless of start.
+func NextValueWithStart(ctx context.Context, preparer domain.Preparer, tx *sqlair.TX, namespace domainsequence.Namespace, start uint64) (uint64, error) {
+	return incrementSequence(ctx, preparer, tx, 1, namespace, start)
 }
 
 type count struct {
@@ -46,7 +52,7 @@ func NextNValues(
 		return nil, nil
 	}
 
-	latest, err := incrementSequence(ctx, preparer, tx, n, namespace)
+	latest, err := incrementSequence(ctx, preparer, tx, n, namespace, 0)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -74,10 +80,11 @@ func incrementSequence(
 	tx *sqlair.TX,
 	n uint64,
 	namespace domainsequence.Namespace,
+	start uint64,
 ) (uint64, error) {
 	seq := sequence{
 		Namespace: namespace.String(),
-		Value:     n - 1,
+		Value:     start + n - 1,
 	}
 	cnt := count{N: n}
 
