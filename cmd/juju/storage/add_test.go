@@ -75,8 +75,8 @@ var errorTsts = []tstData{
 	},
 	{
 		args:        []string{"tst/123", "data=-676"},
-		expectedErr: `count must be greater than zero, got "-676"`,
-		visibleErr:  `cannot parse constraints for storage "data": parsing storage count: count must be greater than zero, got "-676"`,
+		expectedErr: `count must not be negative, got "-676"`,
+		visibleErr:  `cannot parse constraints for storage "data": parsing storage count: count must not be negative, got "-676"`,
 	},
 	{
 		args:        []string{"tst/123", "data=676", "data=676"},
