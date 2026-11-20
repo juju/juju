@@ -66,6 +66,17 @@ func (s *modelImporterSuite) TestImportModel(c *tc.C) {
 	}
 	importer := migration.NewModelImporter(scope, s.ModelDomainServicesGetter(c), nil, "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
 
+	payload := &latest.ModelExport{
+		AgentStream: []v4_1_0.AgentStream{{ID: new(int64(1)), Name: "proposed"}},
+		AgentVersion: []v4_1_0.AgentVersion{{
+			StreamID: 1, TargetVersion: jujuversion.Current.String(),
+		}},
+		ModelAgent: []v4_1_0.ModelAgent{{ModelUUID: modelUUID.String()}},
+		ModelConfig: []v4_1_0.ModelConfig{
+			{Key: "agent-stream", Value: "devel"},
+			{Key: "agent-version", Value: "99.0.0"},
+		},
+	}
 	importArgs := migration.ImportModelArgs{
 		SourceMigrationUUID: uuid.MustNewUUID().String(),
 		ControllerModelInfo: coremodelmigration.ControllerModelInfo{
@@ -78,10 +89,12 @@ func (s *modelImporterSuite) TestImportModel(c *tc.C) {
 				Life:      "alive",
 			},
 		},
+		ModelDBPayload: payload,
 	}
-	view := export.ProjectionView{AgentTargetVersion: jujuversion.Current}
+	view, err := export.ProjectionViewForPayload(*payload)
+	c.Assert(err, tc.ErrorIsNil)
 
-	err := importer.ImportModel(c.Context(), importArgs, view)
+	err = importer.ImportModel(c.Context(), importArgs, view)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The model is activated by the import so the migrating model's agents can
@@ -90,6 +103,24 @@ func (s *modelImporterSuite) TestImportModel(c *tc.C) {
 	exists, err := s.ControllerDomainServices(c).Model().CheckModelExists(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.IsTrue)
+
+	var stream, version string
+	var agentConfigRows int
+	err = modelRunner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, `
+SELECT s.name, v.target_version
+FROM agent_version AS v
+JOIN agent_stream AS s ON s.id = v.stream_id`).Scan(&stream, &version); err != nil {
+			return err
+		}
+		return tx.QueryRowContext(ctx, `
+SELECT COUNT(*) FROM model_config
+WHERE key IN ('agent-stream', 'agent-version')`).Scan(&agentConfigRows)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(stream, tc.Equals, "proposed")
+	c.Check(version, tc.Equals, jujuversion.Current.String())
+	c.Check(agentConfigRows, tc.Equals, 0)
 
 	// The import claim is still present and importing: activation of the model
 	// row must not have deleted the claim (that happens only in the target
