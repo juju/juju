@@ -166,6 +166,7 @@ CREATE TABLE charm_metadata (
     description TEXT,
     summary TEXT,
     subordinate BOOLEAN NOT NULL DEFAULT FALSE,
+    unitless BOOLEAN NOT NULL DEFAULT FALSE,
     min_juju_version TEXT,
     run_as_id INT DEFAULT 0,
     -- Assumes is a blob of YAML that will be parsed by the charm to compute
@@ -192,6 +193,7 @@ SELECT
     cm.description,
     cm.summary,
     cm.subordinate,
+    cm.unitless,
     cm.min_juju_version,
     crak.name AS run_as,
     cm.assumes,
