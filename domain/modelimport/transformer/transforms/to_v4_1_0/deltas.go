@@ -110,6 +110,41 @@ func (d deltas) Constraint(_ context.Context, src []v4_0_12.Constraint, _ *v4_0_
 	return result, nil
 }
 
+// RelationApplicationSettingsHash preserves the content hash and requests a
+// fresh revision when the legacy bag is inserted into the target database.
+func (d deltas) RelationApplicationSettingsHash(
+	_ context.Context,
+	src []v4_0_12.RelationApplicationSettingsHash,
+	_ *v4_0_12.ModelExport,
+) ([]v4_1_0.RelationApplicationSettingsHash, error) {
+	result := make([]v4_1_0.RelationApplicationSettingsHash, len(src))
+	for i, hash := range src {
+		result[i] = v4_1_0.RelationApplicationSettingsHash{
+			RelationEndpointUUID: hash.RelationEndpointUUID,
+			Sha256:               hash.Sha256,
+		}
+	}
+	return result, nil
+}
+
+// RelationUnitSettingsHash preserves the content hash and requests a fresh
+// revision when the legacy bag is inserted into the target database.
+func (d deltas) RelationUnitSettingsHash(
+	_ context.Context,
+	src []v4_0_12.RelationUnitSettingsHash,
+	_ *v4_0_12.ModelExport,
+) ([]v4_1_0.RelationUnitSettingsHash, error) {
+	result := make([]v4_1_0.RelationUnitSettingsHash, len(src))
+	for i, hash := range src {
+		result[i] = v4_1_0.RelationUnitSettingsHash{
+			RelationUnitUUID: hash.RelationUnitUUID,
+			Sha256:           hash.Sha256,
+			Revision:         0,
+		}
+	}
+	return result, nil
+}
+
 // RelationApplicationSetting copies all v4_0_12 fields into the 4.1.0 schema,
 // where the relation_application_setting.value column is NOT NULL and disallows
 // the empty string. A 4.0.12 row whose value is NULL (or empty) has no valid

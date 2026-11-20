@@ -77,7 +77,8 @@ func sanitizeCharmBlobResidency(payload latest.ModelExport) latest.ModelExport {
 // business logic, not schema-driven content the generated bulk insert in
 // state.Import can express: the migrated model's agent password is merged
 // into the target's bootstrap model_agent row (that row is target-owned,
-// created at bootstrap; only the password travels from the source).
+// created at bootstrap; only the password travels from the source). Legacy
+// relation settings are also assigned revisions using per-relation sequences.
 //
 // It runs after state.Import's transaction has already committed. Unlike
 // sanitizeCharmBlobResidency, this has no foreign-key dependency on an
@@ -88,6 +89,9 @@ func (i *Importer) applyPostImportFixups(ctx context.Context, payload latest.Mod
 	}
 	if err := i.state.MergeModelAgentPassword(ctx, payload.ModelAgent[0]); err != nil {
 		return errors.Errorf("merging model agent password: %w", err)
+	}
+	if err := i.state.InitialiseRelationSettingsRevisions(ctx); err != nil {
+		return errors.Errorf("initialising relation settings revisions: %w", err)
 	}
 	return nil
 }

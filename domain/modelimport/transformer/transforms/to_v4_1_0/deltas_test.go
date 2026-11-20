@@ -23,6 +23,25 @@ func TestDeltasSuite(t *testing.T) {
 	tc.Run(t, &deltasSuite{})
 }
 
+func (s *deltasSuite) TestLegacySettingsHashesRequestFreshRevisions(c *tc.C) {
+	src := v4_0_12.ModelExport{
+		RelationApplicationSettingsHash: []v4_0_12.RelationApplicationSettingsHash{{
+			RelationEndpointUUID: "endpoint-uuid", Sha256: "application-hash",
+		}},
+		RelationUnitSettingsHash: []v4_0_12.RelationUnitSettingsHash{{
+			RelationUnitUUID: "relation-unit-uuid", Sha256: "unit-hash",
+		}},
+	}
+	got, err := NewTransform(NewDeltas())(c.Context(), src)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.RelationApplicationSettingsHash, tc.DeepEquals, []v4_1_0.RelationApplicationSettingsHash{{
+		RelationEndpointUUID: "endpoint-uuid", Sha256: "application-hash", Revision: 0,
+	}})
+	c.Check(got.RelationUnitSettingsHash, tc.DeepEquals, []v4_1_0.RelationUnitSettingsHash{{
+		RelationUnitUUID: "relation-unit-uuid", Sha256: "unit-hash", Revision: 0,
+	}})
+}
+
 // TestRelationApplicationSettingDropsEmptyValues verifies that a set value is
 // carried through while NULL and empty values are dropped, since the 4.1.0
 // value column is NOT NULL and disallows the empty string.

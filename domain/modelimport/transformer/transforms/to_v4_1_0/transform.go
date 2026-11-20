@@ -41,12 +41,16 @@ type Deltas interface {
 	Operation(ctx context.Context, src []v4_0_12.Operation, model *v4_0_12.ModelExport) ([]v4_1_0.Operation, error)
 	// RelationApplicationSetting: struct shape changed in 4.1.0.
 	RelationApplicationSetting(ctx context.Context, src []v4_0_12.RelationApplicationSetting, model *v4_0_12.ModelExport) ([]v4_1_0.RelationApplicationSetting, error)
+	// RelationApplicationSettingsHash: struct shape changed in 4.1.0.
+	RelationApplicationSettingsHash(ctx context.Context, src []v4_0_12.RelationApplicationSettingsHash, model *v4_0_12.ModelExport) ([]v4_1_0.RelationApplicationSettingsHash, error)
 	// RelationStatus: struct shape changed in 4.1.0.
 	RelationStatus(ctx context.Context, src []v4_0_12.RelationStatus, model *v4_0_12.ModelExport) ([]v4_1_0.RelationStatus, error)
 	// RelationStatusType: struct shape changed in 4.1.0.
 	RelationStatusType(ctx context.Context, src []v4_0_12.RelationStatusType, model *v4_0_12.ModelExport) ([]v4_1_0.RelationStatusType, error)
 	// RelationUnitSetting: struct shape changed in 4.1.0.
 	RelationUnitSetting(ctx context.Context, src []v4_0_12.RelationUnitSetting, model *v4_0_12.ModelExport) ([]v4_1_0.RelationUnitSetting, error)
+	// RelationUnitSettingsHash: struct shape changed in 4.1.0.
+	RelationUnitSettingsHash(ctx context.Context, src []v4_0_12.RelationUnitSettingsHash, model *v4_0_12.ModelExport) ([]v4_1_0.RelationUnitSettingsHash, error)
 	// Removal: struct shape changed in 4.1.0.
 	Removal(ctx context.Context, src []v4_0_12.Removal, model *v4_0_12.ModelExport) ([]v4_1_0.Removal, error)
 	// SecretPermission: struct shape changed in 4.1.0.
@@ -828,11 +832,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.Relation[i] = v4_1_0.Relation(src.Relation[i])
 		}
 
-		dst.RelationApplicationSettingsHash = make([]v4_1_0.RelationApplicationSettingsHash, len(src.RelationApplicationSettingsHash))
-		for i := range src.RelationApplicationSettingsHash {
-			dst.RelationApplicationSettingsHash[i] = v4_1_0.RelationApplicationSettingsHash(src.RelationApplicationSettingsHash[i])
-		}
-
 		dst.RelationEndpoint = make([]v4_1_0.RelationEndpoint, len(src.RelationEndpoint))
 		for i := range src.RelationEndpoint {
 			dst.RelationEndpoint[i] = v4_1_0.RelationEndpoint(src.RelationEndpoint[i])
@@ -856,11 +855,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 		dst.RelationUnitSettingArchive = make([]v4_1_0.RelationUnitSettingArchive, len(src.RelationUnitSettingArchive))
 		for i := range src.RelationUnitSettingArchive {
 			dst.RelationUnitSettingArchive[i] = v4_1_0.RelationUnitSettingArchive(src.RelationUnitSettingArchive[i])
-		}
-
-		dst.RelationUnitSettingsHash = make([]v4_1_0.RelationUnitSettingsHash, len(src.RelationUnitSettingsHash))
-		for i := range src.RelationUnitSettingsHash {
-			dst.RelationUnitSettingsHash[i] = v4_1_0.RelationUnitSettingsHash(src.RelationUnitSettingsHash[i])
 		}
 
 		dst.RemovalType = make([]v4_1_0.RemovalType, len(src.RemovalType))
@@ -1252,6 +1246,10 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			return v4_1_0.ModelExport{}, errors.Errorf("RelationApplicationSetting delta: %w", err)
 		}
 
+		if dst.RelationApplicationSettingsHash, err = d.RelationApplicationSettingsHash(ctx, src.RelationApplicationSettingsHash, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("RelationApplicationSettingsHash delta: %w", err)
+		}
+
 		if dst.RelationStatus, err = d.RelationStatus(ctx, src.RelationStatus, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("RelationStatus delta: %w", err)
 		}
@@ -1262,6 +1260,10 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 
 		if dst.RelationUnitSetting, err = d.RelationUnitSetting(ctx, src.RelationUnitSetting, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("RelationUnitSetting delta: %w", err)
+		}
+
+		if dst.RelationUnitSettingsHash, err = d.RelationUnitSettingsHash(ctx, src.RelationUnitSettingsHash, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("RelationUnitSettingsHash delta: %w", err)
 		}
 
 		if dst.Removal, err = d.Removal(ctx, src.Removal, &src); err != nil {

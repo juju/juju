@@ -1076,6 +1076,7 @@ type RelationApplicationSetting struct {
 type RelationApplicationSettingsHash struct {
 	RelationEndpointUUID string `db:"relation_endpoint_uuid" json:"relation_endpoint_uuid" yaml:"relation_endpoint_uuid"`
 	Sha256               string `db:"sha256" json:"sha256" yaml:"sha256"`
+	Revision             int64  `db:"revision" json:"revision" yaml:"revision"`
 }
 
 type RelationEndpoint struct {
@@ -1135,6 +1136,7 @@ type RelationUnitSettingArchive struct {
 type RelationUnitSettingsHash struct {
 	RelationUnitUUID string `db:"relation_unit_uuid" json:"relation_unit_uuid" yaml:"relation_unit_uuid"`
 	Sha256           string `db:"sha256" json:"sha256" yaml:"sha256"`
+	Revision         int64  `db:"revision" json:"revision" yaml:"revision"`
 }
 
 type Removal struct {
