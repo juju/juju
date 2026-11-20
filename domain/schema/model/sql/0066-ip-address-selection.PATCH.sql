@@ -2,18 +2,18 @@
 -- machine and status queries. Callers apply their own filters and ORDER BY.
 CREATE VIEW v_ip_address_selection AS
 SELECT
-    ipa.net_node_uuid AS net_node_uuid,
-    ipa.device_uuid AS device_uuid,
-    ipa.address_value AS address_value,
+    ipa.net_node_uuid,
+    ipa.device_uuid,
+    ipa.address_value,
     iact.name AS config_type_name,
     iat.name AS type_name,
     iao.name AS origin_name,
     ias.name AS scope_name,
-    sn.space_uuid AS space_uuid,
-    sn.cidr AS cidr,
-    ipa.scope_id AS scope_id,
-    ipa.type_id AS type_id,
-    ipa.is_secondary AS is_secondary,
+    sn.space_uuid,
+    sn.cidr,
+    ipa.scope_id,
+    ipa.type_id,
+    ipa.is_secondary,
     CASE
         WHEN ipa.scope_id = 1 /* public */ THEN 0
         WHEN ipa.scope_id = 2 /* local-cloud */ THEN 1

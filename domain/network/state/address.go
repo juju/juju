@@ -52,7 +52,6 @@ ORDER BY
 
 	var address []SpaceAddress
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		address = nil
 		err := tx.Query(ctx, stmt, ident, order).GetAll(&address)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("querying addresses for net node %q: %w", nodeUUID, err)

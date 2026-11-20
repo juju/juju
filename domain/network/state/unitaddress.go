@@ -75,7 +75,6 @@ ORDER BY
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		address = nil
 		if err := st.checkUnitNotDead(ctx, tx, ident); err != nil {
 			return errors.Capture(err)
 		}

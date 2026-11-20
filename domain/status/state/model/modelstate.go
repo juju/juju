@@ -2234,7 +2234,7 @@ SELECT
 	ipa.cidr AS &machineSpaceAddress.cidr
 FROM machine AS m
 JOIN v_ip_address_selection AS ipa ON m.net_node_uuid = ipa.net_node_uuid
-WHERE ipa.scope_id NOT IN (3, 4)
+WHERE ipa.scope_id NOT IN (3, 4) /* exclude local-machine and link-local scopes */
 ORDER BY
     m.uuid,
     ipa.scope_rank,
@@ -2254,7 +2254,6 @@ ORDER BY
 		resAddr []machineSpaceAddress
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		res, resTags, resAddr = nil, nil, nil
 		err := tx.Query(ctx, stmt).GetAll(&res)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
