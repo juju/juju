@@ -545,6 +545,36 @@ func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
 	}
 }
 
+func (s *importSuite) TestImportFilesystemsIAASDuplicateNode(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	params := []domainstorage.ImportFilesystemParams{{
+		ID:       "test/0",
+		PoolName: "tmpfs",
+		Attachments: []domainstorage.ImportFilesystemAttachmentsParams{
+			{HostUnitName: "app/0", MountPoint: "/mnt/a"},
+			{HostMachineName: "0", MountPoint: "/mnt/b"},
+		},
+	}}
+	s.state.EXPECT().GetStoragePoolProvidersByNames(gomock.Any(), []string{"tmpfs"}).
+		Return(map[string]string{"tmpfs": "tmpfs"}, nil)
+	provider := NewMockProvider(ctrl)
+	provider.EXPECT().Scope().Return(internalstorage.ScopeMachine).AnyTimes()
+	provider.EXPECT().Supports(internalstorage.StorageKindFilesystem).Return(true).AnyTimes()
+	s.registry.Providers["tmpfs"] = provider
+	s.state.EXPECT().GetStorageInstanceUUIDsByIDs(gomock.Any(), gomock.Any()).
+		Return(map[string]domainstorage.StorageInstanceUUID{}, nil)
+	s.state.EXPECT().GetNetNodeUUIDsByMachineOrUnitName(gomock.Any(),
+		[]machine.Name{"0"}, []coreunit.Name{"app/0"},
+	).Return(map[machine.Name]network.NetNodeUUID{"0": "node"},
+		map[coreunit.Name]network.NetNodeUUID{"app/0": "node"}, nil)
+
+	err := s.service.ImportFilesystemsIAAS(c.Context(), params)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, `filesystem "test/0" has duplicate attachments on network node "node".*`)
+}
+
 func (s *importSuite) TestImportFilesystemsIAASMissingProvider(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()

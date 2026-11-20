@@ -43,3 +43,24 @@ func (s *validateSuite) TestValidatePayloadAllowsEmptyModelAgentPassword(c *tc.C
 	})
 	c.Assert(err, tc.ErrorIsNil)
 }
+
+func (s *validateSuite) TestValidatePayloadDuplicateFilesystemAttachment(c *tc.C) {
+	payload := latest.ModelExport{
+		ModelAgent: []v4_1_0.ModelAgent{{}},
+		StorageFilesystemAttachment: []v4_1_0.StorageFilesystemAttachment{
+			{UUID: "first", StorageFilesystemUUID: "fs", NetNodeUUID: "node", LifeID: 2},
+			{UUID: "second", StorageFilesystemUUID: "fs", NetNodeUUID: "node", LifeID: 0},
+		},
+	}
+	err := modelimport.ValidatePayload(payload)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, `filesystem "fs" has duplicate attachments "first" and "second" on network node "node";.*`)
+
+	payload.StorageFilesystemAttachment[1].NetNodeUUID = "other-node"
+	err = modelimport.ValidatePayload(payload)
+	c.Assert(err, tc.ErrorIsNil)
+	payload.StorageFilesystemAttachment[1].NetNodeUUID = "node"
+	payload.StorageFilesystemAttachment[1].StorageFilesystemUUID = "other-fs"
+	err = modelimport.ValidatePayload(payload)
+	c.Assert(err, tc.ErrorIsNil)
+}
