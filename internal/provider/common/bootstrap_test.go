@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/ssh"
 	cryptossh "golang.org/x/crypto/ssh"
@@ -37,6 +36,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/provider/common"
 	corestorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
@@ -214,6 +214,85 @@ func (s *BootstrapSuite) TestBootstrapBase(c *tc.C) {
 	c.Check(result.Base.String(), tc.Equals, jujuversion.DefaultSupportedLTSBase().String())
 }
 
+func (s *BootstrapSuite) TestBootstrapInstanceID(c *tc.C) {
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+
+	env := &mockEnviron{
+		startInstance: fakeStartInstance,
+		config:        fakeMinimalConfig(c),
+	}
+	ctx := envtesting.BootstrapTestContext(c)
+
+	result, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		BootstrapBase:           jujuversion.DefaultSupportedLTSBase(),
+		AvailableTools:          fakeAvailableTools(),
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Arch, tc.Equals, "ppc64el")
+	// The instance ID is reported from the started instance itself.
+	c.Check(result.InstanceID, tc.Equals, instance.Id("i-success"))
+}
+
+func (s *BootstrapSuite) TestBootstrapPostAllocationError(c *tc.C) {
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+
+	// The instance is allocated, then a subsequent step fails after
+	// StartInstance has returned.
+	openPortsErr := errors.New("no firewall for you")
+	env := &mockEnviron{
+		startInstance:     fakeStartInstance,
+		config:            fakeMinimalConfig(c),
+		openModelPortsErr: openPortsErr,
+	}
+	ctx := envtesting.BootstrapTestContext(c)
+
+	result, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		BootstrapBase:           jujuversion.DefaultSupportedLTSBase(),
+		AvailableTools:          fakeAvailableTools(),
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
+	})
+	// The result is nil on error; the allocated instance is only
+	// identified through the error.
+	c.Check(result, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches,
+		`bootstrap instance "i-success": cannot open SSH: no firewall for you`)
+	// The original error classification is preserved.
+	c.Assert(err, tc.ErrorIs, openPortsErr)
+}
+
+func (s *BootstrapSuite) TestBootstrapErrorBeforeAllocationHasNoInstanceID(c *tc.C) {
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+
+	env := &mockEnviron{
+		storage: newStorage(s, c),
+		config:  configGetter(c),
+	}
+	startInstanceErr := errors.New("meh, not started")
+	env.startInstance = func(ctx context.Context, args environs.StartInstanceParams) (
+		instances.Instance,
+		*instance.HardwareCharacteristics,
+		network.InterfaceInfos,
+		error,
+	) {
+		return nil, nil, nil, startInstanceErr
+	}
+	ctx := envtesting.BootstrapTestContext(c)
+
+	result, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		AvailableTools:          fakeAvailableTools(),
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
+	})
+	c.Check(result, tc.IsNil)
+	// No instance was allocated, so the error must not carry an
+	// instance ID.
+	c.Assert(err, tc.ErrorMatches, "cannot start bootstrap instance: meh, not started")
+	c.Assert(err, tc.ErrorIs, startInstanceErr)
+}
+
 func (s *BootstrapSuite) TestBootstrapFallbackBase(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 
@@ -301,10 +380,8 @@ func (s *BootstrapSuite) testBootstrapWithSubstrateWithIPV6Support(c *tc.C, supp
 func (s *BootstrapSuite) TestStartInstanceDerivedZone(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	env := &mockZonedEnviron{
-		mockEnviron: mockEnviron{
-			storage: newStorage(s, c),
-			config:  configGetter(c),
-		},
+		storage: newStorage(s, c),
+		config:  configGetter(c),
 		deriveAvailabilityZones: func(context.Context, environs.StartInstanceParams) ([]string, error) {
 			return []string{"derived-zone"}, nil
 		},
@@ -334,10 +411,8 @@ func (s *BootstrapSuite) TestStartInstanceDerivedZone(c *tc.C) {
 func (s *BootstrapSuite) TestStartInstanceAttemptAllZones(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	env := &mockZonedEnviron{
-		mockEnviron: mockEnviron{
-			storage: newStorage(s, c),
-			config:  configGetter(c),
-		},
+		storage: newStorage(s, c),
+		config:  configGetter(c),
 		deriveAvailabilityZones: func(context.Context, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
@@ -375,10 +450,8 @@ func (s *BootstrapSuite) TestStartInstanceAttemptAllZones(c *tc.C) {
 func (s *BootstrapSuite) TestStartInstanceAttemptZoneConstrained(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	env := &mockZonedEnviron{
-		mockEnviron: mockEnviron{
-			storage: newStorage(s, c),
-			config:  configGetter(c),
-		},
+		storage: newStorage(s, c),
+		config:  configGetter(c),
 		deriveAvailabilityZones: func(context.Context, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
@@ -420,10 +493,8 @@ func (s *BootstrapSuite) TestStartInstanceAttemptZoneConstrained(c *tc.C) {
 func (s *BootstrapSuite) TestStartInstanceNoMatchingConstraintZones(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	env := &mockZonedEnviron{
-		mockEnviron: mockEnviron{
-			storage: newStorage(s, c),
-			config:  configGetter(c),
-		},
+		storage: newStorage(s, c),
+		config:  configGetter(c),
 		deriveAvailabilityZones: func(context.Context, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
@@ -465,10 +536,8 @@ func (s *BootstrapSuite) TestStartInstanceNoMatchingConstraintZones(c *tc.C) {
 func (s *BootstrapSuite) TestStartInstanceStopOnZoneIndependentError(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	env := &mockZonedEnviron{
-		mockEnviron: mockEnviron{
-			storage: newStorage(s, c),
-			config:  configGetter(c),
-		},
+		storage: newStorage(s, c),
+		config:  configGetter(c),
 		deriveAvailabilityZones: func(context.Context, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
@@ -503,10 +572,8 @@ func (s *BootstrapSuite) TestStartInstanceStopOnZoneIndependentError(c *tc.C) {
 func (s *BootstrapSuite) TestStartInstanceNoUsableZones(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	env := &mockZonedEnviron{
-		mockEnviron: mockEnviron{
-			storage: newStorage(s, c),
-			config:  configGetter(c),
-		},
+		storage: newStorage(s, c),
+		config:  configGetter(c),
 		deriveAvailabilityZones: func(context.Context, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
@@ -631,6 +698,7 @@ func (s *BootstrapSuite) TestSuccess(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Arch, tc.Equals, "ppc64el") // based on hardware characteristics
 	c.Assert(result.Base, tc.Equals, config.PreferredBase(mocksConfig))
+	c.Assert(result.InstanceID, tc.Equals, instance.Id(checkInstanceId))
 	c.Assert(result.CloudBootstrapFinalizer, tc.NotNil)
 
 	// Check that we make the SSH connection with desired options.

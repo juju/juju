@@ -4,8 +4,10 @@
 package recovery
 
 import (
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/storage"
 )
 
 // ApplicationInfo describes one archived workload application, used for
@@ -64,6 +66,15 @@ type ModelInfo struct {
 // It is produced before anything is provisioned and drives the recovery
 // preflight checks.
 type ArchiveInfo struct {
+	// SourceBase is the operating system base for the replacement controller image.
+	SourceBase string
+
+	// SourceArch is the source controller's architecture, or empty if unknown.
+	SourceArch string
+
+	// MachineName is the source agent identity recorded in metadata.json.
+	MachineName string
+
 	// AgentVersion is the exact agent version of the source controller,
 	// read from the archive metadata (the manifest).
 	AgentVersion semversion.Number
@@ -97,6 +108,32 @@ type ArchiveInfo struct {
 	// CloudType is the provider family of the controller model's cloud.
 	// Recovery requires the replacement to use the same provider family.
 	CloudType string
+
+	// CloudRegion is the name of the cloud region the controller model
+	// was created in, or empty when the model records none.
+	CloudRegion string
+
+	// ControllerConfig holds the archived controller configuration rows,
+	// including the derived api-port and ssh-server-port values.
+	ControllerConfig map[string]string
+
+	// ControllerModelConfig holds the archived controller model
+	// configuration rows, including the derived agent-stream value. It
+	// carries the provider-specific settings, such as an LXD project,
+	// that a replacement controller must allocate into.
+	ControllerModelConfig map[string]string
+
+	// ModelConstraints are the archived controller model constraints.
+	ModelConstraints constraints.Value
+
+	// ControllerConstraints are the archived controller application
+	// constraints, used to choose the replacement controller instance.
+	ControllerConstraints constraints.Value
+
+	// StoragePools holds the archived controller model storage pools in
+	// the bootstrap representation: each entry carries the pool name
+	// under "name", its type under "type" and its attributes.
+	StoragePools map[string]storage.Attrs
 
 	// Models is the full model inventory of the source controller,
 	// including the controller model.

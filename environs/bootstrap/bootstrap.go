@@ -59,8 +59,10 @@ var (
 	errCancelled = errors.New("cancelled")
 )
 
-// BootstrapParams holds the parameters for bootstrapping an environment.
-type BootstrapParams struct {
+// AllocationParams holds the controller allocation inputs shared by fresh
+// bootstrap and controller recovery: everything a provider needs to choose
+// and configure the controller instance.
+type AllocationParams struct {
 	// ModelConstraints are merged with the bootstrap constraints
 	// to choose the initial instance, and will be stored in the
 	// initial models' states.
@@ -84,19 +86,87 @@ type BootstrapParams struct {
 	// CloudRegion is the name of the cloud region that Juju will be bootstrapped in.
 	CloudRegion string
 
-	// CloudCredentialName is the name of the cloud credential that Juju will be
-	// bootstrapped with. This may be empty, for clouds that do not require
-	// credentials.
-	CloudCredentialName string
-
 	// CloudCredential contains the cloud credential that Juju will be
 	// bootstrapped with. This may be nil, for clouds that do not require
-	// credentialis.
+	// credentials.
 	CloudCredential *cloud.Credential
 
 	// ControllerConfig is the set of config attributes relevant
 	// to a controller.
 	ControllerConfig controller.Config
+
+	// Placement, if non-empty, holds an environment-specific placement
+	// directive used to choose the initial instance.
+	Placement string
+
+	// MetadataDir is an optional path to a local directory containing
+	// tools and/or image metadata.
+	MetadataDir string
+
+	// StoragePools is one or more named storage pools to create
+	// in the controller model.
+	StoragePools map[string]corestorage.Attrs
+
+	// Force is used to allow a bootstrap to be run on unsupported series.
+	Force bool
+
+	// BootstrapBase, if specified, is the base to use for the
+	// initial bootstrap machine.
+	BootstrapBase corebase.Base
+
+	// SupportedBootstrapBases is a supported set of bases to use for
+	// validating against the bootstrap base.
+	SupportedBootstrapBases []corebase.Base
+}
+
+// validateCommon checks the controller identity every allocation needs: the
+// controller config must carry a controller UUID and a CA certificate.
+func (p AllocationParams) validateCommon() error {
+	// The config may not have been built through NewConfig, so read the
+	// UUID defensively rather than panicking.
+	if uuid, _ := p.ControllerConfig[controller.ControllerUUIDKey].(string); uuid == "" {
+		return errors.New("controller configuration has no controller UUID")
+	}
+	if _, hasCACert := p.ControllerConfig.CACert(); !hasCACert {
+		return errors.New("controller configuration has no ca-cert")
+	}
+	return nil
+}
+
+// validateSupportedBases checks the base the controller is allocated on can be
+// validated against a supported set.
+func (p AllocationParams) validateSupportedBases() error {
+	if len(p.SupportedBootstrapBases) == 0 {
+		return errors.NotValidf("supported bootstrap bases")
+	}
+	return nil
+}
+
+// providerAllocationParams selects the allocation inputs a provider receives,
+// shared by fresh bootstrap and controller recovery.
+func providerAllocationParams(args AllocationParams) environs.BootstrapParams {
+	return environs.BootstrapParams{
+		CloudName:               args.Cloud.Name,
+		CloudRegion:             args.CloudRegion,
+		ControllerConfig:        args.ControllerConfig,
+		ModelConstraints:        args.ModelConstraints,
+		BootstrapConstraints:    args.BootstrapConstraints,
+		StoragePools:            args.StoragePools,
+		BootstrapBase:           args.BootstrapBase,
+		SupportedBootstrapBases: args.SupportedBootstrapBases,
+		Placement:               args.Placement,
+		Force:                   args.Force,
+	}
+}
+
+// BootstrapParams holds the parameters for bootstrapping an environment.
+type BootstrapParams struct {
+	AllocationParams
+
+	// CloudCredentialName is the name of the cloud credential that Juju will be
+	// bootstrapped with. This may be empty, for clouds that do not require
+	// credentials.
+	CloudCredentialName string
 
 	// ControllerInheritedConfig is the set of config attributes to be shared
 	// across all models in the same controller.
@@ -120,10 +190,6 @@ type BootstrapParams struct {
 	// cloud.
 	RegionInheritedConfig cloud.RegionConfig
 
-	// Placement, if non-empty, holds an environment-specific placement
-	// directive used to choose the initial instance.
-	Placement string
-
 	// BuildAgent reports whether we should build and upload the local agent
 	// binary and override the environment's specified agent-version.
 	// It is an error to specify BuildAgent with a nil BuildAgentTarball.
@@ -133,10 +199,6 @@ type BootstrapParams struct {
 	// build tools to upload. If this is nil, tools uploading will never
 	// take place.
 	BuildAgentTarball sync.BuildAgentTarballFunc
-
-	// MetadataDir is an optional path to a local directory containing
-	// tools and/or image metadata.
-	MetadataDir string
 
 	// AgentVersion, if set, determines the exact tools version that
 	// will be used to start the Juju agents.
@@ -163,13 +225,6 @@ type BootstrapParams struct {
 	// DialOpts contains the bootstrap dial options.
 	DialOpts environs.BootstrapDialOpts
 
-	// StoragePools is one or more named storage pools to create
-	// in the controller model.
-	StoragePools map[string]corestorage.Attrs
-
-	// Force is used to allow a bootstrap to be run on unsupported series.
-	Force bool
-
 	// ControllerCharmPath is a local controller charm archive.
 	ControllerCharmPath string
 
@@ -178,14 +233,6 @@ type BootstrapParams struct {
 
 	// ExtraAgentValuesForTesting are testing only values written to the agent config file.
 	ExtraAgentValuesForTesting map[string]string
-
-	// BootstrapBase, if specified, is the base to use for the
-	// initial bootstrap machine (deprecated use BootstrapBase).
-	BootstrapBase corebase.Base
-
-	// SupportedBootstrapBase is a supported set of bases to use for
-	// validating against the bootstrap base.
-	SupportedBootstrapBases []corebase.Base
 
 	// ControllerSnapPath is the path of a local snap file built locally
 	// with 'make jujud-snap-build' or '--build-snap'. When set, the snap is
@@ -245,17 +292,14 @@ func (p BootstrapParams) Validate() error {
 	if p.AdminSecret == "" {
 		return errors.New("admin-secret is empty")
 	}
-	if p.ControllerConfig.ControllerUUID() == "" {
-		return errors.New("controller configuration has no controller UUID")
-	}
-	if _, hasCACert := p.ControllerConfig.CACert(); !hasCACert {
-		return errors.New("controller configuration has no ca-cert")
+	if err := p.AllocationParams.validateCommon(); err != nil {
+		return err
 	}
 	if p.CAPrivateKey == "" {
 		return errors.New("empty ca-private-key")
 	}
-	if len(p.SupportedBootstrapBases) == 0 {
-		return errors.NotValidf("supported bootstrap bases")
+	if err := p.AllocationParams.validateSupportedBases(); err != nil {
+		return err
 	}
 
 	// TODO(axw) validate other things.
@@ -361,12 +405,25 @@ func bootstrapCAAS(
 	return nil
 }
 
-func bootstrapIAAS(
+// machinePreparation holds the shared discovery and constraint results needed to
+// allocate a controller instance, produced by prepareMachineAllocation.
+type machinePreparation struct {
+	params              environs.BootstrapParams
+	arch                string
+	simplestreams       *simplestreams.Simplestreams
+	customImageMetadata []*imagemetadata.ImageMetadata
+	validator           constraints.Validator
+}
+
+// prepareMachineAllocation resolves the image and constraints for a controller
+// machine. It returns the complete provider parameters, including any detected
+// model constraints, for the caller to use in allocation and initialisation.
+func prepareMachineAllocation(
 	ctx environs.BootstrapContext,
 	environ environs.BootstrapEnviron,
-	args BootstrapParams,
-	bootstrapParams environs.BootstrapParams,
-) error {
+	params environs.BootstrapParams,
+	metadataDir, imageID string,
+) (machinePreparation, error) {
 	cfg := environ.Config()
 
 	_, supportsNetworking := environs.SupportsNetworking(environ)
@@ -380,18 +437,18 @@ func bootstrapIAAS(
 	} else if s, ok := value.(*simplestreams.Simplestreams); ok {
 		ss = s
 	} else {
-		return errors.Errorf("expected a valid simple streams type")
+		return machinePreparation{}, errors.Errorf("expected a valid simple streams type")
 	}
 
 	// Set default tools metadata source, add image metadata source,
 	// then verify constraints. Providers may rely on image metadata
 	// for constraint validation.
 	var customImageMetadata []*imagemetadata.ImageMetadata
-	if args.MetadataDir != "" {
+	if metadataDir != "" {
 		var err error
-		customImageMetadata, err = setPrivateMetadataSources(ctx, ss, args.MetadataDir)
+		customImageMetadata, err = setPrivateMetadataSources(ctx, ss, metadataDir)
 		if err != nil {
-			return errors.Trace(err)
+			return machinePreparation{}, errors.Trace(err)
 		}
 	}
 
@@ -401,50 +458,50 @@ func bootstrapIAAS(
 	if detector, supported := environ.(environs.HardwareCharacteristicsDetector); supported {
 		detectedBase, err := detector.DetectBase()
 		if err != nil {
-			return errors.Trace(err)
+			return machinePreparation{}, errors.Trace(err)
 		}
 		detectedHW, err := detector.DetectHardware()
 		if err != nil {
-			return errors.Trace(err)
+			return machinePreparation{}, errors.Trace(err)
 		}
 
-		if args.BootstrapBase.Empty() && !detectedBase.Empty() {
-			args.BootstrapBase = detectedBase
-			logger.Debugf(ctx, "auto-selecting bootstrap series %q", args.BootstrapBase.String())
+		if params.BootstrapBase.Empty() && !detectedBase.Empty() {
+			params.BootstrapBase = detectedBase
+			logger.Debugf(ctx, "auto-selecting bootstrap series %q", params.BootstrapBase.String())
 		}
-		if args.BootstrapConstraints.Arch == nil &&
-			args.ModelConstraints.Arch == nil &&
+		if params.BootstrapConstraints.Arch == nil &&
+			params.ModelConstraints.Arch == nil &&
 			detectedHW != nil &&
 			detectedHW.Arch != nil {
 			arch := *detectedHW.Arch
-			args.BootstrapConstraints.Arch = &arch
+			params.BootstrapConstraints.Arch = &arch
 			if detector.UpdateModelConstraints() {
-				args.ModelConstraints.Arch = &arch
+				params.ModelConstraints.Arch = &arch
 			}
 			logger.Debugf(ctx, "auto-selecting bootstrap arch %q", arch)
 		}
 	}
 
 	requestedBootstrapBase, err := corebase.ValidateBase(
-		args.SupportedBootstrapBases,
-		args.BootstrapBase,
+		params.SupportedBootstrapBases,
+		params.BootstrapBase,
 		config.PreferredBase(cfg),
 	)
-	if !args.Force && err != nil {
+	if !params.Force && err != nil {
 		// If the base isn't valid (i.e. non-ubuntu) then don't prompt users to use
 		// the --force flag.
 		if requestedBootstrapBase.OS != corebase.UbuntuOS {
-			return errors.NotValidf("non-ubuntu bootstrap base %q", requestedBootstrapBase.String())
+			return machinePreparation{}, errors.NotValidf("non-ubuntu bootstrap base %q", requestedBootstrapBase.String())
 		}
-		return errors.Annotatef(err, "use --force to override")
+		return machinePreparation{}, errors.Annotatef(err, "use --force to override")
 	}
 	bootstrapBase := requestedBootstrapBase
 
 	var bootstrapArchForImageSearch string
-	if args.BootstrapConstraints.Arch != nil {
-		bootstrapArchForImageSearch = *args.BootstrapConstraints.Arch
-	} else if args.ModelConstraints.Arch != nil {
-		bootstrapArchForImageSearch = *args.ModelConstraints.Arch
+	if params.BootstrapConstraints.Arch != nil {
+		bootstrapArchForImageSearch = *params.BootstrapConstraints.Arch
+	} else if params.ModelConstraints.Arch != nil {
+		bootstrapArchForImageSearch = *params.ModelConstraints.Arch
 	} else {
 		bootstrapArchForImageSearch = arch.HostArch()
 	}
@@ -455,11 +512,11 @@ func bootstrapIAAS(
 		ss,
 		&bootstrapBase,
 		bootstrapArchForImageSearch,
-		args.BootstrapImage,
+		imageID,
 		&customImageMetadata,
 	)
 	if err != nil {
-		return errors.Trace(err)
+		return machinePreparation{}, errors.Trace(err)
 	}
 
 	// We want to determine a list of valid architectures for which to pick tools and images.
@@ -475,19 +532,19 @@ func bootstrapIAAS(
 			architectures.Add(iMetadata.Arch)
 		}
 	}
-	bootstrapParams.ImageMetadata = imageMetadata
+	params.ImageMetadata = imageMetadata
 
 	constraintsValidator, err := environ.ConstraintsValidator(ctx)
 	if err != nil {
-		return err
+		return machinePreparation{}, err
 	}
 	constraintsValidator.UpdateVocabulary(constraints.Arch, architectures.SortedValues())
 
 	bootstrapConstraints, err := constraintsValidator.Merge(
-		args.ModelConstraints, args.BootstrapConstraints,
+		params.ModelConstraints, params.BootstrapConstraints,
 	)
 	if err != nil {
-		return errors.Trace(err)
+		return machinePreparation{}, errors.Trace(err)
 	}
 	// The follow is used to determine if we should apply the default
 	// constraints when we bootstrap. Generally speaking this should always be
@@ -495,7 +552,7 @@ func bootstrapIAAS(
 	if checker, ok := environ.(environs.DefaultConstraintsChecker); !ok || checker.ShouldApplyControllerConstraints(bootstrapConstraints) {
 		bootstrapConstraints = withDefaultControllerConstraints(bootstrapConstraints)
 	}
-	bootstrapParams.BootstrapConstraints = bootstrapConstraints
+	params.BootstrapConstraints = bootstrapConstraints
 
 	var bootstrapArch string
 	if bootstrapConstraints.Arch != nil {
@@ -507,6 +564,28 @@ func bootstrapIAAS(
 		bootstrapArch = localToolsArch()
 	}
 
+	params.BootstrapBase = bootstrapBase
+	return machinePreparation{
+		params:              params,
+		arch:                bootstrapArch,
+		simplestreams:       ss,
+		customImageMetadata: customImageMetadata,
+		validator:           constraintsValidator,
+	}, nil
+}
+
+// discoverBootstrapTools resolves the controller snap source, then finds or
+// builds the agent binaries for a fresh bootstrap, and returns them along
+// with the agent version to use. The args are updated in place with the
+// resolved snap details for the caller to finalise the instance config. When
+// a local agent was built, the returned BuiltAgent is non-nil and the caller
+// must clean up its directory once the tools have been uploaded.
+func discoverBootstrapTools(
+	ctx environs.BootstrapContext,
+	environ environs.BootstrapEnviron,
+	prep machinePreparation,
+	args *BootstrapParams,
+) (coretools.List, semversion.Number, *sync.BuiltAgent, error) {
 	var snapVersion semversion.Number
 
 	// Store-based snap bootstrap: when no local path is given but a channel or
@@ -520,7 +599,7 @@ func bootstrapIAAS(
 		if args.ControllerSnapRevision != "" {
 			r, err := strconv.Atoi(args.ControllerSnapRevision)
 			if err != nil {
-				return errors.Annotatef(err, "invalid controller snap revision %q", args.ControllerSnapRevision)
+				return nil, semversion.Number{}, nil, errors.Annotatef(err, "invalid controller snap revision %q", args.ControllerSnapRevision)
 			}
 			revision = r
 		}
@@ -534,16 +613,16 @@ func bootstrapIAAS(
 				ctx,
 				args.ControllerSnapStoreURL,
 				ControllerSnapPackageName,
-				bootstrapArch,
+				prep.arch,
 				resolvedChannel,
 				revision,
 			)
 			if err != nil {
-				return errors.Annotate(err, "resolving controller snap in store")
+				return nil, semversion.Number{}, nil, errors.Annotate(err, "resolving controller snap in store")
 			}
 			inspectedVersion, err := snapstore.ParseSnapVersion(rawVersion)
 			if err != nil {
-				return errors.Annotatef(err, "parsing controller snap version %q", rawVersion)
+				return nil, semversion.Number{}, nil, errors.Annotatef(err, "parsing controller snap version %q", rawVersion)
 			}
 			args.ControllerSnapResolvedRevision = rev
 			args.ControllerSnapExpectedVersion = rawVersion
@@ -570,7 +649,7 @@ func bootstrapIAAS(
 				)
 				builtSnapPath, err := BuildControllerSnap(ctx, ctx.GetStdout(), ctx.GetStderr())
 				if err != nil {
-					return errors.Annotate(err, "building a local controller snap")
+					return nil, semversion.Number{}, nil, errors.Annotate(err, "building a local controller snap")
 				}
 				args.ControllerSnapPath = builtSnapPath
 				args.ControllerSnapStoreMode = false
@@ -593,7 +672,7 @@ func bootstrapIAAS(
 		}
 		rawVersion, inspectedVersion, err := readSnapVersion(ctx, args.ControllerSnapPath)
 		if err != nil {
-			return errors.Annotate(err, "inspecting controller snap version")
+			return nil, semversion.Number{}, nil, errors.Annotate(err, "inspecting controller snap version")
 		}
 		args.ControllerSnapExpectedVersion = rawVersion
 		snapVersion = inspectedVersion
@@ -610,14 +689,14 @@ func bootstrapIAAS(
 		compat := snapCompat.Compare(clientCompat)
 		switch {
 		case compat < 0:
-			return errors.Errorf(
+			return nil, semversion.Number{}, nil, errors.Errorf(
 				"controller snap version %s is older than bootstrap client %s; "+
 					"use a controller snap that matches the current client version, "+
 					"build one locally with --build-snap, or supply one with --controller-snap-path",
 				snapVersion, jujuversion.Current,
 			)
 		case compat > 0:
-			return errors.Errorf(
+			return nil, semversion.Number{}, nil, errors.Errorf(
 				"controller snap version %s is not compatible with bootstrap client %s; "+
 					"use a controller snap that matches the current client version",
 				snapVersion, jujuversion.Current,
@@ -627,6 +706,7 @@ func bootstrapIAAS(
 
 	agentVersion := jujuversion.Current
 	var availableTools coretools.List
+	var err error
 	if !args.BuildAgent {
 		latestPatchTxt := ""
 		lookupVersion := args.AgentVersion
@@ -638,11 +718,11 @@ func bootstrapIAAS(
 			latestPatchTxt = "latest patch of "
 			versionTxt = fmt.Sprintf("%v.%v", agentVersion.Major, agentVersion.Minor)
 		}
-		ctx.Infof("Looking for %vpackaged Juju agent version %s for %s", latestPatchTxt, versionTxt, bootstrapArch)
+		ctx.Infof("Looking for %vpackaged Juju agent version %s for %s", latestPatchTxt, versionTxt, prep.arch)
 
-		availableTools, err = findPackagedTools(ctx, environ, ss, lookupVersion, &bootstrapArch, &bootstrapBase)
+		availableTools, err = findPackagedTools(ctx, environ, prep.simplestreams, lookupVersion, &prep.arch, &prep.params.BootstrapBase)
 		if err != nil && !errors.Is(err, errors.NotFound) {
-			return err
+			return nil, agentVersion, nil, err
 		}
 		if len(availableTools) != 0 {
 			if lookupVersion == nil {
@@ -669,24 +749,24 @@ func bootstrapIAAS(
 		// not invoked; bootstrap fails before provisioning unless
 		// --build-agent is set.
 		if args.ControllerSnapStoreMode && !args.BuildAgent {
-			return errors.Errorf(
+			return nil, agentVersion, nil, errors.Errorf(
 				"no packaged agent binaries match the controller snap version %s for %s/%s; "+
 					"use --build-agent to build from source",
-				snapVersion, bootstrapArch, bootstrapBase.String(),
+				snapVersion, prep.arch, prep.params.BootstrapBase.String(),
 			)
 		}
 
 		if args.BuildAgentTarball == nil {
-			return errors.New("cannot build agent binary to upload")
+			return nil, agentVersion, nil, errors.New("cannot build agent binary to upload")
 		}
-		if err = validateUploadAllowed(environ, &bootstrapArch, &bootstrapBase, constraintsValidator); err != nil {
-			return err
+		if err = validateUploadAllowed(environ, &prep.arch, &prep.params.BootstrapBase, prep.validator); err != nil {
+			return nil, agentVersion, nil, err
 		}
 		if args.BuildAgent {
 			if !snapVersion.IsZero() {
-				ctx.Infof("Building local Juju agent binary version %s for %s (anchored to controller snap)", snapVersion, bootstrapArch)
+				ctx.Infof("Building local Juju agent binary version %s for %s (anchored to controller snap)", snapVersion, prep.arch)
 			} else {
-				ctx.Infof("Building local Juju agent binary version %s for %s", args.AgentVersion, bootstrapArch)
+				ctx.Infof("Building local Juju agent binary version %s for %s", args.AgentVersion, prep.arch)
 			}
 		} else {
 			ctx.Infof("No packaged binary found, preparing local Juju agent binary")
@@ -694,16 +774,15 @@ func bootstrapIAAS(
 		var forceVersion semversion.Number
 		availableTools, forceVersion, err = locallyBuildableTools(snapVersion)
 		if err != nil {
-			return errors.Annotate(err, "cannot package bootstrap agent binary")
+			return nil, agentVersion, nil, errors.Annotate(err, "cannot package bootstrap agent binary")
 		}
 		builtTools, err = args.BuildAgentTarball(
 			args.BuildAgent, "bootstrap",
 			func(semversion.Number) semversion.Number { return forceVersion },
 		)
 		if err != nil {
-			return errors.Annotate(err, "cannot package bootstrap agent binary")
+			return nil, agentVersion, nil, errors.Annotate(err, "cannot package bootstrap agent binary")
 		}
-		defer os.RemoveAll(builtTools.Dir)
 		// Combine the built agent information with the list of
 		// available tools.
 		for i, tool := range availableTools {
@@ -730,9 +809,8 @@ func bootstrapIAAS(
 		}
 	}
 	if len(availableTools) == 0 {
-		return errors.New(noToolsMessage)
+		return nil, agentVersion, nil, errors.New(noToolsMessage)
 	}
-	bootstrapParams.AvailableTools = availableTools
 
 	// TODO (anastasiamac 2018-02-02) By this stage, we will have a list
 	// of available tools (agent binaries) but they should all be the same
@@ -751,36 +829,80 @@ func bootstrapIAAS(
 	} else if args.AgentVersion != nil {
 		agentVersion = *args.AgentVersion
 	}
-	if cfg, err = cfg.Apply(map[string]any{
+	return availableTools, agentVersion, builtTools, nil
+}
+
+// prepareProviderAllocation applies the selected agent version to the model
+// configuration and resolves any instance role, before the provider call.
+// It is used by both fresh bootstrap and recovery allocation.
+func prepareProviderAllocation(
+	ctx environs.BootstrapContext,
+	environ environs.BootstrapEnviron,
+	credential *cloud.Credential,
+	params environs.BootstrapParams,
+	agentVersion semversion.Number,
+) (environs.BootstrapParams, error) {
+	cfg := environ.Config()
+	cfg, err := cfg.Apply(map[string]any{
 		"agent-version": agentVersion.String(),
-	}); err != nil {
-		return errors.Trace(err)
+	})
+	if err != nil {
+		return environs.BootstrapParams{}, errors.Trace(err)
 	}
 	if err = environ.SetConfig(ctx, cfg); err != nil {
-		return errors.Trace(err)
+		return environs.BootstrapParams{}, errors.Trace(err)
 	}
 
-	if bootstrapParams.BootstrapConstraints.HasInstanceRole() {
-		if args.CloudCredential != nil {
-			if args.CloudCredential.AuthType() == cloud.InstanceRoleAuthType {
-				return errors.NotSupportedf("instance role constraint with instance role credential")
+	if params.BootstrapConstraints.HasInstanceRole() {
+		if credential != nil {
+			if credential.AuthType() == cloud.InstanceRoleAuthType {
+				return environs.BootstrapParams{}, errors.NotSupportedf("instance role constraint with instance role credential")
 			}
-			if args.CloudCredential.AuthType() == cloud.ManagedIdentityAuthType {
-				return errors.NotSupportedf("instance role constraint with managed identity credential")
+			if credential.AuthType() == cloud.ManagedIdentityAuthType {
+				return environs.BootstrapParams{}, errors.NotSupportedf("instance role constraint with managed identity credential")
 			}
-			if args.CloudCredential.AuthType() == cloud.ServiceAccountAuthType {
-				return errors.NotSupportedf("instance role constraint with service account credential")
+			if credential.AuthType() == cloud.ServiceAccountAuthType {
+				return environs.BootstrapParams{}, errors.NotSupportedf("instance role constraint with service account credential")
 			}
 		}
 		instanceRoleEnviron, ok := environ.(environs.InstanceRole)
 		if !ok || !instanceRoleEnviron.SupportsInstanceRoles(ctx) {
-			return errors.NewNotSupported(nil, "instance role constraint for provider")
+			return environs.BootstrapParams{}, errors.NewNotSupported(nil, "instance role constraint for provider")
 		}
 
-		bootstrapParams, err = finaliseInstanceRole(ctx, instanceRoleEnviron, bootstrapParams)
+		params, err = finaliseInstanceRole(ctx, instanceRoleEnviron, params)
 		if err != nil {
-			return errors.Annotate(err, "finalising instance role for provider")
+			return environs.BootstrapParams{}, errors.Annotate(err, "finalising instance role for provider")
 		}
+	}
+	return params, nil
+}
+
+// bootstrapIAAS performs a fresh IAAS controller bootstrap.
+func bootstrapIAAS(
+	ctx environs.BootstrapContext,
+	environ environs.BootstrapEnviron,
+	args BootstrapParams,
+	bootstrapParams environs.BootstrapParams,
+) error {
+	prep, err := prepareMachineAllocation(ctx, environ, bootstrapParams, args.MetadataDir, args.BootstrapImage)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	availableTools, agentVersion, builtTools, err := discoverBootstrapTools(ctx, environ, prep, &args)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if builtTools != nil {
+		defer os.RemoveAll(builtTools.Dir)
+	}
+	bootstrapParams = prep.params
+	bootstrapParams.AvailableTools = availableTools
+
+	bootstrapParams, err = prepareProviderAllocation(ctx, environ, args.CloudCredential, bootstrapParams, agentVersion)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	ctx.Verbosef("Starting new instance for initial controller")
@@ -797,7 +919,7 @@ func bootstrapIAAS(
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
 		args.ControllerConfig,
 		bootstrapParams.BootstrapConstraints,
-		args.ModelConstraints,
+		bootstrapParams.ModelConstraints,
 		result.Base,
 		publicKey,
 		args.ExtraAgentValuesForTesting,
@@ -865,7 +987,7 @@ func bootstrapIAAS(
 	// Make sure we have the most recent environ config as the specified
 	// tools version has been updated there.
 	if err := finalizeInstanceBootstrapConfig(
-		ctx, instanceConfig, args, environ.Config(), environVersion, customImageMetadata,
+		ctx, instanceConfig, args, environ.Config(), environVersion, prep.customImageMetadata,
 	); err != nil {
 		return errors.Annotate(err, "finalizing bootstrap instance config")
 	}
@@ -880,18 +1002,30 @@ func finaliseInstanceRole(
 	ir environs.InstanceRole,
 	args environs.BootstrapParams,
 ) (environs.BootstrapParams, error) {
-	if *args.BootstrapConstraints.InstanceRole !=
-		environs.InstanceProfileAutoCreate {
+	if *args.BootstrapConstraints.InstanceRole != environs.InstanceProfileAutoCreate {
 		return args, nil
 	}
 	irName, err := ir.CreateAutoInstanceRole(ctx, args)
+	if err != nil {
+		return environs.BootstrapParams{}, err
+	}
 	args.BootstrapConstraints.InstanceRole = &irName
-	return args, err
+	return args, nil
+}
+
+// providerBootstrapParams selects the allocation inputs for fresh bootstrap.
+// Recovery constructs its provider parameters from the archived platform.
+func providerBootstrapParams(args BootstrapParams) environs.BootstrapParams {
+	params := providerAllocationParams(args.AllocationParams)
+	params.AuthorizedKeys = args.BootstrapSSHAuthorizedKeys
+	params.ExtraAgentValuesForTesting = args.ExtraAgentValuesForTesting
+	return params
 }
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped
-// environment.
+// environment. It always performs a fresh controller bootstrap; allocating a
+// replacement controller from a recovery archive is done by Recover.
 func Bootstrap(
 	ctx environs.BootstrapContext,
 	environ environs.BootstrapEnviron,
@@ -901,19 +1035,7 @@ func Bootstrap(
 		return errors.Annotate(err, "validating bootstrap parameters")
 	}
 
-	bootstrapParams := environs.BootstrapParams{
-		AuthorizedKeys:             args.BootstrapSSHAuthorizedKeys,
-		CloudName:                  args.Cloud.Name,
-		CloudRegion:                args.CloudRegion,
-		ControllerConfig:           args.ControllerConfig,
-		ModelConstraints:           args.ModelConstraints,
-		StoragePools:               args.StoragePools,
-		BootstrapBase:              args.BootstrapBase,
-		SupportedBootstrapBases:    args.SupportedBootstrapBases,
-		Placement:                  args.Placement,
-		Force:                      args.Force,
-		ExtraAgentValuesForTesting: args.ExtraAgentValuesForTesting,
-	}
+	bootstrapParams := providerBootstrapParams(args)
 	doBootstrap := bootstrapIAAS
 	if cloud.CloudIsCAAS(args.Cloud) {
 		doBootstrap = bootstrapCAAS

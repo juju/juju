@@ -7,17 +7,18 @@ import (
 	"context"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
 	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
 )
 
@@ -37,6 +38,7 @@ type ManifoldConfig struct {
 	ControllerNodeID        string
 	ControllerTag           names.Tag
 	MachineInstanceIDGetter GetMachineInstanceIDFunc
+	MachineBaseGetter       GetMachineBaseFunc
 	LocalConfigReader       LocalConfigReader
 	Clock                   clock.Clock
 	Logger                  logger.Logger
@@ -46,34 +48,37 @@ type ManifoldConfig struct {
 // Validate checks dependencies before the manifold starts.
 func (c ManifoldConfig) Validate() error {
 	if c.LeaseManagerName == "" {
-		return errors.NotValidf("empty LeaseManagerName")
+		return errors.Errorf("empty LeaseManagerName %w", coreerrors.NotValid)
 	}
 	if c.DomainServicesName == "" {
-		return errors.NotValidf("empty DomainServicesName")
+		return errors.Errorf("empty DomainServicesName %w", coreerrors.NotValid)
 	}
 	if c.ObjectStoreName == "" {
-		return errors.NotValidf("empty ObjectStoreName")
+		return errors.Errorf("empty ObjectStoreName %w", coreerrors.NotValid)
 	}
 	if c.ControllerTag == nil {
-		return errors.NotValidf("nil ControllerTag")
+		return errors.Errorf("nil ControllerTag %w", coreerrors.NotValid)
 	}
 	if c.MachineInstanceIDGetter == nil {
-		return errors.NotValidf("nil MachineInstanceIDGetter")
+		return errors.Errorf("nil MachineInstanceIDGetter %w", coreerrors.NotValid)
+	}
+	if c.MachineBaseGetter == nil {
+		return errors.Errorf("nil MachineBaseGetter %w", coreerrors.NotValid)
 	}
 	if c.ControllerNodeID == "" {
-		return errors.NotValidf("empty ControllerNodeID")
+		return errors.Errorf("empty ControllerNodeID %w", coreerrors.NotValid)
 	}
 	if c.LocalConfigReader == nil {
-		return errors.NotValidf("nil LocalConfigReader")
+		return errors.Errorf("nil LocalConfigReader %w", coreerrors.NotValid)
 	}
 	if c.Clock == nil {
-		return errors.NotValidf("nil Clock")
+		return errors.Errorf("nil Clock %w", coreerrors.NotValid)
 	}
 	if c.Logger == nil {
-		return errors.NotValidf("nil Logger")
+		return errors.Errorf("nil Logger %w", coreerrors.NotValid)
 	}
 	if c.NewWorker == nil {
-		return errors.NotValidf("nil NewWorker")
+		return errors.Errorf("nil NewWorker %w", coreerrors.NotValid)
 	}
 	return nil
 }
@@ -92,10 +97,10 @@ func Manifold(c ManifoldConfig) dependency.Manifold {
 			}
 			paths, err := c.LocalConfigReader.BackupLocalValues()
 			if err != nil {
-				return nil, errors.Annotate(err, "reading backup paths")
+				return nil, errors.Errorf("reading backup paths: %w", err)
 			}
 			if paths.DataDir == "" || paths.LogDir == "" {
-				return nil, errors.NotValidf("empty backup paths")
+				return nil, errors.Errorf("empty backup paths %w", coreerrors.NotValid)
 			}
 			var leaseManager lease.Manager
 			if err := getter.Get(c.LeaseManagerName, &leaseManager); err != nil {
@@ -183,6 +188,7 @@ func (g archiveGenerator) Create(ctx context.Context, notes string) (*corebackup
 		DataDir:                       g.paths.DataDir,
 		LogDir:                        g.paths.LogDir,
 		MachineInstanceIDGetter:       g.config.MachineInstanceIDGetter,
+		MachineBaseGetter:             g.config.MachineBaseGetter,
 		ControllerExport:              controllerServices.ControllerExport(),
 		ModelServicesGetter:           modelServicesFor,
 		ControllerModelMachineService: controllerServices.Machine(),

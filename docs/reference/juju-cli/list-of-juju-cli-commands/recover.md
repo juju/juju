@@ -3,7 +3,7 @@
 > See also: [bootstrap](#command-juju-bootstrap), [create-backup](#command-juju-create-backup), [unregister](#command-juju-unregister)
 
 ## Summary
-Validate a controller recovery archive.
+Recover a controller from a backup archive.
 
 ## Usage
 ```text
@@ -16,4 +16,11 @@ juju recover [options] <backup-file> <assertion-file>
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
 
 ## Details
-Validate an archive against its unsigned SHA-256 assertion. Controller recovery provisioning is not available in this build.
+Controller recovery uses a backup archive and its unsigned SHA-256 assertion
+to restore a controller on a replacement machine. The client must be able to
+resolve the cloud named in the archive. On a new workstation, add the cloud
+with 'juju add-cloud --client' if it is not already available.
+
+This version validates the archive and allocates the replacement machine only.
+It leaves the instance for inspection and exits with an error reporting its ID.
+No agent is installed and no controller is registered.

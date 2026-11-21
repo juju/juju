@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/cmd/cmdtesting"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -28,6 +29,7 @@ import (
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/semversion"
+	corestorage "github.com/juju/juju/core/storage"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/environs"
@@ -46,7 +48,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/snapstore"
-	corestorage "github.com/juju/juju/internal/storage"
+	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
@@ -215,6 +217,7 @@ func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *tc.C) {
 	env.args.SupportedBootstrapBases = nil
 	c.Assert(env.args, tc.DeepEquals, environs.BootstrapParams{
 		ControllerConfig:     coretesting.FakeControllerConfig(),
+		BootstrapBase:        corebase.MustParseBaseFromString("ubuntu@24.04"),
 		BootstrapConstraints: constraints.MustParse("mem=3.5G"),
 	})
 }
@@ -241,6 +244,7 @@ func (s *bootstrapSuite) TestBootstrapControllerModelAuthorizedKeys(c *tc.C) {
 	c.Assert(env.args, tc.DeepEquals, environs.BootstrapParams{
 		ControllerConfig:     coretesting.FakeControllerConfig(),
 		AuthorizedKeys:       []string{"key1"},
+		BootstrapBase:        corebase.MustParseBaseFromString("ubuntu@24.04"),
 		BootstrapConstraints: constraints.MustParse("mem=3.5G"),
 	})
 }
@@ -276,7 +280,7 @@ func (s *bootstrapSuite) TestBootstrapWithStoragePools(c *tc.C) {
 			CAPrivateKey:            coretesting.CAKey,
 			SupportedBootstrapBases: supportedJujuBases,
 			SSHServerHostKey:        coretesting.SSHServerHostKey,
-			StoragePools: map[string]corestorage.Attrs{
+			StoragePools: map[string]internalstorage.Attrs{
 				"spool": {
 					"type": "loop",
 					"foo":  "bar",
@@ -285,7 +289,7 @@ func (s *bootstrapSuite) TestBootstrapWithStoragePools(c *tc.C) {
 		})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, tc.Equals, 1)
-	c.Assert(env.args.StoragePools, tc.DeepEquals, map[string]corestorage.Attrs{
+	c.Assert(env.args.StoragePools, tc.DeepEquals, map[string]internalstorage.Attrs{
 		"spool": {
 			"type": "loop",
 			"foo":  "bar",
@@ -439,6 +443,367 @@ func (s *bootstrapSuite) assertFinalizePodBootstrapConfig(c *tc.C, serviceType, 
 	c.Assert(podConfig.Bootstrap.ControllerExternalName, tc.Equals, externalName)
 	c.Assert(podConfig.Bootstrap.ControllerExternalIPs, tc.DeepEquals, externalIps)
 	c.Assert(podConfig.AgentEnvironment, tc.DeepEquals, map[string]string{"foo": "bar"})
+}
+
+// validRecoveryParams describes an archived amd64 controller without any
+// fresh-bootstrap secrets, registration details or agent-building options.
+func validRecoveryParams(archivedVersion semversion.Number) bootstrap.RecoveryParams {
+	return bootstrap.RecoveryParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		BootstrapBase:    jammyBootstrapBase,
+		Arch:             arch.AMD64,
+		AgentVersion:     archivedVersion,
+	}
+}
+
+// failingDataSourceFactory fails the test when used, proving that no
+// simplestreams data source is fetched.
+type failingDataSourceFactory struct {
+	c *tc.C
+}
+
+func (f failingDataSourceFactory) NewDataSource(simplestreams.Config) simplestreams.DataSource {
+	f.c.Fatalf("packaged tool discovery ran during recovery")
+	return nil
+}
+
+func (s *bootstrapSuite) TestBootstrapRecoveryIAAS(c *tc.C) {
+	s.PatchValue(&arch.HostArch, func() string {
+		return arch.AMD64
+	})
+	env := &recoveryBootstrapEnviron{
+		bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+	}
+	env.result = &environs.BootstrapResult{
+		InstanceID: "test-instance",
+		Arch:       arch.AMD64,
+		Base:       jammyBootstrapBase,
+		CloudBootstrapFinalizer: func(
+			environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts,
+		) error {
+			env.finalizerCount++
+			return nil
+		},
+	}
+
+	archivedVersion := coretesting.FakeVersionNumber
+
+	// Packaged tool discovery must not run during recovery.
+	ss := simplestreams.NewSimpleStreams(failingDataSourceFactory{c})
+	ctx := envtesting.BootstrapContext(
+		context.WithValue(c.Context(), bootstrap.SimplestreamsFetcherContextKey, ss), c)
+
+	// The archived architecture can differ from the client's architecture.
+	params := validRecoveryParams(archivedVersion)
+	params.Arch = arch.ARM64
+	env.result.Arch = arch.ARM64
+	id, err := bootstrap.Recover(ctx, env, params)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(id, tc.Equals, instance.Id("test-instance"))
+
+	// The provider receives the archived binary identity for image selection.
+	// No agent download or installation is requested.
+	c.Check(env.bootstrapCount, tc.Equals, 1)
+	c.Check(env.args.AvailableTools, tc.DeepEquals, tools.List{{
+		Version: semversion.Binary{
+			Number: archivedVersion, Release: "ubuntu", Arch: arch.ARM64,
+		},
+	}})
+	c.Check(env.args.BootstrapBase, tc.Equals, jammyBootstrapBase)
+	c.Assert(env.args.BootstrapConstraints.Arch, tc.NotNil)
+	c.Check(*env.args.BootstrapConstraints.Arch, tc.Equals, arch.ARM64)
+	agentVersion, ok := env.cfg.AgentVersion()
+	c.Assert(ok, tc.IsTrue)
+	c.Check(agentVersion, tc.Equals, archivedVersion)
+
+	// Allocation stops before the agent is installed.
+	c.Check(env.finalizerCount, tc.Equals, 0)
+}
+
+// TestBootstrapRecoveryIAASForwardsProvisioningInputs checks that every
+// archived allocation input reaches the provider: the constraints, the
+// controller config, the storage pools, the placement and the bootstrap image.
+// Losing any of them allocates a controller that does not match the source.
+func (s *bootstrapSuite) TestBootstrapRecoveryIAASForwardsProvisioningInputs(c *tc.C) {
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+
+	archivedVersion := coretesting.FakeVersionNumber
+	env := &recoveryBootstrapEnvironWithRegion{
+		recoveryBootstrapEnviron: &recoveryBootstrapEnviron{
+			bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+			result: &environs.BootstrapResult{
+				InstanceID: "test-instance",
+				Arch:       arch.ARM64,
+				Base:       jammyBootstrapBase,
+			},
+		},
+		region: simplestreams.CloudSpec{Region: "north", Endpoint: "https://cloud.example"},
+	}
+
+	storagePools := map[string]internalstorage.Attrs{
+		"pool-a": {
+			corestorage.BootstrapStoragePoolNameKey: "pool-a",
+			corestorage.BootstrapStoragePoolTypeKey: "lxd",
+			"source":                                "/dev/sda1",
+		},
+	}
+	params := validRecoveryParams(archivedVersion)
+	params.Arch = arch.ARM64
+	params.Cloud = cloud.Cloud{Name: "lxd", Type: "lxd"}
+	params.CloudRegion = "north"
+	params.ControllerName = "source-ctrl"
+	params.ModelConstraints = constraints.MustParse("cores=4 mem=2048")
+	params.BootstrapConstraints = constraints.MustParse(
+		"virt-type=virtual-machine mem=4096 zones=zone-a root-disk-source=pool-a")
+	params.StoragePools = storagePools
+	params.Placement = "zone=zone-a"
+	params.BootstrapImage = "images:bootstrap-image"
+	// The archived controller space config implies a space constraint, as it
+	// does on fresh bootstrap.
+	params.ControllerConfig = coretesting.FakeControllerConfig()
+	params.ControllerConfig[controller.JujuManagementSpace] = "space-a"
+
+	id, err := bootstrap.Recover(envtesting.BootstrapTestContext(c), env, params)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(id, tc.Equals, instance.Id("test-instance"))
+
+	args := env.args
+	c.Check(args.CloudName, tc.Equals, "lxd")
+	c.Check(args.CloudRegion, tc.Equals, "north")
+	c.Check(args.ControllerConfig[controller.JujuManagementSpace], tc.Equals, "space-a")
+	c.Check(args.StoragePools, tc.DeepEquals, storagePools)
+	c.Check(args.Placement, tc.Equals, "zone=zone-a")
+	c.Check(args.BootstrapBase, tc.Equals, jammyBootstrapBase)
+	c.Check(args.SupportedBootstrapBases, tc.DeepEquals, []corebase.Base{jammyBootstrapBase})
+
+	// The model constraints are passed through untouched.
+	c.Assert(args.ModelConstraints.CpuCores, tc.NotNil)
+	c.Check(*args.ModelConstraints.CpuCores, tc.Equals, uint64(4))
+	c.Assert(args.ModelConstraints.Mem, tc.NotNil)
+	c.Check(*args.ModelConstraints.Mem, tc.Equals, uint64(2048))
+
+	// The bootstrap constraints keep every archived attribute, with the
+	// archived architecture pinned over them.
+	c.Assert(args.BootstrapConstraints.Arch, tc.NotNil)
+	c.Check(*args.BootstrapConstraints.Arch, tc.Equals, arch.ARM64)
+	c.Assert(args.BootstrapConstraints.VirtType, tc.NotNil)
+	c.Check(*args.BootstrapConstraints.VirtType, tc.Equals, "virtual-machine")
+	c.Assert(args.BootstrapConstraints.Mem, tc.NotNil)
+	c.Check(*args.BootstrapConstraints.Mem, tc.Equals, uint64(4096))
+	c.Assert(args.BootstrapConstraints.RootDiskSource, tc.NotNil)
+	c.Check(*args.BootstrapConstraints.RootDiskSource, tc.Equals, "pool-a")
+	c.Assert(args.BootstrapConstraints.Zones, tc.NotNil)
+	c.Check(*args.BootstrapConstraints.Zones, tc.DeepEquals, []string{"zone-a"})
+	c.Assert(args.BootstrapConstraints.Spaces, tc.NotNil)
+	c.Check(*args.BootstrapConstraints.Spaces, tc.DeepEquals, []string{"space-a"})
+
+	ids := make([]string, 0, len(args.ImageMetadata))
+	for _, meta := range args.ImageMetadata {
+		ids = append(ids, meta.Id)
+	}
+	c.Check(ids, tc.DeepEquals, []string{"images:bootstrap-image"})
+}
+
+// The archived architecture is authoritative: an archived constraint naming a
+// different one is rejected rather than silently provisioning the wrong
+// platform.
+func (s *bootstrapSuite) TestBootstrapRecoveryIAASRejectsConstraintArchConflict(c *tc.C) {
+	env := &recoveryBootstrapEnviron{
+		bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+	}
+	params := validRecoveryParams(coretesting.FakeVersionNumber)
+	params.Arch = arch.AMD64
+	params.BootstrapConstraints = constraints.MustParse("arch=arm64")
+
+	id, err := bootstrap.Recover(envtesting.BootstrapTestContext(c), env, params)
+	c.Check(id, tc.Equals, instance.Id(""))
+	c.Check(err, tc.ErrorMatches,
+		`validating recovery parameters: recovery controller architecture "amd64" conflicts with constraint architecture "arm64" not valid`)
+	c.Check(env.bootstrapCount, tc.Equals, 0)
+}
+
+func (s *bootstrapSuite) TestBootstrapRecoveryIAASResultChecks(c *tc.C) {
+	s.PatchValue(&arch.HostArch, func() string {
+		return arch.AMD64
+	})
+	archivedVersion := coretesting.FakeVersionNumber
+
+	tests := []struct {
+		name   string
+		result *environs.BootstrapResult
+		wantID instance.Id
+		err    string
+	}{{
+		name: "no replacement instance reported",
+		result: &environs.BootstrapResult{
+			Arch: arch.AMD64,
+			Base: jammyBootstrapBase,
+		},
+		err: "recovery provisioning returned no replacement instance",
+	}, {
+		name:   "nil bootstrap result",
+		result: nil,
+		err:    "provider returned no replacement instance details",
+	}, {
+		name: "wrong base",
+		result: &environs.BootstrapResult{
+			InstanceID: "test-instance",
+			Arch:       arch.AMD64,
+			Base:       focalBootstrapBase,
+		},
+		wantID: "test-instance",
+		err:    `replacement instance "test-instance" may require manual removal: replacement base differs from archived controller`,
+	}, {
+		name: "wrong arch",
+		result: &environs.BootstrapResult{
+			InstanceID: "test-instance",
+			Arch:       arch.ARM64,
+			Base:       jammyBootstrapBase,
+		},
+		wantID: "test-instance",
+		err:    `replacement instance "test-instance" may require manual removal: replacement architecture differs from archived agent`,
+	}}
+
+	for i, test := range tests {
+		c.Logf("test %d: %s", i, test.name)
+		env := &recoveryBootstrapEnviron{
+			bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+			result:           test.result,
+		}
+		id, err := bootstrap.Recover(envtesting.BootstrapTestContext(c), env, validRecoveryParams(archivedVersion))
+		c.Check(id, tc.Equals, test.wantID)
+		c.Check(err, tc.ErrorMatches, test.err)
+	}
+}
+
+func (s *bootstrapSuite) TestBootstrapRecoveryIAASAllocationError(c *tc.C) {
+	archivedVersion := coretesting.FakeVersionNumber
+	// allocationFailure stands in for a provider error. Providers
+	// already name the instance in the error when they allocated one
+	// before failing, so recovery must return provider errors
+	// unchanged instead of wrapping them a second time.
+	allocationFailure := errors.New("allocation failed")
+
+	tests := []struct {
+		name string
+		err  error
+		msg  string
+	}{{
+		name: "instance allocated before the failure",
+		// The provider boundary names the instance it allocated.
+		err: fmt.Errorf(`allocating bootstrap instance %q: %w`,
+			instance.Id("test-instance"), allocationFailure),
+		msg: `allocating bootstrap instance "test-instance": allocation failed`,
+	}, {
+		name: "no instance allocated",
+		err:  allocationFailure,
+		msg:  "allocation failed",
+	}}
+	for i, test := range tests {
+		c.Logf("test %d: %s", i, test.name)
+		env := &recoveryBootstrapEnviron{
+			bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+			err:              test.err,
+		}
+		id, err := bootstrap.Recover(
+			envtesting.BootstrapTestContext(c), env,
+			validRecoveryParams(archivedVersion))
+		// The provider error arrives unchanged, and no ID is
+		// returned: naming any allocated instance is the provider's
+		// responsibility.
+		c.Check(id, tc.Equals, instance.Id(""))
+		c.Check(err, tc.ErrorMatches, test.msg)
+		// The original error classification is preserved.
+		c.Check(err, tc.ErrorIs, allocationFailure)
+		c.Check(env.bootstrapCount, tc.Equals, 1)
+	}
+}
+
+func (s *bootstrapSuite) TestBootstrapRecoveryIAASCancelled(c *tc.C) {
+	archivedVersion := coretesting.FakeVersionNumber
+	ctx, cancel := context.WithCancel(c.Context())
+	defer cancel()
+
+	env := &recoveryBootstrapEnviron{
+		bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+		result: &environs.BootstrapResult{
+			InstanceID: "test-instance",
+			Arch:       arch.AMD64,
+			Base:       jammyBootstrapBase,
+		},
+		// Cancel while the provider is returning the allocated
+		// instance, so the cancellation is observed after a valid
+		// allocation. The hook belongs to the fake alone; production
+		// code has no such callback.
+		afterAllocate: cancel,
+	}
+	id, err := bootstrap.Recover(
+		envtesting.BootstrapContext(ctx, c), env, validRecoveryParams(archivedVersion))
+	// Cleanup gets the allocated ID without parsing the error message.
+	c.Check(id, tc.Equals, instance.Id("test-instance"))
+	c.Check(err, tc.ErrorIs, bootstrap.Cancelled())
+	c.Check(err, tc.ErrorMatches,
+		`replacement instance "test-instance" may require manual removal: cancelled`)
+}
+
+func (s *bootstrapSuite) TestBootstrapRecoveryIAASPreAllocationFailure(c *tc.C) {
+	env := &recoveryBootstrapEnviron{
+		bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+	}
+	ctx := envtesting.BootstrapContext(context.WithValue(
+		c.Context(), bootstrap.SimplestreamsFetcherContextKey, "invalid fetcher"), c)
+	id, err := bootstrap.Recover(ctx, env, validRecoveryParams(coretesting.FakeVersionNumber))
+	c.Check(id, tc.Equals, instance.Id(""))
+	c.Check(err, tc.ErrorMatches, "expected a valid simple streams type")
+	c.Check(env.bootstrapCount, tc.Equals, 0)
+}
+
+func (s *bootstrapSuite) TestBootstrapRecoveryIAASInvalidParams(c *tc.C) {
+	tests := []struct {
+		name   string
+		mutate func(*bootstrap.RecoveryParams)
+		err    string
+	}{{
+		name:   "no agent version",
+		mutate: func(p *bootstrap.RecoveryParams) { p.AgentVersion = semversion.Number{} },
+		err:    ".*recovery without an agent version not valid",
+	}, {
+		name:   "no base",
+		mutate: func(p *bootstrap.RecoveryParams) { p.BootstrapBase = corebase.Base{} },
+		err:    ".*recovery without a controller base not valid",
+	}, {
+		name:   "no arch",
+		mutate: func(p *bootstrap.RecoveryParams) { p.Arch = "" },
+		err:    `.*recovery controller architecture "" not valid`,
+	}, {
+		name:   "unsupported arch",
+		mutate: func(p *bootstrap.RecoveryParams) { p.Arch = "invalid" },
+		err:    `.*recovery controller architecture "invalid" not valid`,
+	}, {
+		name:   "no controller UUID",
+		mutate: func(p *bootstrap.RecoveryParams) { delete(p.ControllerConfig, "controller-uuid") },
+		err:    ".*controller configuration has no controller UUID",
+	}, {
+		name:   "no CA certificate",
+		mutate: func(p *bootstrap.RecoveryParams) { delete(p.ControllerConfig, "ca-cert") },
+		err:    ".*controller configuration has no ca-cert",
+	}, {
+		name:   "Kubernetes allocation",
+		mutate: func(p *bootstrap.RecoveryParams) { p.Cloud.Type = cloud.CloudTypeKubernetes },
+		err:    ".*recovery of a Kubernetes controller not supported",
+	}}
+	for _, test := range tests {
+		c.Logf("test: %s", test.name)
+		env := &recoveryBootstrapEnviron{
+			bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+		}
+		params := validRecoveryParams(coretesting.FakeVersionNumber)
+		test.mutate(&params)
+		id, err := bootstrap.Recover(envtesting.BootstrapTestContext(c), env, params)
+		c.Check(id, tc.Equals, instance.Id(""))
+		c.Check(err, tc.ErrorMatches, test.err)
+		c.Check(env.bootstrapCount, tc.Equals, 0)
+	}
 }
 
 func (s *bootstrapSuite) TestBootstrapImage(c *tc.C) {
@@ -2015,6 +2380,48 @@ func (s *bootstrapSuite) TestAvailableToolsInvalidArch(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `model "foo" of type dummy does not support instances running on "s390x"`)
 }
 
+// Detected model constraints must survive allocation preparation and reach
+// state initialisation. Local LXD asks for this when no arch was specified.
+func (s *bootstrapSuite) TestDetectedModelArchitecture(c *tc.C) {
+	for _, explicitArch := range []bool{false, true} {
+		c.Logf("explicit model architecture: %v", explicitArch)
+		env := &modelConstraintsEnviron{
+			newBootstrapEnvironWithHardwareDetection("foo", jammyBootstrapBase, arch.ARM64, useDefaultKeys, nil),
+		}
+		modelCons := constraints.Value{}
+		wantArch := arch.ARM64
+		if explicitArch {
+			modelCons = constraints.MustParse("arch=amd64")
+			wantArch = arch.AMD64
+		}
+		s.PatchValue(bootstrap.FindTools, func(_ context.Context, _ envtools.SimplestreamsFetcher,
+			_ environs.BootstrapEnviron, _, _ int, _ []string, filter tools.Filter,
+		) (tools.List, error) {
+			c.Check(filter.Arch, tc.Equals, wantArch)
+			return tools.List{{Version: semversion.Binary{
+				Number: coretesting.FakeVersionNumber, Release: "ubuntu", Arch: wantArch,
+			}, URL: "file:///unused-agent.tgz"}}, nil
+		})
+		err := bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env, bootstrap.BootstrapParams{
+			AdminSecret:             "admin-secret",
+			CAPrivateKey:            coretesting.CAKey,
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			SupportedBootstrapBases: supportedJujuBases,
+			ModelConstraints:        modelCons,
+		})
+		c.Assert(err, tc.ErrorIsNil)
+		want := constraints.Value{Arch: &wantArch}
+		c.Check(env.args.ModelConstraints, tc.DeepEquals, want)
+		c.Check(env.args.BootstrapBase, tc.Equals, jammyBootstrapBase)
+		c.Assert(env.instanceConfig, tc.NotNil)
+		c.Check(env.instanceConfig.Bootstrap.ModelConstraints, tc.DeepEquals, want)
+		c.Check(env.instanceConfig.Base, tc.Equals, jammyBootstrapBase)
+		if !explicitArch {
+			c.Check(modelCons.Arch, tc.IsNil)
+		}
+	}
+}
+
 func (s *bootstrapSuite) TestTargetSeriesOverride(c *tc.C) {
 	env := newBootstrapEnvironWithHardwareDetection("foo", corebase.MustParseBaseFromString("ubuntu@17.10"), "amd64", useDefaultKeys, nil)
 	err := bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
@@ -2193,6 +2600,50 @@ func (p bootstrapEnvironProvider) Version() int {
 	return 123
 }
 
+// recoveryBootstrapEnviron extends bootstrapEnviron for IAAS recovery
+// tests. Bootstrap returns the configured error, if any, or the
+// configured result, whose InstanceID records the allocated replacement
+// instance. afterAllocate, when set, runs after the instance is
+// recorded as allocated and before Bootstrap returns; it is a testing
+// hook for interrupting the provider call deterministically, and has no
+// production counterpart.
+type recoveryBootstrapEnviron struct {
+	*bootstrapEnviron
+
+	result        *environs.BootstrapResult
+	err           error
+	afterAllocate func()
+}
+
+func (e *recoveryBootstrapEnviron) Bootstrap(
+	ctx environs.BootstrapContext,
+	args environs.BootstrapParams,
+) (*environs.BootstrapResult, error) {
+	e.bootstrapCount++
+	e.args = args
+	if e.err != nil {
+		// Providers report no result alongside an error; the error
+		// itself names any instance allocated before the failure.
+		return nil, e.err
+	}
+	if e.afterAllocate != nil && e.result != nil && e.result.InstanceID != "" {
+		e.afterAllocate()
+	}
+	return e.result, nil
+}
+
+// recoveryBootstrapEnvironWithRegion is a recoveryBootstrapEnviron that reports
+// a region, so bootstrap image selection runs the simplestreams path.
+type recoveryBootstrapEnvironWithRegion struct {
+	*recoveryBootstrapEnviron
+
+	region simplestreams.CloudSpec
+}
+
+func (e recoveryBootstrapEnvironWithRegion) Region() (simplestreams.CloudSpec, error) {
+	return e.region, nil
+}
+
 type bootstrapEnvironWithRegion struct {
 	*bootstrapEnviron
 	region simplestreams.CloudSpec
@@ -2243,6 +2694,15 @@ func (e bootstrapEnvironWithHardwareDetection) DetectHardware() (*instance.Hardw
 
 func (e bootstrapEnvironWithHardwareDetection) UpdateModelConstraints() bool {
 	return false
+}
+
+// modelConstraintsEnviron implements the hardware detection policy of LXD.
+type modelConstraintsEnviron struct {
+	*bootstrapEnvironWithHardwareDetection
+}
+
+func (e modelConstraintsEnviron) UpdateModelConstraints() bool {
+	return true
 }
 
 func bootstrapContext(c *tc.C) (environs.BootstrapContext, *simplestreams.Simplestreams) {

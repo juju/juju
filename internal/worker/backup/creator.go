@@ -10,11 +10,12 @@ import (
 	"path"
 
 	"github.com/juju/clock"
-	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
 
+	"github.com/juju/juju/core/arch"
 	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
@@ -32,6 +33,7 @@ type Creator struct {
 	controllerModelUUID coremodel.UUID
 	machineID           string
 	machineInstanceID   GetMachineInstanceIDFunc
+	machineBase         GetMachineBaseFunc
 	dataDir             string
 	logDir              string
 
@@ -64,6 +66,12 @@ type CreatorConfig struct {
 	// resolve it from the machine service, while controllers without a machine,
 	// such as Kubernetes, report none.
 	MachineInstanceIDGetter GetMachineInstanceIDFunc
+
+	// MachineBaseGetter resolves the controller machine's base from
+	// MachineService, for recording in the archive metadata. The implementation
+	// is chosen by manifold wiring: machine-hosted controllers resolve it from
+	// the machine service, while controllers without a machine report none.
+	MachineBaseGetter GetMachineBaseFunc
 
 	// ControllerExport is the controller domain service that exports the
 	// controller database into the archive.
@@ -98,52 +106,55 @@ type CreatorConfig struct {
 // Validate checks that archive creation dependencies are complete.
 func (c CreatorConfig) Validate() error {
 	if c.MachineTag == nil {
-		return jujuerrors.NotValidf("nil MachineTag")
+		return errors.Errorf("nil MachineTag %w", coreerrors.NotValid)
 	}
 	if c.ControllerUUID == "" {
-		return jujuerrors.NotValidf("empty ControllerUUID")
+		return errors.Errorf("empty ControllerUUID %w", coreerrors.NotValid)
 	}
 	if err := c.ControllerModelUUID.Validate(); err != nil {
-		return jujuerrors.Annotate(err, "controller model UUID")
+		return errors.Errorf("controller model UUID: %w", err)
 	}
 	if c.DataDir == "" {
-		return jujuerrors.NotValidf("empty DataDir")
+		return errors.Errorf("empty DataDir %w", coreerrors.NotValid)
 	}
 	if c.LogDir == "" {
-		return jujuerrors.NotValidf("empty LogDir")
+		return errors.Errorf("empty LogDir %w", coreerrors.NotValid)
 	}
 	if c.MachineInstanceIDGetter == nil {
-		return jujuerrors.NotValidf("nil MachineInstanceIDGetter")
+		return errors.Errorf("nil MachineInstanceIDGetter %w", coreerrors.NotValid)
+	}
+	if c.MachineBaseGetter == nil {
+		return errors.Errorf("nil MachineBaseGetter %w", coreerrors.NotValid)
 	}
 	if c.ControllerExport == nil {
-		return jujuerrors.NotValidf("nil ControllerExport")
+		return errors.Errorf("nil ControllerExport %w", coreerrors.NotValid)
 	}
 	if c.ModelServicesGetter == nil {
-		return jujuerrors.NotValidf("nil ModelServicesGetter")
+		return errors.Errorf("nil ModelServicesGetter %w", coreerrors.NotValid)
 	}
 	if c.ControllerModelMachineService == nil {
-		return jujuerrors.NotValidf("nil ControllerModelMachineService")
+		return errors.Errorf("nil ControllerModelMachineService %w", coreerrors.NotValid)
 	}
 	if c.ModelConfig == nil {
-		return jujuerrors.NotValidf("nil ModelConfig")
+		return errors.Errorf("nil ModelConfig %w", coreerrors.NotValid)
 	}
 	if c.ControllerModelLister == nil {
-		return jujuerrors.NotValidf("nil ControllerModelLister")
+		return errors.Errorf("nil ControllerModelLister %w", coreerrors.NotValid)
 	}
 	if c.ControllerNodes == nil {
-		return jujuerrors.NotValidf("nil ControllerNodes")
+		return errors.Errorf("nil ControllerNodes %w", coreerrors.NotValid)
 	}
 	if c.ControllerObjectStore == nil {
-		return jujuerrors.NotValidf("nil ControllerObjectStore")
+		return errors.Errorf("nil ControllerObjectStore %w", coreerrors.NotValid)
 	}
 	if c.ObjectStoreForModel == nil {
-		return jujuerrors.NotValidf("nil ObjectStoreForModel")
+		return errors.Errorf("nil ObjectStoreForModel %w", coreerrors.NotValid)
 	}
 	if c.Clock == nil {
-		return jujuerrors.NotValidf("nil Clock")
+		return errors.Errorf("nil Clock %w", coreerrors.NotValid)
 	}
 	if c.Logger == nil {
-		return jujuerrors.NotValidf("nil Logger")
+		return errors.Errorf("nil Logger %w", coreerrors.NotValid)
 	}
 	return nil
 }
@@ -158,6 +169,7 @@ func NewCreator(cfg CreatorConfig) (*Creator, error) {
 		controllerModelUUID:   cfg.ControllerModelUUID,
 		machineID:             cfg.MachineTag.Id(),
 		machineInstanceID:     cfg.MachineInstanceIDGetter,
+		machineBase:           cfg.MachineBaseGetter,
 		dataDir:               cfg.DataDir,
 		logDir:                cfg.LogDir,
 		controllerExport:      cfg.ControllerExport,
@@ -374,15 +386,23 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 	if err != nil {
 		return nil, "", nil, errors.Errorf("recording controller machine instance ID: %w", err)
 	}
+	// A machine backup needs a known base to allocate its replacement.
+	// Kubernetes has no controller machine and therefore records no base.
+	machineBase, err := c.machineBase(ctx, c.machineID, c.machineService)
+	if err != nil {
+		return nil, "", nil, errors.Errorf("recording controller machine base: %w", err)
+	}
 	meta.Notes = notes
 	meta.Origin = corebackups.Origin{
 		Model:    c.controllerModelUUID.String(),
 		Machine:  c.machineID,
 		Hostname: hostname,
 		Version:  coreversion.Current,
-		// TODO(backups): resolve the controller machine's base when a cheap,
-		// verified lookup path is available to this worker.
-		Base: "",
+		Base:     machineBase,
+		// The backup runs on the controller machine, so its running
+		// architecture is the source controller's: recovery provisions the
+		// replacement with it instead of the bootstrap client's host arch.
+		Arch: arch.HostArch(),
 	}
 	meta.Controller = corebackups.ControllerMetadata{
 		UUID:              c.controllerUUID,
@@ -449,9 +469,34 @@ func MachineInstanceID(
 	return string(instanceID), nil
 }
 
+// MachineBase resolves the controller machine's base from the controller
+// model's machine service. Manifold wiring for machine-hosted controllers
+// injects this implementation.
+func MachineBase(
+	ctx context.Context,
+	machineID string,
+	machineService MachineService,
+) (string, error) {
+	controllerBase, err := machineService.GetMachineBase(ctx, machine.Name(machineID))
+	if err != nil {
+		return "", errors.Errorf("retrieving controller machine base: %w", err)
+	}
+	if controllerBase.Empty() {
+		return "", errors.New("controller machine base is empty")
+	}
+	return controllerBase.String(), nil
+}
+
 // NoMachineInstanceID reports that the controller has no provider machine.
 // Manifold wiring for Kubernetes controllers injects this implementation, so
 // no machine metadata is queried and the archive records no instance ID.
 func NoMachineInstanceID(_ context.Context, _ string, _ MachineService) (string, error) {
+	return "", nil
+}
+
+// NoMachineBase reports that the controller has no machine base. Manifold
+// wiring for Kubernetes controllers injects this implementation, so no machine
+// metadata is queried and the archive records no base.
+func NoMachineBase(_ context.Context, _ string, _ MachineService) (string, error) {
 	return "", nil
 }

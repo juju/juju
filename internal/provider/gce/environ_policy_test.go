@@ -56,7 +56,7 @@ func (s *environPolSuite) TestPrecheckInstanceFull(c *tc.C) {
 		Id:           new(uint64(0)),
 		Name:         new("n1-standard-2"),
 		GuestCpus:    new(int32(2)),
-		Architecture: new("amd64"),
+		Architecture: new("X86_64"),
 	}}, nil)
 
 	cons := constraints.MustParse("instance-type=n1-standard-2 arch=amd64 root-disk=1G")
@@ -82,7 +82,7 @@ func (s *environPolSuite) TestPrecheckInstanceValidInstanceType(c *tc.C) {
 		Id:           new(uint64(0)),
 		Name:         new("n1-standard-2"),
 		GuestCpus:    new(int32(2)),
-		Architecture: new("amd64"),
+		Architecture: new("X86_64"),
 	}}, nil)
 
 	cons := constraints.MustParse("instance-type=n1-standard-2")
@@ -106,7 +106,7 @@ func (s *environPolSuite) TestPrecheckInstanceInvalidInstanceType(c *tc.C) {
 		Id:           new(uint64(0)),
 		Name:         new("n1-standard-1"),
 		GuestCpus:    new(int32(2)),
-		Architecture: new("amd64"),
+		Architecture: new("X86_64"),
 	}}, nil)
 
 	cons := constraints.MustParse("instance-type=n1-standard-1.invalid")
@@ -130,7 +130,7 @@ func (s *environPolSuite) TestPrecheckInstanceInvalidRootDiskSource(c *tc.C) {
 		Id:           new(uint64(0)),
 		Name:         new("n1-standard-1"),
 		GuestCpus:    new(int32(2)),
-		Architecture: new("amd64"),
+		Architecture: new("X86_64"),
 	}}, nil)
 
 	cons := constraints.MustParse("instance-type=n1-standard-1 root-disk-source=hyperdisk-balanced")
@@ -156,7 +156,7 @@ func (s *environPolSuite) TestPrecheckInstanceUnsupportedArch(c *tc.C) {
 		Id:           new(uint64(0)),
 		Name:         new("n1-standard-2"),
 		GuestCpus:    new(int32(2)),
-		Architecture: new("amd64"),
+		Architecture: new("X86_64"),
 	}}, nil)
 
 	cons := constraints.MustParse("instance-type=n1-standard-2 arch=arm64")
@@ -326,7 +326,7 @@ func (s *environPolSuite) expectConstraintsCalls() {
 		Id:           new(uint64(0)),
 		Name:         new("n1-standard-2"),
 		GuestCpus:    new(int32(2)),
-		Architecture: new("amd64"),
+		Architecture: new("X86_64"),
 	}}, nil)
 }
 
