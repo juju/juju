@@ -5,7 +5,6 @@ package sshclient
 
 import (
 	"context"
-	"sort"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -185,7 +184,8 @@ func (facade *Facade) PrivateAddress(ctx context.Context, args params.Entities) 
 }
 
 // AllAddresses reports all addresses that might have SSH listening for each
-// entity in args. The result is sorted with public addresses first.
+// entity in args. The result is ordered with public addresses first and the
+// default route device preferred for primary IPv4 addresses within each scope.
 // Machines and units are supported as entity types.
 func (facade *Facade) AllAddresses(ctx context.Context, args params.Entities) (params.SSHAddressesResults, error) {
 	if err := facade.checkIsModelAdmin(ctx); err != nil {
@@ -198,7 +198,7 @@ func (facade *Facade) AllAddresses(ctx context.Context, args params.Entities) (p
 			return nil, errors.Trace(err)
 		}
 
-		// Make the list unique
+		// Make the list unique, preserving the database order.
 		addressMap := make(map[string]bool)
 		var uniqueAddresses network.SpaceAddresses
 		for _, address := range devicesAddresses {
@@ -208,7 +208,6 @@ func (facade *Facade) AllAddresses(ctx context.Context, args params.Entities) (p
 			}
 		}
 
-		sort.Sort(uniqueAddresses)
 		return uniqueAddresses, nil
 	}
 

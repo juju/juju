@@ -457,7 +457,7 @@ func (s *unitSuite) TestExecuteJobForUnitDeadDeleteUnit(c *tc.C) {
 			BackendType: vault.BackendType,
 		},
 	}
-	s.controllerState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).Return("", sbCfg, nil)
+	s.controllerState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).Return(sbCfg, nil)
 	s.secretBackendProvider.EXPECT().Initialise(sbCfg).Return(nil)
 	s.secretBackendProvider.EXPECT().NewBackend(sbCfg).Return(s.secretBackend, nil)
 
@@ -486,7 +486,7 @@ func (s *unitSuite) TestExecuteJobForUnitDeadDyingUnitWithNoEntities(c *tc.C) {
 			BackendType: vault.BackendType,
 		},
 	}
-	s.controllerState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).Return("", sbCfg, nil)
+	s.controllerState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).Return(sbCfg, nil)
 	s.secretBackendProvider.EXPECT().Initialise(sbCfg).Return(nil)
 	s.secretBackendProvider.EXPECT().NewBackend(sbCfg).Return(s.secretBackend, nil)
 
@@ -514,7 +514,7 @@ func (s *unitSuite) TestExecuteJobForUnitDeadJujuSecretsDeleteUnit(c *tc.C) {
 			BackendType: juju.BackendType,
 		},
 	}
-	s.controllerState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).Return("", sbCfg, nil)
+	s.controllerState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).Return(sbCfg, nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIsNil)
@@ -542,7 +542,7 @@ func (s *unitSuite) TestExecuteJobForUnitDeadExternalSecretsDeleteUnit(c *tc.C) 
 			BackendType: vault.BackendType,
 		},
 	}
-	s.controllerState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).Return("", sbCfg, nil)
+	s.controllerState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).Return(sbCfg, nil)
 
 	s.secretBackendProvider.EXPECT().Initialise(sbCfg).Return(nil)
 	s.secretBackendProvider.EXPECT().NewBackend(sbCfg).Return(s.secretBackend, nil)
@@ -584,7 +584,7 @@ func (s *unitSuite) TestExecuteJobWithForceRevokesLeadershipAfterLeavingScopes(c
 			BackendType: vault.BackendType,
 		},
 	}
-	s.controllerState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).Return("", sbCfg, nil)
+	s.controllerState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).Return(sbCfg, nil)
 	s.secretBackendProvider.EXPECT().Initialise(sbCfg).Return(nil)
 	s.secretBackendProvider.EXPECT().NewBackend(sbCfg).Return(s.secretBackend, nil)
 
@@ -627,7 +627,7 @@ func (s *unitSuite) TestExecuteJobForUnitDeadDeleteUnitError(c *tc.C) {
 			BackendType: vault.BackendType,
 		},
 	}
-	s.controllerState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).Return("", sbCfg, nil)
+	s.controllerState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).Return(sbCfg, nil)
 	s.secretBackendProvider.EXPECT().Initialise(sbCfg).Return(nil)
 	s.secretBackendProvider.EXPECT().NewBackend(sbCfg).Return(s.secretBackend, nil)
 
@@ -684,7 +684,7 @@ func (s *unitSuite) TestExecuteJobForUnitDeadDeleteUnitClaimNotHeld(c *tc.C) {
 			BackendType: vault.BackendType,
 		},
 	}
-	s.controllerState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).Return("", sbCfg, nil)
+	s.controllerState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).Return(sbCfg, nil)
 	s.secretBackendProvider.EXPECT().Initialise(sbCfg).Return(nil)
 	s.secretBackendProvider.EXPECT().NewBackend(sbCfg).Return(s.secretBackend, nil)
 

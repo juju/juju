@@ -54,7 +54,8 @@ type MockStateMockRecorder struct {
 	getModelCloudTypeExpects                    []*gomock.Call1_2[context.Context, string, error]
 	getModelEgressSubnetsExpects                []*gomock.Call1_2[context.Context, []string, error]
 	getModelTypeExpects                         []*gomock.Call1_2[context.Context, model.ModelType, error]
-	getNetNodeAddressesExpects                  []*gomock.Call2_2[context.Context, string, network.SpaceAddresses, error]
+	getNetNodeAddressesExpects                  []*gomock.Call3_2[context.Context, string, bool, network.SpaceAddresses, error]
+	getNetNodePublicAddressExpects              []*gomock.Call2_2[context.Context, string, network.SpaceAddress, error]
 	getRelationEgressSubnetsExpects             []*gomock.Call2_2[context.Context, string, []string, error]
 	getSpaceExpects                             []*gomock.Call2_2[context.Context, network.SpaceUUID, *network.SpaceInfo, error]
 	getSpaceByNameExpects                       []*gomock.Call2_2[context.Context, network.SpaceName, *network.SpaceInfo, error]
@@ -62,12 +63,12 @@ type MockStateMockRecorder struct {
 	getSubnetCIDRForDeviceExpects               []*gomock.Call4_2[context.Context, string, string, string, string, error]
 	getSubnetsByCIDRExpects                     []*gomock.Call1V_2[context.Context, string, network.SubnetInfos, error]
 	getUnitAddressesExpects                     []*gomock.Call2_2[context.Context, unit.UUID, network.SpaceAddresses, error]
-	getUnitAndK8sServiceAddressesExpects        []*gomock.Call2_2[context.Context, unit.UUID, network.SpaceAddresses, error]
 	getUnitEgressSubnetsExpects                 []*gomock.Call2_2[context.Context, string, []string, error]
 	getUnitEndpointNetworkInfoExpects           []*gomock.Call3_2[context.Context, string, []string, []internal.EndpointNetworkInfo, error]
 	getUnitFQDNsExpects                         []*gomock.Call2_2[context.Context, string, []string, error]
 	getUnitNetworkInfoExpects                   []*gomock.Call2_2[context.Context, string, internal.UnitNetworkInfo, error]
 	getUnitPublicAddressForEgressExpects        []*gomock.Call2_2[context.Context, string, string, error]
+	getUnitPublicAddressesExpects               []*gomock.Call2_2[context.Context, string, network.SpaceAddresses, error]
 	getUnitRelationEndpointNameExpects          []*gomock.Call3_2[context.Context, string, string, string, error]
 	getUnitUUIDByNameExpects                    []*gomock.Call2_2[context.Context, unit.Name, unit.UUID, error]
 	importLinkLayerDevicesExpects               []*gomock.Call2_1[context.Context, []internal.ImportLinkLayerDevice, error]
@@ -476,22 +477,40 @@ func (mr *MockStateMockRecorder) GetModelType(arg0 any) *MockStateGetModelTypeCa
 type MockStateGetModelTypeCall = gomock.Call1_2[context.Context, model.ModelType, error]
 
 // GetNetNodeAddresses mocks base method.
-func (m *MockState) GetNetNodeAddresses(ctx context.Context, netNodeUUID string) (network.SpaceAddresses, error) {
+func (m *MockState) GetNetNodeAddresses(ctx context.Context, netNodeUUID string, preferDefaultRoute bool) (network.SpaceAddresses, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getNetNodeAddressesExpects, m.ctrl, m, "GetNetNodeAddresses", ctx, netNodeUUID)
+	return gomock.Dispatch3_2(&m.recorder.getNetNodeAddressesExpects, m.ctrl, m, "GetNetNodeAddresses", ctx, netNodeUUID, preferDefaultRoute)
 }
 
 // GetNetNodeAddresses indicates an expected call of GetNetNodeAddresses.
-func (mr *MockStateMockRecorder) GetNetNodeAddresses(ctx, netNodeUUID any) *MockStateGetNetNodeAddressesCall {
+func (mr *MockStateMockRecorder) GetNetNodeAddresses(ctx, netNodeUUID, preferDefaultRoute any) *MockStateGetNetNodeAddressesCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, network.SpaceAddresses, error](mr.mock.ctrl.T, mr.mock, "GetNetNodeAddresses", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(netNodeUUID))
+	call := gomock.NewCall3_2[context.Context, string, bool, network.SpaceAddresses, error](mr.mock.ctrl.T, mr.mock, "GetNetNodeAddresses", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(netNodeUUID), gomock.EnsureMatcher(preferDefaultRoute))
 	mr.getNetNodeAddressesExpects = append(mr.getNetNodeAddressesExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStateGetNetNodeAddressesCall is the typed call wrapper for GetNetNodeAddresses.
-type MockStateGetNetNodeAddressesCall = gomock.Call2_2[context.Context, string, network.SpaceAddresses, error]
+type MockStateGetNetNodeAddressesCall = gomock.Call3_2[context.Context, string, bool, network.SpaceAddresses, error]
+
+// GetNetNodePublicAddress mocks base method.
+func (m *MockState) GetNetNodePublicAddress(ctx context.Context, netNodeUUID string) (network.SpaceAddress, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getNetNodePublicAddressExpects, m.ctrl, m, "GetNetNodePublicAddress", ctx, netNodeUUID)
+}
+
+// GetNetNodePublicAddress indicates an expected call of GetNetNodePublicAddress.
+func (mr *MockStateMockRecorder) GetNetNodePublicAddress(ctx, netNodeUUID any) *MockStateGetNetNodePublicAddressCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, network.SpaceAddress, error](mr.mock.ctrl.T, mr.mock, "GetNetNodePublicAddress", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(netNodeUUID))
+	mr.getNetNodePublicAddressExpects = append(mr.getNetNodePublicAddressExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetNetNodePublicAddressCall is the typed call wrapper for GetNetNodePublicAddress.
+type MockStateGetNetNodePublicAddressCall = gomock.Call2_2[context.Context, string, network.SpaceAddress, error]
 
 // GetRelationEgressSubnets mocks base method.
 func (m *MockState) GetRelationEgressSubnets(ctx context.Context, relationUUID string) ([]string, error) {
@@ -620,24 +639,6 @@ func (mr *MockStateMockRecorder) GetUnitAddresses(ctx, uuid any) *MockStateGetUn
 // MockStateGetUnitAddressesCall is the typed call wrapper for GetUnitAddresses.
 type MockStateGetUnitAddressesCall = gomock.Call2_2[context.Context, unit.UUID, network.SpaceAddresses, error]
 
-// GetUnitAndK8sServiceAddresses mocks base method.
-func (m *MockState) GetUnitAndK8sServiceAddresses(ctx context.Context, uuid unit.UUID) (network.SpaceAddresses, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getUnitAndK8sServiceAddressesExpects, m.ctrl, m, "GetUnitAndK8sServiceAddresses", ctx, uuid)
-}
-
-// GetUnitAndK8sServiceAddresses indicates an expected call of GetUnitAndK8sServiceAddresses.
-func (mr *MockStateMockRecorder) GetUnitAndK8sServiceAddresses(ctx, uuid any) *MockStateGetUnitAndK8sServiceAddressesCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, unit.UUID, network.SpaceAddresses, error](mr.mock.ctrl.T, mr.mock, "GetUnitAndK8sServiceAddresses", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uuid))
-	mr.getUnitAndK8sServiceAddressesExpects = append(mr.getUnitAndK8sServiceAddressesExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockStateGetUnitAndK8sServiceAddressesCall is the typed call wrapper for GetUnitAndK8sServiceAddresses.
-type MockStateGetUnitAndK8sServiceAddressesCall = gomock.Call2_2[context.Context, unit.UUID, network.SpaceAddresses, error]
-
 // GetUnitEgressSubnets mocks base method.
 func (m *MockState) GetUnitEgressSubnets(ctx context.Context, unitUUID string) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -727,6 +728,24 @@ func (mr *MockStateMockRecorder) GetUnitPublicAddressForEgress(ctx, unitUUID any
 
 // MockStateGetUnitPublicAddressForEgressCall is the typed call wrapper for GetUnitPublicAddressForEgress.
 type MockStateGetUnitPublicAddressForEgressCall = gomock.Call2_2[context.Context, string, string, error]
+
+// GetUnitPublicAddresses mocks base method.
+func (m *MockState) GetUnitPublicAddresses(ctx context.Context, uuid string) (network.SpaceAddresses, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getUnitPublicAddressesExpects, m.ctrl, m, "GetUnitPublicAddresses", ctx, uuid)
+}
+
+// GetUnitPublicAddresses indicates an expected call of GetUnitPublicAddresses.
+func (mr *MockStateMockRecorder) GetUnitPublicAddresses(ctx, uuid any) *MockStateGetUnitPublicAddressesCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, network.SpaceAddresses, error](mr.mock.ctrl.T, mr.mock, "GetUnitPublicAddresses", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uuid))
+	mr.getUnitPublicAddressesExpects = append(mr.getUnitPublicAddressesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetUnitPublicAddressesCall is the typed call wrapper for GetUnitPublicAddresses.
+type MockStateGetUnitPublicAddressesCall = gomock.Call2_2[context.Context, string, network.SpaceAddresses, error]
 
 // GetUnitRelationEndpointName mocks base method.
 func (m *MockState) GetUnitRelationEndpointName(ctx context.Context, unitUUID, relationUUID string) (string, error) {

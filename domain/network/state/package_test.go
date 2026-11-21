@@ -277,6 +277,17 @@ VALUES (?, ?, ?, ?, ?,
 	return deviceUUID
 }
 
+// setDefaultGateway marks the link layer device as carrying the default route
+// with the input gateway address.
+func (s *linkLayerBaseSuite) setDefaultGateway(
+	c *tc.C, deviceUUID, gatewayAddress string,
+) {
+	s.query(c, `
+UPDATE link_layer_device
+SET    is_default_gateway = true, gateway_address = ?
+WHERE  uuid = ?`, gatewayAddress, deviceUUID)
+}
+
 func (s *linkLayerBaseSuite) addDNSDomains(c *tc.C, deviceUUID string, dnsDomains ...string) {
 	for _, dnsDomain := range dnsDomains {
 		s.query(c, `
