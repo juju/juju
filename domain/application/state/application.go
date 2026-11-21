@@ -1660,13 +1660,6 @@ WHERE  uuid = $entityUUID.uuid
 			return errors.Errorf("inserting unit storage directives: %w", err)
 		}
 
-		bindings := transform.Map(params.EndpointBindings, func(k string, v network.SpaceName) (string, string) {
-			return k, v.String()
-		})
-		if err := st.mergeApplicationEndpointBindings(ctx, tx, appID.String(), bindings, false); err != nil {
-			return errors.Capture(err)
-		}
-
 		if err := st.reconcileApplicationResourcesForCharm(
 			ctx, tx, appID.String(), chID.String(), params,
 		); err != nil {
@@ -1698,6 +1691,15 @@ WHERE  uuid = $entityUUID.uuid
 
 		if err := st.refreshApplicationEndpointBindings(ctx, tx, appIdent, charmIdent); err != nil {
 			return errors.Errorf("refreshing application endpoint bindings: %w", err)
+		}
+
+		// Merge bindings after refreshing endpoints so they are validated
+		// against the new charm.
+		bindings := transform.Map(params.EndpointBindings, func(k string, v network.SpaceName) (string, string) {
+			return k, v.String()
+		})
+		if err := st.mergeApplicationEndpointBindings(ctx, tx, appID.String(), bindings, false); err != nil {
+			return errors.Capture(err)
 		}
 		if params.Channel != nil {
 			if err := st.upsertApplicationChannel(ctx, tx, *params.Channel, appID.String()); err != nil {

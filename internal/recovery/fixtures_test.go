@@ -49,6 +49,10 @@ func metadataJSON(agentVersion string) string {
 		`"Notes":"",` +
 		`"ModelUUID":"` + testControllerModelUUID + `",` +
 		`"Machine":"0",` +
+		// The base is what the real producer records: the machine
+		// service's base string, channel included.
+		`"Base":"ubuntu@24.04/stable",` +
+		`"Arch":"amd64",` +
 		`"Hostname":"myhost",` +
 		`"Version":"` + agentVersion + `",` +
 		`"ControllerUUID":"` + testControllerUUID + `",` +
@@ -311,4 +315,96 @@ func withManifest(c *tc.C, files map[string][]byte) map[string][]byte {
 	c.Assert(err, tc.ErrorIsNil)
 	files["juju-backup/manifest.json"] = data
 	return files
+}
+
+// provisioningControllerDump renders a controller dump carrying the
+// provisioning inputs a replacement controller must reuse: the controller
+// model's cloud region, the controller config rows (one of them NULL), and the
+// api and ssh-server ports.
+func provisioningControllerDump() string {
+	return "version: 4.1.0\n" +
+		"payload:\n" +
+		"  controller:\n" +
+		"  - uuid: " + testControllerUUID + "\n" +
+		"    model_uuid: " + testControllerModelUUID + "\n" +
+		"    api_port: \"17171\"\n" +
+		"    ca_cert: source-ca-cert\n" +
+		"    ca_private_key: source-ca-key\n" +
+		"  controller_ssh_server_port:\n" +
+		"  - port: 17172\n" +
+		"  cloud:\n" +
+		"  - uuid: cloud-lxd\n    name: lxd\n    cloud_type_id: 1\n" +
+		"  cloud_type:\n" +
+		"  - id: 1\n    type: lxd\n" +
+		"  cloud_region:\n" +
+		"  - uuid: region-north\n    name: north\n" +
+		"  model_type:\n" +
+		"  - id: 0\n    type: iaas\n" +
+		"  controller_config:\n" +
+		"  - key: controller-name\n    value: source-ctrl\n" +
+		"  - key: auditing-enabled\n    value: \"true\"\n" +
+		"  - key: removed-setting\n    value:\n" +
+		"  model:\n" +
+		"  - uuid: " + testControllerModelUUID + "\n" +
+		"    name: controller\n    cloud_uuid: cloud-lxd\n" +
+		"    cloud_region_uuid: region-north\n    model_type_id: 0\n"
+}
+
+// provisioningModelDump renders a controller model dump carrying the
+// provisioning inputs a replacement controller must reuse: the model config,
+// the agent stream, the model and controller application constraints with
+// their tags, spaces and zones, and the storage pools.
+func provisioningModelDump() string {
+	return "version: 4.1.0\n" +
+		"payload:\n" +
+		"  model_config:\n" +
+		"  - key: project\n    value: tenant-a\n" +
+		"  - key: image-stream\n    value: daily\n" +
+		"  agent_stream:\n" +
+		"  - id: 0\n    name: released\n" +
+		"  - id: 1\n    name: proposed\n" +
+		"  agent_version:\n" +
+		"  - stream_id: 1\n    target_version: 4.1.0\n    latest_version: 4.1.0\n" +
+		"  constraint:\n" +
+		"  - uuid: cons-model\n    arch: amd64\n    cpu_cores: 2\n    mem: 4096\n" +
+		"    root_disk_source: pool-a\n    virt_type: virtual-machine\n" +
+		"    allocate_public_ip: 0\n" +
+		"  - uuid: cons-controller\n    mem: 8192\n    root_disk: 20480\n" +
+		"    virt_type: virtual-machine\n" +
+		"  container_type:\n" +
+		"  - id: 0\n    value: lxd\n" +
+		"  constraint_tag:\n" +
+		"  - constraint_uuid: cons-model\n    tag: tag-a\n" +
+		"  - constraint_uuid: cons-model\n    tag: tag-b\n" +
+		"  constraint_space:\n" +
+		"  - constraint_uuid: cons-controller\n    space: space-a\n    exclude: false\n" +
+		"  - constraint_uuid: cons-controller\n    space: space-b\n    exclude: true\n" +
+		"  constraint_zone:\n" +
+		"  - constraint_uuid: cons-controller\n    zone: zone-a\n" +
+		"  model_constraint:\n" +
+		"  - model_uuid: " + testControllerModelUUID + "\n" +
+		"    constraint_uuid: cons-model\n" +
+		"  application_controller:\n" +
+		"  - application_uuid: app-controller\n" +
+		"  application_constraint:\n" +
+		"  - application_uuid: app-controller\n    constraint_uuid: cons-controller\n" +
+		"  storage_pool:\n" +
+		"  - uuid: pool-a-uuid\n    name: pool-a\n    type: lxd\n" +
+		"  - uuid: pool-b-uuid\n    name: pool-b\n    type: tmpfs\n" +
+		"  storage_pool_attribute:\n" +
+		"  - storage_pool_uuid: pool-a-uuid\n    key: source\n    value: /dev/sda1\n" +
+		"  - storage_pool_uuid: pool-b-uuid\n    key: size\n    value: 1G\n"
+}
+
+// provisioningFiles returns an archive file set whose controller dump and
+// controller model dump carry the provisioning inputs above.
+func provisioningFiles() map[string][]byte {
+	return map[string][]byte{
+		"juju-backup/metadata.json": []byte(metadataJSON("4.1.0")),
+		"juju-backup/dump/controller.yaml": []byte(
+			provisioningControllerDump()),
+		"juju-backup/dump/models/" + testControllerModelUUID + ".yaml": []byte(
+			provisioningModelDump()),
+		"juju-backup/root.tar": []byte("blobs"),
+	}
 }

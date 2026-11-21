@@ -129,6 +129,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	result := &environs.BootstrapResult{
 		Arch:                    *hw.Arch,
 		Base:                    base,
+		InstanceID:              BootstrapInstanceId,
 		CloudBootstrapFinalizer: finalize,
 	}
 	return result, nil

@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
@@ -27,8 +28,8 @@ type ModelExportService interface {
 	Export(ctx context.Context) (*domainexport.ModelExport, error)
 }
 
-// MachineService provides the machine lookup used to record the controller
-// machine's cloud instance ID in the archive metadata.
+// MachineService provides the machine lookups used to record the controller
+// machine's cloud instance ID and base in the archive metadata.
 type MachineService interface {
 	// GetMachineUUID returns the UUID for the given machine.
 	GetMachineUUID(ctx context.Context, mName machine.Name) (machine.UUID, error)
@@ -37,6 +38,8 @@ type MachineService interface {
 	// instance ID; implementations never return an empty ID with a nil
 	// error.
 	GetInstanceID(ctx context.Context, machineUUID machine.UUID) (instance.Id, error)
+	// GetMachineBase returns the base for the given machine.
+	GetMachineBase(ctx context.Context, mName machine.Name) (base.Base, error)
 }
 
 // ModelExportDomainServices provides access to the model export service.
@@ -55,6 +58,16 @@ type ModelServicesGetterFunc func(ctx context.Context, modelUUID coremodel.UUID)
 // service, while controllers without a machine, such as Kubernetes, report
 // none.
 type GetMachineInstanceIDFunc func(
+	ctx context.Context,
+	machineID string,
+	machineService MachineService,
+) (string, error)
+
+// GetMachineBaseFunc resolves the base of the machine hosting the controller,
+// for recording in archive metadata. The implementation is chosen by manifold
+// wiring: machine-hosted controllers resolve it from the machine service,
+// while controllers without a machine, such as Kubernetes, report none.
+type GetMachineBaseFunc func(
 	ctx context.Context,
 	machineID string,
 	machineService MachineService,

@@ -185,6 +185,7 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	bsResult := &environs.BootstrapResult{
 		Arch:                    *result.Hardware.Arch,
 		Base:                    *base,
+		InstanceID:              result.Instance.Id(),
 		CloudBootstrapFinalizer: waitingFinalizer,
 	}
 	return bsResult, nil
