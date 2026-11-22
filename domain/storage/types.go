@@ -539,7 +539,9 @@ type ImportVolumeAttachmentParams struct {
 // Validate returns an NotValid if ImportVolumeAttachmentParams does not meet
 // following criteria:
 // 1. HostMachineName must be valid.
-// 2. If provisioned, DeviceName and DeviceLink must be set.
+// 2. If provisioned, DeviceName or DeviceLink must be set. Providers record
+// one or both, for example cinder only sets the device name and GCE only sets
+// the device link.
 func (i ImportVolumeAttachmentParams) Validate() error {
 	// Volumes can only be attached to machines.
 	if err := coremachine.Name(i.HostMachineName).Validate(); err != nil {
@@ -547,7 +549,7 @@ func (i ImportVolumeAttachmentParams) Validate() error {
 	}
 
 	if i.Provisioned {
-		if i.DeviceName == "" || i.DeviceLink == "" {
+		if i.DeviceName == "" && i.DeviceLink == "" {
 			return errors.New("a provisioned attachment with empty device name and device link not valid").Add(coreerrors.NotValid)
 		}
 	}

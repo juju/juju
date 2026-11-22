@@ -1179,6 +1179,90 @@ func (s *importSuite) TestImportVolumes(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// setupCinderImportVolume arranges the state mocks for importing one cinder
+// volume, attached to machine "0", into a model.
+func (s *importSuite) setupCinderImportVolume(
+	c *tc.C, ctrl *gomock.Controller, blockDevices []internal.BlockDevice,
+) (network.NetNodeUUID, domainstorage.StorageInstanceUUID) {
+	cinderProvider := NewMockProvider(ctrl)
+	cinderProvider.EXPECT().Scope().Return(internalstorage.ScopeEnviron).AnyTimes()
+	cinderProvider.EXPECT().Supports(internalstorage.StorageKindBlock).Return(true).AnyTimes()
+	cinderProvider.EXPECT().Supports(internalstorage.StorageKindFilesystem).Return(false).AnyTimes()
+	s.registry.Providers["cinder"] = cinderProvider
+	s.state.EXPECT().GetStoragePoolProvidersByNames(gomock.Any(), []string{"cinder"}).Return(map[string]string{
+		"cinder": "cinder",
+	}, nil)
+
+	netNodeUUID := tc.Must(c, network.NewNetNodeUUID)
+	s.state.EXPECT().GetNetNodeUUIDsByMachineOrUnitName(gomock.Any(), []machine.Name{"0"}, nil).Return(
+		map[machine.Name]network.NetNodeUUID{"0": netNodeUUID}, nil, nil)
+
+	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	s.state.EXPECT().GetStorageInstanceUUIDsByIDs(gomock.Any(), []string{"data/0"}).
+		Return(map[string]domainstorage.StorageInstanceUUID{
+			"data/0": storageInstanceUUID,
+		}, nil)
+
+	s.state.EXPECT().GetBlockDevicesForMachinesByNetNodeUUIDs(gomock.Any(), []network.NetNodeUUID{netNodeUUID}).
+		Return(map[network.NetNodeUUID][]internal.BlockDevice{
+			netNodeUUID: blockDevices,
+		}, nil)
+	return netNodeUUID, storageInstanceUUID
+}
+
+// TestImportVolumesDeviceNameOnly checks that a provisioned attachment that
+// only records a device name imports. OpenStack cinder and loop volumes
+// record only the device name, and GCE records only the device link.
+func (s *importSuite) TestImportVolumesDeviceNameOnly(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	bdUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
+	netNodeUUID, storageInstanceUUID := s.setupCinderImportVolume(c, ctrl, []internal.BlockDevice{{
+		UUID: bdUUID,
+		BlockDevice: coreblockdevice.BlockDevice{
+			DeviceName: "vdb",
+		},
+	}})
+
+	expected := []internal.ImportVolumeArgs{{
+		ID:                  "0",
+		StorageInstanceID:   "data/0",
+		LifeID:              life.Alive,
+		Provisioned:         true,
+		Persistent:          true,
+		ProvisionScopeID:    domainstorage.ProvisionScopeModel,
+		StorageInstanceUUID: storageInstanceUUID,
+		SizeMiB:             1024,
+		ProviderID:          "cinder-vol-0",
+		Attachments: []internal.ImportVolumeAttachmentArgs{{
+			BlockDeviceUUID: bdUUID,
+			LifeID:          life.Alive,
+			NetNodeUUID:     netNodeUUID,
+		}},
+	}}
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].UUID`, tc.IsNonZeroUUID)
+	mc.AddExpr(`_[_].Attachments[_].UUID`, tc.IsNonZeroUUID)
+	s.state.EXPECT().ImportVolumes(gomock.Any(), tc.Bind(mc, expected)).Return(nil)
+
+	err := s.service.ImportVolumes(c.Context(), []domainstorage.ImportVolumeParams{{
+		ID:                "0",
+		StorageInstanceID: "data/0",
+		Provisioned:       true,
+		Persistent:        true,
+		Pool:              "cinder",
+		SizeMiB:           1024,
+		ProviderID:        "cinder-vol-0",
+		Attachments: []domainstorage.ImportVolumeAttachmentParams{{
+			HostMachineName: "0",
+			Provisioned:     true,
+			DeviceName:      "vdb",
+		}},
+	}})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *importSuite) TestImportVolumesMissingStorageProvider(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()

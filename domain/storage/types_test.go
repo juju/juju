@@ -374,12 +374,31 @@ func (s *typesSuite) TestImportVolumeAttachmentValidateProvisioned(c *tc.C) {
 	c.Assert(attach.Validate(), tc.ErrorIsNil)
 }
 
-func (s *typesSuite) TestImportVolumeAttachmentValidateInvalidProvisioned(c *tc.C) {
-	// Provisioned requires a device name and link.
+func (s *typesSuite) TestImportVolumeAttachmentValidateProvisionedDeviceNameOnly(c *tc.C) {
+	// Cinder and loop attachments only record the device name.
 	attach := ImportVolumeAttachmentParams{
 		HostMachineName: "42",
 		Provisioned:     true,
-		DeviceName:      "xvdf",
+		DeviceName:      "vdb",
+	}
+	c.Assert(attach.Validate(), tc.ErrorIsNil)
+}
+
+func (s *typesSuite) TestImportVolumeAttachmentValidateProvisionedDeviceLinkOnly(c *tc.C) {
+	// GCE attachments only record the device link.
+	attach := ImportVolumeAttachmentParams{
+		HostMachineName: "42",
+		Provisioned:     true,
+		DeviceLink:      "/dev/disk/by-id/google-juju-disk",
+	}
+	c.Assert(attach.Validate(), tc.ErrorIsNil)
+}
+
+func (s *typesSuite) TestImportVolumeAttachmentValidateInvalidProvisioned(c *tc.C) {
+	// Provisioned requires a device name or link.
+	attach := ImportVolumeAttachmentParams{
+		HostMachineName: "42",
+		Provisioned:     true,
 	}
 	c.Assert(attach.Validate(), tc.ErrorIs, coreerrors.NotValid)
 }
