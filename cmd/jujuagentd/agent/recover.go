@@ -15,7 +15,6 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/errors"
@@ -98,19 +97,23 @@ func (c *RecoverCommand) initialiseRecoveryController(
 	if !isRecovery {
 		return errors.New("agent data directory holds no recovery marker")
 	}
-	if args.ControllerCloud.Type == cloud.CloudTypeKubernetes {
-		return errors.Errorf("Kubernetes controller recovery %w", coreerrors.NotSupported)
+	isK8s := args.ControllerCloud.Type == cloud.CloudTypeKubernetes
+	if isK8s {
+		if err := ensureConfigFilesForK8s(c.DataDir()); err != nil {
+			return errors.Capture(err)
+		}
 	}
 
 	if err := agentconfig.ReadAgentConfig(c, c.MachineId); err != nil {
 		return errors.Errorf("cannot read config: %w", err)
 	}
+
 	agentConfig := c.CurrentConfig()
 	info, ok := agentConfig.ControllerAgentInfo()
 	if !ok {
 		return errors.New("bootstrap machine config has no state serving info")
 	}
-	if err := ensureKeys(false, &args, &info); err != nil {
+	if err := ensureKeys(isK8s, &args, &info); err != nil {
 		return errors.Capture(err)
 	}
 

@@ -129,16 +129,16 @@ func copyFileFromTemplate(to, from string) (err error) {
 	return nil
 }
 
-func (c *BootstrapCommand) ensureConfigFilesForK8s() error {
+func ensureConfigFilesForK8s(dataDir string) error {
 	tag := names.NewControllerAgentTag(agent.BootstrapControllerId)
 	for _, v := range []struct {
 		to, from string
 	}{
 		{
 			// ensure agent.conf
-			to: agent.ConfigPath(c.AgentConf.DataDir(), tag),
+			to: agent.ConfigPath(dataDir, tag),
 			from: filepath.Join(
-				agent.Dir(c.AgentConf.DataDir(), tag),
+				agent.Dir(dataDir, tag),
 				k8sconstants.TemplateFileNameAgentConf,
 			),
 		},
@@ -192,7 +192,7 @@ func (c *BootstrapCommand) initialiseFreshController(ctx *cmd.Context, args inst
 	isK8s := args.ControllerCloud.Type == cloud.CloudTypeKubernetes
 
 	if isK8s {
-		if err := c.ensureConfigFilesForK8s(); err != nil {
+		if err := ensureConfigFilesForK8s(c.DataDir()); err != nil {
 			return errors.Capture(err)
 		}
 	}

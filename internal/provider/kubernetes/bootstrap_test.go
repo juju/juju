@@ -6,6 +6,7 @@ package kubernetes_test
 import (
 	"context"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -37,6 +38,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/featureflag"
@@ -326,6 +328,45 @@ func (s *bootstrapSuite) TestControllerSpecWaitsForLocalControllerCharm(c *tc.C)
 	c.Check(startup, tc.Contains, "until test -e $JUJU_DATA_DIR/charms/controller.charm; do sleep 1; done")
 	c.Check(startup, tc.Contains, "$JUJU_TOOLS_DIR/jujuagentd bootstrap-state --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s")
 	c.Check(startup, tc.Not(tc.Contains), "test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf ||")
+	c.Check(startup, tc.Not(tc.Contains), "recovery/params")
+}
+
+func (s *bootstrapSuite) TestControllerSpecRecoveryMode(c *tc.C) {
+	newK8sClientFunc, newK8sRestClientFunc := s.setupK8sRestClient(c, s.pcfg.ControllerName)
+	var bootstrapWatchers []k8swatcher.KubernetesNotifyWatcher
+	s.setupBroker(c, newK8sClientFunc, newK8sRestClientFunc, &bootstrapWatchers)
+
+	s.pcfg.Bootstrap.Timeout = 10 * time.Minute
+	s.pcfg.Bootstrap.RecoveryMode = true
+
+	spec := s.controllerStackerGetter().BuildContainerSpecForController(c)
+	var apiServer *core.Container
+	for i := range spec.Containers {
+		if spec.Containers[i].Name == "api-server" {
+			apiServer = &spec.Containers[i]
+			break
+		}
+	}
+	c.Assert(apiServer, tc.NotNil)
+	c.Assert(apiServer.Args, tc.HasLen, 2)
+
+	startup := apiServer.Args[1]
+	c.Check(startup, tc.Contains, "$JUJU_TOOLS_DIR/jujuagentd recover-state --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s")
+	c.Check(startup, tc.Not(tc.Contains), "jujuagentd bootstrap-state")
+	c.Check(startup, tc.Contains, `if ! test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf; then mkdir -p "$JUJU_DATA_DIR/recovery" && : > "$JUJU_DATA_DIR/recovery/params" &&`)
+	guard := strings.Index(startup, "if ! test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf")
+	marker := strings.Index(startup, "recovery/params")
+	recoverState := strings.Index(startup, "recover-state")
+	c.Assert(guard, tc.Not(tc.Equals), -1)
+	c.Assert(marker, tc.Not(tc.Equals), -1)
+	c.Assert(recoverState, tc.Not(tc.Equals), -1)
+	c.Check(guard < marker, tc.IsTrue)
+	c.Check(marker < recoverState, tc.IsTrue)
+	paramsData, err := s.pcfg.Bootstrap.StateInitializationParams.Marshal()
+	c.Assert(err, tc.ErrorIsNil)
+	var params instancecfg.StateInitializationParams
+	c.Assert(params.Unmarshal(paramsData), tc.ErrorIsNil)
+	c.Check(params.RecoveryMode, tc.IsTrue)
 }
 
 func (s *bootstrapSuite) TestIsLocalControllerCharmPath(c *tc.C) {

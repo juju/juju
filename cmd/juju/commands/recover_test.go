@@ -7,6 +7,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"os"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/jujuclient"
+	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/cmd/cmdtesting"
@@ -27,19 +29,30 @@ import (
 	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/recovery"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/errors"
 	internalstorage "github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type recoverySuite struct {
-	coretesting.BaseSuite
+	coretesting.FakeJujuXDGDataHomeSuite
+}
+
+func (s *recoverySuite) SetUpTest(c *tc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+}
+
+func (s *recoverySuite) TearDownTest(c *tc.C) {
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 func TestRecoverySuite(t *testing.T) { tc.Run(t, &recoverySuite{}) }
@@ -322,6 +335,36 @@ func (s *recoverySuite) TestRunPassesArchiveInfoToProvisioner(c *tc.C) {
 	c.Check(got.CloudType, tc.Equals, "lxd")
 }
 
+func (s *recoverySuite) TestRunPassesKubernetesArchiveInfoToProvisioner(c *tc.C) {
+	archive := recoveryArchiveForControllerModel(c, "myk8s", "kubernetes", "caas")
+	sum := sha256.Sum256(archive)
+	checksum := corebackups.ChecksumSHA256(hex.EncodeToString(sum[:]))
+	assertion := "checksum: " + checksum +
+		"\nchecksum-format: " + corebackups.ChecksumFormatSHA256 + "\n"
+
+	dir := c.MkDir()
+	c.Assert(os.WriteFile(filepath.Join(dir, "backup.tar.gz"), archive, 0o600), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(filepath.Join(dir, "backup.assert"), []byte(assertion), 0o600), tc.ErrorIsNil)
+
+	terminalErr := errors.New("recovery stopped after allocation")
+	var got *recovery.ArchiveInfo
+	command := newRecoveryCommandWithProvisioner(func(
+		_ *cmd.Context, _ jujuclient.ClientStore, info *recovery.ArchiveInfo,
+	) error {
+		got = info
+		return terminalErr
+	})
+	_, err := cmdtesting.RunCommandInDir(
+		c, command, []string{"backup.tar.gz", "backup.assert"}, dir,
+	)
+	c.Assert(err, tc.ErrorIs, terminalErr)
+	c.Assert(got, tc.NotNil)
+	c.Check(got.ControllerUUID, tc.Equals, "c0ffee00-1111-2222-3333-444455556666")
+	c.Check(got.ControllerName, tc.Equals, "source-ctrl")
+	c.Check(got.CloudName, tc.Equals, "myk8s")
+	c.Check(got.CloudType, tc.Equals, "kubernetes")
+}
+
 // TestRecoveryConfigs checks that the replacement controller and
 // controller-model configuration are built from the archived identity,
 // CA material and agent version, with the controller model named after
@@ -383,19 +426,22 @@ func (s *recoverySuite) TestProvisionRecoveryRequiresSourceArch(c *tc.C) {
 	}
 }
 
-// TestProvisionRecoveryRequiresMatchingAgentVersion checks that an archive
-// from a different agent version is rejected before any cloud access or local
-// agent build.
+// TestProvisionRecoveryRequiresMatchingAgentVersion checks that both machine
+// and Kubernetes archives from a different agent version are rejected before
+// any cloud access or local agent build.
 func (s *recoverySuite) TestProvisionRecoveryRequiresMatchingAgentVersion(c *tc.C) {
-	err := provisionRecovery(cmdtesting.Context(c), nil, &recovery.ArchiveInfo{
-		CloudType:    "lxd",
-		AgentVersion: semversion.MustParse("9.9.9"),
-		SourceBase:   "ubuntu@24.04",
-		SourceArch:   "amd64",
-		MachineName:  "0",
-	})
-	c.Check(err, tc.ErrorMatches,
-		`archive was created by agent version 9\.9\.9 but this binary .*; recovery requires the exact same version`)
+	for _, cloudType := range []string{"lxd", jujucloud.CloudTypeKubernetes} {
+		err := provisionRecovery(cmdtesting.Context(c), nil, &recovery.ArchiveInfo{
+			CloudType:      cloudType,
+			ControllerName: "source-ctrl",
+			AgentVersion:   semversion.MustParse("9.9.9"),
+			SourceBase:     "ubuntu@24.04",
+			SourceArch:     "amd64",
+			MachineName:    "0",
+		})
+		c.Check(err, tc.ErrorMatches,
+			`archive was created by agent version 9\.9\.9 but this binary .*; recovery requires the exact same version`)
+	}
 }
 
 // TestProvisionRecoveryRequiresMachineName checks that an archive which does
@@ -627,6 +673,288 @@ func (s *recoverySuite) TestRecoveryCredentialsUsesArchivedRegion(c *tc.C) {
 		`region "gone" not found \(expected one of .*\)`)
 }
 
+// TestProvisionRecoveryRequiresKubernetesControllerName checks that a
+// Kubernetes archive which does not record the source controller name
+// is rejected before any cloud access.
+func (s *recoverySuite) TestProvisionRecoveryRequiresKubernetesControllerName(c *tc.C) {
+	err := provisionRecovery(cmdtesting.Context(c), nil, &recovery.ArchiveInfo{
+		CloudType:    "kubernetes",
+		AgentVersion: version.Current,
+	})
+	c.Check(err, tc.ErrorMatches, "recovery archive does not record the source controller name")
+}
+
+// TestProvisionRecoveryFinalizesKubernetesCloudHostRegion checks that
+// FinalizeCloud runs before the host-cloud-region guard so built-in clouds
+// such as microk8s (whose HostCloudRegion is discovered during finalization)
+// are accepted, while clouds that remain without a host cloud region after
+// finalization are still rejected.
+func (s *recoverySuite) TestProvisionRecoveryFinalizesKubernetesCloudHostRegion(c *tc.C) {
+	c.Assert(jujucloud.WritePersonalCloudMetadata(map[string]jujucloud.Cloud{
+		"myk8s": {
+			Name:    "myk8s",
+			Type:    jujucloud.CloudTypeKubernetes,
+			Regions: []jujucloud.Region{{Name: "localhost"}},
+		},
+	}), tc.ErrorIsNil)
+
+	var hostRegion string
+	replaceKubernetesProviderForTest(c, &fakeK8sRecoveryProvider{
+		hostCloudRegion: &hostRegion,
+	})
+
+	info := &recovery.ArchiveInfo{
+		ControllerName: "source-ctrl",
+		CloudName:      "myk8s",
+		CloudType:      jujucloud.CloudTypeKubernetes,
+		AgentVersion:   version.Current,
+	}
+	err := provisionRecovery(cmdtesting.Context(c), jujuclient.NewMemStore(), info)
+	c.Check(err, tc.ErrorMatches, "recovery cloud does not record a host cloud region.*")
+
+	hostRegion = "microk8s/localhost"
+	err = provisionRecovery(cmdtesting.Context(c), jujuclient.NewMemStore(), info)
+	c.Check(err, tc.ErrorMatches, `detecting credentials for "myk8s" cloud provider: credentials not found`)
+}
+
+// TestProvisionRecoveryKubernetes checks the end-to-end Kubernetes recovery
+// provisioning branch: opening the CAAS broker with the archived controller
+// identity, preparing bootstrap with the archived controller name before
+// allocation, forwarding constraints, storage pools and agent version into
+// RecoverK8s, invoking the controller finaliser in recovery mode, and
+// reporting the replacement namespace in the terminal error.
+func (s *recoverySuite) TestProvisionRecoveryKubernetes(c *tc.C) {
+	store := setupKubernetesRecoveryCloud(c)
+	hostRegion := "microk8s/localhost"
+
+	var openParams environs.OpenParams
+	broker := &fakeK8sRecoveryBroker{c: c}
+	replaceKubernetesProviderForTest(c, &fakeK8sRecoveryProvider{
+		hostCloudRegion: &hostRegion,
+		open: func(_ context.Context, args environs.OpenParams, _ environs.CredentialInvalidator) (caas.Broker, error) {
+			openParams = args
+			broker.cfg = args.Config
+			return broker, nil
+		},
+	})
+
+	storagePools := map[string]internalstorage.Attrs{
+		"k8s-pool": {
+			corestorage.BootstrapStoragePoolNameKey: "k8s-pool",
+			corestorage.BootstrapStoragePoolTypeKey: "kubernetes",
+			"storage-class":                         "fast",
+		},
+	}
+	info := validKubernetesArchiveInfo(storagePools)
+
+	err := provisionRecovery(cmdtesting.Context(c), store, info)
+	c.Assert(err, tc.ErrorMatches,
+		`controller recovery database import is not available in this build; started replacement agent in namespace controller-source-ctrl`)
+
+	c.Check(openParams.ControllerUUID, tc.Equals, info.ControllerUUID)
+	c.Assert(openParams.Config, tc.NotNil)
+	c.Check(openParams.Config.Name(), tc.Equals, bootstrap.ControllerModelName)
+	c.Check(openParams.Config.UUID(), tc.Equals, info.ControllerModelUUID)
+	c.Check(openParams.Cloud.Region, tc.Equals, "localhost")
+	c.Assert(openParams.Cloud.Credential, tc.NotNil)
+	c.Check(openParams.Cloud.Credential.Attributes()["Token"], tc.Equals, "test-token")
+
+	c.Check(broker.steps, tc.DeepEquals, []string{"prepare", "bootstrap", "finalize"})
+	c.Check(broker.preparedControllerName, tc.Equals, "source-ctrl")
+	c.Check(broker.bootstrapArgs.CloudName, tc.Equals, "myk8s")
+	c.Check(broker.bootstrapArgs.CloudRegion, tc.Equals, "localhost")
+	c.Check(broker.bootstrapArgs.ControllerConfig.ControllerUUID(), tc.Equals, info.ControllerUUID)
+	c.Check(broker.bootstrapArgs.StoragePools, tc.DeepEquals, storagePools)
+	c.Assert(broker.bootstrapArgs.BootstrapConstraints.Arch, tc.NotNil)
+	c.Check(*broker.bootstrapArgs.BootstrapConstraints.Arch, tc.Equals, arch.ARM64)
+	c.Assert(broker.bootstrapArgs.BootstrapConstraints.Mem, tc.NotNil)
+	c.Check(*broker.bootstrapArgs.BootstrapConstraints.Mem, tc.Equals, uint64(2048))
+	agentVersion, ok := broker.cfg.AgentVersion()
+	c.Assert(ok, tc.IsTrue)
+	c.Check(agentVersion, tc.Equals, info.AgentVersion)
+
+	c.Assert(broker.podConfig, tc.NotNil)
+	c.Check(broker.podConfig.Bootstrap.StateInitializationParams.RecoveryMode, tc.IsTrue)
+	c.Check(broker.podConfig.JujuVersion, tc.Equals, info.AgentVersion)
+	c.Check(broker.podConfig.Bootstrap.ControllerCloudCredentialName, tc.Equals, "k8s-cred")
+	c.Check(broker.podConfig.Bootstrap.Timeout, tc.Equals, recoveryAllocationTimeout)
+}
+
+// TestProvisionRecoveryKubernetesReportsNamespaceOnCancellation checks that
+// post-creation cancellation surfaces the replacement namespace for manual
+// cleanup instead of a bare cancelled error.
+func (s *recoverySuite) TestProvisionRecoveryKubernetesReportsNamespaceOnCancellation(c *tc.C) {
+	store := setupKubernetesRecoveryCloud(c)
+	hostRegion := "microk8s/localhost"
+
+	ctx, cancel := context.WithCancel(c.Context())
+	defer cancel()
+	cmdCtx := cmdtesting.Context(c)
+	cmdCtx.Context = ctx
+
+	broker := &fakeK8sRecoveryBroker{
+		c:             c,
+		afterFinalize: cancel,
+	}
+	replaceKubernetesProviderForTest(c, &fakeK8sRecoveryProvider{
+		hostCloudRegion: &hostRegion,
+		open: func(_ context.Context, args environs.OpenParams, _ environs.CredentialInvalidator) (caas.Broker, error) {
+			broker.cfg = args.Config
+			return broker, nil
+		},
+	})
+
+	err := provisionRecovery(cmdCtx, store, validKubernetesArchiveInfo(nil))
+	c.Check(err, tc.ErrorIs, bootstrap.Cancelled())
+	c.Check(err, tc.ErrorMatches,
+		`replacement namespace "controller-source-ctrl" may require manual removal: cancelled`)
+}
+
+func setupKubernetesRecoveryCloud(c *tc.C) *jujuclient.MemStore {
+	const endpoint = "https://127.0.0.1:16443"
+	c.Assert(jujucloud.WritePersonalCloudMetadata(map[string]jujucloud.Cloud{
+		"myk8s": {
+			Name:      "myk8s",
+			Type:      jujucloud.CloudTypeKubernetes,
+			AuthTypes: jujucloud.AuthTypes{jujucloud.OAuth2AuthType},
+			Endpoint:  endpoint,
+			Regions:   []jujucloud.Region{{Name: "localhost", Endpoint: endpoint}},
+		},
+	}), tc.ErrorIsNil)
+
+	store := jujuclient.NewMemStore()
+	c.Assert(store.UpdateCredential("myk8s", jujucloud.CloudCredential{
+		AuthCredentials: map[string]jujucloud.Credential{
+			"k8s-cred": jujucloud.NewCredential(jujucloud.OAuth2AuthType, map[string]string{
+				"Token": "test-token",
+			}),
+		},
+		DefaultCredential: "k8s-cred",
+		DefaultRegion:     "localhost",
+	}), tc.ErrorIsNil)
+	return store
+}
+
+func validKubernetesArchiveInfo(
+	storagePools map[string]internalstorage.Attrs,
+) *recovery.ArchiveInfo {
+	return &recovery.ArchiveInfo{
+		ControllerUUID:        "c0ffee00-1111-2222-3333-444455556666",
+		ControllerName:        "source-ctrl",
+		ControllerModelUUID:   "c0ffee00-aaaa-2222-3333-444455556666",
+		CACert:                coretesting.CACert,
+		CAPrivateKey:          coretesting.CAKey,
+		AgentVersion:          version.Current,
+		CloudName:             "myk8s",
+		CloudType:             jujucloud.CloudTypeKubernetes,
+		ModelConstraints:      constraints.MustParse("mem=2048"),
+		ControllerConstraints: constraints.MustParse("arch=arm64"),
+		StoragePools:          storagePools,
+	}
+}
+
+func replaceKubernetesProviderForTest(c *tc.C, p *fakeK8sRecoveryProvider) {
+	reg := environs.GlobalProviderRegistry()
+	orig, err := reg.Provider(jujucloud.CloudTypeKubernetes)
+	c.Assert(err, tc.ErrorIsNil)
+	containerOrig, ok := orig.(caas.ContainerEnvironProvider)
+	c.Assert(ok, tc.IsTrue)
+	p.ContainerEnvironProvider = containerOrig
+
+	reg.UnregisterProvider(jujucloud.CloudTypeKubernetes)
+	c.Cleanup(func() {
+		reg.UnregisterProvider(jujucloud.CloudTypeKubernetes)
+		c.Assert(reg.RegisterProvider(orig, jujucloud.CloudTypeKubernetes), tc.ErrorIsNil)
+	})
+	c.Assert(reg.RegisterProvider(p, jujucloud.CloudTypeKubernetes), tc.ErrorIsNil)
+}
+
+type fakeK8sRecoveryProvider struct {
+	caas.ContainerEnvironProvider
+	hostCloudRegion *string
+	open            func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (caas.Broker, error)
+}
+
+func (p *fakeK8sRecoveryProvider) FinalizeCloud(_ environs.FinalizeCloudContext, cld jujucloud.Cloud) (jujucloud.Cloud, error) {
+	if p.hostCloudRegion != nil {
+		cld.HostCloudRegion = *p.hostCloudRegion
+	}
+	return cld, nil
+}
+
+func (p *fakeK8sRecoveryProvider) DetectCredentials(string) (*jujucloud.CloudCredential, error) {
+	return nil, errors.Errorf("credentials %w", coreerrors.NotFound)
+}
+
+func (p *fakeK8sRecoveryProvider) Open(
+	ctx context.Context,
+	args environs.OpenParams,
+	invalidator environs.CredentialInvalidator,
+) (caas.Broker, error) {
+	if p.open == nil {
+		return nil, errors.New("unexpected CAAS broker open")
+	}
+	return p.open(ctx, args, invalidator)
+}
+
+type fakeK8sRecoveryBroker struct {
+	caas.Broker
+	c                      *tc.C
+	cfg                    *config.Config
+	preparedControllerName string
+	namespace              string
+	steps                  []string
+	bootstrapArgs          environs.BootstrapParams
+	podConfig              *podcfg.ControllerPodConfig
+	afterFinalize          func()
+}
+
+func (b *fakeK8sRecoveryBroker) Config() *config.Config {
+	return b.cfg
+}
+
+func (b *fakeK8sRecoveryBroker) SetConfig(_ context.Context, cfg *config.Config) error {
+	b.cfg = cfg
+	return nil
+}
+
+func (b *fakeK8sRecoveryBroker) PrepareForBootstrap(_ environs.BootstrapContext, controllerName string) error {
+	b.steps = append(b.steps, "prepare")
+	b.preparedControllerName = controllerName
+	b.namespace = "controller-" + controllerName
+	return nil
+}
+
+func (b *fakeK8sRecoveryBroker) ConstraintsValidator(context.Context) (constraints.Validator, error) {
+	return constraints.NewValidator(), nil
+}
+
+func (b *fakeK8sRecoveryBroker) Bootstrap(
+	_ environs.BootstrapContext,
+	args environs.BootstrapParams,
+) (*environs.BootstrapResult, error) {
+	b.steps = append(b.steps, "bootstrap")
+	b.bootstrapArgs = args
+	return &environs.BootstrapResult{
+		Arch: arch.AMD64,
+		Base: base.MustParseBaseFromString("ubuntu@24.04"),
+		CaasBootstrapFinalizer: func(
+			_ environs.BootstrapContext, pcfg *podcfg.ControllerPodConfig, _ environs.BootstrapDialOpts,
+		) error {
+			b.steps = append(b.steps, "finalize")
+			b.podConfig = pcfg
+			if b.afterFinalize != nil {
+				b.afterFinalize()
+			}
+			return nil
+		},
+	}, nil
+}
+
+func (b *fakeK8sRecoveryBroker) Namespace() string {
+	return b.namespace
+}
+
 // hookedOpenFS delegates every filesystem operation, except Open, to
 // the wrapped filesystem, so a test can return a handle that behaves
 // in ways a regular file cannot, such as failing to close.
@@ -655,13 +983,20 @@ func (r *failingCloseReader) Close() error {
 	return r.err
 }
 
-// recoveryArchive renders a minimal valid recovery archive: the
-// provenance metadata, a controller dump recording one controller
-// model on an lxd cloud, that model's database dump, and the
-// data-directory files archive. It is the smallest archive the
-// recover command's validation accepts, so reaching the terminal
-// error proves the whole read and verify path ran.
+// recoveryArchive renders the default minimal LXD recovery archive.
 func recoveryArchive(c *tc.C) []byte {
+	return recoveryArchiveForControllerModel(c, "lxd", "lxd", "iaas")
+}
+
+// recoveryArchiveForControllerModel renders a minimal valid recovery
+// archive: the provenance metadata, a controller dump recording one
+// controller model on the given cloud, that model's database dump, and the
+// data-directory files archive. It is the smallest archive the recover
+// command's validation accepts, so reaching the terminal error proves the
+// whole read and verify path ran.
+func recoveryArchiveForControllerModel(
+	c *tc.C, cloudName, cloudType, modelType string,
+) []byte {
 	const (
 		controllerUUID      = "c0ffee00-1111-2222-3333-444455556666"
 		controllerModelUUID = "c0ffee00-aaaa-2222-3333-444455556666"
@@ -694,22 +1029,22 @@ payload:
     ca_cert: source-ca-cert
     ca_private_key: source-ca-key
   cloud:
-  - uuid: cloud-lxd
-    name: lxd
+  - uuid: cloud-source
+    name: ` + cloudName + `
     cloud_type_id: 1
   cloud_type:
   - id: 1
-    type: lxd
+    type: ` + cloudType + `
   model_type:
   - id: 0
-    type: iaas
+    type: ` + modelType + `
   controller_config:
   - key: controller-name
     value: source-ctrl
   model:
   - uuid: ` + controllerModelUUID + `
     name: controller
-    cloud_uuid: cloud-lxd
+    cloud_uuid: cloud-source
     model_type_id: 0
 `
 	files := map[string][]byte{

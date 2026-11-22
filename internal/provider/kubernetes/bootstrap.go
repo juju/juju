@@ -1486,14 +1486,26 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 	// controller ID from the pod ordinal and reserve bootstrap-state for
 	// controller-0. Later replicas have their agent config seeded by the charm
 	// init container before this container starts.
+	bootstrapSubcommand := "bootstrap-state"
+	if c.pcfg.Bootstrap.RecoveryMode {
+		bootstrapSubcommand = "recover-state"
+	}
 	bootstrapStateCmd := fmt.Sprintf(
-		"%s bootstrap-state --data-dir $JUJU_DATA_DIR %s --timeout %s",
+		"%s %s --data-dir $JUJU_DATA_DIR %s --timeout %s",
 		path.Join("$JUJU_TOOLS_DIR", "jujuagentd"),
+		bootstrapSubcommand,
 		loggingOption,
 		c.timeout.String(),
 	)
 	if featureFlags != "" {
 		bootstrapStateCmd = fmt.Sprintf("%s=%s %s", osenv.JujuFeatureFlagEnvKey, featureFlags, bootstrapStateCmd)
+	}
+	if c.pcfg.Bootstrap.RecoveryMode {
+		// Create the recovery marker only on controller-0's initial boot,
+		// before recover-state runs. Keeping it inside the ! -e agent.conf
+		// guard avoids re-creating the marker on later pod restarts or HA
+		// replicas after recovery completes.
+		bootstrapStateCmd = `mkdir -p "$JUJU_DATA_DIR/recovery" && : > "$JUJU_DATA_DIR/recovery/params" && ` + bootstrapStateCmd
 	}
 	agentConfigPath := path.Join("$JUJU_DATA_DIR", agentConfigRelativePath)
 	var bootstrapSetup string
@@ -1506,6 +1518,8 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 			charmArchivePath,
 			bootstrapStateCmd,
 		)
+	} else if c.pcfg.Bootstrap.RecoveryMode {
+		bootstrapSetup = fmt.Sprintf("if ! test -e %s; then %s; fi", agentConfigPath, bootstrapStateCmd)
 	} else {
 		bootstrapSetup = fmt.Sprintf("test -e %s || %s", agentConfigPath, bootstrapStateCmd)
 	}
