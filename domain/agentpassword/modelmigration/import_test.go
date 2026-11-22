@@ -119,6 +119,32 @@ func (s *importSuite) TestImportUnitPasswordHashNoUnits(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *importSuite) TestImportContainerMachinePasswordHash(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// The description nests containers under their host machine, so the
+	// container agent password hash is only reachable through Containers().
+	s.importService.EXPECT().SetMachinePasswordHash(gomock.Any(), coremachine.Name("0"), agentpassword.PasswordHash("host-hash")).Return(nil)
+	s.importService.EXPECT().SetMachinePasswordHash(gomock.Any(), coremachine.Name("0/lxd/0"), agentpassword.PasswordHash("container-hash")).Return(nil)
+
+	op := importOperation{
+		service: s.importService,
+	}
+
+	model := description.NewModel(description.ModelArgs{})
+	host := model.AddMachine(description.MachineArgs{
+		Id:           "0",
+		PasswordHash: "host-hash",
+	})
+	host.AddContainer(description.MachineArgs{
+		Id:           "0/lxd/0",
+		PasswordHash: "container-hash",
+	})
+
+	err := op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *importSuite) TestImportMachinePasswordHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
