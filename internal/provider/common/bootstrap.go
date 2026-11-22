@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/parallel"
 	"github.com/juju/utils/v4/ssh"
@@ -45,6 +46,7 @@ import (
 	jujussh "github.com/juju/juju/internal/ssh"
 	"github.com/juju/juju/internal/storage"
 	coretools "github.com/juju/juju/internal/tools"
+	jujunames "github.com/juju/juju/juju/names"
 )
 
 var logger = internallogger.GetLogger("juju.provider.common")
@@ -143,6 +145,11 @@ func BootstrapInstance(
 	)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+	if args.MachineId != "" {
+		instanceConfig.MachineId = args.MachineId
+		instanceConfig.MachineAgentServiceName = jujunames.JujuAgentd + "-" +
+			names.NewMachineTag(args.MachineId).String()
 	}
 
 	ak := jujussh.MakeAuthorizedKeysString(args.AuthorizedKeys)

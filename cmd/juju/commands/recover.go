@@ -46,9 +46,11 @@ to restore a controller on a replacement machine. The client must be able to
 resolve the cloud named in the archive. On a new workstation, add the cloud
 with 'juju add-cloud --client' if it is not already available.
 
-This version validates the archive and allocates the replacement machine only.
-It leaves the instance for inspection and exits with an error reporting its ID.
-No agent is installed and no controller is registered.`,
+This version validates the archive and installs and starts a replacement
+controller agent only. It leaves the instance for inspection and exits with an
+error reporting its ID.
+Database import and controller initialisation are not available, and the
+controller is not registered.`,
 		SeeAlso: []string{"bootstrap", "create-backup", "unregister"},
 	})
 }

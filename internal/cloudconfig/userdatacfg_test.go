@@ -765,9 +765,15 @@ test-key:
 `[1:]
 
 func (*cloudinitSuite) bootstrapConfigScripts(c *tc.C) []string {
-	loggo.GetLogger("").SetLogLevel(loggo.INFO)
 	envConfig := minimalModelConfig(c)
 	instConfig := makeBootstrapConfig(jammy, 0).maybeSetModelConfig(envConfig)
+	return bootstrapConfigScriptsForConfig(c, instConfig)
+}
+
+// bootstrapConfigScriptsForConfig renders the cloud-init scripts for the given
+// instance configuration.
+func bootstrapConfigScriptsForConfig(c *tc.C, instConfig *testInstanceConfig) []string {
+	loggo.GetLogger("").SetLogLevel(loggo.INFO)
 	rendered := instConfig.render()
 	cloudcfg, err := cloudinit.New(rendered.Base.OS)
 	c.Assert(err, tc.ErrorIsNil)
@@ -838,6 +844,31 @@ func (s *cloudinitSuite) TestCloudInitConfigureBootstrapFeatureFlags(c *tc.C) {
 	scripts := s.bootstrapConfigScripts(c)
 	expected := "JUJU_DEV_FEATURE_FLAGS=foo,special .*/jujuagentd bootstrap-state .*"
 	assertScriptMatch(c, scripts, expected, false)
+}
+
+func (s *cloudinitSuite) TestCloudInitConfigureRecoveryBootstrap(c *tc.C) {
+	envConfig := minimalModelConfig(c)
+	instConfig := makeBootstrapConfig(jammy, 0).maybeSetModelConfig(envConfig)
+	instConfig.Bootstrap.StateInitializationParams.RecoveryMode = true
+	instConfig.setMachineID("7")
+	// Bootstrap instance configs carry no API entity tag; recovery sets the
+	// archived machine identity without changing that.
+	instConfig.APIInfo.Tag = nil
+
+	paramsData, err := instConfig.Bootstrap.StateInitializationParams.Marshal()
+	c.Assert(err, tc.ErrorIsNil)
+	var params instancecfg.StateInitializationParams
+	c.Assert(params.Unmarshal(paramsData), tc.ErrorIsNil)
+	c.Check(params.RecoveryMode, tc.IsTrue)
+
+	scripts := bootstrapConfigScriptsForConfig(c, instConfig)
+	assertScriptMatch(c, scripts,
+		"jujuagentd recover-state .* --show-log --machine-id 7", false)
+	assertScriptMatch(c, scripts,
+		"install -D -m 600 /dev/null '/var/lib/juju/recovery/params'", false)
+	c.Check(scripts, tc.Not(tc.Contains),
+		"echo '' > '/var/lib/juju/recovery/params'")
+	assertScriptMatch(c, scripts, "jujuagentd-machine-7", false)
 }
 
 func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *tc.C) {

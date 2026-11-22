@@ -105,8 +105,8 @@ func (s *recoverySuite) TestRun(c *tc.C) {
 		archiveName   = "backup.tar.gz"
 		assertionName = "backup.assert"
 		// TODO(recovery): expect success once the controller is finalised.
-		terminalError = "controller recovery initialisation is not available in this build; " +
-			"provisioned replacement instance test-instance"
+		terminalError = "controller recovery database import is not available in this build; " +
+			"started replacement agent on instance test-instance"
 	)
 	newProvisionedCommand := func() cmd.Command {
 		return newRecoveryCommandWithProvisioner(func(
@@ -380,6 +380,36 @@ func (s *recoverySuite) TestProvisionRecoveryRequiresSourceArch(c *tc.C) {
 			SourceArch:   sourceArch,
 		})
 		c.Check(err, tc.ErrorMatches, `archive does not record a usable controller architecture: ".*"`)
+	}
+}
+
+// TestProvisionRecoveryRequiresMatchingAgentVersion checks that an archive
+// from a different agent version is rejected before any cloud access or local
+// agent build.
+func (s *recoverySuite) TestProvisionRecoveryRequiresMatchingAgentVersion(c *tc.C) {
+	err := provisionRecovery(cmdtesting.Context(c), nil, &recovery.ArchiveInfo{
+		CloudType:    "lxd",
+		AgentVersion: semversion.MustParse("9.9.9"),
+		SourceBase:   "ubuntu@24.04",
+		SourceArch:   "amd64",
+		MachineName:  "0",
+	})
+	c.Check(err, tc.ErrorMatches,
+		`archive was created by agent version 9\.9\.9 but this binary .*; recovery requires the exact same version`)
+}
+
+// TestProvisionRecoveryRequiresMachineName checks that an archive which does
+// not record a usable controller machine is rejected before any cloud access.
+func (s *recoverySuite) TestProvisionRecoveryRequiresMachineName(c *tc.C) {
+	for _, machineName := range []string{"", "not-a-machine"} {
+		err := provisionRecovery(cmdtesting.Context(c), nil, &recovery.ArchiveInfo{
+			CloudType:    "lxd",
+			AgentVersion: version.Current,
+			SourceBase:   "ubuntu@24.04",
+			SourceArch:   "amd64",
+			MachineName:  machineName,
+		})
+		c.Check(err, tc.ErrorMatches, "archive does not record a usable controller machine")
 	}
 }
 

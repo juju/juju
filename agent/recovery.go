@@ -1,0 +1,38 @@
+// Copyright 2026 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package agent
+
+import (
+	"os"
+	"path/filepath"
+
+	"github.com/juju/juju/internal/errors"
+)
+
+// RecoveryParamsFile is the path, relative to the agent data directory, of the
+// marker written when a replacement controller has been allocated in recovery
+// mode. Its presence tells jujuagentd not to start the dependency engine until
+// the recovery import completes.
+const RecoveryParamsFile = "recovery/params"
+
+// IsRecovery reports whether dataDir holds a recovery parameters marker.
+//
+// A missing marker means the agent is not a recovery allocation. Any other
+// stat error is returned unchanged. A marker that exists but is not a regular
+// file is invalid: the marker must be readable as empty recovery parameters.
+func IsRecovery(dataDir string) (bool, error) {
+	paramsPath := filepath.Join(dataDir, RecoveryParamsFile)
+	info, err := os.Stat(paramsPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, errors.Capture(err)
+	}
+	if !info.Mode().IsRegular() {
+		return false, errors.Errorf(
+			"invalid recovery params path %q: expected regular file", paramsPath)
+	}
+	return true, nil
+}

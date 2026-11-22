@@ -58,6 +58,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/container/broker"
 	internaldependency "github.com/juju/juju/internal/dependency"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/flightrecorder"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/pki"
@@ -656,6 +657,20 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	return cmdutil.AgentDone(logger, err)
 }
 
+// validateRecoveryEngineStart refuses to start the dependency engine while a
+// recovery allocation is waiting for its state import. The marker is written
+// before the agent can start, and removed once import completes.
+func validateRecoveryEngineStart(dataDir string) error {
+	isRecovery, err := agent.IsRecovery(dataDir)
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+	if isRecovery {
+		return internalerrors.New("recovery import has not completed")
+	}
+	return nil
+}
+
 func (a *MachineAgent) makeEngineCreator(
 	agentName string, previousAgentVersion semversion.Number,
 	bufferedLogger *logsender.BufferedLogWriter,
@@ -664,6 +679,10 @@ func (a *MachineAgent) makeEngineCreator(
 ) func(context.Context) (worker.Worker, error) {
 	return func(ctx context.Context) (worker.Worker, error) {
 		agentConfig := a.CurrentConfig()
+		if err := validateRecoveryEngineStart(agentConfig.DataDir()); err != nil {
+			logger.Errorf(ctx, "%v", err)
+			return nil, internalerrors.Capture(err)
+		}
 		engineConfigFunc := agentengine.DependencyEngineConfig
 		metrics := agentengine.NewMetrics()
 		controllerMetricsSink := metrics.ForModel(agentConfig.Model())

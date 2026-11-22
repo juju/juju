@@ -165,6 +165,41 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, rvalErr)
 }
 
+// TestBootstrapInstanceUsesExplicitMachineId checks that a non-empty
+// BootstrapParams.MachineId overrides the default machine "0" identity on the
+// InstanceConfig passed to StartInstance, so providers create per-machine
+// resources (hostnames, security groups, tags) for the archived machine ID.
+func (s *BootstrapSuite) TestBootstrapInstanceUsesExplicitMachineId(c *tc.C) {
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	env := &mockEnviron{
+		storage: newStorage(s, c),
+		config:  configGetter(c),
+	}
+
+	stopErr := errors.New("stop after capture")
+	var gotCfg *instancecfg.InstanceConfig
+	env.startInstance = func(_ context.Context, args environs.StartInstanceParams) (
+		instances.Instance,
+		*instance.HardwareCharacteristics,
+		network.InterfaceInfos,
+		error,
+	) {
+		gotCfg = args.InstanceConfig
+		return nil, nil, nil, stopErr
+	}
+
+	_, err := common.Bootstrap(envtesting.BootstrapTestContext(c), env, environs.BootstrapParams{
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		AvailableTools:          fakeAvailableTools(),
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
+		MachineId:               "7",
+	})
+	c.Assert(err, tc.ErrorIs, stopErr)
+	c.Assert(gotCfg, tc.NotNil)
+	c.Check(gotCfg.MachineId, tc.Equals, "7")
+	c.Check(gotCfg.MachineAgentServiceName, tc.Equals, "jujuagentd-machine-7")
+}
+
 func (s *BootstrapSuite) TestBootstrapInstanceCancelled(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	env := &mockEnviron{

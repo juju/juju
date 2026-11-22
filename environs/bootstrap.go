@@ -80,6 +80,12 @@ type BootstrapParams struct {
 
 	// Force is used to allow a bootstrap to be run on unsupported base.
 	Force bool
+
+	// MachineId, if non-empty, overrides the default initial controller machine
+	// ID ("0") on the instance configuration passed to StartInstance. Recovery
+	// sets this to the archived logical machine ID so providers create
+	// per-machine resources (hostnames, security groups, tags) for that ID.
+	MachineId string
 }
 
 // CloudBootstrapFinalizer is a function returned from Environ.Bootstrap.
