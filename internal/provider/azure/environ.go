@@ -2472,7 +2472,22 @@ func (env *azureEnviron) getInstanceTypesLocked(ctx context.ProviderCallContext)
 
 // getArchFromResourceSKU returns the architecture of the instance type based on the resource SKU.
 func getArchFromResourceSKU(resource *armcompute.ResourceSKU) corearch.Arch {
-	// These are the instance families that are ARM64 based in Azure for now.
+	// Azure reports the CPU architecture of a size in its CpuArchitectureType
+	// capability, as x64 or Arm64. Use that when it is there, so that new
+	// Arm64 series such as the Cobalt 100 v6 sizes need no family entry.
+	for _, capability := range resource.Capabilities {
+		if capability == nil || toValue(capability.Name) != "CpuArchitectureType" {
+			continue
+		}
+		switch strings.ToLower(toValue(capability.Value)) {
+		case "arm64":
+			return corearch.ARM64
+		case "x64":
+			return corearch.AMD64
+		}
+	}
+
+	// Without the capability, fall back to the families known to be Arm64.
 	arm64InstanceFamilies := set.NewStrings(
 		"standardDPSv5Family",
 		"standardDPLSv5Family",
