@@ -512,13 +512,13 @@ The command does not restore controller state, install the agent, or register th
    juju recover production.tar.gz production.assert
    ```
 
-3. If allocation succeeds, the command leaves the instance in your cloud and exits with an error that includes its cloud instance ID:
+3. If the provider allocates a replacement and Juju verifies the allocation, the command leaves the instance in your cloud and exits with an error that includes its cloud instance ID:
 
    ```text
    controller recovery initialisation is not available in this build; provisioned replacement instance <instance-id>
    ```
 
-   Use the ID to find the instance in your cloud provider's tools. Inspect it or remove it if you no longer need it. If provisioning fails or is interrupted, check for a leftover instance before retrying.
+   Use the ID to find the instance in your cloud provider's tools. Inspect it or remove it if you no longer need it. If provisioning fails or is interrupted, the error may report an instance that needs manual removal. Check for a leftover instance before retrying, even if the error gives no ID.
 
 ```{ibnote}
 See more: {ref}`command-juju-recover`

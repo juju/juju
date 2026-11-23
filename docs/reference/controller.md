@@ -190,7 +190,7 @@ See also: {ref}`Juju CLI | Manage controller access <manage-controller-user-acce
 
 A controller **grant** gives a user a level of access to the controller: {ref}`login access <user-access-controller-login>` or {ref}`superuser access <user-access-controller-superuser>`. A grant to use a model or cloud is separate. For example, {ref}`add-model <user-access-cloud-add-model>` applies to a cloud, not to the controller.
 
-The controller requires controller access for a **controller-only API connection**, which does not select a model. A **model-scoped API connection** selects one model and requires access to that model or controller superuser access. The controller also requires controller access for a model-scoped connection unless you enable {ref}`allow-model-access <controller-config-allow-model-access>`.
+The controller requires controller access for a **controller-only API connection**, which does not select a model. A **model-scoped API connection** selects one model and does not grant access to it. The controller checks model and controller access separately and requires controller access for a model-scoped connection unless you enable {ref}`allow-model-access <controller-config-allow-model-access>`.
 
 For clients that connect directly to the API, the WebSocket path `/api` (or `/`) opens a controller-only connection. `/model/<uuid>/api` opens a model-scoped connection, even when the UUID belongs to the `controller` model. Operations such as reading controller configuration require a controller-only connection.
 
@@ -330,10 +330,10 @@ When removing a hosted model with persistent storage, the controller requires yo
 
 The controller checks for {ref}`model command blocks <model-command-blocks>` on hosted models before it checks whether you chose to destroy those models. A block stops the operation even if you did not choose to destroy the hosted models. The controller also checks for a block on its own model before checking that model's cloud credential. Forcing destruction skips the credential check, not the block checks.
 
-After these checks, the controller marks its own model as dying and schedules its removal, then processes hosted models one by one. The controller refuses to remove a model during the import phase of migration and does not change that model's life state. A successful response means the controller scheduled the removals, not that it removed the resources. The controller waits to remove its own model until the remaining models are gone.
+After these checks, the controller marks its own model as dying and schedules its removal, then processes hosted models one by one. The controller refuses to remove a model during the import phase of migration and does not change that model's life state. A successful response does not mean that the controller has removed the resources. The controller waits to remove its own model until the remaining models are gone.
 
 ```{warning}
-A failed destruction request does not roll back earlier changes. If you have not chosen what to do with a hosted model's persistent storage, the controller may already have scheduled removal of its own model and earlier hosted models. It marks the hosted model as dying before checking its storage, but does not schedule that model's removal. Check the remaining models and decide what to do with persistent storage before retrying.
+A failed destruction request does not roll back earlier changes. If you have not chosen what to do with a hosted model's persistent storage, the controller may already have scheduled removal of its own model and earlier hosted models. It marks the affected hosted model as dying if it was alive, then returns the storage error without scheduling a removal job for that model in this request. Check the remaining models and decide what to do with persistent storage before retrying.
 ```
 
 If a destroy request fails, use the message to identify what blocked it and what to check before retrying:
