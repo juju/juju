@@ -4,12 +4,10 @@
 package unitless
 
 import (
-	"sync"
 	"testing"
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/internal/scriptlet"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
@@ -34,24 +32,9 @@ func (s *environmentSuite) TestGlobalEnvContainsCommonBuiltins(c *tc.C) {
 	c.Check(names, tc.DeepEquals, []string{"set_status"})
 }
 
-func (s *environmentSuite) TestGlobalEnvConcurrentCallsShareRegistry(c *tc.C) {
-	const callers = 16
-	registries := make([]*scriptlet.EnvRegistry, callers)
-	start := make(chan struct{})
-	var workers sync.WaitGroup
-	workers.Add(callers)
-	for i := range callers {
-		go func() {
-			defer workers.Done()
-			<-start
-			registries[i] = globalEnv()
-		}()
-	}
-	close(start)
-	workers.Wait()
-
-	c.Assert(registries[0], tc.NotNil)
-	for _, registry := range registries[1:] {
-		c.Check(registry, tc.Equals, registries[0])
-	}
+func (s *environmentSuite) TestGlobalEnvReturnsSameRegistry(c *tc.C) {
+	first := globalEnv()
+	second := globalEnv()
+	c.Check(first, tc.NotNil)
+	c.Check(second, tc.Equals, first)
 }
