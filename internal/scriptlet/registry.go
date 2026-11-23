@@ -11,14 +11,6 @@ import (
 	"github.com/canonical/starlark/starlark"
 )
 
-// GlobalEnvRegistry returns the shared environment registry for Juju
-// scriptlets.
-func GlobalEnvRegistry() *EnvRegistry {
-	return globalEnvRegistry
-}
-
-var globalEnvRegistry = &EnvRegistry{}
-
 // EnvRegistry holds declarations which define the scriptlet environment.
 type EnvRegistry struct {
 	frozen          atomic.Bool

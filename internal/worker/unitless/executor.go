@@ -15,7 +15,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	domainunitless "github.com/juju/juju/domain/unitless"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/worker/unitless/scriptlet"
+	"github.com/juju/juju/internal/scriptlet"
 )
 
 const requiredSafety = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
@@ -67,7 +67,7 @@ func NewStarformExecutor(ctx context.Context, cfg ExecutorConfig) (Executor, err
 		return nil, errors.Capture(err)
 	}
 
-	registry := scriptlet.GlobalEnvRegistry()
+	registry := globalEnv()
 	scriptSet, err := starform.NewScriptSet(&starform.ScriptSetOptions{
 		App:            registry.App(),
 		Logger:         cfg.Logger,

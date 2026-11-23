@@ -11,7 +11,7 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	domainunitless "github.com/juju/juju/domain/unitless"
-	"github.com/juju/juju/internal/worker/unitless/scriptlet"
+	"github.com/juju/juju/internal/scriptlet"
 )
 
 type starformSuite struct{}

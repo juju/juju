@@ -21,9 +21,9 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainunitless "github.com/juju/juju/domain/unitless"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/scriptlet"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/worker/unitless/scriptlet"
 )
 
 type applicationRunnerSuite struct {

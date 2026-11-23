@@ -22,8 +22,8 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	domainunitless "github.com/juju/juju/domain/unitless"
+	"github.com/juju/juju/internal/scriptlet"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/internal/worker/unitless/scriptlet"
 )
 
 type workerSuite struct {
