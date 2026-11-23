@@ -192,7 +192,7 @@ func (s *BootstrapSuite) TestBootstrapInstanceUsesExplicitMachineId(c *tc.C) {
 		ControllerConfig:        coretesting.FakeControllerConfig(),
 		AvailableTools:          fakeAvailableTools(),
 		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
-		MachineId:               "7",
+		MachineID:               "7",
 	})
 	c.Assert(err, tc.ErrorIs, stopErr)
 	c.Assert(gotCfg, tc.NotNil)

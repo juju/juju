@@ -146,10 +146,10 @@ func BootstrapInstance(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	if args.MachineId != "" {
-		instanceConfig.MachineId = args.MachineId
+	if args.MachineID != "" {
+		instanceConfig.MachineId = args.MachineID
 		instanceConfig.MachineAgentServiceName = jujunames.JujuAgentd + "-" +
-			names.NewMachineTag(args.MachineId).String()
+			names.NewMachineTag(args.MachineID).String()
 	}
 
 	ak := jujussh.MakeAuthorizedKeysString(args.AuthorizedKeys)

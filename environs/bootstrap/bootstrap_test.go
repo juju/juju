@@ -513,7 +513,7 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAAS(c *tc.C) {
 	c.Check(env.bootstrapCount, tc.Equals, 1)
 	c.Check(env.args.AvailableTools, tc.DeepEquals, recoveryTools(archivedVersion, arch.ARM64))
 	c.Check(env.args.AuthorizedKeys, tc.DeepEquals, params.BootstrapSSHAuthorizedKeys)
-	c.Check(env.args.MachineId, tc.Equals, "7")
+	c.Check(env.args.MachineID, tc.Equals, "7")
 	c.Check(env.args.BootstrapBase, tc.Equals, jammyBootstrapBase)
 	c.Assert(env.args.BootstrapConstraints.Arch, tc.NotNil)
 	c.Check(*env.args.BootstrapConstraints.Arch, tc.Equals, arch.ARM64)
@@ -739,7 +739,7 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASForwardsProvisioningInputs(c *
 	c.Check(args.BootstrapBase, tc.Equals, jammyBootstrapBase)
 	c.Check(args.SupportedBootstrapBases, tc.DeepEquals, []corebase.Base{jammyBootstrapBase})
 	c.Check(args.AuthorizedKeys, tc.DeepEquals, params.BootstrapSSHAuthorizedKeys)
-	c.Check(args.MachineId, tc.Equals, "7")
+	c.Check(args.MachineID, tc.Equals, "7")
 
 	// The model constraints are passed through untouched.
 	c.Assert(args.ModelConstraints.CpuCores, tc.NotNil)

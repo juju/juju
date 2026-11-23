@@ -190,7 +190,7 @@ func recoverIAAS(
 	// Pass the archived logical machine ID into provider allocation so
 	// StartInstance creates per-machine resources (hostnames, firewall
 	// groups, tags) for that machine rather than assuming machine "0".
-	params.MachineId = args.MachineID
+	params.MachineID = args.MachineID
 	// The provider allocation does not inherit the bootstrap SSH keys;
 	// cloud-init needs them before bootstrap configuration can connect.
 	params.AuthorizedKeys = args.BootstrapSSHAuthorizedKeys
