@@ -613,10 +613,16 @@ define snap_stage
 	@cp -a ${SNAPS_DIR}/${1}/. ${SNAP_STAGE_DIR}/
 endef
 
+# The wrappers, jujuagentd and juju parts copy local sources into the LXD build
+# instance (the repo tree and the staged snap/local), which syncs by mtime and
+# never prunes files deleted from the host tree: deleted files would keep being
+# compiled and shipped silently. Cleaning them before every pack forces the
+# snap to be built from the current tree.
 .PHONY: juju-snap
 juju-snap:
 ## juju-snap: Build the juju snap from snaps/juju/
 	$(call snap_stage,juju)
+	snapcraft clean wrappers jujuagentd juju --use-lxd
 	mkdir -p ${SNAP_BUILD_DIR}
 	snapcraft pack --use-lxd
 	mv ${JUJU_SNAP_NAME} ${SNAP_BUILD_DIR}/
