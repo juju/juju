@@ -21,10 +21,7 @@ type starformEventObjectStorage = struct {
 func (s *scriptletSuite) TestSetStatusCollectsIntent(c *tc.C) {
 	collector := &IntentCollector{}
 	ft := formtest.From(c)
-	ft.SetApp(&starform.AppObject{
-		Name:    "juju",
-		Methods: []*starlark.Builtin{setStatusBuiltin},
-	})
+	ft.SetApp(app())
 	ft.SetEvent(&starform.EventObject{
 		Name: "config_changed",
 		Attrs: starlark.StringDict{
@@ -53,10 +50,7 @@ def on_config_changed(event):
 func (s *scriptletSuite) TestSetStatusUnobservedEventHasNoIntent(c *tc.C) {
 	collector := &IntentCollector{}
 	ft := formtest.From(c)
-	ft.SetApp(&starform.AppObject{
-		Name:    "juju",
-		Methods: []*starlark.Builtin{setStatusBuiltin},
-	})
+	ft.SetApp(app())
 	ft.SetEvent(&starform.EventObject{
 		Name:  "update_status",
 		State: collector,
@@ -89,6 +83,13 @@ func (s *scriptletSuite) TestSetStatusTimeSafe(c *tc.C) {
 
 func (s *scriptletSuite) TestSetStatusIOSafe(c *tc.C) {
 	assertSetStatusSafety(c, starlark.IOSafe, nil)
+}
+
+func app() *starform.AppObject {
+	return &starform.AppObject{
+		Name:    "juju",
+		Methods: []*starlark.Builtin{setStatusBuiltin},
+	}
 }
 
 func assertStatusIntents(c *tc.C, intents []Intent, expected Intent) {

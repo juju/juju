@@ -30,7 +30,7 @@ func (s *scriptletSuite) TestRegistryRejectsSameNameBuiltins(c *tc.C) {
 
 	expected := fmt.Sprintf(".*%s.*", builtin.Name())
 	c.Check(func() {
-		registry.AddAppMethod(same_name_builtin)
+		registry.AddAppMethod(sameNameBuiltin)
 	}, tc.PanicMatches, expected)
 }
 
@@ -38,6 +38,6 @@ var builtin = starlark.NewBuiltinWithSafety("builtin", starlark.NotSafe, func(_ 
 	return starlark.None, nil
 })
 
-var same_name_builtin = starlark.NewBuiltinWithSafety("builtin", starlark.NotSafe, func(_ *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+var sameNameBuiltin = starlark.NewBuiltinWithSafety("builtin", starlark.NotSafe, func(_ *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 	return starlark.None, nil
 })

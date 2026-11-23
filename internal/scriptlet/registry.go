@@ -12,6 +12,7 @@ import (
 )
 
 // EnvRegistry holds declarations which define the scriptlet environment.
+// It is frozen by its first App call.
 type EnvRegistry struct {
 	frozen          atomic.Bool
 	jujuMethods     []*starlark.Builtin
