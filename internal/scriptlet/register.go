@@ -3,7 +3,7 @@
 
 package scriptlet
 
-// RegisterEnv registers the common scriptlet declarations.
+// RegisterEnv registers the common scriptlet environment features.
 func RegisterEnv(env *EnvRegistry) {
 	env.AddAppMethod(setStatusBuiltin)
 }
