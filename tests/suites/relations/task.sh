@@ -14,6 +14,7 @@ test_relations() {
 	bootstrap "test-relations" "${file}"
 
 	test_relation_data_exchange
+	test_relation_settings_ordering
 	test_relation_departing_unit
 	test_relation_list_app
 	test_relation_model_get
