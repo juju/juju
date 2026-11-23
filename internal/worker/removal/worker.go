@@ -132,12 +132,13 @@ func (w *removalWorker) loop() (err error) {
 	)
 
 	for {
+		notified := false
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case jobIDs := <-watch.Changes():
 			w.cfg.Logger.Debugf(ctx, "got removal job changes: %v", jobIDs)
-			attempt = 0
+			notified = true
 		case <-timerChanges:
 		}
 
@@ -145,19 +146,21 @@ func (w *removalWorker) loop() (err error) {
 		if err != nil {
 			return errors.Capture(err)
 		}
-		// A new or completed job resets the delay. Compare identities rather
-		// than counts or ordering, since additions can coincide with deletions.
-		if !maps.Equal(jobs, previousJobs) {
+
+		// Reset backoff on notifications, when idle, or when jobs change.
+		// Compare identities rather than counts or ordering, since additions
+		// can coincide with deletions.
+		if notified || jobs.IsEmpty() || !maps.Equal(jobs, previousJobs) {
 			attempt = 0
 		}
-		previousJobs = jobs
+
 		interval := jobCheckMaxInterval
 		if !jobs.IsEmpty() {
 			interval = backoff(0, attempt)
 			attempt++
-		} else {
-			attempt = 0
 		}
+
+		previousJobs = jobs
 		timer.Reset(interval)
 		timerChanges = timer.Chan()
 	}
