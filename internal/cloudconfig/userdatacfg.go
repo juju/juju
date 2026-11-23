@@ -507,10 +507,16 @@ func (w *userdataConfig) configureBootstrap() error {
 	bootstrapAgentArgs := []string{
 		featureFlags + w.icfg.JujuTools() + "/" + jujunames.JujuAgentd,
 		bootstrapSubcommand,
-		"--timeout", w.icfg.Bootstrap.Timeout.String(),
-		"--data-dir", shquote(w.icfg.DataDir),
-		loggingOption,
 	}
+	if !w.icfg.Bootstrap.RecoveryMode {
+		// Only the fresh bootstrap performs timed state initialisation
+		// work; recover-state carries no timeout.
+		bootstrapAgentArgs = append(bootstrapAgentArgs,
+			"--timeout", w.icfg.Bootstrap.Timeout.String())
+	}
+	bootstrapAgentArgs = append(bootstrapAgentArgs,
+		"--data-dir", shquote(w.icfg.DataDir))
+	bootstrapAgentArgs = append(bootstrapAgentArgs, loggingOption)
 	bootstrapAgentArgs = append(bootstrapAgentArgs, recoveryArgs...)
 	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Installing Juju machine agent"))
 	w.conf.AddScripts(strings.Join(bootstrapAgentArgs, " "))

@@ -863,7 +863,9 @@ func (s *cloudinitSuite) TestCloudInitConfigureRecoveryBootstrap(c *tc.C) {
 
 	scripts := bootstrapConfigScriptsForConfig(c, instConfig)
 	assertScriptMatch(c, scripts,
-		"jujuagentd recover-state .* --show-log --machine-id 7", false)
+		"jujuagentd recover-state --data-dir '/var/lib/juju' --show-log --machine-id 7$", false)
+	// recover-state performs no timed work, so it gets no --timeout flag.
+	c.Check(strings.Contains(strings.Join(scripts, "\n"), "--timeout"), tc.IsFalse)
 	assertScriptMatch(c, scripts,
 		"install -D -m 600 /dev/null '/var/lib/juju/recovery/params'", false)
 	c.Check(scripts, tc.Not(tc.Contains),

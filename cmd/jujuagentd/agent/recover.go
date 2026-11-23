@@ -6,7 +6,6 @@ package agent
 import (
 	"os"
 	"path"
-	"time"
 
 	"github.com/juju/gnuflag"
 
@@ -30,7 +29,6 @@ import (
 type RecoverCommand struct {
 	cmd.CommandBase
 	agentconf.AgentConf
-	Timeout   time.Duration
 	MachineId string
 }
 
@@ -53,7 +51,6 @@ func (c *RecoverCommand) Info() *cmd.Info {
 // SetFlags adds the flags for this command to the passed gnuflag.FlagSet.
 func (c *RecoverCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
-	f.DurationVar(&c.Timeout, "timeout", time.Duration(0), "set the recovery timeout")
 	f.StringVar(&c.MachineId, "machine-id", agent.BootstrapControllerId, "the archived controller machine ID")
 }
 
@@ -85,6 +82,22 @@ func (c *RecoverCommand) Run(ctx *cmd.Context) error {
 func (c *RecoverCommand) initialiseRecoveryController(
 	ctx *cmd.Context, args instancecfg.StateInitializationParams,
 ) error {
+	// The bootstrap params file is written on every fresh bootstrap, so
+	// recovery must refuse params that were not produced for a recovery
+	// allocation: rewriting agent.conf and system-identity from ordinary
+	// bootstrap params would corrupt the machine.
+	if !args.RecoveryMode {
+		return errors.New("bootstrap params are not for a recovery allocation")
+	}
+	// The recovery marker is written immediately before recover-state runs;
+	// its absence means the machine is not a recovery allocation.
+	isRecovery, err := agent.IsRecovery(c.DataDir())
+	if err != nil {
+		return errors.Errorf("checking recovery marker: %w", err)
+	}
+	if !isRecovery {
+		return errors.New("agent data directory holds no recovery marker")
+	}
 	if args.ControllerCloud.Type == cloud.CloudTypeKubernetes {
 		return errors.Errorf("Kubernetes controller recovery %w", coreerrors.NotSupported)
 	}
