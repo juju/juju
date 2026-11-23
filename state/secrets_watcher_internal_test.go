@@ -47,17 +47,13 @@ func (s *secretsExpiryWatcherMergeSuite) TestDeleteMatchesRevision(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, gc.HasLen, 2)
 
-	var sawDeletion, sawRevision2 bool
-	for _, ch := range got {
-		switch ch.Revision {
-		case 1:
-			sawDeletion = ch.NextTriggerTime.IsZero()
-		case 2:
-			sawRevision2 = ch.NextTriggerTime.Equal(next)
-		}
-	}
-	c.Check(sawDeletion, jc.IsTrue)
-	c.Check(sawRevision2, jc.IsTrue)
+	c.Check(got[0].URI.ID, gc.Equals, uri.ID)
+	c.Check(got[0].Revision, gc.Equals, 2)
+	c.Check(got[0].NextTriggerTime, gc.Equals, next)
+
+	c.Check(got[1].URI.ID, gc.Equals, uri.ID)
+	c.Check(got[1].Revision, gc.Equals, 1)
+	c.Check(got[1].NextTriggerTime.IsZero(), jc.IsTrue)
 }
 
 // TestExpireThenDeleteInOneBatch ensures that when a revision that was
