@@ -113,6 +113,10 @@ func (st *State) AddRemoteApplicationOfferer(
 // Returns:
 //   - [applicationerrors.ApplicationNotFound] if no local application exists
 //     for which the given offer UUID was created.
+//   - [crossmodelrelationerrors.RemoteRelationAlreadyRegistered] if the
+//     relation already exists.
+//   - [applicationerrors.ApplicationNotAlive] if the relation does not exist
+//     and the offer application is not alive.
 //   - [relationerrors.AmbiguousRelation] if the synthetic charm has more than
 //     one endpoint.
 //   - [relationerrors.RelationEndpointNotFound] if the offer application
@@ -134,13 +138,17 @@ func (st *State) AddConsumedRelation(
 			return errors.Capture(err)
 		}
 
-		if err := st.checkApplicationNotDead(ctx, tx, offerApplicationUUID); err != nil {
-			return errors.Capture(err)
-		}
-
 		// If the relation already exists, return an error. All relations are
 		// immutable, so we can only consume it once.
 		if err := st.checkConsumerRelationExists(ctx, tx, args.RelationUUID); err != nil {
+			return errors.Capture(err)
+		}
+
+		// An offer application that is not alive must not gain new
+		// relations. This is checked after the relation exists check, so that
+		// a consumer can still re-register an existing relation in order to
+		// remove it.
+		if err := st.checkApplicationAlive(ctx, tx, offerApplicationUUID); err != nil {
 			return errors.Capture(err)
 		}
 
