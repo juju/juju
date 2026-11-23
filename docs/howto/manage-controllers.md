@@ -315,22 +315,15 @@ See also: {ref}`high-availability`
 Currently only supported for controllers on a machine cloud.
 ```
 
-To make a controller highly available,  add a unit using the `juju add-unit` command:
+To make a controller highly available, add units to the `controller` application in the controller model using the `juju add-unit` command. The number after `-n` is the number of units to add, not the number of controllers you want. For example, starting from one controller, to have three:
 
 ```text
 juju add-unit -m controller controller -n 2
 ```
 
-This will make sure that the number of controllers increases to the default minimum of 3. Sample output:
+The command prints nothing when it succeeds. Run `juju status -m controller` to follow the new machines and units. The number of controllers is the number of units of the `controller` application. The database that the controllers share, Dqlite, gives votes to at most three nodes and keeps up to three more as stand-bys; any further controllers are spares. See {ref}`high-availability` for the roles.
 
-```text
-maintaining machines: 0
-adding machines: 1, 2
-```
-
-Optionally, you can also mention a specific controller and also the number of controller machines you want to use for HA, among other things (e.g., constraints). Note: The number of controllers must be an odd number in order for a master to be "voted in" amongst its peers. (A cluster with an even number of members will cause a random member to become inactive, though that member will remain on "hot standby" and automatically become active should some other member fail.) Furthermore, due to limitations of the underlying database in an HA context, that number cannot exceed seven. (Any member in excess of seven will become inactive.Thus, a cluster can only have three, five, or seven **active** members.)
-
-If a controller is misbehaving, or if you've decided that you don't need as many controllers for HA after all, you can remove it either by removing a unit or its host machine. For example, below we remove controller 1 by removing machine 1 from the controller model:
+If a controller is misbehaving, or if you've decided that you don't need as many controllers for HA after all, you can remove it either by removing a unit or its host machine (removing the machine also removes the unit on it). Juju refuses to scale the `controller` application to 0 units. For example, below we remove controller 1 by removing machine 1 from the controller model:
 
 ```text
 juju remove-machine -m controller 1
