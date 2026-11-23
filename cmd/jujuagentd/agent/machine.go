@@ -683,12 +683,12 @@ func (a *MachineAgent) makeEngineCreator(
 	legacyLogSinkWriter loggo.Writer,
 	localLogSink corelogger.LogSink,
 ) func(context.Context) (worker.Worker, error) {
+	// The runner restarts the engine worker every RestartDelay while
+	// the recovery import is pending, so the expected wait is logged
+	// once instead of erroring on every attempt. Genuine marker
+	// check failures are unexpected and stay errors each time.
+	logRecoveryWait := new(sync.Once)
 	return func(ctx context.Context) (worker.Worker, error) {
-		// The runner restarts the engine worker every RestartDelay while
-		// the recovery import is pending, so the expected wait is logged
-		// once instead of erroring on every attempt. Genuine marker
-		// check failures are unexpected and stay errors each time.
-		logRecoveryWait := new(sync.Once)
 		agentConfig := a.CurrentConfig()
 		if err := validateRecoveryEngineStart(agentConfig.DataDir()); err != nil {
 			if errors.Is(err, errRecoveryImportPending) {
