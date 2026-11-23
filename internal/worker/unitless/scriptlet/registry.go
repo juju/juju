@@ -49,11 +49,8 @@ func (er *EnvRegistry) AddAppMethod(method *starlark.Builtin) {
 func (er *EnvRegistry) App() *starform.AppObject {
 	er.frozen.Store(true)
 
-	methods := make([]*starlark.Builtin, len(er.jujuMethods))
-	copy(methods, er.jujuMethods)
-
 	return &starform.AppObject{
 		Name:    "juju",
-		Methods: methods,
+		Methods: er.jujuMethods,
 	}
 }
