@@ -321,7 +321,7 @@ To make a controller highly available, add units to the `controller` application
 juju add-unit -m controller controller -n 2
 ```
 
-The command prints nothing when it succeeds. Run `juju status -m controller` to follow the new machines and units. The number of controllers is the number of units of the `controller` application. The database that the controllers share, Dqlite, gives votes to at most three nodes and keeps up to three more as stand-bys; any further controllers are spares. See {ref}`high-availability` for the roles.
+The command prints nothing when it succeeds. Run `juju status -m controller` to follow the new machines and units. The number of controllers is the number of units of the `controller` application. The database that the controllers share, Dqlite, gives votes to at most three nodes and keeps up to three more as stand-bys; any further controllers are spares. See {ref}`dqlite-cluster-of-the-controllers` for the roles.
 
 If a controller is misbehaving, or if you've decided that you don't need as many controllers for HA after all, you can remove it either by removing a unit or its host machine (removing the machine also removes the unit on it). Juju refuses to scale the `controller` application to 0 units. For example, below we remove controller 1 by removing machine 1 from the controller model:
 
