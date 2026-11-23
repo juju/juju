@@ -558,7 +558,7 @@ For how to remove *knowledge* about a controller from a `juju` client, see {ref}
 ```{important}
 
 Any model in the controller that has disabled commands will block a controller
-from being destroyed. A controller administrator is able to enable all the commands across all the models in a Juju controller so that the controller can be destroyed if desired. This can be done via the {ref}`command-juju-enable-destroy-controller` command: `juju enable-destroy-controller`.
+from being destroyed, and the controller reports the block before it checks for hosted models. A controller administrator is able to enable all the commands across all the models in a Juju controller so that the controller can be destroyed if desired. This can be done via the {ref}`command-juju-enable-destroy-controller` command: `juju enable-destroy-controller`.
 ```
 
 A controller can be destroyed with:
@@ -569,7 +569,7 @@ You will always be prompted to confirm this action. Use the `-y` option to overr
 
 As a safety measure, if there are any models (besides the 'controller' model) associated with the controller you will need to pass the `--destroy-all-models` option.
 
-Additionally, if there is persistent storage in any of the controller's models, you will be prompted to either destroy or release the storage, using the `--destroy-storage` or `--release-storage` options respectively.
+Additionally, if there is persistent storage in any of the controller's models, the command refuses until you choose to destroy or release the storage, using the `--destroy-storage` or `--release-storage` options respectively.
 
 For example:
 
