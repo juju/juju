@@ -385,6 +385,34 @@ func (s *sequenceSuite) TestSequenceStartDoesNotResetExistingNamespace(c *tc.C) 
 	c.Check(next, tc.Equals, uint64(1))
 }
 
+func (s *sequenceSuite) TestSequenceStartWithMixedAllocation(c *tc.C) {
+	namespace := domainsequence.StaticNamespace("foo")
+	var first, next, last uint64
+	var batch []uint64
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		first, err = NextValueWithStart(ctx, s.state, tx, namespace, 5)
+		if err != nil {
+			return err
+		}
+		batch, err = NextNValues(ctx, s.state, tx, 3, namespace)
+		if err != nil {
+			return err
+		}
+		next, err = NextValue(ctx, s.state, tx, namespace)
+		if err != nil {
+			return err
+		}
+		last, err = NextValueWithStart(ctx, s.state, tx, namespace, 100)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(first, tc.Equals, uint64(5))
+	c.Check(batch, tc.DeepEquals, []uint64{6, 7, 8})
+	c.Check(next, tc.Equals, uint64(9))
+	c.Check(last, tc.Equals, uint64(10))
+}
+
 func (s *sequenceSuite) TestSequenceMultipleStartsAtOne(c *tc.C) {
 	const n = 100
 	valuesCh := make(chan uint64, n)

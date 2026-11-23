@@ -121,6 +121,28 @@ VALUES ('machine1', 0, NULL, NULL), ('machine2', 1, ?, NULL), ('machine3', 2, ?,
 VALUES ('joining', 0, 0, 0), ('joined', 1, 0, 0)`)
 	execSQL(c, s.DB(), `INSERT INTO relation_status (relation_uuid, relation_status_type_id, message, updated_at)
 VALUES ('joining', 0, NULL, NULL), ('joined', 1, 'joined', ?)`, updated)
+	execSQL(c, s.DB(), `
+INSERT INTO charm (uuid, reference_name) VALUES ('charm', 'test-charm');
+INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, scope_id)
+VALUES ('charm-relation', 'charm', 'peer', 2, 0);
+INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid)
+VALUES ('app', 'test-app', 0, 'charm', 'space');
+INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid)
+VALUES ('app-endpoint', 'app', 'charm-relation');
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+VALUES ('joining-endpoint', 'joining', 'app-endpoint'),
+       ('joined-endpoint', 'joined', 'app-endpoint');
+INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid, charm_uuid)
+VALUES ('unit', 'test-app/0', 0, 'app', 'node1', 'charm');
+INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid)
+VALUES ('joining-unit', 'joining-endpoint', 'unit'),
+       ('joined-unit', 'joined-endpoint', 'unit');
+INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256, revision)
+VALUES ('joining-endpoint', 'app-hash', 10), ('joined-endpoint', 'legacy-app-hash', 0);
+INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256, revision)
+VALUES ('joining-unit', 'unit-hash', 11), ('joined-unit', 'legacy-unit-hash', 0);
+INSERT INTO sequence (namespace, value) VALUES ('relation-settings_joining', 11);
+`)
 	execSQL(c, s.DB(), `INSERT INTO removal (uuid, removal_type_id, entity_uuid, force, scheduled_for)
 VALUES ('removal1', 0, 'entity1', FALSE, ?), ('removal2', 0, 'entity2', TRUE, ?)`, updated, updated)
 	exporter := exportmodel.NewState(s.TxnRunnerFactory())
@@ -132,6 +154,8 @@ VALUES ('removal1', 0, 'entity1', FALSE, ?), ('removal2', 0, 'entity2', TRUE, ?)
 	c.Assert(err, tc.ErrorIsNil)
 	execSQL(c, s.DB(), `DELETE FROM sequence`)
 	execSQL(c, s.DB(), `DELETE FROM relation_status`)
+	execSQL(c, s.DB(), `DELETE FROM relation_application_settings_hash`)
+	execSQL(c, s.DB(), `DELETE FROM relation_unit_settings_hash`)
 	execSQL(c, s.DB(), `DELETE FROM removal`)
 	// No placement exists on a fresh model database. The caller supplies its
 	// target explicitly, without needing a pre-existing blob to infer it.
@@ -150,6 +174,10 @@ VALUES ('removal1', 0, 'entity1', FALSE, ?), ('removal2', 0, 'entity2', TRUE, ?)
 	c.Check(after.MachineStatus, tc.SameContents, before.MachineStatus)
 	c.Check(after.RelationStatus, tc.SameContents, before.RelationStatus)
 	c.Check(after.RelationStatusType, tc.SameContents, before.RelationStatusType)
+	c.Check(before.RelationApplicationSettingsHash, tc.HasLen, 2)
+	c.Check(before.RelationUnitSettingsHash, tc.HasLen, 2)
+	c.Check(after.RelationApplicationSettingsHash, tc.SameContents, before.RelationApplicationSettingsHash)
+	c.Check(after.RelationUnitSettingsHash, tc.SameContents, before.RelationUnitSettingsHash)
 	checkString(c, s.DB(),
 		`SELECT group_concat(DISTINCT typeof(relation_status_type_id)) FROM relation_status`, "integer")
 	checkString(c, s.DB(), `SELECT group_concat(DISTINCT typeof(id)) FROM relation_status_type`, "integer")

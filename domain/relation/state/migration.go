@@ -16,6 +16,66 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// SetSettingsSequences initialises missing settings sequences and raises
+// existing counters to at least the highest revision in each relation.
+// Application and unit settings are considered regardless of relation life.
+func (st *State) SetSettingsSequences(ctx context.Context) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	type settingsSequencePrefix struct {
+		Prefix string `db:"prefix"`
+	}
+	type settingsSequence struct {
+		Namespace string `db:"namespace"`
+		Value     int64  `db:"value"`
+	}
+	arg := settingsSequencePrefix{Prefix: domainrelation.SettingsSequenceNamespace.String()}
+	selectStmt, err := st.Prepare(`
+WITH settings_revisions AS (
+    SELECT re.relation_uuid AS relation_uuid, rash.revision AS revision
+    FROM relation_endpoint AS re
+    JOIN relation_application_settings_hash AS rash
+        ON rash.relation_endpoint_uuid = re.uuid
+    UNION ALL
+    SELECT re.relation_uuid AS relation_uuid, rush.revision AS revision
+    FROM relation_endpoint AS re
+    JOIN relation_unit AS ru ON ru.relation_endpoint_uuid = re.uuid
+    JOIN relation_unit_settings_hash AS rush ON rush.relation_unit_uuid = ru.uuid
+)
+SELECT $settingsSequencePrefix.prefix || '_' || sr.relation_uuid AS &settingsSequence.namespace,
+       MAX(sr.revision) AS &settingsSequence.value
+FROM settings_revisions AS sr
+GROUP BY sr.relation_uuid
+ORDER BY sr.relation_uuid
+`, arg, settingsSequence{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	writeStmt, err := st.Prepare(`
+INSERT INTO sequence (*) VALUES ($settingsSequence.*)
+ON CONFLICT (namespace) DO UPDATE SET value = excluded.value
+WHERE sequence.value < excluded.value
+`, settingsSequence{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var sequences []settingsSequence
+		if err := tx.Query(ctx, selectStmt, arg).GetAll(&sequences); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		if len(sequences) == 0 {
+			return nil
+		}
+		return errors.Capture(tx.Query(ctx, writeStmt, sequences).Run())
+	}))
+}
+
 // ImportPeerRelation establishes a peer relation on the endpoint passed as
 // argument. Used for migration import.
 func (st *State) ImportPeerRelation(

@@ -9,15 +9,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"gopkg.in/yaml.v3"
 
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/export"
 	exportstate "github.com/juju/juju/domain/export/state/model"
 	"github.com/juju/juju/domain/export/types/v4_1_0"
 	importstate "github.com/juju/juju/domain/modelimport/state/model"
+	relationstate "github.com/juju/juju/domain/relation/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type roundTripSuite struct {
@@ -44,6 +48,8 @@ func TestRoundTripSuite(t *testing.T) {
 //     foreign-key chain (exact round-trip).
 //   - relation_status: integer IDs and both NULL and non-NULL metadata survive
 //     YAML serialisation, import and export.
+//   - relation settings: zero and positive revisions and their sequence survive
+//     the round trip, and subsequent writes continue the imported sequence.
 func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
 	const (
 		userSpaceUUID = "11111111-1111-1111-1111-111111111111"
@@ -64,9 +70,16 @@ func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
 			UUID: appUUID, Name: "test-app", LifeID: 0, CharmUUID: charmUUID,
 			SpaceUUID: "656b4a82-e28c-53d6-a014-f0dd53417eb6",
 		}},
+		ApplicationEndpoint: []v4_1_0.ApplicationEndpoint{{
+			UUID: "app-endpoint", ApplicationUUID: appUUID,
+			CharmRelationUUID: "charm-relation",
+		}},
 		Charm: []v4_1_0.Charm{{
 			UUID: charmUUID, SourceID: 1, Revision: 1,
 			ReferenceName: "test-charm", CreateTime: now,
+		}},
+		CharmRelation: []v4_1_0.CharmRelation{{
+			UUID: "charm-relation", CharmUUID: charmUUID, Name: "peer", RoleID: 2,
 		}},
 		CharmResource: []v4_1_0.CharmResource{{
 			CharmUUID: charmUUID, Name: resourceName, KindID: 0,
@@ -81,13 +94,30 @@ func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
 			{UUID: joiningUUID, RelationID: 0},
 			{UUID: joinedUUID, RelationID: 1},
 		},
+		RelationApplicationSettingsHash: []v4_1_0.RelationApplicationSettingsHash{
+			{RelationEndpointUUID: "joining-endpoint", Sha256: "app-hash", Revision: 10},
+			{RelationEndpointUUID: "joined-endpoint", Sha256: "legacy-app-hash", Revision: 0},
+		},
+		RelationEndpoint: []v4_1_0.RelationEndpoint{
+			{UUID: "joining-endpoint", RelationUUID: joiningUUID, EndpointUUID: "app-endpoint"},
+			{UUID: "joined-endpoint", RelationUUID: joinedUUID, EndpointUUID: "app-endpoint"},
+		},
 		RelationStatus: []v4_1_0.RelationStatus{
 			{RelationUUID: joiningUUID, RelationStatusTypeID: 0},
 			{RelationUUID: joinedUUID, RelationStatusTypeID: 1, Message: new("joined"), UpdatedAt: &now},
 		},
+		RelationUnit: []v4_1_0.RelationUnit{
+			{UUID: "joining-unit", RelationEndpointUUID: "joining-endpoint", UnitUUID: unitUUID},
+			{UUID: "joined-unit", RelationEndpointUUID: "joined-endpoint", UnitUUID: unitUUID},
+		},
+		RelationUnitSettingsHash: []v4_1_0.RelationUnitSettingsHash{
+			{RelationUnitUUID: "joining-unit", Sha256: "unit-hash", Revision: 11},
+			{RelationUnitUUID: "joined-unit", Sha256: "legacy-unit-hash", Revision: 0},
+		},
 		Sequence: []v4_1_0.Sequence{
 			{Namespace: "machine", Value: 7},
 			{Namespace: "unit", Value: 3},
+			{Namespace: "relation-settings_" + joiningUUID, Value: 11},
 		},
 		Space: []v4_1_0.Space{
 			{UUID: userSpaceUUID, Name: "user-space"},
@@ -126,6 +156,8 @@ func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
 	c.Check(got.ProviderSpace, tc.SameContents, payload.ProviderSpace)
 	c.Check(got.UnitResource, tc.DeepEquals, payload.UnitResource)
 	c.Check(got.RelationStatus, tc.SameContents, payload.RelationStatus)
+	c.Check(got.RelationApplicationSettingsHash, tc.SameContents, payload.RelationApplicationSettingsHash)
+	c.Check(got.RelationUnitSettingsHash, tc.SameContents, payload.RelationUnitSettingsHash)
 
 	data, err = yaml.Marshal(got)
 	c.Assert(err, tc.ErrorIsNil)
@@ -135,6 +167,16 @@ func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
 	c.Assert(ok, tc.IsTrue)
 	c.Check(reexported.RelationStatus, tc.SameContents, payload.RelationStatus)
 	c.Check(reexported.RelationStatusType, tc.SameContents, got.RelationStatusType)
+	c.Check(reexported.RelationApplicationSettingsHash, tc.SameContents, payload.RelationApplicationSettingsHash)
+	c.Check(reexported.RelationUnitSettingsHash, tc.SameContents, payload.RelationUnitSettingsHash)
+
+	relationSt := relationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c), nil)
+	err = relationSt.SetRelationUnitSettings(c.Context(), corerelation.UnitUUID("joining-unit"), map[string]string{"token": "updated"}, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	changes, err := relationSt.GetConsumerRelationUnitsChange(c.Context(), joiningUUID, appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(changes.UnitsSettingsVersions, tc.DeepEquals, map[string]int64{"test-app/0": 12})
+	c.Check(changes.AppSettingsVersion, tc.DeepEquals, map[string]int64{"test-app": 10})
 
 	// The user space was imported; the alpha seed row was preserved exactly once
 	// (skipped by ON CONFLICT DO NOTHING, not duplicated).

@@ -6,6 +6,7 @@ package to_v4_1_0
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -55,6 +56,70 @@ func (s *deltasSuite) TestRelationUnitSettingDropsEmptyValues(c *tc.C) {
 	c.Check(got, tc.DeepEquals, []v4_1_0.RelationUnitSetting{
 		{RelationUnitUUID: "ru-uuid", Key: "set", Value: "v"},
 	})
+}
+
+func (s *deltasSuite) TestRelationSettingsHashesPreserveLegacyVersions(c *tc.C) {
+	const (
+		applicationHash          = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+		unitHash                 = "89abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234567"
+		applicationVersion int64 = 0x3736353433323130
+		unitVersion        int64 = 0x6665646362613938
+	)
+	src := v4_0_12.ModelExport{
+		RelationApplicationSettingsHash: []v4_0_12.RelationApplicationSettingsHash{
+			{RelationEndpointUUID: "endpoint-a", Sha256: applicationHash},
+			{RelationEndpointUUID: "endpoint-b", Sha256: ""},
+		},
+		RelationUnitSettingsHash: []v4_0_12.RelationUnitSettingsHash{
+			{RelationUnitUUID: "unit-a", Sha256: unitHash},
+			{RelationUnitUUID: "unit-b", Sha256: ""},
+		},
+		Sequence: []v4_0_12.Sequence{
+			{Namespace: "machine", Value: 7},
+			{Namespace: "relation-settings_relation-a", Value: 10000},
+		},
+	}
+	originalSequences := slices.Clone(src.Sequence)
+
+	transform := NewTransform(NewDeltas())
+	got, err := transform(c.Context(), src)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.RelationApplicationSettingsHash, tc.DeepEquals, []v4_1_0.RelationApplicationSettingsHash{
+		{RelationEndpointUUID: "endpoint-a", Sha256: applicationHash, Revision: applicationVersion},
+		{RelationEndpointUUID: "endpoint-b", Sha256: "", Revision: 0},
+	})
+	c.Check(got.RelationUnitSettingsHash, tc.DeepEquals, []v4_1_0.RelationUnitSettingsHash{
+		{RelationUnitUUID: "unit-a", Sha256: unitHash, Revision: unitVersion},
+		{RelationUnitUUID: "unit-b", Sha256: "", Revision: 0},
+	})
+	c.Check(got.Sequence, tc.SameContents, []v4_1_0.Sequence{
+		{Namespace: "machine", Value: 7},
+		{Namespace: "relation-settings_relation-a", Value: 10000},
+	})
+	c.Check(src.Sequence, tc.DeepEquals, originalSequences)
+	repeated, err := transform(c.Context(), src)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(repeated.Sequence, tc.DeepEquals, got.Sequence)
+
+	empty, err := transform(c.Context(), v4_0_12.ModelExport{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(empty.RelationApplicationSettingsHash, tc.HasLen, 0)
+	c.Check(empty.RelationUnitSettingsHash, tc.HasLen, 0)
+	c.Check(empty.Sequence, tc.HasLen, 0)
+}
+
+func (s *deltasSuite) TestLegacyHashToInt(c *tc.C) {
+	for _, test := range []struct {
+		hash    string
+		version int64
+	}{
+		{hash: "", version: 0},
+		{hash: "42", version: 0x3234},
+		{hash: "01234567", version: 0x3736353433323130},
+		{hash: "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", version: 0x6666666666666666},
+	} {
+		c.Check(hashToInt(test.hash), tc.Equals, test.version, tc.Commentf("hash %q", test.hash))
+	}
 }
 
 func (s *deltasSuite) TestApplicationScale(c *tc.C) {

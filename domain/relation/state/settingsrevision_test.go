@@ -14,6 +14,7 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/unit"
 	domainrelation "github.com/juju/juju/domain/relation"
+	domainsequence "github.com/juju/juju/domain/sequence"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -109,6 +110,33 @@ func (s *settingsRevisionSuite) TestNoOpKeepsRevisions(c *tc.C) {
 	err := s.state.SetRelationUnitSettings(c.Context(), s.relationUnitUUID, map[string]string{"token": "other"}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(s.changes(c).Changed["app/0"], tc.Equals, int64(3))
+}
+
+func (s *settingsRevisionSuite) TestUnversionedSettingsInitialiseRevisions(c *tc.C) {
+	settings := map[string]string{"token": "foobar"}
+	err := s.state.SetRelationUnitSettings(c.Context(), s.relationUnitUUID, settings, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.SetRelationApplicationSettings(c.Context(), s.relationUUID, s.applicationUUID, settings)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Unversioned rows retain hashes but lack revisions and a settings sequence.
+	s.query(c, "UPDATE relation_unit_settings_hash SET revision = 0 WHERE relation_unit_uuid = ?", s.relationUnitUUID)
+	s.query(c, "UPDATE relation_application_settings_hash SET revision = 0 WHERE relation_endpoint_uuid = ?", s.endpointUUID)
+	namespace := domainsequence.MakePrefixNamespace(domainrelation.SettingsSequenceNamespace, s.relationUUID.String())
+	s.query(c, "DELETE FROM sequence WHERE namespace = ?", namespace.String())
+	legacy := s.changes(c)
+	c.Check(legacy.Changed["app/0"], tc.Equals, int64(0))
+	c.Check(legacy.AppChanged["app"], tc.Equals, int64(0))
+
+	for range 2 {
+		err = s.state.SetRelationUnitSettings(c.Context(), s.relationUnitUUID, settings, nil)
+		c.Assert(err, tc.ErrorIsNil)
+		err = s.state.SetRelationApplicationSettings(c.Context(), s.relationUUID, s.applicationUUID, settings)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+	current := s.changes(c)
+	c.Check(current.Changed["app/0"], tc.Equals, int64(1))
+	c.Check(current.AppChanged["app"], tc.Equals, int64(2))
 }
 
 func (s *settingsRevisionSuite) TestRevisionSurvivesScopeReentry(c *tc.C) {
