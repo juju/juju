@@ -232,10 +232,19 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 		}),
 
 		// appUnitsChan fired
+		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
+		applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).Return(nil),
+		ops.EXPECT().AppAlive(x, "test", s.appUUID, app, x, x, x, x, x, x).Return(nil),
 		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).
 			Return(errors.NotFound),
+		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
+		applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).Return(nil),
+		ops.EXPECT().AppAlive(x, "test", s.appUUID, app, x, x, x, x, x, x).Return(nil),
 		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).
 			Return(errors.ConstError("try again")),
+		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
+		applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).Return(nil),
+		ops.EXPECT().AppAlive(x, "test", s.appUUID, app, x, x, x, x, x, x).Return(nil),
 		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).
 			DoAndReturn(func(ctx context.Context, s string, i application.UUID, a caas.Application,
 				v life.Value, cf CAASProvisionerFacade,
@@ -282,6 +291,11 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 		}),
 	)
 
+	// Provider events can queue another scale reconciliation before the next
+	// watcher event is consumed. Each reconciliation refreshes the spec.
+	ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil).AnyTimes()
+	applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).Return(nil).AnyTimes()
+	ops.EXPECT().AppAlive(x, "test", s.appUUID, app, x, x, x, x, x, x).Return(nil).AnyTimes()
 	ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).Return(nil).AnyTimes()
 	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService, storageProvisioningService, resourceOpenerGetter)
 	s.waitDone(c, done)
@@ -436,6 +450,11 @@ func (s *ApplicationWorkerSuite) TestWorkerAppRemovedWhileUpdatingState(c *tc.C)
 		}),
 	)
 
+	// The initial scale reconciliation may refresh the spec before UpdateState
+	// observes the application's removal.
+	ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil).AnyTimes()
+	applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).Return(nil).AnyTimes()
+	ops.EXPECT().AppAlive(x, "test", s.appUUID, app, x, x, x, x, x, x).Return(nil).AnyTimes()
 	ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).Return(nil).AnyTimes()
 	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService, storageProvisioningService, resourceOpenerGetter)
 	s.waitDone(c, done)
@@ -627,6 +646,9 @@ func (s *ApplicationWorkerSuite) TestWorkerRefreshTimerResetOnUnitsChurning(c *t
 		}),
 	)
 
+	ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil).AnyTimes()
+	applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).Return(nil).AnyTimes()
+	ops.EXPECT().AppAlive(x, "test", s.appUUID, app, x, x, x, x, x, x).Return(nil).AnyTimes()
 	ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).
 		Return(errors.ConstError("try again")).AnyTimes()
 	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService, storageProvisioningService, resourceOpenerGetter)
@@ -732,10 +754,19 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 		}),
 
 		// appUnitsChan fired
+		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
+		applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).Return(nil),
+		ops.EXPECT().AppAlive(x, "test", s.appUUID, app, x, x, x, x, x, x).Return(nil),
 		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).
 			Return(errors.NotFound),
+		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
+		applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).Return(nil),
+		ops.EXPECT().AppAlive(x, "test", s.appUUID, app, x, x, x, x, x, x).Return(nil),
 		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).
 			Return(errors.ConstError("try again")),
+		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
+		applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).Return(nil),
+		ops.EXPECT().AppAlive(x, "test", s.appUUID, app, x, x, x, x, x, x).Return(nil),
 		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).
 			DoAndReturn(func(ctx context.Context, s string, i application.UUID, a caas.Application,
 				v life.Value, cf CAASProvisionerFacade, as ApplicationService,
@@ -781,6 +812,11 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 		}),
 	)
 
+	// Provider events can queue another scale reconciliation before the next
+	// watcher event is consumed. Each reconciliation refreshes the spec.
+	ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil).AnyTimes()
+	applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).Return(nil).AnyTimes()
+	ops.EXPECT().AppAlive(x, "test", s.appUUID, app, x, x, x, x, x, x).Return(nil).AnyTimes()
 	ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).Return(nil).AnyTimes()
 	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService, storageProvisioningService, resourceOpenerGetter)
 	s.waitDone(c, done)
