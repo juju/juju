@@ -713,7 +713,7 @@ func (s *relationSuite) TestLeaveScopeRelationUnitNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, relationerrors.RelationUnitNotFound)
 }
 
-func (s *relationSuite) TestIsUnitDyingAndBlocked(c *tc.C) {
+func (s *relationSuite) TestIsUnitDyingAndInError(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 
@@ -728,9 +728,9 @@ func (s *relationSuite) TestIsUnitDyingAndBlocked(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	isBlocked, err := st.IsUnitDyingAndBlocked(c.Context(), unitName)
+	inError, err := st.IsUnitDyingAndInError(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(isBlocked, tc.Equals, false)
+	c.Check(inError, tc.Equals, false)
 
 	const (
 		blockedStatus = 4
@@ -740,25 +740,26 @@ func (s *relationSuite) TestIsUnitDyingAndBlocked(c *tc.C) {
 		_, err = s.DB().Exec("UPDATE unit_workload_status SET status_id = ? WHERE unit_uuid = ?", status, unitUUID.String())
 		c.Assert(err, tc.ErrorIsNil)
 
-		isBlocked, err = st.IsUnitDyingAndBlocked(c.Context(), unitName)
+		inError, err = st.IsUnitDyingAndInError(c.Context(), unitName)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(isBlocked, tc.Equals, false)
+		c.Check(inError, tc.Equals, false)
 	}
 
 	// Now check with the life set to dying.
 	s.advanceUnitLife(c, unitUUID, life.Dying)
 
-	for _, status := range []int{blockedStatus, errorStatus} {
+	// A blocked unit can still run hooks, so it must not be auto-departed.
+	for status, expected := range map[int]bool{blockedStatus: false, errorStatus: true} {
 		_, err = s.DB().Exec("UPDATE unit_workload_status SET status_id = ? WHERE unit_uuid = ?", status, unitUUID.String())
 		c.Assert(err, tc.ErrorIsNil)
 
-		isBlocked, err = st.IsUnitDyingAndBlocked(c.Context(), unitName)
+		inError, err = st.IsUnitDyingAndInError(c.Context(), unitName)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(isBlocked, tc.Equals, true)
+		c.Check(inError, tc.Equals, expected)
 	}
 }
 
-func (s *relationSuite) TestIsUnitDyingAndBlockedDead(c *tc.C) {
+func (s *relationSuite) TestIsUnitDyingAndInErrorDead(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 
@@ -780,13 +781,13 @@ func (s *relationSuite) TestIsUnitDyingAndBlockedDead(c *tc.C) {
 		blockedStatus = 4
 		errorStatus   = 7
 	)
-	for _, status := range []int{blockedStatus, errorStatus} {
+	for status, expected := range map[int]bool{blockedStatus: false, errorStatus: true} {
 		_, err = s.DB().Exec("UPDATE unit_workload_status SET status_id = ? WHERE unit_uuid = ?", status, unitUUID.String())
 		c.Assert(err, tc.ErrorIsNil)
 
-		isBlocked, err := st.IsUnitDyingAndBlocked(c.Context(), unitName)
+		inError, err := st.IsUnitDyingAndInError(c.Context(), unitName)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(isBlocked, tc.Equals, true)
+		c.Check(inError, tc.Equals, expected)
 	}
 }
 

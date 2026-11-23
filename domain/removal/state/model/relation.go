@@ -561,10 +561,10 @@ WHERE  unit_uuid = $entityUUID.uuid
 	return nil
 }
 
-// IsUnitDyingAndBlocked returns true if the unit with the input name is dying,
-// or is in a blocked state. The blocked state indicated if the unit workload
-// has an error or blocked status.
-func (st *State) IsUnitDyingAndBlocked(ctx context.Context, name string) (bool, error) {
+// IsUnitDyingAndInError returns true if the unit with the input name is dying
+// or dead, and its workload status is error. A blocked workload status is not
+// enough: the unit agent can still run hooks, which may rely on the relation.
+func (st *State) IsUnitDyingAndInError(ctx context.Context, name string) (bool, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
@@ -582,7 +582,7 @@ JOIN   unit AS u ON v_unit_workload_status.unit_uuid = u.uuid
 JOIN   workload_status_value AS wsv ON v_unit_workload_status.status_id = wsv.id
 WHERE  unit_name = $entityName.name AND
        u.life_id > 0 AND
-       (wsv.status = 'error' OR wsv.status = 'blocked');
+       wsv.status = 'error';
 `, result{}, unitName)
 	if err != nil {
 		return false, errors.Capture(err)
