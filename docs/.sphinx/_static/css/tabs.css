@@ -1,0 +1,4 @@
+/* Restore an inset for prose panels after the Canonical Sphinx override. */
+.sphinx-tabs > .sphinx-tabs-panel:not(.code-tab) {
+    padding-inline: 0.75rem;
+}

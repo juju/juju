@@ -8,7 +8,10 @@ myst:
 # User
 
 ```{ibnote}
-See also: {ref}`manage-users`
+See also:
+
+- {ref}`Juju CLI | Manage users <manage-users>`
+- {ref}`Terraform Provider for Juju | Manage users <tfjuju:manage-users>`
 ```
 
 In Juju, a **user** is any person able to log in to a Juju {ref}`controller <controller>`.
@@ -33,7 +36,7 @@ Multiple users can be accommodated by the same Juju client. However, there can o
 
 ```
 
-Every user is associated with an access level. The default level for the user created implicitly (`admin`) is the controller `superuser` access level, which means they can do everything at the level of the entire controller. The default level for a user created explicitly is the controller `login` level, which means they can do nothing on the controller other than register it with their client and log in to it -- for anything more they must be granted a higher level explicitly.
+Bootstrap grants the controller owner `admin` the `superuser` access level. An explicitly added user starts with `login` access on the controller.
 
 (user-access-levels)=
 ## User access levels
@@ -45,14 +48,12 @@ A Juju user may have different abilities, according to the access level they hav
 (user-access-controller-login)=
 #### `login`
 
-Granted: Via `juju register.
-
-Abilities: Log in to the controller.
+Abilities: Log in to the controller and use operations that require no higher grant. See {ref}`controller-access`.
 
 (user-access-controller-superuser)=
 #### `superuser`
 
-Granted: Automatically by bootstrapping a controller or by having the username 'admin'.
+Granted: Automatically to the controller owner at bootstrap, or explicitly by a controller superuser.
 
 Abilities: Do anything that it is possible to do at the level of a controller.
 

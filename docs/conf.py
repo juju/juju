@@ -391,6 +391,7 @@ html_css_files = [
     "css/ibnote.css",
     "css/domain-list-override.css",
     "css/blurb.css",
+    "css/tabs.css",
 ]
 
 # Adds custom JavaScript files, located under 'html_static_path'
@@ -398,6 +399,7 @@ html_css_files = [
 html_js_files = [
     "https://assets.ubuntu.com/v1/287a5e8f-bundle.js",
     'js/overwrite_links.js',
+    'js/tab-anchors.js',
 ]
 
 # Specifies a reST snippet to be appended to each .rst file

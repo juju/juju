@@ -152,6 +152,7 @@ The procedure for how to control a user's access level depends on whether you wa
 This division doesn't currently align perfectly with the scope hierarchy, which is rather controller > cloud > model > application > offer (because the cloud scope is designed as a restriction on the controller scope for cases where multiple clouds are managed via the same controller).
 ```
 
+(manage-controller-user-access)=
 ### Manage access at the controller, model, application, or offer level
 
 **Grant access.** To grant a user access at the controller, model, application, or offer level, run the `grant` command, specifying the user, applicable desired access level, and the target controller, model, application, or offer. For example:
@@ -237,6 +238,7 @@ The command also allows an optional username argument, and flags, allowing an ad
 See more: {ref}`command-juju-change-user-password`
 ```
 
+(manage-a-users-login-status)=
 ## Manage a user's login status
 
 **Log in.**

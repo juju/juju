@@ -77,7 +77,7 @@ Within a controller, deployments are organized into models -- logical containers
 
 ## Infrastructure
 
-Supporting infrastructure -- machines and other compute resources, storage volumes, network spaces and subnets, and availability zones -- is provisioned from the cloud. Constraints and placement directives control how resources are selected and allocated. SSH keys provide access.
+Supporting infrastructure -- machines and other compute resources, storage volumes, network spaces and subnets, and availability zones -- is provisioned from the cloud. Constraints and placement directives control how resources are selected and allocated. SSH keys and the SSH server support access to machines and units.
 
 - {ref}`machine`
 - {ref}`resource-compute`
@@ -88,6 +88,7 @@ Supporting infrastructure -- machines and other compute resources, storage volum
 - {ref}`constraint`
 - {ref}`placement-directive`
 - {ref}`ssh-key`
+- {ref}`ssh-server`
 
 ## Observability
 

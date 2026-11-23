@@ -351,13 +351,9 @@ created locally on the controller.
 (controller-config-juju-mgmt-space)=
 ## `juju-mgmt-space`
 
-`juju-mgmt-space` is the network space that agents should use to
-communicate with controllers. Controller API addresses are filtered
-to those in the space; if the space is unknown, or the filter would
-remove every address, the unfiltered addresses are used so that
-agents never lose contact with the controller. At bootstrap, the
-space is also added to the spaces constraint of the controller
-machine.
+`juju-mgmt-space` selects a network space for agent and peer API
+addresses on machine controllers. It does not restrict network access.
+See {ref}`controller-api-addresses` for address selection and fallback.
 
 **Type:** string
 

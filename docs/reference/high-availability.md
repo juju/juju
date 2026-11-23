@@ -16,9 +16,4 @@ See also:
 
 In the context of a cloud deployment in general, **high availability (HA)** is the concept of making software resilient to failures by means of running multiple replicas with shared and synchronised software context -- something usually achieved through coordinated {ref}`scaling (out and up) <scaling>`. In Juju, it is supported for controllers on machine clouds and for regular applications on both machine and Kubernetes clouds.
 
-
-![Juju - Controller high availability (machines)](high-availability.png)
-
-***Controller high availability (machine clouds).** Juju controllers can be made highly-available by enabling more than one machine to each run a separate controller unit with a separate controller agent instance, where each machine effectively becomes an instance of the controller. This set of Juju agents collectively use a Dqlite cluster to achieve data synchronisation amongst them.*
-
-Controller high availability is described on the {ref}`controller <controller>` page: {ref}`how controller nodes are added <adding-a-controller>` and {ref}`removed <removing-a-controller>`, {ref}`the Dqlite cluster <dqlite-cluster-of-the-controllers>`, {ref}`the controller charm <controller-charm>`, and how {ref}`agents <controller-api-addresses-for-agents>` and {ref}`clients <controller-api-addresses-for-clients>` get the controller addresses. High availability of regular applications is described in {ref}`make-an-application-highly-available`.
+On a machine cloud, each controller instance runs on a separate machine. The instances share state through a Dqlite cluster. See {ref}`controller-high-availability` for node roles, cluster membership, and adding or removing capacity, and {ref}`controller-api-addresses` for address discovery. For application resilience, see {ref}`how to make an application highly available <make-an-application-highly-available>`.

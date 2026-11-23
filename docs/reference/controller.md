@@ -1,277 +1,345 @@
 ---
 myst:
   html_meta:
-    description: "Juju controller reference: what a controller is made of, its storage, nodes, Dqlite cluster, API addresses, access, configuration, and destruction."
+    description: "Juju controller architecture, API addresses and access, configuration, audit logging, and lifecycle operations."
 ---
 
 (controller)=
 # Controller
 
+A Juju **controller** is the control plane of a Juju deployment: the central service that manages {ref}`models <model>` and keeps deployment state in a {ref}`database <database>`. Each instance of the controller runs a {ref}`controller agent <controller-agent>`, the process that runs the Juju API server. The controller applies changes requested by clients. Other agents connect to the controller to carry out work in its models.
+
 ```{ibnote}
 See also:
 
-- {ref}`manage-controllers`
-- {ref}`high-availability`
+- {ref}`Juju CLI | Manage controllers <manage-controllers>`
+- {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
+- {ref}`JAAS | Manage Juju controllers <jaas:manage-juju-controllers>`
 ```
 
-In software design, a **controller** is an architectural component responsible for managing the flow of data and interactions within a system, and for mediating between different parts of the system. In Juju, it is defined in the same way, with the mention that:
+## Controller deployment and topology
 
-- It is set up via the bootstrap process.
-- It refers to the initial controller {ref}`unit <unit>` as well as any units added later on (for machine clouds, for the purpose of {ref}`high-availability <high-availability>`) -- each of which includes
-    - a {ref}`unit agent <unit-agent>`,
-    - [`juju-controller`](https://charmhub.io/juju-controller) charm code, and
-    - a {ref}`controller agent <controller-agent>` running, among other things, the Juju API server and an in-process embedded [Dqlite](https://canonical.com/dqlite) {ref}`database <database>`. <p>
-- It is responsible for implementing all the changes defined by a Juju {ref}`user <user>` via a Juju client post-bootstrap.
-- It stores state in the internal Dqlite {ref}`database <database>`.
+(controller-bootstrap)=
+### Bootstrap
 
-(controller-storage)=
-## Controller storage
+```{ibnote}
+See also:
 
-A Juju controller has two basic persistent storage needs: {ref}`database <database>` access and blob storage. By default, the blob store is a file store: the blobs are files in the `objectstore` directory under the controller agent's data directory. No controller configuration key selects the blob store.
+- {ref}`Juju CLI | Bootstrap a controller <bootstrap-a-controller>`
+- {ref}`Terraform Provider for Juju | Bootstrap a controller <tfjuju:bootstrap-a-controller>`
+- {ref}`JAAS | Bootstrap a controller for JIMM <jaas:add-a-juju-controller>`
+```
 
-<!-- ADD BACK IN WHEN WE MOVE THOSE VALUES INTO SECRETS.
+Bootstrapping sets up a new Juju controller on a cloud. Juju creates the `controller` model, deploys the {ref}`controller application <controller-application>` with one unit, and grants the initial user `admin` {ref}`controller superuser access <user-access-controller-superuser>`.
 
-However, either during bootstrap or later, you can (and, in a production-setting, should!) specify any S3-compatible object store you want (e.g., AWS S3, MicroCeph, MinIO, etc.) using the object-store-related controller configuration keys ({ref}`controller-config-object-store-type`, {ref}`controller-config-object-store-s3-endpoint`, {ref}`controller-config-object-store-s3-static-key`, {ref}`controller-config-object-store-s3-static-secret`, {ref}`controller-config-object-store-s3-static-session`, {ref}`controller-config-object-store-s3-region`).
+On a machine cloud, bootstrap provisions a machine for the controller. On Kubernetes, it creates a namespace named `controller-<controller name>`, a single-replica StatefulSet, and a Service that exposes the API and SSH ports. The default Service type depends on the provider.
 
-Also, Juju will apply default S3 policy permissions, but you are free to change them, so long as they satisfy the following as a minimum (at least, during model creation):
+On Kubernetes, bootstrap waits for the controller Service to have an address before it creates the StatefulSet. A timeout waiting for that address points to Service provisioning, not pod startup. Even after the controller pod is running, bootstrap can still fail to reach the controller API.
 
-```text
-{
-   "Version" : "2012-10-17",
-   "Statement" : [
-      {
-         "Effect" : "Allow",
-         "Action" : [
-            "s3:CreateBucket",
-            "s3:PutBucketPolicy",
-            "s3:PutBucketTagging",
-            "s3:PutBucketVersioning",
-            "s3:PutBucketObjectLockConfiguration"
-         ],
-         "Resource" : "arn:aws:s3:::*"
-      },
-      {
-         "Effect" : "Allow",
-         "Action" : [
-            "s3:ListBucket",
-            "s3:ListBucketVersions",
-            "s3:ListAllMyBuckets",
-            "s3:GetBucketLocation",
-            "s3:GetBucketPolicy",
-            "s3:GetBucketTagging",
-            "s3:GetBucketVersioning",
-            "s3:GetBucketObjectLockConfiguration",
-            "s3:GetObject",
-            "s3:GetObjectLegalHold",
-            "s3:GetObjectRetention",
-            "s3:PutObject",
-            "s3:PutObjectLegalHold",
-            "s3:BypassGovernanceRetention",
-            "s3:PutObjectRetention",
-            "s3:DeleteObject"
-         ],
-         "Resource" : "arn:aws:s3:::*"
-      }
-   ]
-}
-``` -->
+After a failed bootstrap, check whether cloud resources remain before retrying. On Kubernetes, a leftover controller namespace blocks a retry with the same name on the same cluster.
 
 (controller-nodes)=
-## Controller nodes
+(controller-charm)=
+(controller-application)=
+### Controller application
 
-A controller is a unit of the `controller` application in the controller model. Each unit has its own controller node, which has a Dqlite node. Juju identifies a controller node by the number of its unit: the node of unit `controller/2` has the controller ID `2`.
+```{ggarch}
+:file: ../juju.ggarch
+:view: Controller application on one machine
+:caption: On a machine cloud, the `controller` model contains the `controller` application and its initial unit, `controller/0`. Juju assigns the unit to a controller machine. The controller agent on that machine runs the API server and Dqlite in the same process.
+:alt: On the left, the controller model contains the controller application and its initial unit, controller/0. An arrow shows the unit's assignment to the controller machine on the right. The machine contains the controller agent, which contains the API server and Dqlite.
+```
 
-The number of controllers is the number of units of the `controller` application, and running more than one makes the controller highly available. Dqlite decides how many of the controllers vote (see {ref}`Dqlite cluster of the controllers <dqlite-cluster-of-the-controllers>`).
+The `controller` {ref}`model <model>` contains an {ref}`application <application>` also named `controller`. Juju deploys the application from the controller {ref}`charm <charm>` at {ref}`bootstrap <controller-bootstrap>`, with one {ref}`unit <unit>` named `controller/0`.
+
+Each unit of the `controller` application corresponds to a **controller node**. The node's {ref}`controller agent <controller-agent>` runs the API server and a [Dqlite](https://canonical.com/dqlite) database node in the same process. A controller node's ID is the number at the end of its unit name: `controller/0` has ID `0`.
+
+(controller-storage)=
+### State and object storage
+
+The controller keeps deployment state in a {ref}`database <database>` and stores binary data separately in an object store. The object store initially saves its data as files in the `objectstore` directory under the controller agent's data directory. No controller configuration key selects the storage backend.
 
 (dqlite-cluster-of-the-controllers)=
-## Dqlite cluster of the controllers
+(controller-high-availability)=
+### Controller high availability
 
-Each controller is a [Dqlite] node. The `dbaccessor` worker on each controller is
-responsible for maintaining the Dqlite cluster. When entering HA mode, the
-`dbaccessor` worker will configure the local Dqlite node as a member of the
-cluster.
+```{ggarch}
+:file: ../juju.ggarch
+:view: Controller high availability
+:caption: One highly available controller spans three machines in this example. Juju assigns one unit of the `controller` application to each machine. The controller agent on each machine runs an API server and a Dqlite node in the same process. The dashed outline groups the three Dqlite nodes into one cluster.
+:alt: Three controller machines sit side by side. Inside each machine, a controller agent box contains an API server above a Dqlite node. A dashed outline spans the machines and encloses the Dqlite nodes but not the API servers.
+```
 
-When starting Dqlite, the worker must bind it to an IP address. The address is
-read from the controller configuration file populated by the controller charm.
-If there is no address to use for binding, the worker will wait for one to be
-written to the file before attempting to join the cluster.
-See _Controller Charm_ below.
+With controller {ref}`high availability <high-availability>`, one Juju controller runs across multiple machines, with one controller node per machine. The nodes share one database cluster, reducing the risk that a machine failure takes the controller offline. Juju supports this topology only on {ref}`machine clouds <machine-cloud>`.
 
-Each Dqlite node has a role within the cluster. Juju does not set node
-roles; this is handled within Dqlite itself, with its defaults of three voters
-and three stand-bys. A cluster is constituted by:
-- one _leader_ to which all database reads and writes are redirected,
-- up to two other _voters_ that participate in leader elections,
-- up to three _stand-bys_, which do not vote but take over if a voter fails; and
-- _spares_, which are the nodes beyond these.
+Adding units to the {ref}`controller application <controller-application>` adds nodes to the same controller. The requested unit count does not tell you how many Dqlite nodes are running in the cluster.
 
-With four controllers there are therefore three voters and one stand-by; with
-more than six, the extra nodes are spares.
+To join the cluster, a Dqlite node needs the address it will listen on (its bind address) in the configuration the controller charm supplies. A Dqlite node listening only on its own machine (loopback) can switch to its cluster address when the configuration lists more than one member and includes that node's address.
 
-For a machine in the controller model, `juju status --format yaml` shows the Dqlite role of its controller node in `controller-cluster-role`: `voter`, `standby` or `spare`. The role is read from Dqlite when `status` is called; a node that is down is not reported as down. `has-vote` and `wants-vote` are both `true` for a `voter` and for a `standby`, although a stand-by does not vote in Dqlite, so use `controller-cluster-role` to tell them apart.
+Machine status for the controller model reports a Dqlite role (`cluster-role`) of `voter`, `standby`, or `spare` for a node listed in the Dqlite cluster. Juju omits the role if the cluster does not list that node or if the machine is not a controller node. The legacy `has-vote` and `wants-vote` fields are both true for voters and standbys, but a standby does not vote. Use the role to tell them apart, not to judge whether the node is reachable. For the Juju CLI status display, see {ref}`juju status <command-juju-status>`.
 
-If the number of controller instances is reduced to one, and the one remaining
-controller's own address is the only address in the cluster configuration, the
-`dbaccessor` worker reconfigures the cluster with the local node as the only
-member and restarts. It does this only when Dqlite on that node is not running.
-
-(controller-charm)=
-## Controller charm
-
-The controller charm propagates bind addresses to the `dbaccessor` worker by
-writing them to the controller configuration file. Each controller unit shares
-its resolved bind address with the other units via the `dbcluster` peer
-relation. The charm must be able to determine a unique address in the
-local-cloud scope before it is shared with other units and written to the
-configuration file. If no unique address can be determined, the user must supply
-an endpoint binding for the relation using a space that ensures a unique IP
-address.
-
-(controller-api-addresses-for-agents)=
-## Controller API addresses for agents
-
-On the controller, the `apiaddresssetter` worker publishes the addresses of each
-controller node, in three separate sets: for clients, for agents and for the
-other controllers. It recomputes them when the controller nodes, the controller
-configuration or the controller's network facts change.
-
-When machines in the control plane change, the `api-address-updater` worker
-for each agent re-writes the agent's configuration file with usable API
-addresses from all controllers. Agents will try these addresses in random order
-until they establish a successful controller connection.
-
-The list of addresses supplied to agent configuration, and the addresses that
-controllers use to reach each other, can be influenced by the
-`juju-mgmt-space` controller configuration value. This is supplied with a space
-name so that agent-controller communication can be isolated to specific
-networks.
-
-(controller-api-addresses-for-clients)=
-## Controller API addresses for clients
-
-Each time the Juju client establishes a connection to the Juju controller, the
-controller sends the current list of API addresses and the client updates these
-in the local store. The client's first connection attempt is always to the last
-address that it used successfully. Others are tried subsequently if required.
-
-Addresses used by clients are not influenced by the `juju-mgmt-space`
-configuration.
-
-(controller-ssh-server-host-key-and-port)=
-## Controller SSH server host key and port
-
-A caller with `login` access can read the controller's SSH server host key and port. When no port has been set, it is 17022. The `ssh-server-port` configuration key is not read for this.
-
-(controller-version-and-identity-provider)=
-## Controller version and identity provider
-
-Any user can read the version and git commit of the running controller binary, and the identity provider URL, which is the value of the `identity-url` configuration key, or empty.
-
-(controller-access)=
-## Controller access
-
-Every controller operation is available only to a connection authenticated as a user. A permission failure is the error `unauthorized access` (code `unauthorized access`).
-
-| Operation | Permission required |
-| --- | --- |
-| Set controller configuration, destroy the controller, remove blocks, list blocked models, list all models, modify a user's controller access | `superuser` on the controller |
-| Read the SSH server host key and port | `login` on the controller |
-| Read the controller configuration, the controller version, the identity provider URL | none beyond being a user |
-| Read a user's controller access | `superuser` for any user's access; any other caller can read only their own, and a failure is reported per entry |
+If Dqlite is not running on a previously clustered node and the cluster configuration lists only that node, the controller reconfigures the cluster to contain only the local node and tries to restart it. The controller does not take this recovery action while Dqlite is running on the node.
 
 (adding-a-controller)=
-## Adding a controller
-
-A controller is added by adding units to the `controller` application in the controller model. The number to add is the count of new units, not the total number of controllers wanted. This is how controller high availability is enabled: the `enable-ha` command was removed in Juju 4.0.
-
-The caller needs write access to the controller model, and the operation is refused while a change block is set on it. The new unit becomes a {ref}`controller node <controller-nodes>` and joins the {ref}`Dqlite cluster <dqlite-cluster-of-the-controllers>`.
+#### Adding nodes
 
 ```{ibnote}
-See more: {ref}`make-a-controller-highly-available`
+See also:
+
+- {ref}`Juju CLI | Make a controller highly available <make-a-controller-highly-available>`
+- {ref}`Terraform Provider for Juju | Enable controller high availability after bootstrap <tfjuju:enable-controller-high-availability-post-bootstrap>`
 ```
+
+Adding a controller node means adding a unit to the `controller` application. Juju supports this on machine clouds, not on Kubernetes.
+
+The request specifies the number of **new** units to add to the application, not the desired total. A new node cannot participate in the Dqlite cluster until it joins it.
+
+Adding nodes requires {ref}`write access <user-access-model-write>` to the controller model. A {ref}`change block <model-command-blocks>` on that model prevents the operation.
+
+If a request to add nodes to a Kubernetes controller passes the permission and block checks, Juju refuses it with this error:
+
+- *Error message:* `adding units to a container-based model is not supported`. *Trigger:* A request tries to add a node to a Kubernetes controller. *What to do:* Use a machine cloud for a controller that needs multiple nodes.
 
 (removing-a-controller)=
-## Removing a controller
+#### Removing nodes
 
-A controller is removed by removing its unit from the `controller` application, or the machine that hosts the unit. Removing a machine also removes the units on it. The caller needs write access to the controller model, and the operation is refused while a remove block is set on it. The remaining controllers receive the updated addresses before the removed node disappears.
+```{ibnote}
+See also: {ref}`Juju CLI | Reduce controller capacity <reduce-controller-capacity>`
+```
 
-Juju does not check against removing the last controller by removing its unit or machine.
+Removing a controller node means removing its unit or the machine that hosts it. Removing a machine also removes its units. The operation requires {ref}`write access <user-access-model-write>` to the controller model. Either a {ref}`remove block or a change block <model-command-blocks>` on that model prevents removal.
 
-| Error | Code | Trigger | Remedy |
-| --- | --- | --- | --- |
-| `cannot scale controller application to 0 units` | none | The number of units of the `controller` application is set to 0. | Keep at least one unit. |
+```{warning}
+Juju refuses to scale the controller application to zero, but it does not run that check when you remove a unit or machine. Before removing a node, check that the remaining nodes can still serve the controller.
+```
 
-Juju also refuses to remove the `controller` application.
+These errors distinguish scaling the controller application from trying to remove it:
+
+- *Error message:* `cannot scale controller application to 0 units`. *Trigger:* A scale request would leave no controller units. *What to do:* Keep at least one unit.
+- *Error message:* `removing the controller application not supported`. *Trigger:* A request tries to remove the controller application itself. *What to do:* Remove individual nodes to reduce capacity. To remove the whole controller, see {ref}`controller destruction <destroying-a-controller>`.
+
+(controller-model-blocks)=
+(controller-model-creation)=
+(controller-model-migration)=
+(controller-hosted-model-upgrades)=
+(controller-hosted-models)=
+### Models hosted by the controller
+
+A controller's **hosted models** are the {ref}`workload models <model>` it manages. Applications in a hosted model use resources on that model's cloud, which can differ from the controller's cloud. The `controller` model runs the controller itself and is not a hosted model.
+
+## Controller API connections and access
+
+(controller-api-addresses)=
+(controller-api-addresses-for-agents)=
+(controller-api-addresses-for-clients)=
+### API addresses and node discovery
+
+The controller publishes separate API address lists so that clients, agents, and the controller's own nodes know which addresses to use. The lists can overlap. The controller recomputes them when membership, configuration, or network addresses change. Agents update their connection configuration when usable agent addresses change.
+
+On a machine cloud, the controller can narrow its choice of addresses for agents and peer nodes to the network {ref}`space <space>` named in {ref}`juju-mgmt-space <controller-config-juju-mgmt-space>`. During normal operation, if no address for a unit matches the space, the controller falls back to the unit's eligible addresses. If the named space does not exist, bootstrap ignores the setting, but the running controller cannot use it to refresh those lists. The setting does not affect client addresses or restrict network access. On Kubernetes, the controller ignores the setting: clients and agents share the Service addresses, while the controller uses per-node DNS names for peers at bootstrap and selects addresses from each controller pod at runtime.
+
+At sign-in, the controller returns the client address list if the request identifies the caller as a user, and the agent address list otherwise. **Node discovery** is a separate way for a user with {ref}`controller login access <user-access-controller-login>` on a machine model connection to find individual controller nodes. It returns node IDs and their published client addresses in ID order, without shared endpoints. If no node has published an individual address, the list is empty.
+
+Node discovery is not supported on a Kubernetes model connection:
+
+- *Error message:* `facade "HighAvailability" not supported on container models`. *Trigger:* The client calls node discovery on a Kubernetes model connection. *What to do:* Use the addresses returned at login instead.
+
+(controller-certificates-and-public-dns-name)=
+### TLS certificates and public DNS
+
+A TLS certificate lets clients verify the controller they reach. The controller can serve a certificate from its own certificate authority (CA), or use ACME to obtain one automatically for the name in {ref}`autocert-dns-name <controller-config-autocert-dns-name>`. The controller reports that name at sign-in. The {ref}`public-dns-address <controller-config-public-dns-address>` setting publishes an address instead; it does not configure certificate issuance. For automatic certificates, plan for HTTPS on TCP port 443 and the ACME HTTP challenge on TCP port 80.
+
+(controller-version-and-identity-provider)=
+### Health and version
+
+The controller's HTTPS `/health` endpoint reports `starting`, `running`, or `stopping`, with HTTP 503 unless the server is `running`. It does not check cluster health, credentials, or access to a model. Users on a {ref}`controller-only connection <controller-api-versions>` can query the running controller binary's version and git commit. For version requirements, see {ref}`Juju component compatibility <juju-cross-version-compatibility>`. For the identity provider URL, see {ref}`registration and sign-in <controller-authentication>`.
+
+(controller-authentication)=
+### Registration and sign-in
+
+```{ibnote}
+See also:
+
+- {ref}`Juju CLI | Register a controller <register-a-controller>`
+- {ref}`Juju CLI | Log in to a controller <manage-a-users-login-status>`
+```
+
+Registering a controller gives your client the information it needs to recognize and connect to an existing controller. Signing in authenticates you to the controller. The controller checks your access for the API connection, which can select a model. A client can combine registration and sign-in in one workflow, but registration does not grant access.
+
+When you register by invitation, your client supplies an initial password using a single-use activation key. The controller sets the password and consumes the key before sending its UUID and CA certificate, so a failed response does not necessarily mean the key is still usable.
+
+For accounts managed by the controller (local users), the controller accepts a password or a login macaroon, a token used to verify the user's identity. A local user invited with an activation key needs an initial password before signing in with a password. The controller refuses sign-in for disabled accounts. A macaroon discharge challenge asks for additional proof; it does not establish a session.
+
+For external sign-in, the controller reports the configured {ref}`identity provider URL <controller-config-identity-url>` to users on a {ref}`controller-only connection <controller-api-versions>`, or returns an empty value if no URL is configured. Token authentication requires a configured {ref}`login-token-refresh-url <controller-config-login-token-refresh-url>` from which the controller can obtain verification keys. Both settings are set at bootstrap.
+
+The controller distinguishes a local user credential problem from a temporary limit on agent logins:
+
+- *Error message:* `invalid entity name or password`. *Trigger:* In a local password sign-in, the account is unknown, removed, or disabled, or the password is invalid. *What to do:* Check the account and password; an administrator can check whether the account is enabled.
+- *Error message:* `try again`. *Trigger:* The agent login rate limit is exhausted. *What to do:* Retry after capacity is available.
+
+The controller applies changes to {ref}`agent-ratelimit-max <controller-config-agent-ratelimit-max>` and {ref}`agent-ratelimit-rate <controller-config-agent-ratelimit-rate>` without restarting. These keys do not limit user logins.
+
+(connection-scopes)=
+(controller-api-versions)=
+(controller-access)=
+### Access levels and grants
+
+```{ibnote}
+See also: {ref}`Juju CLI | Manage controller access <manage-controller-user-access>`
+```
+
+A controller **grant** gives a user a level of access to the controller: {ref}`login access <user-access-controller-login>` or {ref}`superuser access <user-access-controller-superuser>`. A grant to use a model or cloud is separate. For example, {ref}`add-model <user-access-cloud-add-model>` applies to a cloud, not to the controller.
+
+The controller requires controller access for a **controller-only API connection**, which does not select a model. A **model-scoped API connection** selects one model and requires access to that model or controller superuser access. The controller also requires controller access for a model-scoped connection unless you enable {ref}`allow-model-access <controller-config-allow-model-access>`.
+
+For clients that connect directly to the API, the WebSocket path `/api` (or `/`) opens a controller-only connection. `/model/<uuid>/api` opens a model-scoped connection, even when the UUID belongs to the `controller` model. Operations such as reading controller configuration require a controller-only connection.
+
+If a user cannot log in because of missing access:
+
+- *Error message:* `permission denied`. *Trigger:* The user lacks a grant that the connection requires. *What to do:* Use an account with the required grant.
+
+A controller `superuser` can change controller access and read it for any user; other users can read only their own. These calls return permission failures in the affected result entries.
+
+(controller-ssh-server-host-key-and-port)=
+### SSH server
+
+The controller SSH server lets an authorized user connect through the controller to a machine or unit. The {ref}`SSH server reference <ssh-server>` covers how clients find the server, verify its identity, and reach a supported target.
+
+## Controller configuration and audit
 
 (reading-and-setting-controller-configuration)=
-## Reading and setting controller configuration
-
-The controller keeps its configuration in its Dqlite database. Any user can read the whole configuration; the controller filters no key from the result.
-
-Only a caller with `superuser` access can set configuration. No change block is consulted. The request names keys and values; keys that it does not name are unchanged, and a key cannot be removed.
-
-Only the keys that can change after bootstrap can be set: 32 keys, among them `auditing-enabled`, the `audit-log-*`, `agent-logfile-*` and `query-tracing-*` keys, `features`, `juju-mgmt-space`, `public-dns-address`, `max-debug-log-duration` and `ssh-max-concurrent-connections`. `api-port`, `ssh-server-port`, `controller-uuid` and `ca-cert` are not among them. The complete list is in {ref}`list-of-controller-configuration-keys`.
-
-The controller applies these rules in order: the caller must be a superuser; if the request names `caas-image-repo`, the rules for that key apply (below); every key is validated and its value coerced to the key's type; then all the values are written in one transaction. If any key fails, the whole call fails and nothing changes.
-
-| Error | Code | Trigger | Remedy |
-| --- | --- | --- | --- |
-| `unauthorized access` | `unauthorized access` | The caller is not a superuser. | Ask a superuser. |
-| `unknown controller config setting "<key>"` | none | The name is not a controller configuration key. | Use a key from the key list. |
-| `can not change "<key>" after bootstrap` | none | The key is a controller key but is not among the keys that can change after bootstrap. | None: the key is set only at bootstrap. |
-| `unable to coerce controller config key "<key>"` | none | The value does not convert to the key's type. | Give a value of the key's type. |
-
-The key `caas-image-repo` has further rules:
-
-| Error | Code | Trigger |
-| --- | --- | --- |
-| `cannot parse caas-image-repo: ...` | `not valid` | The value cannot be parsed. |
-| `caas-image-repo expected a string got ...` | `not valid` | The value is not a string. |
-| `cannot change caas-image-repo as it is not currently set` | `not valid` | The key has no value yet. |
-| `cannot change caas-image-repo: repository read-only, only authentication can be updated` | none | The value changes the repository part. |
-| `cannot change caas-image-repo: unable to add authentication details` | none | The value adds authentication details. |
-| `cannot change caas-image-repo: unable to remove authentication details` | none | The value removes authentication details. |
-
-A change to `query-tracing-enabled`, `query-tracing-threshold` or `dqlite-busy-timeout` makes the controller agent restart itself. A change to the audit keys, `juju-mgmt-space`, `api-port`, `ssh-max-concurrent-connections` or `caas-image-repo` applies without a restart. The effect of the other keys was not traced.
+### Reading and updating configuration
 
 ```{ibnote}
-See more: {ref}`manage-controllers`, {ref}`list-of-controller-configuration-keys`
+See also:
+
+- {ref}`Juju CLI | Configure a controller <configure-a-controller>`
+- {ref}`Terraform Provider for Juju | Configure a controller after bootstrap <tfjuju:configure-a-controller-post-bootstrap>`
 ```
+
+Controller configuration governs how the controller itself runs and is separate from an individual model's configuration. A user on a {ref}`controller-only connection <controller-api-versions>` can read all controller settings, including defaults.
+
+The controller model's **cloud specification** describes its cloud and is separate from controller configuration. This read is available to users on a controller-only connection. The controller refuses entries for any other model, and includes the cloud credential only for a user with {ref}`controller superuser access <user-access-controller-superuser>` or {ref}`admin access to the controller model <user-access-model-admin>`.
+
+Updating controller configuration requires controller superuser access. A {ref}`model change block <model-command-blocks>` does not prevent the update. The controller saves all changes together or none at all; it leaves settings you don't specify untouched and doesn't remove keys. The controller checks whether it can update each key and convert the value to the key's type, but doesn't repeat all of its bootstrap checks. The {ref}`list of controller configuration keys <list-of-controller-configuration-keys>` identifies which keys can change after bootstrap.
+
+For a rejected configuration update, check the message to see whether the problem is with the key or its value:
+
+- *Error message:* `unknown controller config setting "<key>"`. *Trigger:* The key is not a controller setting. *What to do:* Use a key from the key list.
+- *Error message:* `can not change "<key>" after bootstrap`. *Trigger:* The key is recognized but is not mutable. *What to do:* Set it at bootstrap.
+- *Error message:* `unable to coerce controller config key "<key>"`. *Trigger:* The value cannot be converted to the key's type. *What to do:* Supply a value of that type.
+
+For {ref}`caas-image-repo <controller-config-caas-image-repo>`, the controller also checks that the repository and its authentication mode stay the same. Only existing authentication details can change. The following errors identify which check failed:
+
+- *Error message:* `cannot parse caas-image-repo: ...`. *Trigger:* The supplied value cannot be parsed. *What to do:* Supply valid repository and authentication details.
+- *Error message:* `caas-image-repo expected a string got ...`. *Trigger:* The supplied value is not a string. *What to do:* Supply a string.
+- *Error message:* `cannot change caas-image-repo as it is not currently set`. *Trigger:* The controller has no existing value. *What to do:* Set the repository at bootstrap.
+- *Error message:* `cannot change caas-image-repo: repository read-only, only authentication can be updated`. *Trigger:* The repository differs from the current repository. *What to do:* Keep the repository unchanged.
+- *Error message:* `cannot change caas-image-repo: unable to add authentication details`. *Trigger:* The existing repository has no authentication details. *What to do:* Keep the existing authentication mode.
+- *Error message:* `cannot change caas-image-repo: unable to remove authentication details`. *Trigger:* The existing repository requires authentication details. *What to do:* Supply replacement authentication details.
+
+Saving configuration does not mean every consumer has applied it:
+
+- Changing {ref}`query-tracing-enabled <controller-config-query-tracing-enabled>`, {ref}`query-tracing-threshold <controller-config-query-tracing-threshold>`, or {ref}`dqlite-busy-timeout <controller-config-dqlite-busy-timeout>` causes the controller agent to restart.
+- The HTTP server reads its idle, read, and write timeouts at startup. The controller reads the debug-log duration limit for each new debug-log request.
+- An existing machine agent reads its logfile size and backup count from its own agent configuration at startup, not from the current controller settings.
+
+(controller-audit-logging)=
+### API audit logging
+
+```{ibnote}
+See also:
+
+- {ref}`Juju CLI | Configure controller auditing <configure-controller-auditing>`
+- {ref}`Terraform Provider for Juju | Configure controller auditing <tfjuju:configure-a-controller-post-bootstrap>`
+- {ref}`Juju CLI | View the audit log on a controller machine <view-the-log-files>`
+```
+
+API audit logging records what authenticated users do over the controller API. When auditing is on, the controller writes those records to `audit.log` in the controller agent's log directory. It groups the activity on one connection into a **conversation**. It does not record agent or anonymous sessions as user audit conversations, and it includes request arguments only when argument capture is on.
+
+The controller skips a conversation if the user calls only excluded methods. If the user calls any method outside the exclusion list, the controller writes the conversation, including the excluded calls. Excluding a method does not guarantee that it never appears in the log.
+
+Changes to whether the controller audits calls, captures arguments, or excludes methods affect new logins, not existing connections. The controller sets the rotation size and number of backups when it first creates the audit log target. It reuses that target if you turn auditing off and back on, without applying any new rotation settings to the existing target. See {ref}`audit-log-exclude-methods <controller-config-audit-log-exclude-methods>` and the other audit entries in the {ref}`list of controller configuration keys <list-of-controller-configuration-keys>`.
+
+## Controller upgrades, backup and destruction
+
+(controller-upgrade)=
+### Upgrading the controller
+
+```{ibnote}
+See also:
+
+- {ref}`Juju CLI | Upgrade a controller's patch version <upgrade-a-controllers-patch-version>`
+- [JAAS | Upgrade a Juju controller](https://documentation.ubuntu.com/jaas/latest/howto/manage-juju-controllers/#upgrade-a-juju-controller)
+```
+
+A controller upgrade sets the agent version the controller nodes should run. A user with {ref}`controller superuser access <user-access-controller-superuser>` or {ref}`write access <user-access-model-write>` to the controller model can request an upgrade. A {ref}`change block <model-command-blocks>` on that model prevents the upgrade. The controller accepts only its current major and minor version series and will not lower the target version. Before it can raise the target, nodes below the current target must catch up, and every controller node architecture must have an agent binary for the requested version. {ref}`Workload model agents <model-agent-upgrades>` have a separate upgrade target.
+
+If you don't specify a version, the controller selects the highest available patch in its current series from the requested agent binary stream, or the controller model's stream if you don't specify one. It then checks that version against the requirements above. A **dry run** checks the target and reports the version without changing it. When the controller accepts an upgrade, it sets the target and responds without waiting for the upgrade to finish. Completion requires all nodes to finish their own steps before the shared upgrade can finish.
+
+A failed upgrade request does not always leave the target unchanged. The controller updates the controller model's agent target first. If the subsequent update of the controller target fails, the new agent target can already be in use. Check the controller model's target and the running node versions before retrying.
+
+If the controller refuses the upgrade, the response distinguishes an incompatible target version, missing binaries, and nodes that haven't caught up:
+
+- *Error message:* `controller agent binaries are not available for version "<version>"`. *Trigger:* Binaries for the explicitly requested version are missing for at least one controller node architecture. *What to do:* Choose a patch with binaries for every controller node architecture.
+- *Error message:* `controller upgrading is blocked for reason: <reason>`. *Trigger:* At least one node has not reached the current controller target. *What to do:* Wait for the named nodes to catch up; check their status if they do not.
+- *Error message:* `cannot upgrade the controller to version "<version>" because it is lower than the current running version`. *Trigger:* The explicitly requested version is lower than the current target. *What to do:* Choose that target or a later patch in the same series.
+- *Error message:* `cannot upgrade the controller to a version that is more than a patch version increase`. *Trigger:* The explicitly requested version is not lower than the target, but its major or minor version differs. *What to do:* Choose a patch in the current series or migrate the models to a new controller.
+
+During upgrade maintenance, user connections can call model status, agent binary lookup, ping, and SSH discovery and key-related API methods. Non-controller agents and anonymous logins can be refused; controller-machine agents can still connect for maintenance.
+
+An API call that is restricted during maintenance fails as follows:
+
+- *Error message:* `upgrade in progress`. *Trigger:* A user calls an API method that is unavailable during an upgrade. *What to do:* Wait for the upgrade to finish before retrying. This refusal does not, by itself, mean credentials need to change.
+
+(controller-backup-and-recovery)=
+### Backing up the controller
+
+```{ibnote}
+See also:
+
+- {ref}`Juju CLI | Back up a controller <back-up-a-controller>`
+- {ref}`Juju CLI | Provision a replacement controller machine from a backup <provision-a-replacement-controller-machine-from-a-backup>`
+```
+
+A controller backup is an archive that the controller creates and sends to the requesting client. A user with {ref}`controller superuser access <user-access-controller-superuser>` can request one from a machine or Kubernetes controller.
+
+The controller exports the controller database and each model database separately. The archive is not a single point-in-time snapshot of the controller and its models.
+
+The controller does not keep a copy for later download. If the transfer is interrupted, the client must request a new backup.
+
+The controller refuses the legacy backup creation and download operations:
+
+- *Error message:* `create-backup from clients older than 4.1 is not supported; use a 4.1 or newer client`. *Trigger:* A client calls the legacy backup creation operation. *What to do:* Use a Juju 4.1 or newer client.
+- *Error message:* `downloading backups from clients older than 4.1 is not supported; use a 4.1 or newer client`. *Trigger:* A client calls the legacy backup download operation. *What to do:* Create and save a new backup with a Juju 4.1 or newer client.
 
 (destroying-a-controller)=
-## Destroying a controller
-
-Only a `superuser` can destroy a controller, and the connection must be to the controller model. The request carries `destroy-models`, `destroy-storage`, `force` and `max-wait`. Every created model other than the controller model is hosted, including one that is already dying.
-
-`destroy-storage` has three states: absent, which does not destroy storage, so persistent storage refuses the call; false, which releases the storage; and true, which destroys it. `force` absent is false and `max-wait` absent is zero.
-
-The controller applies these checks in order.
-
-1. The caller must be a superuser.
-2. The connection must be to the controller model.
-3. A block of any kind on any hosted model refuses the call.
-4. If `destroy-models` is false and a hosted model exists, the call is refused.
-5. A destroy, remove or change block on the controller model refuses the call.
-6. Unless `force` is true, a controller model without a valid cloud credential refuses the call.
-
-Because check 3 runs before check 4, a blocked hosted model gives `operation is blocked` even when `destroy-models` is false.
-
-When the checks pass, the controller marks the controller model as dying, unless a migration import is active for it, and schedules the removal job of the controller model. It then removes the hosted models one by one. The call returns when the removals are scheduled; it does not wait for them.
-
-A call can fail after it has started. When a hosted model has persistent storage and `destroy-storage` is absent, the controller model is already dying, the hosted model that refused is already dying, and the hosted models before it are already scheduled for removal. The remedy is to call again with `destroy-storage` set.
-
-| Error | Code | Trigger | Remedy |
-| --- | --- | --- | --- |
-| `unauthorized access` | `unauthorized access` | The caller is not a superuser. | Ask a superuser. |
-| `current model is not the controller model` | `bad request` | The connection is not to the controller model. | Connect to the controller model. |
-| `found blocks in controller models` | `operation is blocked` | A hosted model has a block of any kind. | Remove the blocks (`enable-destroy-controller` removes all blocks of all models). |
-| `cannot destroy controller with hosted models` | `controller has hosted models` | `destroy-models` is false and a hosted model exists, including one that is dying. | Set `destroy-models`. |
-| the message set with the block | `operation is blocked` | The controller model has a destroy, remove or change block. | Remove the block. |
-| `invalid cloud credential, use --force` | none | The controller model has no valid cloud credential and `force` is false. | Set `force`. |
-| `hosted model "<uuid>" has persistent storage` | `controller/model has persistent storage` | A hosted model has persistent storage and `destroy-storage` is absent. | Set `destroy-storage` to true or false. |
+### Destroying the controller
 
 ```{ibnote}
-See more: {ref}`manage-controllers`
+See also:
+
+- {ref}`Juju CLI | Destroy a controller <destroy-a-controller>`
+- {ref}`Terraform Provider for Juju | Remove a controller <tfjuju:remove-a-controller>`
+- [JAAS | Remove a Juju controller](https://documentation.ubuntu.com/jaas/latest/howto/manage-juju-controllers/#remove-a-juju-controller)
 ```
 
-[Dqlite]: https://dqlite.io/
+Destroying a controller schedules removal of its controller model. If it still hosts workload models, you must choose to destroy them too or remove them separately first. The controller requires {ref}`controller superuser access <user-access-controller-superuser>` on a {ref}`controller-only connection <controller-api-versions>`. It checks which hosted models have been activated, including any already marked dying.
+
+When removing a hosted model with persistent storage, the controller requires you to choose whether to release the storage from Juju management or destroy it. This choice does not apply to the controller model: removal destroys its storage.
+
+The controller checks for {ref}`model command blocks <model-command-blocks>` on hosted models before it checks whether you chose to destroy those models. A block stops the operation even if you did not choose to destroy the hosted models. The controller also checks for a block on its own model before checking that model's cloud credential. Forcing destruction skips the credential check, not the block checks.
+
+After these checks, the controller marks its own model as dying and schedules its removal, then processes hosted models one by one. The controller refuses to remove a model during the import phase of migration and does not change that model's life state. A successful response means the controller scheduled the removals, not that it removed the resources. The controller waits to remove its own model until the remaining models are gone.
+
+```{warning}
+A failed destruction request does not roll back earlier changes. If you have not chosen what to do with a hosted model's persistent storage, the controller may already have scheduled removal of its own model and earlier hosted models. It marks the hosted model as dying before checking its storage, but does not schedule that model's removal. Check the remaining models and decide what to do with persistent storage before retrying.
+```
+
+If a destroy request fails, use the message to identify what blocked it and what to check before retrying:
+
+- *Error message:* `found blocks in controller models`. *Trigger:* An activated hosted model has a block. *What to do:* Clear the blocks before retrying.
+- *Error message:* `cannot destroy controller with hosted models`. *Trigger:* The controller still has an activated hosted model, but you did not choose to destroy hosted models as part of the operation. *What to do:* Remove the hosted models separately or choose to destroy them along with the controller.
+- *Error message:* The message set with the block, or `the operation has been blocked` if no message was set. *Trigger:* The controller model has a destroy, remove, or change block. *What to do:* Remove the block.
+- *Error message:* `invalid cloud credential, use --force`. *Trigger:* The controller model has no valid cloud credential, and you did not request forced destruction. *What to do:* Restore a valid credential or explicitly force destruction in your client.
+- *Error message:* `hosted model "<uuid>" has persistent storage`. *Trigger:* A hosted model has persistent storage, and you did not choose whether to release or destroy it. *What to do:* Check which models are already dying, then decide whether to release or destroy their persistent storage before retrying.

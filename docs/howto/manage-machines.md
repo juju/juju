@@ -270,13 +270,9 @@ There are two ways you can connect to a Juju machine: via `juju ssh` or via a st
 
 ### Use the `juju ssh` command
 
-First, make sure you have `admin` access to the model and your public SSH key has been added to the model.
+First, make sure you have the {ref}`required grant <controller-ssh-server-targets>` and that you have added your public key to the destination model. If you created the model, you already have model `admin` access. See {ref}`manage-ssh-keys` for how to add a key.
 
-```{important}
-If you are the model creator, you already have `admin` access for the model. If you are not the model creator, see {ref}`manage-users` and {ref}`user-access-levels` for how to gain `admin` access to a model and {ref}`manage-ssh-keys` for how to add your SSH key to the model.
-```
-
-Then, to initiate an SSH session or execute a command on a Juju machine (or container), use the `juju ssh` command followed by the target machine (or container). This target can be specified using a machine (or container) ID or using the ID of the unit that it hosts. Both can be retrieved from the output of `juju status`. For example, below we `ssh` into machine 0 and inside of it run `echo hello`:
+Run `juju ssh` with a top-level machine ID or the name of a unit it hosts. You can find both in `juju status`. To reach a nested machine directly by its ID, use another access method; see {ref}`controller-ssh-server-targets`. For example, to run `echo hello` on machine 0:
 
 ```text
 juju ssh 0 echo hello
@@ -288,11 +284,7 @@ See more: {ref}`command-juju-ssh`
 
 ### Use the OpenSSH `ssh` command
 
-First, make sure you've added a public SSH key for your user to the target model.
-
-```{important}
-If you are the model creator, you already have `admin` access for the model. If you are not the model creator, see {ref}`manage-users` and {ref}`user-access-levels` for how to gain `admin` access to a model and {ref}`manage-ssh-keys` for how to add your SSH key to the model.
-```
+Use an account and key that meet the same {ref}`destination requirements <controller-ssh-server-targets>` as for `juju ssh`.
 
 Use the `juju ssh --show-command <target>` command to print the OpenSSH command that can be used to connect to the machine/unit. This also works with the `juju scp` command.
 The output will resemble the following,
@@ -301,12 +293,18 @@ The output will resemble the following,
 ssh -o "ProxyCommand=ssh -W %h:%p -p 17022 admin@10.123.10.2" ubuntu@0.b7bfa07e-f564-4a79-88ac-173da5521a0c.juju.local
 ```
 
-The underlying command performs the same operation as `juju ssh`. It connects to the controller's SSH server, which by default, runs on
-port 17022 and sends the virtual hostname `0.b7bfa07e-f564-4a79-88ac-173da5521a0c.juju.local` before establishing a second SSH connection for the final host. See {ref}`juju-ssh` for a full explanation on how `juju ssh` works.
+Use the address and port in the printed command rather than copying them from this example. Before connecting, run `juju ssh --print-keys <target>` separately to obtain both fingerprints from the Juju API. Verify the {ref}`controller SSH server's key <controller-ssh-server-endpoint>` for the first connection and the {ref}`destination's virtual host key <controller-ssh-server-targets>` for the second.
 
 ```{ibnote}
 See more: [OpenSSH](https://www.openssh.com/)
 ```
+
+(access-a-machine-without-the-ssh-proxy)=
+### Access a machine when the SSH proxy is unavailable
+
+If the controller is unreachable or the machine agent cannot open the reverse tunnel, use your provider's access tools. For example, use EC2 Instance Connect for an AWS instance or `lxc shell` for a local LXD instance.
+
+If you planned for direct SSH access by adding an administrator key at provisioning time with {ref}`cloudinit-userdata <model-config-cloudinit-userdata>`, use that key and the machine's address. This requires network access to the machine's SSH service.
 
 ## Copy files securely between machines
 

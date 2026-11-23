@@ -26,6 +26,7 @@ You can also pass various options to choose a different controller or credential
 See more: {ref}`command-juju-add-model`
 ```
 
+(list-models-on-a-controller)=
 ## View all the models available on a controller
 
 To get a list of all the models in the current controller, use the `models` command:
@@ -89,6 +90,7 @@ The command also allows you to specify the target controller in an abbreviated f
 See more: {ref}`command-juju-switch`
 ```
 
+(view-the-status-of-a-model)=
 ## View the status of a model
 
 To see the status of a model and everything inside of it, run the `status` command:
@@ -327,6 +329,8 @@ See more: {ref}`command-juju-model-constraints`
 
 (restrict-commands-on-a-model)=
 ## Restrict commands on a model
+
+For what the controller prevents and who can manage the restrictions, see {ref}`model command blocks <model-command-blocks>`.
 
 **Disable commands.** To disable commands for the current model, run the `disable-command` followed by the name of the command group that you want to restrict and, optionally, a message. For example, the code below disables the ability to destroy the model and its controller:
 

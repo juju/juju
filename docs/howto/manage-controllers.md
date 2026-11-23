@@ -47,7 +47,7 @@ See more: {ref}`manage-constraints-for-a-controller`, {ref}`make-a-controller-hi
 ```
 ````
 ````{dropdown} Tips for production - Kubernetes
-Juju does not currently support high-availability and backup and restore for Kubernetes controllers. Consider bootstrapping your controller on a machine cloud and then adding your Kubernetes cloud(s) to it, in a multi-cloud controller setup (`juju add-k8s myk8scloud --controller mymachinecontroller`).
+Juju does not support {ref}`controller high availability <controller-high-availability>` on Kubernetes. If you need a highly available controller for your Kubernetes models, bootstrap on a machine cloud and then add your Kubernetes clouds to that controller (`juju add-k8s myk8scloud --controller mymachinecontroller`).
 
 ```{ibnote}
 See more: {ref}`add-a-cloud`
@@ -154,6 +154,7 @@ A controller configuration key can be assigned a value during controller-creatio
 juju bootstrap --config bootstrap-timeout=700 localhost lxd
 ```
 
+(configure-controller-auditing)=
 - To set a controller's configuration once it's already been created, use the `controller-config` command followed by the relevant `<key>=<value` pair(s). For example, the code below configures an existing controller named `aws` so as to record auditing information, with the number of old audit log files to keep being set at 5.
 
 ``` text
@@ -232,7 +233,7 @@ juju register MFATA3JvZDAnExMxMDQuMTU0LjQyLjQ0OjE3MDcwExAxMC4xMjguMC4yOjE3MDcwBC
 
 ```
 
-This will start an interactive session prompting you to supply a local name for the controller as well as a username and a password for you as a new `juju` user on the controller.
+The registration key identifies your Juju user. The command prompts for an initial password and a local name for the controller.
 
 ````{dropdown} Example session
 
@@ -274,7 +275,7 @@ See more: {ref}`command-juju-register`, {ref}`add-a-user`
 
 **Register a public controller.**
 
-First, check that your public controller meets the prerequisites: Your client must be able to connect to the controller API over port `17070`. Note: Juju takes care of everything else, and in most cases it takes care of this requirement too: for all clouds except for OpenStack Juju defaults to provisioning the controller with a public IP, and even for OpenStack you can choose to bootstrap with a floating IP as well.
+Your client must be able to reach the public controller's API. If you supply a hostname without a port, `juju register` connects on port `443`.
 
 Then, to register the public controller, use the  `register` command followed by the DNS host name of the public controller. For example:
 
@@ -321,9 +322,10 @@ To make a controller highly available, add units to the `controller` application
 juju add-unit -m controller controller -n 2
 ```
 
-The command prints nothing when it succeeds. Run `juju status -m controller` to follow the new machines and units. The number of controllers is the number of units of the `controller` application. The database that the controllers share, Dqlite, gives votes to at most three nodes and keeps up to three more as stand-bys; any further controllers are spares. See {ref}`dqlite-cluster-of-the-controllers` for the roles.
+The command prints nothing when it succeeds. Run `juju status -m controller` to follow the new machines and units. Check the {ref}`Dqlite roles <dqlite-cluster-of-the-controllers>` before relying on the added nodes for availability; the number of units alone does not tell you which nodes can vote.
 
-If a controller is misbehaving, or if you've decided that you don't need as many controllers for HA after all, you can remove it either by removing a unit or its host machine (removing the machine also removes the unit on it). Juju refuses to scale the `controller` application to 0 units. For example, below we remove controller 1 by removing machine 1 from the controller model:
+(reduce-controller-capacity)=
+To reduce capacity, remove a controller unit or its host machine. Check that the remaining nodes can still serve the controller before removing either. The scale-to-zero guard does not apply to these removal requests. For example, to remove machine 1 and its controller unit:
 
 ```text
 juju remove-machine -m controller 1
@@ -466,6 +468,62 @@ scrape_configs:
       ca_file: /path/to/juju-ca.crt
 ```
 
+(back-up-a-controller)=
+(create-a-controller-backup)=
+## Back up a controller
+
+You can back up both machine and Kubernetes controllers.
+
+Use an account with {ref}`controller superuser access <user-access-controller-superuser>`. Choose a quiet window when you are not deploying, destroying, or upgrading models: a {ref}`controller backup <controller-backup-and-recovery>` does not capture every database at the same instant.
+
+Run `juju create-backup` with the target controller and its `controller` model. For example, to back up `production`:
+
+```text
+juju create-backup -m production:controller --filename production.tar.gz
+```
+
+On success, the command reports both local files:
+
+```text
+Downloaded to production.tar.gz (assertion: production.assert)
+```
+
+Keep the archive and its `.assert` file together. If the transfer is interrupted, run the command again to create a new backup.
+
+```{ibnote}
+See more: {ref}`command-juju-create-backup`
+```
+
+To use these files to allocate a replacement machine, see {ref}`provision-a-replacement-controller-machine-from-a-backup`.
+
+(provision-a-replacement-controller-machine-from-a-backup)=
+## Provision a replacement controller machine from a backup
+
+To provision a replacement controller machine, check your client's cloud access, then run `juju recover` with the archive and `.assert` file from the same {ref}`backup <back-up-a-controller>`:
+
+```{warning}
+The command does not restore controller state, install the agent, or register the replacement. It cannot provision a replacement for a Kubernetes controller.
+```
+
+1. Check that the Juju client knows the cloud and any region recorded in the archive, and has any cloud credentials needed to provision a machine there. If the client doesn't know the cloud, add it locally with `juju add-cloud --client`. See {ref}`add-a-machine-cloud` and {ref}`add-a-machine-cloud-credential`.
+2. Run `juju recover` with the archive first and the assertion second. For example:
+
+   ```text
+   juju recover production.tar.gz production.assert
+   ```
+
+3. If allocation succeeds, the command leaves the instance in your cloud and exits with an error that includes its cloud instance ID:
+
+   ```text
+   controller recovery initialisation is not available in this build; provisioned replacement instance <instance-id>
+   ```
+
+   Use the ID to find the instance in your cloud provider's tools. Inspect it or remove it if you no longer need it. If provisioning fails or is interrupted, check for a leftover instance before retrying.
+
+```{ibnote}
+See more: {ref}`command-juju-recover`
+```
+
 (upgrade-a-controller)=
 ## Upgrade a controller
 
@@ -553,12 +611,12 @@ For how to remove *knowledge* about a controller from a `juju` client, see {ref}
 ```
 
 
+(destroy-a-controller)=
 ### Destroy a controller
 
 ```{important}
 
-Any model in the controller that has disabled commands will block a controller
-from being destroyed, and the controller reports the block before it checks for hosted models. A controller administrator is able to enable all the commands across all the models in a Juju controller so that the controller can be destroyed if desired. This can be done via the {ref}`command-juju-enable-destroy-controller` command: `juju enable-destroy-controller`.
+The controller checks blocks on hosted models before it checks whether you requested their destruction. A block on the controller model also prevents destruction. A controller superuser can clear blocks across all models using {ref}`command-juju-enable-destroy-controller`. See {ref}`destroying-a-controller` for the order of checks and the effects of a partial failure.
 ```
 
 A controller can be destroyed with:
@@ -569,7 +627,7 @@ You will always be prompted to confirm this action. Use the `-y` option to overr
 
 As a safety measure, if there are any models (besides the 'controller' model) associated with the controller you will need to pass the `--destroy-all-models` option.
 
-Additionally, if there is persistent storage in any of the controller's models, the command refuses until you choose to destroy or release the storage, using the `--destroy-storage` or `--release-storage` options respectively.
+If the command finds persistent storage, it refuses to continue unless you pass `--destroy-storage` or `--release-storage`. The choice applies to hosted models only: removing the controller model destroys its storage.
 
 For example:
 

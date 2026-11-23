@@ -205,13 +205,9 @@ const (
 	// executing a model migration.
 	MigrationMinionWaitMax = "migration-agent-wait-time"
 
-	// JujuManagementSpace is the network space that agents should use to
-	// communicate with controllers. Controller API addresses are filtered
-	// to those in the space; if the space is unknown, or the filter would
-	// remove every address, the unfiltered addresses are used so that
-	// agents never lose contact with the controller. At bootstrap, the
-	// space is also added to the spaces constraint of the controller
-	// machine.
+	// JujuManagementSpace selects a network space for agent and peer API
+	// addresses on machine controllers. It does not restrict network access.
+	// See {ref}`controller-api-addresses` for address selection and fallback.
 	JujuManagementSpace = "juju-mgmt-space"
 
 	// CAASOperatorImagePath sets the URL of the docker image
