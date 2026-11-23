@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -657,6 +658,11 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	return cmdutil.AgentDone(logger, err)
 }
 
+// errRecoveryImportPending is returned by validateRecoveryEngineStart
+// while the recovery marker exists: the allocation is waiting for its
+// state import.
+var errRecoveryImportPending = internalerrors.New("recovery import has not completed")
+
 // validateRecoveryEngineStart refuses to start the dependency engine while a
 // recovery allocation is waiting for its state import. The marker is written
 // before the agent can start, and removed once import completes.
@@ -666,7 +672,7 @@ func validateRecoveryEngineStart(dataDir string) error {
 		return internalerrors.Capture(err)
 	}
 	if isRecovery {
-		return internalerrors.New("recovery import has not completed")
+		return errRecoveryImportPending
 	}
 	return nil
 }
@@ -678,9 +684,20 @@ func (a *MachineAgent) makeEngineCreator(
 	localLogSink corelogger.LogSink,
 ) func(context.Context) (worker.Worker, error) {
 	return func(ctx context.Context) (worker.Worker, error) {
+		// The runner restarts the engine worker every RestartDelay while
+		// the recovery import is pending, so the expected wait is logged
+		// once instead of erroring on every attempt. Genuine marker
+		// check failures are unexpected and stay errors each time.
+		logRecoveryWait := new(sync.Once)
 		agentConfig := a.CurrentConfig()
 		if err := validateRecoveryEngineStart(agentConfig.DataDir()); err != nil {
-			logger.Errorf(ctx, "%v", err)
+			if errors.Is(err, errRecoveryImportPending) {
+				logRecoveryWait.Do(func() {
+					logger.Infof(ctx, "recovery import pending; not starting the dependency engine yet")
+				})
+			} else {
+				logger.Errorf(ctx, "%v", err)
+			}
 			return nil, internalerrors.Capture(err)
 		}
 		engineConfigFunc := agentengine.DependencyEngineConfig

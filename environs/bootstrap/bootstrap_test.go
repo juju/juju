@@ -443,7 +443,7 @@ func validRecoveryParams(archivedVersion semversion.Number) bootstrap.RecoveryPa
 		},
 		Arch:                       arch.AMD64,
 		AgentVersion:               archivedVersion,
-		MachineId:                  "7",
+		MachineID:                  "7",
 		CAPrivateKey:               coretesting.CAKey,
 		AdminSecret:                "fake-moon-landing",
 		AvailableTools:             recoveryTools(archivedVersion, arch.AMD64),
@@ -999,11 +999,11 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASInvalidParams(c *tc.C) {
 		err:    `.*recovery controller architecture "invalid" not valid`,
 	}, {
 		name:   "no machine ID",
-		mutate: func(p *bootstrap.RecoveryParams) { p.MachineId = "" },
+		mutate: func(p *bootstrap.RecoveryParams) { p.MachineID = "" },
 		err:    `.*recovery machine ID "" not valid`,
 	}, {
 		name:   "invalid machine ID",
-		mutate: func(p *bootstrap.RecoveryParams) { p.MachineId = "not-a-machine" },
+		mutate: func(p *bootstrap.RecoveryParams) { p.MachineID = "not-a-machine" },
 		err:    `.*recovery machine ID "not-a-machine" not valid`,
 	}, {
 		name:   "no CA private key",

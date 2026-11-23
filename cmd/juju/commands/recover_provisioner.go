@@ -37,10 +37,20 @@ import (
 	internalstorage "github.com/juju/juju/internal/storage"
 )
 
-// recoveryAllocationTimeout bounds provider preparation, replacement
-// allocation and agent startup after the client has resolved the cloud and
-// credentials.
-const recoveryAllocationTimeout = 20 * time.Minute
+const (
+	// recoveryAllocationTimeout bounds provider preparation, replacement
+	// allocation and agent startup after the client has resolved the cloud
+	// and credentials.
+	recoveryAllocationTimeout = 20 * time.Minute
+
+	// recoveryDialRetryDelay is the delay between attempts to connect to
+	// the replacement instance during bootstrap configuration.
+	recoveryDialRetryDelay = 5 * time.Second
+
+	// recoveryDialAddressesDelay is the delay between refreshing the
+	// replacement instance addresses during bootstrap configuration.
+	recoveryDialAddressesDelay = 5 * time.Second
+)
 
 // provisionRecovery prepares and starts a replacement controller machine agent
 // from the recovery archive through the ordinary bootstrap pipeline. State
@@ -55,6 +65,9 @@ func provisionRecovery(
 	if jujucloud.CloudTypeIsCAAS(info.CloudType) {
 		return errors.Errorf("Kubernetes recovery provisioning %w", coreerrors.NotSupported)
 	}
+	// The replacement runs this client's own agent binary when no packaged
+	// tools match the archive, so recovery requires this client to be the
+	// exact archived agent version, build number included.
 	if err := info.CheckAgentVersion(jujuversion.Current); err != nil {
 		return errors.Capture(err)
 	}
@@ -65,7 +78,7 @@ func provisionRecovery(
 	if !names.IsValidMachine(info.MachineName) {
 		return errors.New("archive does not record a usable controller machine")
 	}
-	params.MachineId = info.MachineName
+	params.MachineID = info.MachineName
 
 	credentials, err := recoveryCredentials(ctx, store, info)
 	if err != nil {
@@ -122,8 +135,8 @@ func provisionRecovery(
 	params.DialOpts = environs.BootstrapDialOpts{
 		Timeout:        recoveryAllocationTimeout,
 		IdentityFiles:  keyFiles,
-		RetryDelay:     5 * time.Second,
-		AddressesDelay: 5 * time.Second,
+		RetryDelay:     recoveryDialRetryDelay,
+		AddressesDelay: recoveryDialAddressesDelay,
 	}
 	params.BuildAgentTarball = sync.BuildAgentTarball
 	started, err := bootstrap.Recover(provisionCtx, environ, params)

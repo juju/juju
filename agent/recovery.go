@@ -19,11 +19,13 @@ const RecoveryParamsFile = "recovery/params"
 // IsRecovery reports whether dataDir holds a recovery parameters marker.
 //
 // A missing marker means the agent is not a recovery allocation. Any other
-// stat error is returned unchanged. A marker that exists but is not a regular
-// file is invalid: the marker must be readable as empty recovery parameters.
+// stat error is returned unchanged. A marker that exists but is not a
+// regular file is invalid: the marker must be readable as empty recovery
+// parameters. The stat does not follow symlinks, so a symlinked marker
+// counts as invalid rather than as a present marker.
 func IsRecovery(dataDir string) (bool, error) {
 	paramsPath := filepath.Join(dataDir, RecoveryParamsFile)
-	info, err := os.Stat(paramsPath)
+	info, err := os.Lstat(paramsPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return false, nil

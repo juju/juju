@@ -50,7 +50,11 @@ This version validates the archive and installs and starts a replacement
 controller agent only. It leaves the instance for inspection and exits with an
 error reporting its ID.
 Database import and controller initialisation are not available, and the
-controller is not registered.`,
+controller is not registered.
+
+The recovering client's Juju SSH public keys are installed on the replacement
+machine so it can be inspected over SSH while recovery is pending. They grant
+access to the machine only, not to the controller API.`,
 		SeeAlso: []string{"bootstrap", "create-backup", "unregister"},
 	})
 }

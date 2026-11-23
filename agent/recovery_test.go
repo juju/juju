@@ -59,3 +59,15 @@ func (s *recoverySuite) TestIsRecoveryDirectory(c *tc.C) {
 		`invalid recovery params path ".*/recovery/params": expected regular file`)
 	c.Check(isRecovery, tc.IsFalse)
 }
+
+func (s *recoverySuite) TestIsRecoverySymlink(c *tc.C) {
+	dataDir := c.MkDir()
+	paramsFile := filepath.Join(dataDir, agent.RecoveryParamsFile)
+	c.Assert(os.MkdirAll(filepath.Dir(paramsFile), 0755), tc.ErrorIsNil)
+	c.Assert(os.Symlink("/nonexistent/params", paramsFile), tc.ErrorIsNil)
+
+	isRecovery, err := agent.IsRecovery(dataDir)
+	c.Check(err, tc.ErrorMatches,
+		`invalid recovery params path ".*/recovery/params": expected regular file`)
+	c.Check(isRecovery, tc.IsFalse)
+}

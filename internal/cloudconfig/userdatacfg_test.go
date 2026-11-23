@@ -862,15 +862,17 @@ func (s *cloudinitSuite) TestCloudInitConfigureRecoveryBootstrap(c *tc.C) {
 	c.Check(params.RecoveryMode, tc.IsTrue)
 
 	scripts := bootstrapConfigScriptsForConfig(c, instConfig)
-	assertScriptMatch(c, scripts,
-		"jujuagentd recover-state --data-dir '/var/lib/juju' --show-log --machine-id 7$", false)
+	// The marker must exist before recover-state runs, and the machine
+	// agent service starts only after it. bootstrap-state must never run:
+	// it would initialise fresh state on the replacement.
+	assertScriptMatch(c, scripts, `install -D -m 600 /dev/null '/var/lib/juju/recovery/params'
+jujuagentd recover-state --data-dir '/var/lib/juju' --show-log --machine-id 7$
+jujuagentd-machine-7`, false)
 	// recover-state performs no timed work, so it gets no --timeout flag.
 	c.Check(strings.Contains(strings.Join(scripts, "\n"), "--timeout"), tc.IsFalse)
-	assertScriptMatch(c, scripts,
-		"install -D -m 600 /dev/null '/var/lib/juju/recovery/params'", false)
+	c.Check(strings.Contains(strings.Join(scripts, "\n"), "bootstrap-state"), tc.IsFalse)
 	c.Check(scripts, tc.Not(tc.Contains),
 		"echo '' > '/var/lib/juju/recovery/params'")
-	assertScriptMatch(c, scripts, "jujuagentd-machine-7", false)
 }
 
 func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *tc.C) {

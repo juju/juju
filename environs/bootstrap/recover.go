@@ -35,9 +35,9 @@ type RecoveryParams struct {
 	// the allocation request and the provider result.
 	Arch string
 
-	// MachineId is the archived logical machine identity of the controller,
+	// MachineID is the archived logical machine identity of the controller,
 	// for example "0" or "7".
-	MachineId string
+	MachineID string
 
 	// AvailableTools, when non-empty, supplies pre-resolved agent tools
 	// directly (for example in tests). When empty, recovery resolves packaged
@@ -90,8 +90,8 @@ func (p RecoveryParams) Validate() error {
 	if !arch.IsSupportedArch(p.Arch) {
 		return errors.Errorf("recovery controller architecture %q %w", p.Arch, coreerrors.NotValid)
 	}
-	if !names.IsValidMachine(p.MachineId) {
-		return errors.Errorf("recovery machine ID %q %w", p.MachineId, coreerrors.NotValid)
+	if !names.IsValidMachine(p.MachineID) {
+		return errors.Errorf("recovery machine ID %q %w", p.MachineID, coreerrors.NotValid)
 	}
 	if p.CAPrivateKey == "" {
 		return errors.Errorf("recovery without a CA private key %w", coreerrors.NotValid)
@@ -190,7 +190,7 @@ func recoverIAAS(
 	// Pass the archived logical machine ID into provider allocation so
 	// StartInstance creates per-machine resources (hostnames, firewall
 	// groups, tags) for that machine rather than assuming machine "0".
-	params.MachineId = args.MachineId
+	params.MachineId = args.MachineID
 	// The provider allocation does not inherit the bootstrap SSH keys;
 	// cloud-init needs them before bootstrap configuration can connect.
 	params.AuthorizedKeys = args.BootstrapSSHAuthorizedKeys
@@ -250,9 +250,9 @@ func recoverIAAS(
 	if err != nil {
 		return result.InstanceID, err
 	}
-	instanceConfig.MachineId = args.MachineId
+	instanceConfig.MachineId = args.MachineID
 	instanceConfig.MachineAgentServiceName = jujunames.JujuAgentd + "-" +
-		names.NewMachineTag(args.MachineId).String()
+		names.NewMachineTag(args.MachineID).String()
 	instanceConfig.Bootstrap.StateInitializationParams.RecoveryMode = true
 	if err := result.CloudBootstrapFinalizer(ctx, instanceConfig, args.DialOpts); err != nil {
 		return result.InstanceID, err
@@ -296,6 +296,9 @@ func discoverRecoveryTools(
 	if err := validateUploadAllowed(environ, &prep.arch, &prep.params.BootstrapBase, prep.validator); err != nil {
 		return nil, nil, errors.Capture(err)
 	}
+	// The fallback packages the local jujuagentd binary, so callers must
+	// ensure their own agent version equals args.AgentVersion exactly, as
+	// the recovering client does before allocation.
 	ctx.Infof("No packaged binary found, preparing local Juju agent binary")
 	builtTools, err := args.BuildAgentTarball(
 		false, "bootstrap", func(semversion.Number) semversion.Number {
