@@ -351,9 +351,12 @@ func (s *bootstrapSuite) TestControllerSpecRecoveryMode(c *tc.C) {
 	c.Assert(apiServer.Args, tc.HasLen, 2)
 
 	startup := apiServer.Args[1]
-	c.Check(startup, tc.Contains, "$JUJU_TOOLS_DIR/jujuagentd recover-state --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s")
+	c.Check(startup, tc.Contains, "$JUJU_TOOLS_DIR/jujuagentd recover-state --data-dir $JUJU_DATA_DIR --debug")
 	c.Check(startup, tc.Not(tc.Contains), "jujuagentd bootstrap-state")
-	c.Check(startup, tc.Contains, `if ! test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf; then mkdir -p "$JUJU_DATA_DIR/recovery" && : > "$JUJU_DATA_DIR/recovery/params" &&`)
+	// recover-state defines no --timeout flag: passing one crash-loops the
+	// pod on flag parse failure.
+	c.Check(startup, tc.Not(tc.Contains), "--timeout")
+	c.Check(startup, tc.Contains, `if ! test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf; then install -D -m 600 /dev/null "$JUJU_DATA_DIR/recovery/params" &&`)
 	guard := strings.Index(startup, "if ! test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf")
 	marker := strings.Index(startup, "recovery/params")
 	recoverState := strings.Index(startup, "recover-state")

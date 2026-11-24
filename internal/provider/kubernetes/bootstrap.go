@@ -1491,12 +1491,17 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 		bootstrapSubcommand = "recover-state"
 	}
 	bootstrapStateCmd := fmt.Sprintf(
-		"%s %s --data-dir $JUJU_DATA_DIR %s --timeout %s",
+		"%s %s --data-dir $JUJU_DATA_DIR %s",
 		path.Join("$JUJU_TOOLS_DIR", "jujuagentd"),
 		bootstrapSubcommand,
 		loggingOption,
-		c.timeout.String(),
 	)
+	if !c.pcfg.Bootstrap.RecoveryMode {
+		// Only the fresh bootstrap performs timed state initialisation
+		// work; recover-state carries no timeout, matching the machine
+		// provisioning flow.
+		bootstrapStateCmd += " --timeout " + c.timeout.String()
+	}
 	if featureFlags != "" {
 		bootstrapStateCmd = fmt.Sprintf("%s=%s %s", osenv.JujuFeatureFlagEnvKey, featureFlags, bootstrapStateCmd)
 	}
@@ -1504,8 +1509,10 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 		// Create the recovery marker only on controller-0's initial boot,
 		// before recover-state runs. Keeping it inside the ! -e agent.conf
 		// guard avoids re-creating the marker on later pod restarts or HA
-		// replicas after recovery completes.
-		bootstrapStateCmd = `mkdir -p "$JUJU_DATA_DIR/recovery" && : > "$JUJU_DATA_DIR/recovery/params" && ` + bootstrapStateCmd
+		// replicas after recovery completes. The path and permissions
+		// match the machine provisioning flow's marker.
+		markerPath := path.Join("$JUJU_DATA_DIR", agent.RecoveryParamsFile)
+		bootstrapStateCmd = fmt.Sprintf(`install -D -m 600 /dev/null "%s" && `, markerPath) + bootstrapStateCmd
 	}
 	agentConfigPath := path.Join("$JUJU_DATA_DIR", agentConfigRelativePath)
 	var bootstrapSetup string
