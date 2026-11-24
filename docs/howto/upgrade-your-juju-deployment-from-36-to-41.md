@@ -487,20 +487,13 @@ that nominates a different default filesystem source, or that already defines a 
 it has: nothing is synthesized and the default source is left alone — new charm storage then provisions from the
 model's default (the seeded `kubernetes` pool, bound to the cluster's default storage class).
 
-### 19. Backups are not available
+(backups-are-not-available)=
+(upgrade-to-41-controller-backup-and-recovery)=
+### 19. Controller backup and recovery
 
-Dqlite-based backups are not delivered yet. In `4.0` and `4.1`, `juju create-backup` fails with a not-implemented error.
+Use a Juju 4.1 client to {ref}`back up a Juju 4.1 controller <back-up-a-controller>`. This works for machine and Kubernetes controllers. Keep both files saved by `juju create-backup`: the archive and its `.assert` file.
 
-**Juju 3.6**
-```bash
-juju create-backup
-```
-
-**Juju 4.1**
-```
-# The command fails ("Dqlite-based backups not implemented").
-# Plan for controller recovery without `juju create-backup`.
-```
+For machine controllers, `juju recover` can {ref}`provision a replacement machine and start its controller agent <provision-a-replacement-controller-machine-from-a-backup>`. It cannot import the databases or register the replacement with the client. It does not provision replacements for Kubernetes controllers.
 
 ### 20. `juju ssh` and `juju scp` go through the controller by default
 

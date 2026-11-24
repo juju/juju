@@ -493,7 +493,7 @@ Keep the archive and its `.assert` file together. If the transfer is interrupted
 See more: {ref}`command-juju-create-backup`
 ```
 
-To use these files to allocate a replacement machine, see {ref}`provision-a-replacement-controller-machine-from-a-backup`.
+To use these files to start an agent on a replacement machine, see {ref}`provision-a-replacement-controller-machine-from-a-backup`.
 
 (provision-a-replacement-controller-machine-from-a-backup)=
 ## Provision a replacement controller machine from a backup
@@ -501,23 +501,24 @@ To use these files to allocate a replacement machine, see {ref}`provision-a-repl
 To provision a replacement controller machine, check your client's cloud access, then run `juju recover` with the archive and `.assert` file from the same {ref}`backup <back-up-a-controller>`:
 
 ```{warning}
-The command does not restore controller state, install the agent, or register the replacement. It cannot provision a replacement for a Kubernetes controller.
+Starting the replacement agent does not restore the controller. The command does not import the databases or register the replacement with the client. It cannot provision a replacement for a Kubernetes controller.
 ```
 
 1. Check that the Juju client knows the cloud and any region recorded in the archive, and has any cloud credentials needed to provision a machine there. If the client doesn't know the cloud, add it locally with `juju add-cloud --client`. See {ref}`add-a-machine-cloud` and {ref}`add-a-machine-cloud-credential`.
-2. Run `juju recover` with the archive first and the assertion second. For example:
+2. Use a Juju client whose version exactly matches the controller agent version recorded in the backup, including the build number. The client must also have a Juju SSH key.
+3. Run `juju recover` with the archive first and the assertion second. For example:
 
    ```text
    juju recover production.tar.gz production.assert
    ```
 
-3. If the provider allocates a replacement and Juju verifies the allocation, the command leaves the instance in your cloud and exits with an error that includes its cloud instance ID:
+4. If Juju provisions the replacement and starts its agent, it leaves the instance in your cloud and still exits with an error that includes the cloud instance ID:
 
    ```text
-   controller recovery initialisation is not available in this build; provisioned replacement instance <instance-id>
+   controller recovery database import is not available in this build; started replacement agent on instance <instance-id>
    ```
 
-   Use the ID to find the instance in your cloud provider's tools. Inspect it or remove it if you no longer need it. If provisioning fails or is interrupted, the error may report an instance that needs manual removal. Check for a leftover instance before retrying, even if the error gives no ID.
+   Use the ID to find the instance in your cloud provider's tools. The command installs the client's Juju SSH public keys so you can inspect the machine; those keys don't grant access to the controller API. Remove the instance if you no longer need it. If provisioning or agent startup fails or is interrupted, check for a leftover instance before retrying, even if the error gives no ID.
 
 ```{ibnote}
 See more: {ref}`command-juju-recover`
