@@ -32,6 +32,11 @@ func (*CmdSuite) TestSSHCommandInit(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "no target name specified")
 }
 
+func (*CmdSuite) TestSSHCommandProxyRequiresDirect(c *tc.C) {
+	_, err := initSSHCommand("--proxy", "mysql/0", "hostname")
+	c.Check(err, tc.ErrorMatches, "--proxy requires --direct")
+}
+
 func (*CmdSuite) TestSSHCommandInitUsesJumpProvider(c *tc.C) {
 	cmd := NewSSHCommandForTest(
 		nil, nil, nil, nil, nil,
@@ -121,6 +126,11 @@ func (*CmdSuite) TestSCPCommandInit(c *tc.C) {
 	// not enough args
 	_, err = initSCPCommand("mysql/0:foo")
 	c.Assert(err, tc.ErrorMatches, "at least two arguments required")
+}
+
+func (*CmdSuite) TestSCPCommandProxyRequiresDirect(c *tc.C) {
+	_, err := initSCPCommand("--proxy=true", "source", "0:/tmp/source")
+	c.Check(err, tc.ErrorMatches, "--proxy requires --direct")
 }
 
 func (*CmdSuite) TestSCPCommandInitUsesJumpProvider(c *tc.C) {

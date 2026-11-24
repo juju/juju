@@ -84,7 +84,7 @@ func (t *resolvedTarget) isAgent() bool {
 const defaultSSHPort = 22
 
 func (c *sshMachine) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.proxy, "proxy", false, "Proxy through the API server")
+	f.BoolVar(&c.proxy, "proxy", false, "Proxy through the controller machine's OpenSSH server (requires --direct)")
 	f.BoolVar(&c.noHostKeyChecks, "no-host-key-checks", false, "Skip host key checking (INSECURE)")
 }
 
@@ -208,6 +208,13 @@ func (c *sshMachine) getSSHOptions(ctx context.Context, enablePty bool, targets 
 	}
 
 	if c.proxy {
+		// The controller may not be able to route traffic to a container
+		// on a FAN address, so route through the machine hosting it.
+		for _, target := range targets {
+			if err := c.maybePopulateTargetViaField(ctx, target, c.statusClient.Status); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
 		if err := c.setProxyCommand(&options, targets); err != nil {
 			return nil, err
 		}
@@ -233,18 +240,6 @@ func (c *sshMachine) copy(ctx Context) error {
 	args, targets, err := expandSCPArgs(ctx, c.getArgs(), c.resolveTarget)
 	if err != nil {
 		return err
-	}
-
-	if c.proxy {
-		for _, target := range targets {
-			// If we are trying to connect to a container on a FAN address,
-			// we need to route the traffic via the machine that hosts it.
-			// This is required as the controller is unable to route fan
-			// traffic across subnets.
-			if err = c.maybePopulateTargetViaField(ctx, target, c.statusClient.Status); err != nil {
-				return errors.Trace(err)
-			}
-		}
 	}
 
 	options, err := c.getSSHOptions(ctx, false, targets...)

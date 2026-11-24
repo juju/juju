@@ -18,7 +18,7 @@ juju ssh [options] <[user@]target> [openssh options] [command]
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--no-host-key-checks` | false | Skip host key checking (INSECURE) |
 | `--print-keys` | false | Print SHA256 fingerprints of the controller and virtual host keys |
-| `--proxy` | false | Proxy through the API server |
+| `--proxy` | false | Proxy through the controller machine's OpenSSH server (requires --direct) |
 | `--pty` | &lt;auto&gt; | Enable pseudo-tty allocation |
 | `--show-command` | false | Print the OpenSSH command instead of executing it |
 | `--ssh-key` |  | SSH private key to use when connecting through the controller |
@@ -127,9 +127,8 @@ controller machine to be open. Use the `--direct` option for Juju 3 controllers
 and connect directly to the target. Note that new behaviour does not support connecting
 to nested containers running on machines as the legacy behaviour did.
 
-If using the`--direct`flag you can also use the `--proxy` flag
-to proxy the connection through the controller machine's OpenSSH server running on
-port 22 (by default).
+The `--proxy` flag requires `--direct` and routes the connection through
+the controller machine's OpenSSH server (port 22 by default).
 
 The SSH host keys of the target are verified. The `--no-host-key-checks` option
 can be used to disable these checks. Use of this option is not recommended as

@@ -77,10 +77,9 @@ be open. Use the ` + "`--direct`" + ` option for Juju 3 controllers and connect 
 to the target. Note that new behaviour does not support connecting to nested
 containers running on machines as the legacy behaviour did.
 
-If using the ` + "`--direct`" + ` flag you can also use the ` + "`--proxy`" + ` flag
-to proxy the connection through the controller machine's OpenSSH server running on
-port 22 (by default). If transferring files to/from containers on machines
-the proxy flag will proxy connections through the controller machine and the host machine.
+The ` + "`--proxy`" + ` flag requires ` + "`--direct`" + ` and routes the connection through
+the controller machine's OpenSSH server (port 22 by default). For transfers to or
+from containers on machines, the connection also goes through the container's host.
 
 The SSH host keys of the target are verified by default. To disable this, add the
 ` + "`--no-host-key-checks`" + ` option. Using this option is strongly discouraged.
@@ -104,9 +103,10 @@ Recursively copy the ` + "`/var/log/mongodb`" + ` directory from the
 
 Copy ` + "`foo.txt`" + ` from the client's current working directory to a
 the ` + "`apache2/1`" + ` unit model ` + "`prod`" + ` (` + "`-m prod`" + `). Proxy the SSH connection
-through the controller (` + "`--proxy`" + `) and enable compression (` + "`-- -C`" + `):
+through the controller machine (` + "`--direct --proxy`" + `) and enable compression
+(` + "`-- -C`" + `):
 
-    juju scp -m prod --proxy -- -C foo.txt apache2/1:
+    juju scp -m prod --direct --proxy -- -C foo.txt apache2/1:
 
 Copy multiple files from the client's current working directory to
 the ` + "`/home/ubuntu`" + ` directory of machine ` + "`2`" + `:
@@ -180,6 +180,9 @@ func (c *scpCommand) Info() *cmd.Info {
 func (c *scpCommand) Init(args []string) (err error) {
 	if len(args) < 2 {
 		return errors.Errorf("at least two arguments required")
+	}
+	if c.proxy && !c.direct {
+		return errors.New("--proxy requires --direct")
 	}
 	if c.modelType, err = c.ModelType(context.TODO()); err != nil {
 		return err

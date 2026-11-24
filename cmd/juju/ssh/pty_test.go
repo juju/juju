@@ -9,11 +9,9 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/cmd/cmd"
 	jujussh "github.com/juju/juju/internal/network/ssh"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/rpc/params"
 )
 
 type PTYSuite struct {
@@ -34,9 +32,6 @@ func (m *mockSSHProvider) setHostChecker(jujussh.ReachableChecker) {
 }
 func (m *mockSSHProvider) resolveTarget(context.Context, string) (*resolvedTarget, error) {
 	return &resolvedTarget{host: "0"}, nil
-}
-func (m *mockSSHProvider) maybePopulateTargetViaField(context.Context, *resolvedTarget, func(context.Context, *client.StatusArgs) (*params.FullStatus, error)) error {
-	return nil
 }
 func (m *mockSSHProvider) maybeResolveLeaderUnit(context.Context, string) (string, error) {
 	return "", nil
