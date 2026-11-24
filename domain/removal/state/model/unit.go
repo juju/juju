@@ -823,8 +823,8 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 
 // deleteUnitStorageAttachments deletes the unit's storage attachments, and its
 // ownership of the attached storage, as their removal jobs would. Filesystem
-// and volume attachments have their own removal jobs, scheduled when the unit
-// was made dying.
+// and volume attachments on the unit's net node are marked dying, to be
+// removed by their own removal jobs, scheduled when the unit was made dying.
 func (st *State) deleteUnitStorageAttachments(
 	ctx context.Context, tx *sqlair.TX, uUUID string,
 ) error {
@@ -845,6 +845,71 @@ AND    storage_instance_uuid IN (
 		return errors.Errorf("preparing unit storage owner deletion: %w", err)
 	}
 
+	// The filesystem and volume attachment removal jobs only remove dying
+	// attachments. A forced storage attachment removal job marks them dying
+	// before deleting the storage attachment, so do the same here. Otherwise
+	// they are left alive, and their filesystems, volumes and storage instances
+	// can never be removed.
+	dyingFilesystemAttachmentStmt, err := st.Prepare(`
+WITH attached AS (
+    SELECT sfa.uuid AS uuid
+    FROM   storage_attachment AS sa
+    JOIN   unit AS u ON sa.unit_uuid = u.uuid
+    JOIN   storage_instance_filesystem AS sif
+           ON sa.storage_instance_uuid = sif.storage_instance_uuid
+    JOIN   storage_filesystem_attachment AS sfa
+           ON  sif.storage_filesystem_uuid = sfa.storage_filesystem_uuid
+           AND u.net_node_uuid = sfa.net_node_uuid
+    WHERE  sa.unit_uuid = $entityUUID.uuid
+)
+UPDATE storage_filesystem_attachment
+SET    life_id = 1
+WHERE  life_id = 0
+AND    uuid IN (SELECT a.uuid FROM attached AS a)`, unitUUIDRec)
+	if err != nil {
+		return errors.Errorf("preparing unit filesystem attachments life update: %w", err)
+	}
+
+	dyingVolumeAttachmentStmt, err := st.Prepare(`
+WITH attached AS (
+    SELECT sva.uuid AS uuid
+    FROM   storage_attachment AS sa
+    JOIN   unit AS u ON sa.unit_uuid = u.uuid
+    JOIN   storage_instance_volume AS siv
+           ON sa.storage_instance_uuid = siv.storage_instance_uuid
+    JOIN   storage_volume_attachment AS sva
+           ON  siv.storage_volume_uuid = sva.storage_volume_uuid
+           AND u.net_node_uuid = sva.net_node_uuid
+    WHERE  sa.unit_uuid = $entityUUID.uuid
+)
+UPDATE storage_volume_attachment
+SET    life_id = 1
+WHERE  life_id = 0
+AND    uuid IN (SELECT a.uuid FROM attached AS a)`, unitUUIDRec)
+	if err != nil {
+		return errors.Errorf("preparing unit volume attachments life update: %w", err)
+	}
+
+	dyingVolumeAttachmentPlanStmt, err := st.Prepare(`
+WITH attached AS (
+    SELECT svap.uuid AS uuid
+    FROM   storage_attachment AS sa
+    JOIN   unit AS u ON sa.unit_uuid = u.uuid
+    JOIN   storage_instance_volume AS siv
+           ON sa.storage_instance_uuid = siv.storage_instance_uuid
+    JOIN   storage_volume_attachment_plan AS svap
+           ON  siv.storage_volume_uuid = svap.storage_volume_uuid
+           AND u.net_node_uuid = svap.net_node_uuid
+    WHERE  sa.unit_uuid = $entityUUID.uuid
+)
+UPDATE storage_volume_attachment_plan
+SET    life_id = 1
+WHERE  life_id = 0
+AND    uuid IN (SELECT a.uuid FROM attached AS a)`, unitUUIDRec)
+	if err != nil {
+		return errors.Errorf("preparing unit volume attachment plans life update: %w", err)
+	}
+
 	deleteAttachmentStmt, err := st.Prepare(`
 DELETE FROM storage_attachment
 WHERE  unit_uuid = $entityUUID.uuid`, unitUUIDRec)
@@ -852,6 +917,15 @@ WHERE  unit_uuid = $entityUUID.uuid`, unitUUIDRec)
 		return errors.Errorf("preparing unit storage attachment deletion: %w", err)
 	}
 
+	if err := tx.Query(ctx, dyingFilesystemAttachmentStmt, unitUUIDRec).Run(); err != nil {
+		return errors.Errorf("running unit filesystem attachments life update: %w", err)
+	}
+	if err := tx.Query(ctx, dyingVolumeAttachmentStmt, unitUUIDRec).Run(); err != nil {
+		return errors.Errorf("running unit volume attachments life update: %w", err)
+	}
+	if err := tx.Query(ctx, dyingVolumeAttachmentPlanStmt, unitUUIDRec).Run(); err != nil {
+		return errors.Errorf("running unit volume attachment plans life update: %w", err)
+	}
 	if err := tx.Query(ctx, deleteOwnerStmt, unitUUIDRec).Run(); err != nil {
 		return errors.Errorf("running unit storage owner deletion: %w", err)
 	}

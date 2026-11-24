@@ -23,6 +23,7 @@ import (
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internalstorage "github.com/juju/juju/internal/storage"
 )
 
 type unitSuite struct {
@@ -1496,6 +1497,73 @@ func (s *unitSuite) TestDeleteUnitWithStorageAttachmentForce(c *tc.C) {
 	err = s.DB().QueryRow("SELECT count(*) FROM storage_instance WHERE uuid = ?", siUUID).Scan(&n)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(n, tc.Equals, 1)
+}
+
+// TestDeleteUnitForceMarksFilesystemAttachmentDying verifies that a forced unit
+// deletion leaves the unit's filesystem attachment dying. The filesystem
+// attachment removal job does not remove alive attachments, even when forced.
+func (s *unitSuite) TestDeleteUnitForceMarksFilesystemAttachmentDying(c *tc.C) {
+	svc := s.setupStorageApplicationService(c)
+	poolUUID := s.createStoragePool(c, "fs", internalstorage.ProviderType("modelscoped"))
+	appUUID := s.deployIAASUnitWithStorage(
+		c, svc, "fs-app", "data", internalcharm.StorageFilesystem, poolUUID)
+	unitUUID := s.getAllUnitUUIDs(c, appUUID)[0]
+	netNodeUUID := s.getUnitNetNode(c, unitUUID)
+
+	var fsaUUID string
+	err := s.DB().QueryRow(
+		"SELECT uuid FROM storage_filesystem_attachment WHERE net_node_uuid = ?", netNodeUUID,
+	).Scan(&fsaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	_, err = st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkFileSystemAttachmentLife(c, fsaUUID, life.Alive)
+
+	err = st.DeleteUnit(c.Context(), unitUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.checkFileSystemAttachmentLife(c, fsaUUID, life.Dying)
+}
+
+// TestDeleteUnitForceMarksVolumeAttachmentsDying verifies that a forced unit
+// deletion leaves the unit's volume attachment and volume attachment plan
+// dying, for their removal jobs to remove.
+func (s *unitSuite) TestDeleteUnitForceMarksVolumeAttachmentsDying(c *tc.C) {
+	svc := s.setupStorageApplicationService(c)
+	poolUUID := s.createStoragePool(c, "blk", internalstorage.ProviderType("modelscoped-block"))
+	appUUID := s.deployIAASUnitWithStorage(
+		c, svc, "block-app", "data", internalcharm.StorageBlock, poolUUID)
+	unitUUID := s.getAllUnitUUIDs(c, appUUID)[0]
+	netNodeUUID := s.getUnitNetNode(c, unitUUID)
+
+	s.createVolumeAttachmentPlan(c, netNodeUUID)
+	vaUUID := s.volumeAttachmentUUIDForNetNode(c, netNodeUUID)
+	var vapUUID string
+	err := s.DB().QueryRow(
+		"SELECT uuid FROM storage_volume_attachment_plan WHERE net_node_uuid = ?", netNodeUUID,
+	).Scan(&vapUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	_, err = st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.DeleteUnit(c.Context(), unitUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.checkVolumeAttachmentLife(c, vaUUID, life.Dying)
+	s.checkVolumeAttachmentPlanLife(c, vapUUID, life.Dying)
+}
+
+func (s *unitSuite) getUnitNetNode(c *tc.C, unitUUID unit.UUID) string {
+	var netNodeUUID string
+	err := s.DB().QueryRow(
+		"SELECT net_node_uuid FROM unit WHERE uuid = ?", unitUUID.String(),
+	).Scan(&netNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	return netNodeUUID
 }
 
 func (s *unitSuite) checkDeleteUnitWaitsForStorageAttachment(
