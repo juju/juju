@@ -16,6 +16,7 @@ import (
 	dt "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/featureflag"
@@ -94,6 +95,10 @@ func (s *manifoldSuite) TestConfigValidate(c *tc.C) {
 
 func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
+		controller.SSHServerPort:               22,
+		controller.SSHMaxConcurrentConnections: 10,
+	}, nil).AnyTimes()
 
 	// Setup the manifold
 	manifold := Manifold(ManifoldConfig{
