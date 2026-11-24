@@ -29,13 +29,6 @@ model "Juju" {
 
     controller [type: juju-software, label: "Controller"]
 
-    controller_model [type: entity, label: "Model: controller"] {
-      controller_application [type: entity, label: "Application: controller"] {
-        controller_unit [type: entity, label: "Unit: controller/0"]
-      }
-    }
-
-    // The first machine also appears on its own in the one-unit example.
     controller_a [type: node, label: "Controller machine A", deployed: true] {
       agent_a [type: juju-software, label: "Controller agent"] {
         api_a [type: juju-software, label: "API server"]
@@ -126,7 +119,6 @@ model "Juju" {
     agent_foo  -> controller [type: stream, label: "watches"]
     agent_bar  -> controller [type: stream, label: "watches"]
 
-    controller_unit -> controller_a [type: control, label: "is assigned to"]
     dqlite_a -> dqlite_b [type: dqlite-peer, label: "peers with", arrow: both]
     dqlite_a -> dqlite_c [type: dqlite-peer, label: "peers with", arrow: both]
     dqlite_b -> dqlite_c [type: dqlite-peer, label: "peers with", arrow: both]
@@ -293,23 +285,6 @@ diagram "The topology" from "Juju" {
     charmhub align-centre controller
     model    right-of controller gap: 120
     model    align-middle controller
-  }
-}
-
-diagram "Controller application on one machine" from "Juju" {
-  select {
-    nodes: controller_model controller_a
-    edges: type control
-  }
-  positions {
-    controller_model left-of controller_a gap: 112
-    controller_model align-middle controller_a
-    controller_application align-centre controller_model
-    controller_unit align-centre controller_application
-    agent_a align-centre controller_a
-    agent_a direction: down
-    api_a align-centre agent_a
-    dqlite_a align-centre agent_a
   }
 }
 

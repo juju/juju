@@ -20,6 +20,8 @@ See also:
 ## Controller deployment and topology
 
 (controller-bootstrap)=
+(controller-charm)=
+(controller-application)=
 ### Bootstrap
 
 ```{ibnote}
@@ -29,19 +31,6 @@ See also:
 - {ref}`Terraform Provider for Juju | Bootstrap a controller <tfjuju:bootstrap-a-controller>`
 - {ref}`JAAS | Bootstrap a controller for JIMM <jaas:add-a-juju-controller>`
 ```
-
-(controller-charm)=
-(controller-application)=
-
-````{container}
-```{ggarch}
-:file: ../juju.ggarch
-:view: Controller application on one machine
-:caption: On a machine cloud, bootstrap creates the `controller` model, deploys the `controller` application with its initial unit, `controller/0`, and assigns the unit to a controller machine. The controller agent on that machine runs the API server and Dqlite in the same process.
-:alt: On the left, the controller model contains the controller application and its initial unit, controller/0. An arrow shows the unit's assignment to the controller machine on the right. The machine contains the controller agent, which contains the API server and Dqlite.
-```
-
-````
 
 Bootstrap creates a {ref}`model <model>` named `controller` and deploys an {ref}`application <application>` of the same name from the `juju-controller` {ref}`charm <charm>`. The application starts with one {ref}`unit <unit>`, `controller/0`. Each unit corresponds to a controller node, whose {ref}`controller agent <controller-agent>` runs the API server and a [Dqlite](https://canonical.com/dqlite) database node in the same process. Bootstrap also grants the initial user `admin` {ref}`controller superuser access <user-access-controller-superuser>`.
 
