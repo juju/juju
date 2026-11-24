@@ -454,6 +454,25 @@ func (s *spaceSuite) TestSaveProviderSubnetsOnlyIdempotent(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *spaceSuite) TestSaveProviderSubnetsReturnsUpsertError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	upsertErr := errors.Errorf("provider subnet already exists").Add(coreerrors.AlreadyExists)
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Return(upsertErr)
+
+	subnets := []network.SubnetInfo{{
+		CIDR:       "10.0.0.0/24",
+		ProviderId: "provider-id",
+	}}
+	err := NewProviderService(
+		s.st,
+		s.networkProviderGetter,
+		s.zoneProviderGetter,
+		loggertesting.WrapCheckLog(c),
+	).saveProviderSubnets(c.Context(), subnets, "")
+	c.Assert(err, tc.ErrorIs, coreerrors.AlreadyExists)
+}
+
 func (s *spaceSuite) TestSaveProviderSubnetsIgnoreInterfaceLocalMulticast(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -620,6 +639,8 @@ func (s *spaceSuite) TestReloadSpacesUsingSubnets(c *tc.C) {
 			c.Check(subnets, tc.HasLen, 2)
 			c.Check(subnets[0].CIDR, tc.Equals, twoSubnets[0].CIDR)
 			c.Check(subnets[1].CIDR, tc.Equals, twoSubnets[1].CIDR)
+			c.Check(subnets[0].SpaceID, tc.Equals, network.SpaceUUID(""))
+			c.Check(subnets[1].SpaceID, tc.Equals, network.SpaceUUID(""))
 			return nil
 		},
 	)

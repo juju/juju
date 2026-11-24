@@ -42,8 +42,11 @@ FROM   subnet`, subnet{})
 	return transform.Slice(subnets, func(s subnet) string { return s.UUID }), nil
 }
 
-// UpsertSubnets updates or adds each one of the provided subnets in one
-// transaction.
+// UpsertSubnets reconciles and adds subnets in one transaction. Existing
+// subnets are matched by provider ID or CIDR and provider network.
+// SubnetInfo.ID is used for inserts; use UpdateSubnet for direct UUID-based
+// space updates. An empty SpaceID preserves an existing subnet's space and
+// defaults a new subnet to the alpha space.
 func (st *State) UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -52,30 +55,87 @@ func (st *State) UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		for _, sub := range subnets {
-			err := st.updateSubnetSpaceID(
-				ctx,
-				tx,
-				subnet{
-					UUID:      string(sub.ID),
-					SpaceUUID: sub.SpaceID,
-				},
-			)
-			if err != nil && !errors.Is(err, coreerrors.NotFound) {
+			if err := st.upsertSubnet(ctx, tx, sub); err != nil {
 				return errors.Capture(err)
-			}
-			// If the subnet does not yet exist then we need to create it.
-			if errors.Is(err, coreerrors.NotFound) {
-				if err := st.addSubnet(
-					ctx,
-					tx,
-					sub,
-				); err != nil {
-					return errors.Capture(err)
-				}
 			}
 		}
 		return nil
 	})
+}
+
+func (st *State) upsertSubnet(ctx context.Context, tx *sqlair.TX, sub network.SubnetInfo) error {
+	if sub.ProviderId != "" {
+		existing, err := st.getSubnetByProviderID(ctx, tx, sub.ProviderId.String())
+		if err != nil && !errors.Is(err, networkerrors.SubnetNotFound) {
+			return errors.Capture(err)
+		}
+		if err == nil {
+			if existing.CIDR != sub.CIDR {
+				return errors.Errorf(
+					"provider id %q is associated with CIDR %q, not %q",
+					sub.ProviderId, existing.CIDR, sub.CIDR,
+				).Add(coreerrors.AlreadyExists)
+			}
+			if sub.SpaceID == "" {
+				return nil
+			}
+			return errors.Capture(st.updateSubnetSpaceID(ctx, tx, subnet{
+				UUID:      existing.ID.String(),
+				SpaceUUID: sub.SpaceID,
+			}))
+		}
+	}
+
+	existingSubnetRows, err := st.getSubnetsByCIDR(ctx, tx, sub.CIDR)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	existingSubnets := existingSubnetRows.ToSubnetInfos()
+	var existing *network.SubnetInfo
+	for i := range existingSubnets {
+		candidate := &existingSubnets[i]
+
+		if candidate.ProviderNetworkId != "" && sub.ProviderNetworkId != "" &&
+			candidate.ProviderNetworkId != sub.ProviderNetworkId {
+			continue
+		}
+
+		if candidate.ProviderId != "" && sub.ProviderId != "" {
+			return errors.Errorf(
+				"provider id %q does not match existing provider id %q for CIDR %q",
+				sub.ProviderId, candidate.ProviderId, sub.CIDR,
+			).Add(coreerrors.AlreadyExists)
+		}
+		if existing != nil {
+			return errors.Errorf(
+				"multiple subnets found for CIDR %q and provider network id %q",
+				sub.CIDR, sub.ProviderNetworkId,
+			).Add(coreerrors.NotValid)
+		}
+		existing = candidate
+	}
+
+	if existing != nil {
+		if existing.ProviderNetworkId == "" && sub.ProviderNetworkId != "" {
+			if err := st.addProviderNetworkIDForSubnet(ctx, tx, existing.ID.String(), sub); err != nil {
+				return errors.Capture(err)
+			}
+		}
+		if existing.ProviderId == "" && sub.ProviderId != "" {
+			if err := st.addProviderIDForSubnet(ctx, tx, existing.ID.String(), sub); err != nil {
+				return errors.Capture(err)
+			}
+		}
+		if sub.SpaceID == "" {
+			return nil
+		}
+		return errors.Capture(st.updateSubnetSpaceID(ctx, tx, subnet{
+			UUID:      existing.ID.String(),
+			SpaceUUID: sub.SpaceID,
+		}))
+	}
+
+	return errors.Capture(st.addSubnet(ctx, tx, sub))
 }
 
 // NamespaceForWatchSubnet returns the namespace identifier used for
@@ -384,27 +444,13 @@ func (st *State) GetSubnetsByCIDR(
 		return nil, errors.Capture(err)
 	}
 
-	// Append the where clause to the query.
-	q := `
-SELECT &SubnetRow.*
-FROM   v_space_subnet
-WHERE  subnet_cidr = $M.cidr`
-
-	s, err := st.Prepare(q, SubnetRow{}, sqlair.M{})
-	if err != nil {
-		return nil, errors.Errorf("preparing %q: %w", q, err)
-	}
-
 	var resultSubnets subnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var txnResultSubnets subnetRows
 
 		for _, cidr := range cidrs {
-			var rows subnetRows
-			if err := tx.Query(ctx, s, sqlair.M{"cidr": cidr}).GetAll(&rows); err != nil {
-				if errors.Is(err, sqlair.ErrNoRows) {
-					continue
-				}
+			rows, err := st.getSubnetsByCIDR(ctx, tx, cidr)
+			if err != nil {
 				return errors.Errorf("retrieving subnets by CIDR %v: %w", cidr, err)
 			}
 			txnResultSubnets = append(txnResultSubnets, rows...)
@@ -417,6 +463,30 @@ WHERE  subnet_cidr = $M.cidr`
 	}
 
 	return resultSubnets.ToSubnetInfos(), nil
+}
+
+func (st *State) getSubnetsByCIDR(
+	ctx context.Context,
+	tx *sqlair.TX,
+	cidr string,
+) (subnetRows, error) {
+	row := SubnetRow{CIDR: cidr}
+	stmt, err := st.Prepare(`
+SELECT &SubnetRow.*
+FROM   v_space_subnet
+WHERE  subnet_cidr = $SubnetRow.subnet_cidr`, row)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var rows subnetRows
+	if err := tx.Query(ctx, stmt, row).GetAll(&rows); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, errors.Capture(err)
+	}
+	return rows, nil
 }
 
 // getSubnetByProviderID retrieves subnet information for a

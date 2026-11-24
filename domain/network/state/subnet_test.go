@@ -76,11 +76,16 @@ func (s *stateSuite) TestUpsertSubnets(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sn0, tc.DeepEquals, expected)
 
-	// Update the first subnet to space0.
+	// Update the first subnet to space0 through provider discovery.
+	updatedSubnetUUID, err := uuid.NewV7()
+	c.Assert(err, tc.ErrorIsNil)
 	subnetsToUpsert = []network.SubnetInfo{
 		{
-			ID:      network.Id(subnetUUID0.String()),
-			SpaceID: spUUID,
+			ID:                network.Id(updatedSubnetUUID.String()),
+			CIDR:              "192.168.0.0/20",
+			ProviderId:        "provider-id-0",
+			ProviderNetworkId: "provider-network-id-0",
+			SpaceID:           spUUID,
 		},
 	}
 	err = st.UpsertSubnets(c.Context(), subnetsToUpsert)
@@ -100,6 +105,381 @@ func (s *stateSuite) TestUpsertSubnets(c *tc.C) {
 	sn0, err = st.GetSubnet(c.Context(), subnetUUID0.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sn0, tc.DeepEquals, expected)
+}
+
+func (s *stateSuite) TestUpsertSubnetsRepeatedDiscovery(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	original := newTestSubnetInfo(c, "10.10.0.0/24", "provider-id", "provider-network-id")
+	err := st.UpsertSubnets(c.Context(), []network.SubnetInfo{original})
+	c.Assert(err, tc.ErrorIsNil)
+
+	rediscovered := original
+	rediscovered.ID = newSubnetIDForTest(c)
+	err = st.UpsertSubnets(c.Context(), []network.SubnetInfo{rediscovered})
+	c.Assert(err, tc.ErrorIsNil)
+
+	subnets, err := st.GetAllSubnets(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets, tc.HasLen, 1)
+	c.Check(subnets[0].ID, tc.Equals, original.ID)
+	c.Check(subnets[0].ProviderId, tc.Equals, original.ProviderId)
+}
+
+func (s *stateSuite) TestUpsertSubnetsEmptySpacePreservesExisting(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	spaceUUID := networktesting.GenSpaceUUID(c)
+	c.Assert(st.AddSpace(c.Context(), spaceUUID, "custom-space", "provider-space-id", nil), tc.ErrorIsNil)
+
+	tests := []struct {
+		name              string
+		cidr              string
+		providerID        network.Id
+		providerNetworkID network.Id
+	}{
+		{
+			name:              "provider-id-match",
+			cidr:              "10.11.0.0/24",
+			providerID:        "provider-a",
+			providerNetworkID: "network-a",
+		},
+		{
+			name:              "cidr-match",
+			cidr:              "10.11.1.0/24",
+			providerNetworkID: "network-b",
+		},
+	}
+
+	for _, test := range tests {
+		existing := newTestSubnetInfo(c, test.cidr, test.providerID, test.providerNetworkID)
+		existing.SpaceID = spaceUUID
+		err := st.UpsertSubnets(c.Context(), []network.SubnetInfo{existing})
+		c.Assert(err, tc.ErrorIsNil)
+
+		rediscovered := existing
+		rediscovered.ID = newSubnetIDForTest(c)
+		rediscovered.SpaceID = ""
+		err = st.UpsertSubnets(c.Context(), []network.SubnetInfo{rediscovered})
+		c.Assert(err, tc.ErrorIsNil)
+
+		persisted, err := st.GetSubnet(c.Context(), existing.ID.String())
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(persisted.SpaceID, tc.Equals, spaceUUID)
+	}
+}
+
+func (s *stateSuite) TestUpsertSubnetsEmptySpaceMixedBatch(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	spaceUUID := networktesting.GenSpaceUUID(c)
+	c.Assert(st.AddSpace(c.Context(), spaceUUID, "custom-space", "provider-space-id", nil), tc.ErrorIsNil)
+
+	existing := newTestSubnetInfo(c, "10.12.0.0/24", "existing-provider", "existing-network")
+	existing.SpaceID = spaceUUID
+	c.Assert(st.UpsertSubnets(c.Context(), []network.SubnetInfo{existing}), tc.ErrorIsNil)
+
+	rediscovered := existing
+	rediscovered.ID = newSubnetIDForTest(c)
+	rediscovered.SpaceID = ""
+	addition := newTestSubnetInfo(c, "10.12.1.0/24", "new-provider", "new-network")
+	addition.SpaceID = ""
+	c.Assert(st.UpsertSubnets(c.Context(), []network.SubnetInfo{rediscovered, addition}), tc.ErrorIsNil)
+
+	persistedExisting, err := st.GetSubnet(c.Context(), existing.ID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(persistedExisting.SpaceID, tc.Equals, spaceUUID)
+	persistedAddition, err := st.GetSubnet(c.Context(), addition.ID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(persistedAddition.SpaceID, tc.Equals, network.AlphaSpaceId)
+}
+
+func (s *stateSuite) TestUpsertSubnetsExplicitAlphaSpace(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	spaceUUID := networktesting.GenSpaceUUID(c)
+	c.Assert(st.AddSpace(c.Context(), spaceUUID, "custom-space", "provider-space-id", nil), tc.ErrorIsNil)
+
+	existing := newTestSubnetInfo(c, "10.13.0.0/24", "provider-id", "provider-network-id")
+	existing.SpaceID = spaceUUID
+	c.Assert(st.UpsertSubnets(c.Context(), []network.SubnetInfo{existing}), tc.ErrorIsNil)
+
+	rediscovered := existing
+	rediscovered.ID = newSubnetIDForTest(c)
+	rediscovered.SpaceID = network.AlphaSpaceId
+	c.Assert(st.UpsertSubnets(c.Context(), []network.SubnetInfo{rediscovered}), tc.ErrorIsNil)
+
+	persisted, err := st.GetSubnet(c.Context(), existing.ID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(persisted.SpaceID, tc.Equals, network.AlphaSpaceId)
+}
+
+func (s *stateSuite) TestUpsertSubnetsExistingAndNew(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	tests := []struct {
+		name          string
+		existingCIDR  string
+		newCIDR       string
+		existingFirst bool
+	}{
+		{
+			name:          "existing-first",
+			existingCIDR:  "10.20.0.0/24",
+			newCIDR:       "10.20.1.0/24",
+			existingFirst: true,
+		},
+		{
+			name:          "new-first",
+			existingCIDR:  "10.20.2.0/24",
+			newCIDR:       "10.20.3.0/24",
+			existingFirst: false,
+		},
+	}
+
+	for _, test := range tests {
+		existing := newTestSubnetInfo(
+			c, test.existingCIDR,
+			network.Id(test.name+"-existing-provider"),
+			network.Id(test.name+"-existing-network"),
+		)
+		err := st.UpsertSubnets(c.Context(), []network.SubnetInfo{existing})
+		c.Assert(err, tc.ErrorIsNil)
+
+		rediscovered := existing
+		rediscovered.ID = newSubnetIDForTest(c)
+		addition := newTestSubnetInfo(
+			c, test.newCIDR,
+			network.Id(test.name+"-new-provider"),
+			network.Id(test.name+"-new-network"),
+		)
+		batch := []network.SubnetInfo{addition, rediscovered}
+		if test.existingFirst {
+			batch = []network.SubnetInfo{rediscovered, addition}
+		}
+
+		err = st.UpsertSubnets(c.Context(), batch)
+		c.Assert(err, tc.ErrorIsNil)
+
+		persistedExisting, err := st.GetSubnet(c.Context(), existing.ID.String())
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(persistedExisting.CIDR, tc.Equals, existing.CIDR)
+		persistedAddition, err := st.GetSubnet(c.Context(), addition.ID.String())
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(persistedAddition.CIDR, tc.Equals, addition.CIDR)
+	}
+}
+
+func (s *stateSuite) TestUpsertSubnetsProviderIDCIDRConflictRollsBack(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	existing := newTestSubnetInfo(c, "10.30.0.0/24", "existing-provider", "existing-network")
+	err := st.UpsertSubnets(c.Context(), []network.SubnetInfo{existing})
+	c.Assert(err, tc.ErrorIsNil)
+
+	addition := newTestSubnetInfo(c, "10.30.1.0/24", "new-provider", "new-network")
+	conflict := newTestSubnetInfo(c, "10.30.99.0/24", existing.ProviderId, existing.ProviderNetworkId)
+	err = st.UpsertSubnets(c.Context(), []network.SubnetInfo{addition, conflict})
+	c.Assert(err, tc.ErrorIs, coreerrors.AlreadyExists)
+	c.Check(err, tc.ErrorMatches, `provider id "existing-provider" is associated with CIDR "10.30.0.0/24", not "10.30.99.0/24"`)
+
+	_, err = st.GetSubnet(c.Context(), addition.ID.String())
+	c.Assert(err, tc.ErrorIs, networkerrors.SubnetNotFound)
+	subnets, err := st.GetAllSubnets(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(subnets, tc.HasLen, 1)
+}
+
+func (s *stateSuite) TestUpsertSubnetsEmptyProviderID(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	original := newTestSubnetInfo(c, "0.0.0.0/0", "", "")
+	err := st.UpsertSubnets(c.Context(), []network.SubnetInfo{original})
+	c.Assert(err, tc.ErrorIsNil)
+
+	rediscovered := original
+	rediscovered.ID = newSubnetIDForTest(c)
+	err = st.UpsertSubnets(c.Context(), []network.SubnetInfo{rediscovered})
+	c.Assert(err, tc.ErrorIsNil)
+
+	subnets, err := st.GetAllSubnets(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets, tc.HasLen, 1)
+	c.Check(subnets[0].ID, tc.Equals, original.ID)
+	s.assertNumProviderSubnets(c, s.DB(), original.ID.String(), 0)
+}
+
+func (s *stateSuite) TestUpsertSubnetsAddsProviderIDToExisting(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	original := newTestSubnetInfo(c, "10.40.0.0/24", "", "provider-network-id")
+	err := st.UpsertSubnets(c.Context(), []network.SubnetInfo{original})
+	c.Assert(err, tc.ErrorIsNil)
+
+	rediscovered := original
+	rediscovered.ID = newSubnetIDForTest(c)
+	rediscovered.ProviderId = "new-provider-id"
+	err = st.UpsertSubnets(c.Context(), []network.SubnetInfo{rediscovered})
+	c.Assert(err, tc.ErrorIsNil)
+
+	subnets, err := st.GetAllSubnets(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets, tc.HasLen, 1)
+	c.Check(subnets[0].ID, tc.Equals, original.ID)
+	c.Check(subnets[0].ProviderId, tc.Equals, rediscovered.ProviderId)
+	s.assertProviderSubnetProviderID(c, s.DB(), original.ID.String(), rediscovered.ProviderId.String())
+}
+
+func (s *stateSuite) TestUpsertSubnetsBackfillsProviderAssociations(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	spaceUUID := networktesting.GenSpaceUUID(c)
+	c.Assert(st.AddSpace(c.Context(), spaceUUID, "custom-space", "provider-space-id", nil), tc.ErrorIsNil)
+
+	original := newTestSubnetInfo(c, "10.41.0.0/24", "", "")
+	original.SpaceID = spaceUUID
+	c.Assert(st.UpsertSubnets(c.Context(), []network.SubnetInfo{original}), tc.ErrorIsNil)
+
+	rediscovered := original
+	rediscovered.ID = newSubnetIDForTest(c)
+	rediscovered.ProviderId = "new-provider-id"
+	rediscovered.ProviderNetworkId = "new-provider-network-id"
+	rediscovered.SpaceID = ""
+	c.Assert(st.UpsertSubnets(c.Context(), []network.SubnetInfo{rediscovered}), tc.ErrorIsNil)
+
+	subnets, err := st.GetAllSubnets(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets, tc.HasLen, 1)
+	c.Check(subnets[0].ID, tc.Equals, original.ID)
+	c.Check(subnets[0].ProviderId, tc.Equals, rediscovered.ProviderId)
+	c.Check(subnets[0].ProviderNetworkId, tc.Equals, rediscovered.ProviderNetworkId)
+	c.Check(subnets[0].SpaceID, tc.Equals, spaceUUID)
+	s.assertProviderSubnetProviderID(c, s.DB(), original.ID.String(), rediscovered.ProviderId.String())
+	s.assertNumProviderNetworkSubnets(c, s.DB(), original.ID.String(), 1)
+}
+
+func (s *stateSuite) TestUpsertSubnetsIncomingProviderNetworkIDEmpty(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	original := newTestSubnetInfo(c, "10.42.0.0/24", "", "provider-network-id")
+	c.Assert(st.UpsertSubnets(c.Context(), []network.SubnetInfo{original}), tc.ErrorIsNil)
+
+	rediscovered := original
+	rediscovered.ID = newSubnetIDForTest(c)
+	rediscovered.ProviderNetworkId = ""
+	c.Assert(st.UpsertSubnets(c.Context(), []network.SubnetInfo{rediscovered}), tc.ErrorIsNil)
+
+	subnets, err := st.GetAllSubnets(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets, tc.HasLen, 1)
+	c.Check(subnets[0].ID, tc.Equals, original.ID)
+	c.Check(subnets[0].ProviderNetworkId, tc.Equals, original.ProviderNetworkId)
+}
+
+func (s *stateSuite) TestUpsertSubnetsIncomingProviderIDEmpty(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	original := newTestSubnetInfo(c, "10.43.0.0/24", "provider-id", "provider-network-id")
+	c.Assert(st.UpsertSubnets(c.Context(), []network.SubnetInfo{original}), tc.ErrorIsNil)
+
+	rediscovered := original
+	rediscovered.ID = newSubnetIDForTest(c)
+	rediscovered.ProviderId = ""
+	c.Assert(st.UpsertSubnets(c.Context(), []network.SubnetInfo{rediscovered}), tc.ErrorIsNil)
+
+	subnets, err := st.GetAllSubnets(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets, tc.HasLen, 1)
+	c.Check(subnets[0].ID, tc.Equals, original.ID)
+	c.Check(subnets[0].ProviderId, tc.Equals, original.ProviderId)
+	s.assertProviderSubnetProviderID(c, s.DB(), original.ID.String(), original.ProviderId.String())
+}
+
+func (s *stateSuite) TestUpsertSubnetsSameCIDRDifferentProviderNetworks(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	first := newTestSubnetInfo(c, "10.50.0.0/24", "provider-a", "network-a")
+	second := newTestSubnetInfo(c, first.CIDR, "provider-b", "network-b")
+	err := st.UpsertSubnets(c.Context(), []network.SubnetInfo{first, second})
+	c.Assert(err, tc.ErrorIsNil)
+
+	subnets, err := st.GetAllSubnets(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(subnets, tc.HasLen, 2)
+}
+
+func (s *stateSuite) TestUpsertSubnetsConflictingProviderIDs(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	existing := newTestSubnetInfo(c, "10.60.0.0/24", "provider-a", "network-a")
+	err := st.UpsertSubnets(c.Context(), []network.SubnetInfo{existing})
+	c.Assert(err, tc.ErrorIsNil)
+
+	conflicting := newTestSubnetInfo(c, existing.CIDR, "provider-b", existing.ProviderNetworkId)
+	err = st.UpsertSubnets(c.Context(), []network.SubnetInfo{conflicting})
+	c.Assert(err, tc.ErrorIs, coreerrors.AlreadyExists)
+	c.Check(err, tc.ErrorMatches, `provider id "provider-b" does not match existing provider id "provider-a" for CIDR "10.60.0.0/24"`)
+
+	subnets, err := st.GetAllSubnets(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(subnets, tc.HasLen, 1)
+}
+
+func (s *stateSuite) TestUpsertSubnetsAmbiguousCIDR(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	first := newTestSubnetInfo(c, "10.70.0.0/24", "", "network-a")
+	second := newTestSubnetInfo(c, first.CIDR, "", first.ProviderNetworkId)
+	c.Assert(st.AddSubnet(c.Context(), first), tc.ErrorIsNil)
+	c.Assert(st.AddSubnet(c.Context(), second), tc.ErrorIsNil)
+
+	incoming := newTestSubnetInfo(c, first.CIDR, "", first.ProviderNetworkId)
+	err := st.UpsertSubnets(c.Context(), []network.SubnetInfo{incoming})
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, `multiple subnets found for CIDR "10.70.0.0/24" and provider network id "network-a"`)
+
+	subnets, err := st.GetAllSubnets(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(subnets, tc.HasLen, 2)
+}
+
+func (s *stateSuite) TestUpsertSubnetsDuplicateInput(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	first := newTestSubnetInfo(c, "10.80.0.0/24", "provider-id", "provider-network-id")
+	duplicate := first
+	duplicate.ID = newSubnetIDForTest(c)
+	err := st.UpsertSubnets(c.Context(), []network.SubnetInfo{first, duplicate})
+	c.Assert(err, tc.ErrorIsNil)
+
+	subnets, err := st.GetAllSubnets(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets, tc.HasLen, 1)
+	c.Check(subnets[0].ID, tc.Equals, first.ID)
+}
+
+func (s *stateSuite) TestGetSubnetsByCIDRMultipleAndRepeated(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	first := newTestSubnetInfo(c, "10.90.0.0/24", "provider-a", "network-a")
+	first.AvailabilityZones = []string{"az-a", "az-b"}
+	second := newTestSubnetInfo(c, "10.90.1.0/24", "provider-b", "network-b")
+	second.AvailabilityZones = []string{"az-c"}
+	err := st.UpsertSubnets(c.Context(), []network.SubnetInfo{first, second})
+	c.Assert(err, tc.ErrorIsNil)
+
+	subnets, err := st.GetSubnetsByCIDR(c.Context(), first.CIDR, second.CIDR, first.CIDR)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets, tc.HasLen, 2)
+
+	byCIDR := make(map[string]network.SubnetInfo, len(subnets))
+	for _, subnet := range subnets {
+		byCIDR[subnet.CIDR] = subnet
+	}
+	c.Check(byCIDR[first.CIDR].ID, tc.Equals, first.ID)
+	c.Check(byCIDR[first.CIDR].AvailabilityZones, tc.SameContents, first.AvailabilityZones)
+	c.Check(byCIDR[second.CIDR].ID, tc.Equals, second.ID)
+	c.Check(byCIDR[second.CIDR].AvailabilityZones, tc.SameContents, second.AvailabilityZones)
 }
 
 func (s *stateSuite) TestAddSubnet(c *tc.C) {
@@ -714,6 +1094,25 @@ func (s *stateSuite) TestCannotAddEmptyProviderSubnet(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, "CHECK constraint failed: chk_provider_id_empty")
+}
+
+func newTestSubnetInfo(
+	c *tc.C,
+	cidr string,
+	providerID network.Id,
+	providerNetworkID network.Id,
+) network.SubnetInfo {
+	return network.SubnetInfo{
+		ID:                newSubnetIDForTest(c),
+		CIDR:              cidr,
+		ProviderId:        providerID,
+		ProviderNetworkId: providerNetworkID,
+		SpaceID:           network.AlphaSpaceId,
+	}
+}
+
+func newSubnetIDForTest(c *tc.C) network.Id {
+	return network.Id(tc.Must(c, uuid.NewV7).String())
 }
 
 func (s *stateSuite) assertSubnet(c *tc.C, db *sql.DB, subnetUUID, expectedCIDR string, expectedVLANTag int, expectedSpaceUUID string) {
