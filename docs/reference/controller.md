@@ -43,7 +43,7 @@ See also:
 
 ````
 
-Bootstrap creates a {ref}`model <model>` named `controller` and deploys an {ref}`application <application>` of the same name from the controller {ref}`charm <charm>`. The application starts with one {ref}`unit <unit>`, `controller/0`. Each unit corresponds to a controller node, whose {ref}`controller agent <controller-agent>` runs the API server and a [Dqlite](https://canonical.com/dqlite) database node in the same process. Bootstrap also grants the initial user `admin` {ref}`controller superuser access <user-access-controller-superuser>`.
+Bootstrap creates a {ref}`model <model>` named `controller` and deploys an {ref}`application <application>` of the same name from the `juju-controller` {ref}`charm <charm>`. The application starts with one {ref}`unit <unit>`, `controller/0`. Each unit corresponds to a controller node, whose {ref}`controller agent <controller-agent>` runs the API server and a [Dqlite](https://canonical.com/dqlite) database node in the same process. Bootstrap also grants the initial user `admin` {ref}`controller superuser access <user-access-controller-superuser>`.
 
 On a machine cloud, bootstrap provisions a machine for the controller. On Kubernetes, it creates a namespace named `controller-<controller name>`, a single-replica StatefulSet, and a Service that exposes the API and SSH ports. The default Service type depends on the provider.
 
@@ -74,7 +74,7 @@ Each unit of the {ref}`controller application <controller-application>` correspo
 
 ````
 
-With controller {ref}`high availability <high-availability>`, one Juju controller runs across multiple machines, with one controller node per machine. The nodes share one database cluster, reducing the risk that a machine failure takes the controller offline. Juju supports this topology only on {ref}`machine clouds <machine-cloud>`.
+With controller {ref}`high availability <high-availability>`, one Juju controller runs across multiple nodes that share one database cluster. On a {ref}`machine cloud <machine-cloud>`, each node runs on a separate machine, as shown above. On a {ref}`Kubernetes cloud <kubernetes-cloud>`, each node runs in a separate pod of the controller StatefulSet.
 
 The requested unit count does not tell you how many Dqlite nodes are running in the cluster.
 
@@ -94,15 +94,15 @@ See also:
 - {ref}`Terraform Provider for Juju | Enable controller high availability after bootstrap <tfjuju:enable-controller-high-availability-post-bootstrap>`
 ```
 
-Adding a controller node means adding a unit to the `controller` application. Juju supports this on machine clouds, not on Kubernetes.
+Adding a controller node means adding a unit to the `controller` application. On a machine cloud, clients add units directly. On Kubernetes, clients increase the application's desired scale, and Juju provisions additional controller pods.
 
-The request specifies the number of **new** units to add to the application, not the desired total. A new node cannot participate in the Dqlite cluster until it joins it.
+A request to add units specifies the number of **new** units, not the desired total. A new node cannot participate in the Dqlite cluster until it joins it.
 
 Adding nodes requires {ref}`write access <user-access-model-write>` to the controller model. A {ref}`change block <model-command-blocks>` on that model prevents the operation.
 
-If a request to add nodes to a Kubernetes controller passes the permission and block checks, Juju refuses it with this error:
+For direct API clients, `AddUnits` on a Kubernetes model connection is refused after the permission and block checks:
 
-- *Error message:* `adding units to a container-based model is not supported`. *Trigger:* A request tries to add a node to a Kubernetes controller. *What to do:* Use a machine cloud for a controller that needs multiple nodes.
+- *Error message:* `adding units to a container-based model is not supported`. *Trigger:* A client calls `AddUnits` on a Kubernetes model connection. *What to do:* Use `ScaleApplications` to increase the controller application's desired scale instead.
 
 (removing-a-controller)=
 #### Removing nodes
@@ -111,16 +111,18 @@ If a request to add nodes to a Kubernetes controller passes the permission and b
 See also: {ref}`Juju CLI | Reduce controller capacity <reduce-controller-capacity>`
 ```
 
-Removing a controller node means removing its unit or the machine that hosts it. Removing a machine also removes its units. The operation requires {ref}`write access <user-access-model-write>` to the controller model. Either a {ref}`remove block or a change block <model-command-blocks>` on that model prevents removal.
+On a machine cloud, removing a controller node means removing its unit or the machine that hosts it. Removing a machine also removes its units. Either a {ref}`remove block or a change block <model-command-blocks>` on the controller model prevents removal.
+
+On Kubernetes, reducing the controller application's desired scale removes nodes. The scale request checks for a change block on the controller model. Both platforms require {ref}`write access <user-access-model-write>` to the controller model to reduce capacity.
 
 ```{warning}
-Juju refuses to scale the controller application to zero, but it does not run that check when you remove a unit or machine. Before removing a node, check that the remaining nodes can still serve the controller.
+Juju refuses to scale the controller application to zero. On a machine cloud, removing a unit or machine does not run that check. Before reducing capacity, check that the remaining nodes can still serve the controller.
 ```
 
 These errors distinguish scaling the controller application from trying to remove it:
 
 - *Error message:* `cannot scale controller application to 0 units`. *Trigger:* A scale request would leave no controller units. *What to do:* Keep at least one unit.
-- *Error message:* `removing the controller application not supported`. *Trigger:* A request tries to remove the controller application itself. *What to do:* Remove individual nodes to reduce capacity. To remove the whole controller, see {ref}`controller destruction <destroying-a-controller>`.
+- *Error message:* `removing the controller application not supported`. *Trigger:* A request tries to remove the controller application itself. *What to do:* Reduce capacity using the operation for your cloud type described above. To remove the whole controller, see {ref}`controller destruction <destroying-a-controller>`.
 
 (controller-model-blocks)=
 (controller-model-creation)=

@@ -47,11 +47,7 @@ See more: {ref}`manage-constraints-for-a-controller`, {ref}`make-a-controller-hi
 ```
 ````
 ````{dropdown} Tips for production - Kubernetes
-Juju does not support {ref}`controller high availability <controller-high-availability>` on Kubernetes. If you need a highly available controller for your Kubernetes models, bootstrap on a machine cloud and then add your Kubernetes clouds to that controller (`juju add-k8s myk8scloud --controller mymachinecontroller`).
-
-```{ibnote}
-See more: {ref}`add-a-cloud`
-```
+Bootstrap creates one controller pod. To run additional controller pods, {ref}`make the controller highly available <make-a-controller-highly-available>` after bootstrap.
 ````
 
 ````{dropdown} Tips for troubleshooting - machines
@@ -312,9 +308,6 @@ See more: {ref}`command-juju-unregister`
 ```{ibnote}
 See also: {ref}`high-availability`
 ```
-```{important}
-Currently only supported for controllers on a machine cloud.
-```
 
 To make a controller highly available, add units to the `controller` application in the controller model using the `juju add-unit` command. The number after `-n` is the number of units to add, not the number of controllers you want. For example, starting from one controller, to have three:
 
@@ -322,10 +315,10 @@ To make a controller highly available, add units to the `controller` application
 juju add-unit -m controller controller -n 2
 ```
 
-The command prints nothing when it succeeds. Run `juju status -m controller` to follow the new machines and units. Check the {ref}`Dqlite roles <dqlite-cluster-of-the-controllers>` before relying on the added nodes for availability; the number of units alone does not tell you which nodes can vote.
+Run `juju status -m controller` to follow the new units. On a machine cloud, check the {ref}`Dqlite roles <dqlite-cluster-of-the-controllers>` before relying on the added nodes for availability; the number of units alone does not tell you which nodes can vote. On Kubernetes, wait for the expected number of controller units to appear and their agents to become idle without workload errors.
 
 (reduce-controller-capacity)=
-To reduce capacity, remove a controller unit or its host machine. Check that the remaining nodes can still serve the controller before removing either. The scale-to-zero guard does not apply to these removal requests. For example, to remove machine 1 and its controller unit:
+To reduce capacity, first check that the remaining nodes can still serve the controller. On a machine cloud, remove a controller unit or its host machine. The scale-to-zero guard does not apply to these machine-cloud removal requests. For example, to remove machine 1 and its controller unit:
 
 ```text
 juju remove-machine -m controller 1
@@ -333,6 +326,12 @@ juju remove-machine -m controller 1
 
 ```{ibnote}
 See more: {ref}`manage-units`, {ref}`manage-machines`
+```
+
+On Kubernetes, specify how many units to remove from the `controller` application rather than naming a unit. For example, to reduce capacity by one:
+
+```text
+juju remove-unit -m controller controller --num-units 1
 ```
 
 (collect-metrics-about-a-controller)=
