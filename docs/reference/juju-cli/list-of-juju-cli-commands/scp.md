@@ -17,7 +17,7 @@ juju scp [options] <source> <destination>
 | `--direct` | false | Connect directly to the target (for Juju 3 controllers) |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--no-host-key-checks` | false | Skip host key checking (INSECURE) |
-| `--proxy` | false | Proxy through the API server |
+| `--proxy` | &lt;auto&gt; | Proxy through the controller machine's OpenSSH server (requires --direct; defaults to the model's proxy-ssh setting) |
 | `--show-command` | false | Print the OpenSSH command instead of executing it |
 | `--ssh-key` |  | SSH private key to use when connecting through the controller |
 
@@ -39,9 +39,10 @@ Recursively copy the `/var/log/mongodb` directory from the
 
 Copy `foo.txt` from the client's current working directory to a
 the `apache2/1` unit model `prod` (`-m prod`). Proxy the SSH connection
-through the controller (`--proxy`) and enable compression (`-- -C`):
+through the controller machine (`--direct --proxy`) and enable compression
+(`-- -C`):
 
-    juju scp -m prod --proxy -- -C foo.txt apache2/1:
+    juju scp -m prod --direct --proxy -- -C foo.txt apache2/1:
 
 Copy multiple files from the client's current working directory to
 the `/home/ubuntu` directory of machine `2`:
@@ -122,10 +123,12 @@ be open. Use the `--direct` option for Juju 3 controllers and connect directly
 to the target. Note that new behaviour does not support connecting to nested
 containers running on machines as the legacy behaviour did.
 
-If using the `--direct` flag you can also use the `--proxy` flag
-to proxy the connection through the controller machine's OpenSSH server running on
-port 22 (by default). If transferring files to/from containers on machines
-the proxy flag will proxy connections through the controller machine and the host machine.
+Use `--direct --proxy` to route the connection through the controller
+machine's OpenSSH server (port 22 by default). For transfers to or from
+containers on machines, the connection also goes through the container's host.
+In direct mode on machine clouds, if `--proxy` is omitted, Juju uses the
+model's `proxy-ssh` setting. Use `--direct --proxy=false` to connect
+without this proxy.
 
 The SSH host keys of the target are verified by default. To disable this, add the
 `--no-host-key-checks` option. Using this option is strongly discouraged.

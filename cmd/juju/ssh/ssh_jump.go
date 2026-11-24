@@ -30,7 +30,6 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 
 	"github.com/juju/juju/api/client/application"
-	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/sshclient"
 	controllerapi "github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/core/model"
@@ -381,12 +380,6 @@ func (p *sshJump) getKeys(ctx context.Context, virtualHostname string) (params.P
 		return params.PublicSSHHostKeyResult{}, errors.Annotatef(err, "retrieving SSH host key for %q", virtualHostname)
 	}
 	return hostKeys, nil
-}
-
-// maybePopulateTargetViaField is a no-op: the via field is set during target
-// resolution.
-func (p *sshJump) maybePopulateTargetViaField(_ context.Context, _ *resolvedTarget, _ func(context.Context, *client.StatusArgs) (*params.FullStatus, error)) error {
-	return nil
 }
 
 // getSSHOptions returns SSH options for the jump server and target.

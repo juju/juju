@@ -912,9 +912,33 @@ func bootstrapIAAS(
 		return errors.Trace(err)
 	}
 
-	publicKey, err := userPublicSigningKey()
+	instanceConfig, err := finishMachineBootstrap(
+		ctx, environ, args, bootstrapParams, result, prep.customImageMetadata,
+	)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	if err := result.CloudBootstrapFinalizer(ctx, instanceConfig, args.DialOpts); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// finishMachineBootstrap builds the instance configuration for a started
+// machine instance: matching tools, finalising credentials and finalizing the
+// bootstrap configuration. It does not invoke the provider finalizer; callers
+// apply any mode-specific overrides and invoke the finalizer themselves.
+func finishMachineBootstrap(
+	ctx environs.BootstrapContext,
+	environ environs.BootstrapEnviron,
+	args BootstrapParams,
+	bootstrapParams environs.BootstrapParams,
+	result *environs.BootstrapResult,
+	customImageMetadata []*imagemetadata.ImageMetadata,
+) (*instancecfg.InstanceConfig, error) {
+	publicKey, err := userPublicSigningKey()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
 		args.ControllerConfig,
@@ -925,7 +949,7 @@ func bootstrapIAAS(
 		args.ExtraAgentValuesForTesting,
 	)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	// Set SSHServerHostKey if provided by the user.
@@ -936,11 +960,11 @@ func bootstrapIAAS(
 		OSType: result.Base.OS,
 	})
 	if err != nil {
-		return errors.Annotatef(err, "expected tools for %q", result.Base.OS)
+		return nil, errors.Annotatef(err, "expected tools for %q", result.Base.OS)
 	}
 	selectedToolsList, err := getBootstrapToolsVersion(ctx, matchingTools)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	// We set agent-version to the newest version, so the agent will immediately upgrade itself.
 	// Note that this only is relevant if a specific agent version has not been requested, since
@@ -948,22 +972,22 @@ func bootstrapIAAS(
 	newestToolVersion, _ := matchingTools.Newest()
 	// set agent version before finalizing bootstrap config
 	if err := setBootstrapAgentVersion(ctx, environ, newestToolVersion); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	ctx.Infof("Installing Juju agent on bootstrap instance")
 	if err := instanceConfig.SetTools(selectedToolsList); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	if err := instanceConfig.SetControllerCharm(args.ControllerCharmPath); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	instanceConfig.Bootstrap.ControllerCharmChannel = args.ControllerCharmChannel
 
 	// Set the controller snap to be installed on the bootstrap instance.
 	if err := instanceConfig.SetControllerSnap(args.ControllerSnapPath, args.ControllerSnapAssertPath); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	var environVersion int
@@ -978,7 +1002,7 @@ func bootstrapIAAS(
 			args.CloudCredential,
 		)
 		if err != nil {
-			return errors.Annotate(err, "finalizing bootstrap credential")
+			return nil, errors.Annotate(err, "finalizing bootstrap credential")
 		}
 
 		args.CloudCredential = cred
@@ -987,14 +1011,11 @@ func bootstrapIAAS(
 	// Make sure we have the most recent environ config as the specified
 	// tools version has been updated there.
 	if err := finalizeInstanceBootstrapConfig(
-		ctx, instanceConfig, args, environ.Config(), environVersion, prep.customImageMetadata,
+		ctx, instanceConfig, args, environ.Config(), environVersion, customImageMetadata,
 	); err != nil {
-		return errors.Annotate(err, "finalizing bootstrap instance config")
+		return nil, errors.Annotate(err, "finalizing bootstrap instance config")
 	}
-	if err := result.CloudBootstrapFinalizer(ctx, instanceConfig, args.DialOpts); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return instanceConfig, nil
 }
 
 func finaliseInstanceRole(

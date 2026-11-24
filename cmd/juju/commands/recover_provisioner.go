@@ -8,7 +8,11 @@ import (
 	"maps"
 	"os"
 	"os/signal"
+	"sort"
 	"time"
+
+	"github.com/juju/names/v6"
+	jujusshtools "github.com/juju/utils/v4/ssh"
 
 	"github.com/juju/juju/api/jujuclient"
 	jujucloud "github.com/juju/juju/cloud"
@@ -19,24 +23,38 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	coreerrors "github.com/juju/juju/core/errors"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/recovery"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudspec"
 	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/password"
+	jujussh "github.com/juju/juju/internal/ssh"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
 
-// recoveryAllocationTimeout bounds provider preparation and machine allocation
-// after the client has resolved the cloud and credentials.
-const recoveryAllocationTimeout = 20 * time.Minute
+const (
+	// recoveryAllocationTimeout bounds provider preparation, replacement
+	// allocation and agent startup after the client has resolved the cloud
+	// and credentials.
+	recoveryAllocationTimeout = 20 * time.Minute
 
-// provisionRecovery allocates a replacement controller machine from the
-// recovery archive, through the ordinary bootstrap allocation pipeline, and
-// deliberately stops before installing an agent or initialising its
-// database.
+	// recoveryDialRetryDelay is the delay between attempts to connect to
+	// the replacement instance during bootstrap configuration.
+	recoveryDialRetryDelay = 5 * time.Second
+
+	// recoveryDialAddressesDelay is the delay between refreshing the
+	// replacement instance addresses during bootstrap configuration.
+	recoveryDialAddressesDelay = 5 * time.Second
+)
+
+// provisionRecovery prepares and starts a replacement controller machine agent
+// from the recovery archive through the ordinary bootstrap pipeline. State
+// import and client registration are left to later recovery stages.
 func provisionRecovery(
 	ctx *cmd.Context,
 	store jujuclient.ClientStore,
@@ -47,10 +65,20 @@ func provisionRecovery(
 	if jujucloud.CloudTypeIsCAAS(info.CloudType) {
 		return errors.Errorf("Kubernetes recovery provisioning %w", coreerrors.NotSupported)
 	}
+	// The replacement runs this client's own agent binary when no packaged
+	// tools match the archive, so recovery requires this client to be the
+	// exact archived agent version, build number included.
+	if err := info.CheckAgentVersion(jujuversion.Current); err != nil {
+		return errors.Capture(err)
+	}
 	params, err := recoveryParamsFromArchive(info)
 	if err != nil {
 		return errors.Capture(err)
 	}
+	if !names.IsValidMachine(info.MachineName) {
+		return errors.New("archive does not record a usable controller machine")
+	}
+	params.MachineID = info.MachineName
 
 	credentials, err := recoveryCredentials(ctx, store, info)
 	if err != nil {
@@ -58,6 +86,20 @@ func provisionRecovery(
 	}
 
 	controllerConfig, modelConfig, err := recoveryConfigs(ctx, info, credentials.provider)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	keyFiles := jujusshtools.PrivateKeyFiles()
+	if len(keyFiles) == 0 {
+		return errors.New("no Juju SSH keys available for recovery")
+	}
+	sort.Strings(keyFiles)
+	authorizedKeys, err := jujussh.PublicKeysForPrivateKeyFiles(keyFiles)
+	if err != nil {
+		return errors.Errorf("reading Juju recovery SSH key: %w", err)
+	}
+	adminPassword, err := password.RandomPassword()
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -85,14 +127,24 @@ func provisionRecovery(
 	params.Cloud = credentials.cloud
 	params.CloudRegion = credentials.spec.Region
 	params.CloudCredential = credentials.spec.Credential
+	params.CloudCredentialName = credentials.credentialName
 	params.ControllerConfig = controllerConfig
+	params.CAPrivateKey = info.CAPrivateKey
+	params.AdminSecret = adminPassword
+	params.BootstrapSSHAuthorizedKeys = authorizedKeys
+	params.DialOpts = environs.BootstrapDialOpts{
+		Timeout:        recoveryAllocationTimeout,
+		IdentityFiles:  keyFiles,
+		RetryDelay:     recoveryDialRetryDelay,
+		AddressesDelay: recoveryDialAddressesDelay,
+	}
+	params.BuildAgentTarball = sync.BuildAgentTarball
 	started, err := bootstrap.Recover(provisionCtx, environ, params)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	// TODO(recovery): return success once finalisation and registration finish.
 	return errors.Errorf(
-		"controller recovery initialisation is not available in this build; provisioned replacement instance %s",
+		"controller recovery database import is not available in this build; started replacement agent on instance %s",
 		started,
 	)
 }
@@ -144,8 +196,9 @@ func cloneStoragePools(pools map[string]internalstorage.Attrs) map[string]intern
 }
 
 type recoveryTarget struct {
-	cloud jujucloud.Cloud
-	spec  cloudspec.CloudSpec
+	cloud          jujucloud.Cloud
+	spec           cloudspec.CloudSpec
+	credentialName string
 
 	// provider is the cloud's provider, kept so configuration building does
 	// not look it up a second time.
@@ -173,7 +226,7 @@ func recoveryCredentials(ctx *cmd.Context, store jujuclient.ClientStore, info *r
 		}
 		cloud = &finalized
 	}
-	credential, _, regionName, _, err := common.GetOrDetectCredential(
+	credential, credentialName, regionName, _, err := common.GetOrDetectCredential(
 		ctx, store, provider, modelcmd.GetCredentialsParams{
 			Cloud:       *cloud,
 			CloudRegion: info.CloudRegion,
@@ -199,7 +252,12 @@ func recoveryCredentials(ctx *cmd.Context, store jujuclient.ClientStore, info *r
 		return nil, errors.Capture(err)
 	}
 	spec.IsControllerCloud = true
-	return &recoveryTarget{cloud: *cloud, spec: spec, provider: provider}, nil
+	return &recoveryTarget{
+		cloud:          *cloud,
+		spec:           spec,
+		credentialName: credentialName,
+		provider:       provider,
+	}, nil
 }
 
 // recoveryConfigs builds the controller and controller model configuration the
