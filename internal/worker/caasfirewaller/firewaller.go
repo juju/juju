@@ -100,6 +100,9 @@ func (p *firewaller) loop() error {
 				)
 			}
 			if err := p.updateControllerServiceSSHPort(ctx); err != nil {
+				p.logger.Errorf(ctx,
+					"keeping controller service ssh port in step with the ssh server port: %v", err,
+				)
 				return err
 			}
 
