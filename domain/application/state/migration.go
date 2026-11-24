@@ -312,32 +312,38 @@ func (st *State) GetApplicationUnitSequence(ctx context.Context, appName string)
 	}
 	type importedUnitSequence struct {
 		Namespace string `db:"namespace"`
-		Value     uint64 `db:"value"`
+	}
+	type importedUnitSequenceResult struct {
+		Value uint64 `db:"value"`
 	}
 	arg := importedUnitSequence{
 		Namespace: domainsequence.MakePrefixNamespace(application.ApplicationSequenceNamespace, appName).String(),
 	}
 	stmt, err := st.Prepare(`
-SELECT s.value AS &importedUnitSequence.value
+SELECT s.value AS &importedUnitSequenceResult.value
 FROM sequence AS s
 WHERE s.namespace = $importedUnitSequence.namespace
 `, arg)
 	if err != nil {
 		return 0, false, errors.Capture(err)
 	}
-	var found bool
+	var (
+		found bool
+		value uint64
+	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		found = false
-		arg.Value = 0
-		if err := tx.Query(ctx, stmt, arg).Get(&arg); errors.Is(err, sqlair.ErrNoRows) {
+		var res importedUnitSequenceResult
+		if err := tx.Query(ctx, stmt, arg).Get(&res); errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		} else if err != nil {
 			return errors.Capture(err)
 		}
 		found = true
+		value = res.Value
 		return nil
 	})
-	return arg.Value, found, errors.Capture(err)
+	return value, found, errors.Capture(err)
 }
 
 // EnsureApplicationUnitSequenceAtLeast preserves the highest ordinal seen in

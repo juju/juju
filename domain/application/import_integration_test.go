@@ -874,6 +874,7 @@ func (s *importSuite) TestCAASApplication(c *tc.C) {
 	var names []string
 	var highWater int
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		names = nil
 		rows, err := tx.QueryContext(ctx, `SELECT name FROM unit ORDER BY name`)
 		if err != nil {
 			return err
