@@ -54,7 +54,7 @@ many units to remove, not the number to keep. You cannot choose which units to
 remove by name.
 
 Removing all units does not remove the application itself. Use
-juju remove-application to remove the application.
+`juju remove-application` to remove the application.
 
 On a machine model, removing the last unit on a machine can also remove the
 machine.

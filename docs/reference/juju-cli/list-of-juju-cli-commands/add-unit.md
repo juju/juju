@@ -66,7 +66,7 @@ Add a unit of mysql to LXD container on a new machine:
 ## Details
 Use this command to add units on machine and Kubernetes models.
 The -n option specifies how many units to add, not the desired total.
-On Kubernetes, use scale-application to set the desired total.
+On Kubernetes, use `juju scale-application` to set the desired total.
 
 Note: Some charms will seamlessly support horizontal scaling while others may need
 an additional application support (e.g. a separate load balancer). See the

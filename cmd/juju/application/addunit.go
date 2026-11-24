@@ -26,10 +26,10 @@ import (
 
 var usageAddUnitSummary = `Adds one or more units to a deployed application.`
 
-var usageAddUnitDetails = `
+var usageAddUnitDetails = (`
 Use this command to add units on machine and Kubernetes models.
 The -n option specifies how many units to add, not the desired total.
-On Kubernetes, use scale-application to set the desired total.
+On Kubernetes, use ` + "`juju scale-application`" + ` to set the desired total.
 
 Note: Some charms will seamlessly support horizontal scaling while others may need
 an additional application support (e.g. a separate load balancer). See the
@@ -40,7 +40,7 @@ Further reading:
 - https://canonical.com/juju/docs/juju-cli/latest/reference/unit/
 - https://canonical.com/juju/docs/juju-cli/latest/reference/placement-directive/
 
-`[1:]
+`)[1:]
 
 const usageAddUnitExamples = `
 Add two units to an application on Kubernetes:
