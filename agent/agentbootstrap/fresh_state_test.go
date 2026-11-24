@@ -63,15 +63,29 @@ func (s *freshStateSuite) TestPreparationDoesNotChangeConfigOrState(c *tc.C) {
 }
 
 func (s *freshStateSuite) TestFreshIAASState(c *tc.C) {
-	s.assertFreshState(c, "lxd", coremodel.IAAS)
+	s.assertFreshState(c, "lxd", coremodel.IAAS, "", "admin")
 }
 
 func (s *freshStateSuite) TestFreshK8sState(c *tc.C) {
-	s.assertFreshState(c, cloud.CloudTypeKubernetes, coremodel.CAAS)
+	s.assertFreshState(c, cloud.CloudTypeKubernetes, coremodel.CAAS, "", "admin")
 }
 
-func (s *freshStateSuite) assertFreshState(c *tc.C, cloudType string, modelType coremodel.ModelType) {
+func (s *freshStateSuite) TestFreshIAASStateControllerModelQualifier(c *tc.C) {
+	s.assertFreshState(c, "lxd", coremodel.IAAS, "prod7@jaas", "prod7@jaas")
+}
+
+func (s *freshStateSuite) TestFreshK8sStateControllerModelQualifier(c *tc.C) {
+	s.assertFreshState(c, cloud.CloudTypeKubernetes, coremodel.CAAS, "prod7@jaas", "prod7@jaas")
+}
+
+func (s *freshStateSuite) assertFreshState(
+	c *tc.C,
+	cloudType string,
+	modelType coremodel.ModelType,
+	qualifier, expectedQualifier coremodel.Qualifier,
+) {
 	b, cfg := s.newBootstrap(c, cloudType)
+	b.stateInitialisationParams.ControllerModelQualifier = qualifier
 	info, ok := cfg.ControllerAgentInfo()
 	c.Assert(ok, tc.IsTrue)
 	b.bootstrapDqlite = func(ctx context.Context, _ database.BootstrapNodeManager, _ string, modelUUID coremodel.UUID, _ corelogger.Logger, ops ...database.BootstrapOpt) error {
@@ -111,6 +125,23 @@ func (s *freshStateSuite) assertFreshState(c *tc.C, cloudType string, modelType 
 	c.Check(privateKey, tc.Equals, info.PrivateKey)
 	c.Check(caPrivateKey, tc.Equals, info.CAPrivateKey)
 	c.Check(systemIdentity, tc.Equals, info.SystemIdentity)
+
+	// The controller model is created with the expected qualifier, and its
+	// cloud is recognised as the controller cloud regardless of qualifier.
+	var gotQualifier string
+	err = s.DB().QueryRow(
+		"SELECT qualifier FROM model WHERE uuid = ?",
+		b.stateInitialisationParams.ControllerModelConfig.UUID(),
+	).Scan(&gotQualifier)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotQualifier, tc.Equals, expectedQualifier.String())
+
+	var isControllerCloud bool
+	err = s.DB().QueryRow(
+		"SELECT is_controller_cloud FROM v_cloud WHERE name = 'test-cloud'",
+	).Scan(&isControllerCloud)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isControllerCloud, tc.IsTrue)
 
 	var hash string
 	var salt []byte

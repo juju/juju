@@ -404,6 +404,10 @@ type StateInitializationParams struct {
 	// setup then runs recover-state and writes the recovery marker instead of
 	// running a fresh bootstrap.
 	RecoveryMode bool
+
+	// ControllerModelQualifier, if set, is the qualifier used for the
+	// controller model. If empty, the admin user name is used.
+	ControllerModelQualifier model.Qualifier
 }
 
 type stateInitializationParamsInternal struct {
@@ -430,6 +434,7 @@ type stateInitializationParamsInternal struct {
 	ControllerCharmChannel                  charm.Channel                     `yaml:"controller-charm-channel,omitempty"`
 	SSHServerHostKey                        string                            `yaml:"ssh-server-host-key,omitempty"`
 	RecoveryMode                            bool                              `yaml:"recovery-mode,omitempty"`
+	ControllerModelQualifier                string                            `yaml:"controller-model-qualifier,omitempty"`
 }
 
 // Marshal marshals StateInitializationParams to an opaque byte array.
@@ -466,6 +471,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		ControllerCharmChannel:                  p.ControllerCharmChannel,
 		SSHServerHostKey:                        p.SSHServerHostKey,
 		RecoveryMode:                            p.RecoveryMode,
+		ControllerModelQualifier:                p.ControllerModelQualifier.String(),
 	}
 	return yaml.Marshal(&internal)
 }
@@ -517,6 +523,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		ControllerCharmChannel:                  internal.ControllerCharmChannel,
 		SSHServerHostKey:                        internal.SSHServerHostKey,
 		RecoveryMode:                            internal.RecoveryMode,
+		ControllerModelQualifier:                model.Qualifier(internal.ControllerModelQualifier),
 	}
 	return nil
 }

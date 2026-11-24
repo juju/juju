@@ -85,6 +85,7 @@ type upgradeControllerCommand struct {
 	modelConfigAPI   ModelConfigAPI
 	modelUpgraderAPI ModelUpgraderAPI
 
+	controllerModelName    string
 	controllerModelDetails *jujuclient.ModelDetails
 }
 
@@ -159,7 +160,11 @@ func (c *upgradeControllerCommand) getModelConfigAPI(ctx context.Context) (Model
 
 func (c *upgradeControllerCommand) apiRootFuncForController() newModelUpgraderRootFunc {
 	return func(ctx context.Context) (api.Connection, error) {
-		return c.NewModelAPIRoot(ctx, bootstrap.ControllerModelName)
+		modelName := c.controllerModelName
+		if modelName == "" {
+			modelName = bootstrap.ControllerModelName
+		}
+		return c.NewModelAPIRoot(ctx, modelName)
 	}
 }
 
@@ -195,9 +200,7 @@ func (c *upgradeControllerCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Errorf("upgrade not possible missing"+
 			" permissions, current level %q, need: %q", accDetails.LastKnownAccess, permission.SuperuserAccess)
 	}
-	controllerModel := jujuclient.QualifyModelName(
-		environs.AdminUser, bootstrap.ControllerModelName)
-	c.controllerModelDetails, err = store.ModelByName(controllerName, controllerModel)
+	c.controllerModelName, c.controllerModelDetails, err = controllerModelFromStore(store, controllerName)
 	if err != nil {
 		return errors.Annotatef(err, "cannot get controller model")
 	}
@@ -209,6 +212,41 @@ func (c *upgradeControllerCommand) Run(ctx *cmd.Context) (err error) {
 		}
 	}
 	return c.upgradeController(ctx, c.timeout, c.controllerModelDetails.ModelType)
+}
+
+// controllerModelFromStore returns the qualified name and details of the
+// controller model for the named controller from the client store.
+//
+// The controller model is not necessarily qualified by the admin user (see
+// bootstrap --controller-qualifier), so it is found by the controller model
+// UUID recorded in the bootstrap config when available. Otherwise, the
+// conventional admin qualified controller model name is used.
+func controllerModelFromStore(
+	store jujuclient.ClientStore, controllerName string,
+) (string, *jujuclient.ModelDetails, error) {
+	bootstrapConfig, err := store.BootstrapConfigForController(controllerName)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return "", nil, errors.Trace(err)
+	}
+	if err == nil && bootstrapConfig.ControllerModelUUID != "" {
+		models, err := store.AllModels(controllerName)
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return "", nil, errors.Trace(err)
+		}
+		for name, details := range models {
+			if details.ModelUUID == bootstrapConfig.ControllerModelUUID {
+				return name, &details, nil
+			}
+		}
+	}
+
+	modelName := jujuclient.QualifyModelName(
+		environs.AdminUser, bootstrap.ControllerModelName)
+	details, err := store.ModelByName(controllerName, modelName)
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	return modelName, details, nil
 }
 
 func (c *upgradeControllerCommand) uploadTools(

@@ -2291,6 +2291,151 @@ func (s *BootstrapSuite) TestBootstrapWithLocalControllerCharm(c *tc.C) {
 	c.Assert(gotArgs.ControllerCharmPath, tc.DeepEquals, controllerCharmPath)
 }
 
+// testLoginTokenRefreshURLConfig is the --config value required alongside
+// --controller-qualifier.
+const testLoginTokenRefreshURLConfig = "login-token-refresh-url=https://jimm.example.com/.well-known/jwks.json"
+
+func (s *BootstrapSuite) TestBootstrapControllerQualifierParams(c *tc.C) {
+	var (
+		gotArgs             bootstrap.BootstrapParams
+		gotControllerModel  *jujuclient.ModelDetails
+		gotControllerModelE error
+	)
+	bootstrapFuncs := &fakeBootstrapFuncs{
+		bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, args bootstrap.BootstrapParams) error {
+			gotArgs = args
+			// The client store is written by prepare, before bootstrap.
+			gotControllerModel, gotControllerModelE = s.store.ModelByName(
+				"devcontroller", "devcontroller@jaas/controller",
+			)
+			return errors.New("test error")
+		},
+	}
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return bootstrapFuncs
+	})
+
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller", "--controller-qualifier",
+		"--config", testLoginTokenRefreshURLConfig,
+	)
+	c.Assert(err, tc.Equals, cmd.ErrSilent)
+	c.Check(gotArgs.ControllerModelQualifier, tc.Equals, model.Qualifier("devcontroller@jaas"))
+	c.Assert(gotControllerModelE, tc.ErrorIsNil)
+	c.Check(utils.IsValidUUIDString(gotControllerModel.ModelUUID), tc.IsTrue)
+}
+
+func (s *BootstrapSuite) TestBootstrapNoControllerQualifierParams(c *tc.C) {
+	var (
+		gotArgs             bootstrap.BootstrapParams
+		gotControllerModelE error
+	)
+	bootstrapFuncs := &fakeBootstrapFuncs{
+		bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, args bootstrap.BootstrapParams) error {
+			gotArgs = args
+			_, gotControllerModelE = s.store.ModelByName(
+				"devcontroller", "admin/controller",
+			)
+			return errors.New("test error")
+		},
+	}
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return bootstrapFuncs
+	})
+
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+	)
+	c.Assert(err, tc.Equals, cmd.ErrSilent)
+	c.Check(gotArgs.ControllerModelQualifier, tc.Equals, model.Qualifier(""))
+	c.Check(gotControllerModelE, tc.ErrorIsNil)
+}
+
+func (s *BootstrapSuite) TestBootstrapControllerQualifierInvalidControllerName(c *tc.C) {
+	// "a" is a valid controller name, but "a@jaas" is not a valid qualifier.
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "a", "--controller-qualifier",
+	)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorMatches, `controller name "a" for use with --controller-qualifier not valid`)
+}
+
+func (s *BootstrapSuite) TestBootstrapControllerQualifierRequiresLoginTokenRefreshURL(c *tc.C) {
+	bootstrapFuncs := &fakeBootstrapFuncs{
+		bootstrapF: func(environs.BootstrapContext, environs.BootstrapEnviron, bootstrap.BootstrapParams) error {
+			c.Fatal("bootstrap must not be called")
+			return nil
+		},
+	}
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return bootstrapFuncs
+	})
+
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller", "--controller-qualifier",
+	)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorMatches, `--controller-qualifier requires "login-token-refresh-url" to be set via --config`)
+
+	// Nothing is written to the client store.
+	_, err = s.store.ControllerByName("devcontroller")
+	c.Check(err, tc.ErrorIs, errors.NotFound)
+}
+
+func (s *BootstrapSuite) TestBootstrapControllerQualifier(c *tc.C) {
+	s.setupAutoUploadTest(c, "1.0.0", "jammy")
+
+	var (
+		gotModelName string
+		gotQualifier string
+	)
+	s.PatchValue(
+		&waitForAgentInitialisation,
+		func(_ environs.BootstrapContext,
+			mcb *modelcmd.ModelCommandBase,
+			_ bool,
+			_ string,
+			_ func(context.Context, *modelcmd.ModelCommandBase) error,
+		) error {
+			var err error
+			gotModelName, gotQualifier, err = mcb.ModelNameWithQualifier()
+			return err
+		},
+	)
+
+	opc, errc := runCommandWithDummyProvider(cmdtesting.Context(c), s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--config", "default-base=ubuntu@22.04",
+		"--config", testLoginTokenRefreshURLConfig,
+		"--controller-qualifier",
+	)
+	var err error
+	select {
+	case err = <-errc:
+	case <-c.Context().Done():
+		c.Fatal("timed out")
+	}
+	for range opc {
+	}
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The model the bootstrap command waits on is the qualified controller
+	// model.
+	c.Check(gotModelName, tc.Equals, bootstrap.ControllerModelName)
+	c.Check(gotQualifier, tc.Equals, "devcontroller@jaas")
+
+	controllerModel, err := s.store.ModelByName("devcontroller", "devcontroller@jaas/controller")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(utils.IsValidUUIDString(controllerModel.ModelUUID), tc.IsTrue)
+
+	bootstrapConfig, err := s.store.BootstrapConfigForController("devcontroller")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(bootstrapConfig.ControllerModelUUID, tc.Equals, controllerModel.ModelUUID)
+
+	_, err = s.store.ModelByName("devcontroller", "admin/controller")
+	c.Check(err, tc.ErrorIs, errors.NotFound)
+}
+
 func (s *BootstrapSuite) TestBootstrapWithLocalControllerCharmFailsWithWrongCharm(c *tc.C) {
 	tmpDir := c.MkDir()
 	controllerCharmDir := testcharms.Repo.CharmDir("mysql")

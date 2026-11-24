@@ -25,6 +25,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	coremodel "github.com/juju/juju/core/model"
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/semversion"
@@ -422,9 +423,11 @@ func (s *bootstrapSuite) assertFinalizePodBootstrapConfig(c *tc.C, serviceType, 
 		ControllerExternalName:     externalName,
 		ControllerExternalIPs:      externalIps,
 		ExtraAgentValuesForTesting: map[string]string{"foo": "bar"},
+		ControllerModelQualifier:   "prod7@jaas",
 	}
 	err = bootstrap.FinalizePodBootstrapConfig(envtesting.BootstrapTestContext(c), podConfig, params, modelCfg)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(podConfig.Bootstrap.ControllerModelQualifier, tc.Equals, coremodel.Qualifier("prod7@jaas"))
 	c.Assert(podConfig.Bootstrap.ControllerModelConfig, tc.DeepEquals, modelCfg)
 	c.Assert(podConfig.Bootstrap.ControllerServiceType, tc.Equals, serviceType)
 	c.Assert(podConfig.Bootstrap.ControllerExternalName, tc.Equals, externalName)
@@ -1650,6 +1653,38 @@ func (s *bootstrapSuite) TestBootstrapControllerCharmChannel(c *tc.C) {
 		})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env.instanceConfig.Bootstrap.ControllerCharmChannel, tc.Equals, ch)
+}
+
+func (s *bootstrapSuite) TestBootstrapControllerModelQualifier(c *tc.C) {
+	env := newEnviron("foo", useDefaultKeys, nil)
+	ctx := cmdtesting.Context(c)
+	err := bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), ctx), env,
+		bootstrap.BootstrapParams{
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			SSHServerHostKey:         coretesting.SSHServerHostKey,
+			SupportedBootstrapBases:  supportedJujuBases,
+			ControllerModelQualifier: "prod7@jaas",
+		})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(env.instanceConfig.Bootstrap.ControllerModelQualifier, tc.Equals, coremodel.Qualifier("prod7@jaas"))
+}
+
+func (s *bootstrapSuite) TestBootstrapInvalidControllerModelQualifier(c *tc.C) {
+	env := newEnviron("foo", useDefaultKeys, nil)
+	ctx := cmdtesting.Context(c)
+	err := bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), ctx), env,
+		bootstrap.BootstrapParams{
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			SSHServerHostKey:         coretesting.SSHServerHostKey,
+			SupportedBootstrapBases:  supportedJujuBases,
+			ControllerModelQualifier: "not/valid",
+		})
+	c.Assert(err, tc.ErrorMatches, `.*controller model qualifier "not/valid" not valid`)
+	c.Check(env.bootstrapCount, tc.Equals, 0)
 }
 
 // createImageMetadata creates some image metadata in a local directory.

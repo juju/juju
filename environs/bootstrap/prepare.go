@@ -57,6 +57,10 @@ type PrepareParams struct {
 
 	// AdminSecret contains the password for the admin user.
 	AdminSecret string
+
+	// ControllerModelQualifier, if set, is the qualifier used for the
+	// controller model in the client store instead of the admin user.
+	ControllerModelQualifier model.Qualifier
 }
 
 // Validate validates the PrepareParams.
@@ -119,7 +123,10 @@ func PrepareController(
 	if isCAASController {
 		details.ModelType = model.CAAS
 	}
-	if err := decorateAndWriteInfo(store, details, args.ControllerName, cfg.Name()); err != nil {
+	if err := decorateAndWriteInfo(
+		store, details, args.ControllerName, cfg.Name(),
+		args.ControllerModelQualifier,
+	); err != nil {
 		return nil, errors.Annotatef(err, "cannot create controller %q info", args.ControllerName)
 	}
 	return env, nil
@@ -156,15 +163,19 @@ func OpenController(
 
 // decorateAndWriteInfo decorates the info struct with information
 // from the given cfg, and the writes that out to the filesystem.
+// The controller model is qualified with modelQualifier if set, otherwise
+// with the account user.
 func decorateAndWriteInfo(
 	store jujuclient.ClientStore,
 	details prepareDetails,
 	controllerName, modelName string,
+	modelQualifier model.Qualifier,
 ) error {
-	qualifiedModelName := jujuclient.QualifyModelName(
-		details.AccountDetails.User,
-		modelName,
-	)
+	qualifier := details.AccountDetails.User
+	if modelQualifier != "" {
+		qualifier = modelQualifier.String()
+	}
+	qualifiedModelName := jujuclient.QualifyModelName(qualifier, modelName)
 	if err := store.AddController(controllerName, details.ControllerDetails); err != nil {
 		return errors.Trace(err)
 	}

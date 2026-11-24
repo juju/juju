@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	corecontext "github.com/juju/juju/core/context"
 	"github.com/juju/juju/core/instance"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/deployment/charm"
@@ -224,6 +225,10 @@ type BootstrapParams struct {
 	// ControllerCharmChannel is used when fetching the charmhub controller charm.
 	ControllerCharmChannel charm.Channel
 
+	// ControllerModelQualifier, if set, is the qualifier used for the
+	// controller model instead of the admin user.
+	ControllerModelQualifier coremodel.Qualifier
+
 	// ExtraAgentValuesForTesting are testing only values written to the agent config file.
 	ExtraAgentValuesForTesting map[string]string
 }
@@ -241,6 +246,11 @@ func (p BootstrapParams) Validate() error {
 	}
 	if err := p.AllocationParams.validateSupportedBases(); err != nil {
 		return err
+	}
+	if p.ControllerModelQualifier != "" {
+		if err := p.ControllerModelQualifier.Validate(); err != nil {
+			return errors.NotValidf("controller model qualifier %q", p.ControllerModelQualifier)
+		}
 	}
 
 	// TODO(axw) validate other things.
@@ -919,6 +929,7 @@ func finalizeInstanceBootstrapConfig(
 	icfg.Bootstrap.Timeout = args.DialOpts.Timeout
 	icfg.Bootstrap.ControllerCharm = args.ControllerCharmPath
 	icfg.Bootstrap.ControllerCharmChannel = args.ControllerCharmChannel
+	icfg.Bootstrap.ControllerModelQualifier = args.ControllerModelQualifier
 	return nil
 }
 
@@ -994,6 +1005,7 @@ func finalizePodBootstrapConfig(
 	pcfg.Bootstrap.ControllerCharmPath = args.ControllerCharmPath
 	pcfg.Bootstrap.ControllerCharmChannel = args.ControllerCharmChannel
 	pcfg.Bootstrap.SSHServerHostKey = args.SSHServerHostKey
+	pcfg.Bootstrap.ControllerModelQualifier = args.ControllerModelQualifier
 	return nil
 }
 

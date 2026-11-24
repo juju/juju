@@ -218,10 +218,17 @@ func (b *AgentBootstrap) prepareFreshState(
 		b.clock.Now().UTC(),
 	)
 
+	// The controller model is qualified by the admin user unless an explicit
+	// qualifier was requested at bootstrap (e.g. for exposing via JAAS).
+	controllerModelQualifier := coremodel.QualifierFromUserTag(b.adminUser)
+	if stateParams.ControllerModelQualifier != "" {
+		controllerModelQualifier = stateParams.ControllerModelQualifier
+	}
+
 	controllerModelArgs := modeldomain.GlobalModelCreationArgs{
 		Name:        stateParams.ControllerModelConfig.Name(),
 		AdminUsers:  []user.UUID{adminUserUUID},
-		Qualifier:   coremodel.QualifierFromUserTag(b.adminUser),
+		Qualifier:   controllerModelQualifier,
 		Cloud:       stateParams.ControllerCloud.Name,
 		CloudRegion: stateParams.ControllerCloudRegion,
 		Credential:  credential.KeyFromTag(cloudCredTag),
