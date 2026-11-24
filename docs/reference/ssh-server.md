@@ -27,7 +27,7 @@ In Juju, the SSH server is a jump server that runs on each {ref}`controller <con
 ```{ggarch}
 :file: ../juju.ggarch
 :view: SSH proxy connections
-:caption: The client opens one network connection to the jump server. The jump server forwards the client's inner SSH stream through a channel of the outer tunnel to the target SSH server on the same controller. That server proxies the session to the machine or unit.
+:caption: The client opens one network connection to the jump server. The jump server forwards the client's inner SSH stream through the outer tunnel to the target SSH server on the same controller. Both SSH connections end at the controller, so it can read the session contents before forwarding them to the machine or unit.
 :alt: The client connects to the jump server, which presents the controller host key. Inside the controller, the jump server forwards the inner SSH stream to the target SSH server, which presents the destination's virtual host key and proxies the session to the machine or unit.
 ```
 
