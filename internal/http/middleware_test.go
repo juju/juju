@@ -4,8 +4,10 @@ package http
 
 import (
 	"context"
+	"io"
 	"net"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -457,4 +459,162 @@ func (s *RetrySuite) TestRetryRequiredContextKilled(c *tc.C) {
 
 	_, err = middleware.RoundTrip(req) //nolint:bodyclose
 	c.Assert(err, tc.ErrorMatches, `context canceled`)
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+// trackedBody is a response body that records whether it was closed.
+type trackedBody struct {
+	io.Reader
+	closed bool
+}
+
+func (b *trackedBody) Close() error {
+	b.closed = true
+	return nil
+}
+
+// retryClock returns a clock whose backoff waits return immediately.
+func retryClock(ctrl *gomock.Controller) *MockClock {
+	ch := make(chan time.Time)
+	close(ch)
+	clock := NewMockClock(ctrl)
+	clock.EXPECT().Now().Return(time.Now()).AnyTimes()
+	clock.EXPECT().After(gomock.Any()).Return(ch).AnyTimes()
+	return clock
+}
+
+// TestRetryResendsRequestBody checks that a retried request sends the full
+// body again, instead of the body already consumed by the first attempt,
+// and that the discarded response is closed.
+func (s *RetrySuite) TestRetryResendsRequestBody(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	req, err := http.NewRequestWithContext(c.Context(), "POST", "http://meshuggah.rocks", strings.NewReader("payload"))
+	c.Assert(err, tc.ErrorIsNil)
+
+	var bodies []string
+	discarded := &trackedBody{Reader: strings.NewReader("unavailable")}
+	transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		body, err := io.ReadAll(r.Body)
+		c.Assert(err, tc.ErrorIsNil)
+		bodies = append(bodies, string(body))
+		if len(bodies) == 1 {
+			return &http.Response{StatusCode: http.StatusServiceUnavailable, Body: discarded}, nil
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody}, nil
+	})
+
+	middleware := makeRetryMiddleware(transport, RetryPolicy{
+		Attempts: 3,
+		Delay:    time.Second,
+		MaxDelay: time.Minute,
+	}, retryClock(ctrl), loggertesting.WrapCheckLog(c))
+
+	resp, err := middleware.RoundTrip(req) //nolint:bodyclose
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(resp.StatusCode, tc.Equals, http.StatusOK)
+	c.Check(bodies, tc.DeepEquals, []string{"payload", "payload"})
+	c.Check(discarded.closed, tc.IsTrue)
+}
+
+// TestRetryExceededClosesResponses checks that when every attempt is
+// retryable, no response is returned with the error and every response body
+// is closed, because http.Client would drop them unclosed.
+func (s *RetrySuite) TestRetryExceededClosesResponses(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	req, err := http.NewRequestWithContext(c.Context(), "POST", "http://meshuggah.rocks", strings.NewReader("payload"))
+	c.Assert(err, tc.ErrorIsNil)
+
+	var bodies []*trackedBody
+	transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		body := &trackedBody{Reader: strings.NewReader("unavailable")}
+		bodies = append(bodies, body)
+		return &http.Response{StatusCode: http.StatusServiceUnavailable, Body: body}, nil
+	})
+
+	middleware := makeRetryMiddleware(transport, RetryPolicy{
+		Attempts: 3,
+		Delay:    time.Second,
+		MaxDelay: time.Minute,
+	}, retryClock(ctrl), loggertesting.WrapCheckLog(c))
+
+	resp, err := middleware.RoundTrip(req) //nolint:bodyclose
+	c.Check(err, tc.ErrorMatches, `attempt count exceeded: retryable error`)
+	c.Check(resp, tc.IsNil)
+	c.Assert(bodies, tc.HasLen, 3)
+	for i, body := range bodies {
+		c.Check(body.closed, tc.IsTrue, tc.Commentf("response %d", i))
+	}
+}
+
+// TestRetryRewindBodyError checks that a failure to re-read the request body
+// stops the retries with that error, and closes the discarded response.
+func (s *RetrySuite) TestRetryRewindBodyError(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	req, err := http.NewRequestWithContext(c.Context(), "POST", "http://meshuggah.rocks", strings.NewReader("payload"))
+	c.Assert(err, tc.ErrorIsNil)
+	req.GetBody = func() (io.ReadCloser, error) {
+		return nil, errors.New("boom")
+	}
+
+	var calls int
+	discarded := &trackedBody{Reader: strings.NewReader("unavailable")}
+	transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		return &http.Response{StatusCode: http.StatusServiceUnavailable, Body: discarded}, nil
+	})
+
+	middleware := makeRetryMiddleware(transport, RetryPolicy{
+		Attempts: 3,
+		Delay:    time.Second,
+		MaxDelay: time.Minute,
+	}, retryClock(ctrl), loggertesting.WrapCheckLog(c))
+
+	resp, err := middleware.RoundTrip(req) //nolint:bodyclose
+	c.Check(err, tc.ErrorMatches, `rewinding request body for retry: boom`)
+	c.Check(resp, tc.IsNil)
+	c.Check(calls, tc.Equals, 1)
+	c.Check(discarded.closed, tc.IsTrue)
+}
+
+// TestRetryNotPossibleWithoutGetBody checks that a request whose body cannot
+// be re-read is sent once and its response returned, rather than retried
+// with an empty body.
+func (s *RetrySuite) TestRetryNotPossibleWithoutGetBody(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	req, err := http.NewRequestWithContext(c.Context(), "POST", "http://meshuggah.rocks", io.NopCloser(strings.NewReader("payload")))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(req.GetBody, tc.IsNil)
+
+	var calls int
+	transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		return &http.Response{StatusCode: http.StatusServiceUnavailable, Body: http.NoBody}, nil
+	})
+
+	clock := NewMockClock(ctrl)
+	clock.EXPECT().Now().Return(time.Now()).AnyTimes()
+
+	middleware := makeRetryMiddleware(transport, RetryPolicy{
+		Attempts: 3,
+		Delay:    time.Second,
+		MaxDelay: time.Minute,
+	}, clock, loggertesting.WrapCheckLog(c))
+
+	resp, err := middleware.RoundTrip(req) //nolint:bodyclose
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(resp.StatusCode, tc.Equals, http.StatusServiceUnavailable)
+	c.Check(calls, tc.Equals, 1)
 }

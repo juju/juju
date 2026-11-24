@@ -7,6 +7,7 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -214,7 +215,12 @@ func (m retryMiddleware) RoundTrip(req *http.Request) (*http.Response, error) {
 	var (
 		res        *http.Response
 		backOffErr error
+		attempt    int
 	)
+	// A request body can only be read once, so a retry needs a fresh copy
+	// from GetBody. Without one, the request is sent once and not retried.
+	hasBody := req.Body != nil && req.Body != http.NoBody
+	canRetry := !hasBody || req.GetBody != nil
 	err := retry.Call(retry.CallArgs{
 		Clock: m.clock,
 		Func: func() error {
@@ -225,13 +231,26 @@ func (m retryMiddleware) RoundTrip(req *http.Request) (*http.Response, error) {
 				return backOffErr
 			}
 
+			attemptReq := req
+			if attempt > 0 && hasBody {
+				var err error
+				if attemptReq, err = rewindRequest(req); err != nil {
+					return err
+				}
+			}
+			attempt++
+
 			var retryable bool
 			var err error
-			res, retryable, err = m.roundTrip(req) //nolint:bodyclose // Body closed by caller.
+			res, retryable, err = m.roundTrip(attemptReq) //nolint:bodyclose // Closed by discardBody or the caller.
 			if err != nil {
 				return err
 			}
-			if retryable {
+			if retryable && canRetry {
+				// This response is discarded, so close it now rather than
+				// holding the connection through the backoff. The backoff
+				// only reads its headers.
+				discardBody(res)
 				return retryableErr{}
 			}
 			return nil
@@ -249,8 +268,34 @@ func (m retryMiddleware) RoundTrip(req *http.Request) (*http.Response, error) {
 			return duration
 		},
 	})
+	if err != nil {
+		// http.Client ignores a response returned with an error, and its
+		// body has already been closed above.
+		return nil, err
+	}
+	return res, nil
+}
 
-	return res, err
+// discardBody drains a little of the response body, so the connection can be
+// reused, and closes it.
+func discardBody(res *http.Response) {
+	if res.Body == nil {
+		return
+	}
+	_, _ = io.CopyN(io.Discard, res.Body, 2<<10)
+	_ = res.Body.Close()
+}
+
+// rewindRequest returns a copy of req with a fresh body, so that a retry
+// does not send the body already consumed by the previous attempt.
+func rewindRequest(req *http.Request) (*http.Request, error) {
+	body, err := req.GetBody()
+	if err != nil {
+		return nil, errors.Annotate(err, "rewinding request body for retry")
+	}
+	rewound := req.Clone(req.Context())
+	rewound.Body = body
+	return rewound, nil
 }
 
 func (m retryMiddleware) roundTrip(req *http.Request) (*http.Response, bool, error) {
