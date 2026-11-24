@@ -19,6 +19,7 @@ test_relations() {
 	test_relation_list_app
 	test_relation_model_get
 	test_recursive_subordinate_units
+	test_container_scoped_membership
 
 	destroy_controller "test-relations"
 }

@@ -28,8 +28,9 @@ run_model_metrics() {
 	# Restarting the controller service causes the charmrevisioner worker to run.
 	juju ssh -m controller 0 -- sudo systemctl restart jujud-machine-0.service
 
-	echo "Sleep 45, give charmrevisioner time to kick off after controller jujud restart."
-	sleep 45
+	# Poll for up to 45s more than it takes the charmrevisioner to run
+	# after the controller agent restarts.
+	max_attempts=19
 
 	attempt=0
 	while true; do
@@ -40,8 +41,8 @@ run_model_metrics() {
 		fi
 		echo "${OUT}"
 		attempt=$((attempt + 1))
-		if [ $attempt -eq 10 ]; then
-			red "timeout: waiting for metrics in debug log 50sec"
+		if [ $attempt -eq "${max_attempts}" ]; then
+			red "timeout: waiting for metrics in debug log $((max_attempts * 5))s"
 			exit 5
 		fi
 		sleep 5
@@ -70,8 +71,9 @@ run_empty_model_metrics() {
 	# Restarting the controller service causes the charmrevisioner worker to run.
 	juju ssh -m controller 0 -- sudo systemctl restart jujud-machine-0.service
 
-	echo "Sleep 45, give charmrevisioner time to kick off after controller jujud restart."
-	sleep 45
+	# Poll for up to 45s more than it takes the charmrevisioner to run
+	# after the controller agent restarts.
+	max_attempts=19
 
 	attempt=0
 	while true; do
@@ -82,8 +84,8 @@ run_empty_model_metrics() {
 		fi
 		echo "${OUT}"
 		attempt=$((attempt + 1))
-		if [ $attempt -eq 10 ]; then
-			red "timeout: waiting for empty model metrics in debug log 50sec"
+		if [ $attempt -eq "${max_attempts}" ]; then
+			red "timeout: waiting for empty model metrics in debug log $((max_attempts * 5))s"
 			exit 5
 		fi
 		sleep 5
@@ -112,8 +114,9 @@ run_model_metrics_disabled() {
 	# Restarting the controller service causes the charmrevisioner worker to run.
 	juju ssh -m controller 0 -- sudo systemctl restart jujud-machine-0.service
 
-	echo "Sleep 120, give charmrevisioner time to kick off after controller jujud restart."
-	sleep 120
+	# Poll for up to 120s more than it takes the charmrevisioner to run
+	# after the controller agent restarts.
+	max_attempts=34
 
 	attempt=0
 	while true; do
@@ -123,8 +126,8 @@ run_model_metrics_disabled() {
 		fi
 		echo "${OUT}"
 		attempt=$((attempt + 1))
-		if [ $attempt -eq 10 ]; then
-			red "timeout: waiting for no model metrics in debug log 50sec"
+		if [ $attempt -eq "${max_attempts}" ]; then
+			red "timeout: waiting for no model metrics in debug log $((max_attempts * 5))s"
 			exit 5
 		fi
 		sleep 5

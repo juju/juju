@@ -6,8 +6,10 @@ package gce
 import (
 	"context"
 	"strconv"
+	"strings"
 	"time"
 
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
@@ -78,13 +80,16 @@ func (env *environ) getAllInstanceTypes(ctx context.Context, clock clock.Clock) 
 			return nil, env.HandleCredentialError(ctx, err)
 		}
 		for _, m := range machines {
+			machineArch, ok := machineTypeArch(ctx, m)
+			if !ok {
+				continue
+			}
 			i := instances.InstanceType{
 				Id:       strconv.FormatUint(m.GetId(), 10),
 				Name:     m.GetName(),
 				CpuCores: uint64(m.GetGuestCpus()),
 				Mem:      uint64(m.GetMemoryMb()),
-				// TODO: support arm64 once the API can report arch.
-				Arch:     arch.AMD64,
+				Arch:     machineArch,
 				VirtType: &virtType,
 			}
 			resultUnique[m.GetName()] = i
@@ -102,4 +107,29 @@ func (env *environ) getAllInstanceTypes(ctx context.Context, clock clock.Clock) 
 	// they are published by the GCE.
 	env.instCacheExpireAt = clock.Now().Add(10 * time.Minute)
 	return env.cachedInstanceTypes, nil
+}
+
+// machineTypeArch maps the architecture reported by the GCE API for a
+// machine type to a juju architecture.
+//
+// Unset values (empty or ARCHITECTURE_UNSPECIFIED) are treated as amd64.
+// This is deliberate: it preserves the historical behaviour where every
+// GCE machine type was assumed to be x86-64, so existing deployments keep
+// selecting the legacy families they always have.
+//
+// Like convertImageArch, this rejects unrecognised architectures: the caller
+// must exclude those types rather than pair them with an incompatible image.
+func machineTypeArch(ctx context.Context, m *computepb.MachineType) (string, bool) {
+	gceArch := m.GetArchitecture()
+	switch {
+	case strings.EqualFold(gceArch, computepb.MachineType_ARM64.String()):
+		return arch.ARM64, true
+	case gceArch == "",
+		strings.EqualFold(gceArch, computepb.MachineType_X86_64.String()),
+		strings.EqualFold(gceArch, computepb.MachineType_ARCHITECTURE_UNSPECIFIED.String()):
+		return arch.AMD64, true
+	default:
+		logger.Warningf(ctx, "excluding GCE machine type %q with unrecognised architecture %q", m.GetName(), gceArch)
+		return "", false
+	}
 }

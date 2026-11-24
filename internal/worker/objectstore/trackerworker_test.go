@@ -4,14 +4,16 @@
 package objectstore
 
 import (
-	context "context"
+	"context"
 	stdtesting "testing"
 
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -114,6 +116,107 @@ func (s *trackerWorkerSuite) TestWorkerDead(c *tc.C) {
 	case <-done:
 	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for worker to start")
+	}
+
+	err = workertest.CheckKilled(c, w)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *trackerWorkerSuite) TestWorkerWatchModelNotFoundRemovesObjects(c *tc.C) {
+	s.assertWatchModelGoneRemovesObjects(c, modelerrors.NotFound)
+}
+
+func (s *trackerWorkerSuite) TestWorkerWatchModelDBNotFoundRemovesObjects(c *tc.C) {
+	s.assertWatchModelGoneRemovesObjects(c, database.ErrDBNotFound)
+}
+
+func (s *trackerWorkerSuite) TestWorkerWatchModelDBDeadRemovesObjects(c *tc.C) {
+	s.assertWatchModelGoneRemovesObjects(c, database.ErrDBDead)
+}
+
+func (s *trackerWorkerSuite) TestWorkerDBNotFoundRemovesObjects(c *tc.C) {
+	s.assertDBGoneRemovesObjects(c, database.ErrDBNotFound)
+}
+
+func (s *trackerWorkerSuite) TestWorkerDBDeadRemovesObjects(c *tc.C) {
+	s.assertDBGoneRemovesObjects(c, database.ErrDBDead)
+}
+
+func (s *trackerWorkerSuite) TestWorkerModelReadError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := make(chan struct{})
+	s.modelService.EXPECT().WatchModel(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[struct{}], error) {
+		ch := make(chan struct{}, 1)
+		ch <- struct{}{}
+		return watchertest.NewMockNotifyWatcher(ch), nil
+	})
+	s.modelService.EXPECT().Model(gomock.Any()).DoAndReturn(func(ctx context.Context) (model.ModelInfo, error) {
+		defer close(done)
+		return model.ModelInfo{}, errors.New("boom")
+	})
+
+	w, err := s.newWorker()
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for model read")
+	}
+
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, tc.ErrorMatches, ".*reading model.*boom.*")
+}
+
+func (s *trackerWorkerSuite) assertDBGoneRemovesObjects(c *tc.C, dbErr error) {
+	defer s.setupMocks(c).Finish()
+
+	done := make(chan struct{})
+	s.modelService.EXPECT().WatchModel(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[struct{}], error) {
+		ch := make(chan struct{}, 1)
+		ch <- struct{}{}
+		return watchertest.NewMockNotifyWatcher(ch), nil
+	})
+	s.modelService.EXPECT().Model(gomock.Any()).Return(model.ModelInfo{}, dbErr)
+	s.trackedObjectStore.EXPECT().RemoveAll(gomock.Any()).DoAndReturn(func(ctx context.Context) error {
+		defer close(done)
+		return nil
+	})
+
+	w, err := s.newWorker()
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for objects to be removed")
+	}
+
+	err = workertest.CheckKilled(c, w)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *trackerWorkerSuite) assertWatchModelGoneRemovesObjects(c *tc.C, goneErr error) {
+	defer s.setupMocks(c).Finish()
+
+	done := make(chan struct{})
+	s.modelService.EXPECT().WatchModel(gomock.Any()).Return(nil, goneErr)
+	s.trackedObjectStore.EXPECT().RemoveAll(gomock.Any()).DoAndReturn(func(ctx context.Context) error {
+		defer close(done)
+		return nil
+	})
+
+	w, err := s.newWorker()
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for objects to be removed")
 	}
 
 	err = workertest.CheckKilled(c, w)
