@@ -118,7 +118,7 @@ func (s *dbreplInitSuite) TestInitInvalidControllerID(c *tc.C) {
 		`cannot read controller runtime configuration: validating controller runtime config ".*": controller ID "bogus" not valid`)
 }
 
-func (s *dbreplInitSuite) TestInitControllerIdFlagRemoved(c *tc.C) {
+func (s *dbreplInitSuite) TestInitControllerIDFlagRemoved(c *tc.C) {
 	dataDir := c.MkDir()
 	writeRuntimeConf(c, dataDir, "0")
 

@@ -241,8 +241,8 @@ func (c *initCommand) copyBinaries() error {
 // error reports every attempted source, so a broken layout (e.g.
 // neither the FHS nor the /opt path exists) is visible in one message.
 func (c *initCommand) copyFirstReadable(srcs []string, dst string) error {
-	// A caller must supply at least one candidate; fail loudly rather
-	// than succeeding without writing dst.
+	// A caller must supply at least one candidate. Without one, this
+	// function would return nil without writing dst.
 	if len(srcs) == 0 {
 		return errors.Errorf("no source paths to copy to %q", dst)
 	}

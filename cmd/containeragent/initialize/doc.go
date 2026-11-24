@@ -32,7 +32,6 @@
 // and /opt/pebble paths it needs are temporary fallbacks and will be
 // removed with it.
 //
-// The pod start-up scripts and the full set of image paths are owned by
-// github.com/juju/juju/caas, and the image layout itself is defined by
-// rocks/jujud-operator/rockcraft.yaml.
+// The image layout is defined by rocks/jujud-operator/rockcraft.yaml. The
+// pod start-up templates in caas and this command mirror the paths they need.
 package initialize

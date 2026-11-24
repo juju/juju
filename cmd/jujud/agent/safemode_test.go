@@ -126,7 +126,7 @@ func (s *safeModeInitSuite) TestInitInvalidControllerID(c *tc.C) {
 		`cannot read controller runtime config: validating controller runtime config ".*": controller ID "bogus" not valid`)
 }
 
-func (s *safeModeInitSuite) TestInitControllerIdFlagRemoved(c *tc.C) {
+func (s *safeModeInitSuite) TestInitControllerIDFlagRemoved(c *tc.C) {
 	dataDir := c.MkDir()
 	writeRuntimeConf(c, dataDir, "0")
 
