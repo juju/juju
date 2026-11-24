@@ -30,7 +30,20 @@ See also:
 - {ref}`JAAS | Bootstrap a controller for JIMM <jaas:add-a-juju-controller>`
 ```
 
-Bootstrapping sets up a new Juju controller on a cloud. Juju creates the `controller` model, deploys the {ref}`controller application <controller-application>` with one unit, and grants the initial user `admin` {ref}`controller superuser access <user-access-controller-superuser>`.
+(controller-charm)=
+(controller-application)=
+
+````{container}
+```{ggarch}
+:file: ../juju.ggarch
+:view: Controller application on one machine
+:caption: On a machine cloud, bootstrap creates the `controller` model, deploys the `controller` application with its initial unit, `controller/0`, and assigns the unit to a controller machine. The controller agent on that machine runs the API server and Dqlite in the same process.
+:alt: On the left, the controller model contains the controller application and its initial unit, controller/0. An arrow shows the unit's assignment to the controller machine on the right. The machine contains the controller agent, which contains the API server and Dqlite.
+```
+
+````
+
+Bootstrap creates a {ref}`model <model>` named `controller` and deploys an {ref}`application <application>` of the same name from the controller {ref}`charm <charm>`. The application starts with one {ref}`unit <unit>`, `controller/0`. Each unit corresponds to a controller node, whose {ref}`controller agent <controller-agent>` runs the API server and a [Dqlite](https://canonical.com/dqlite) database node in the same process. Bootstrap also grants the initial user `admin` {ref}`controller superuser access <user-access-controller-superuser>`.
 
 On a machine cloud, bootstrap provisions a machine for the controller. On Kubernetes, it creates a namespace named `controller-<controller name>`, a single-replica StatefulSet, and a Service that exposes the API and SSH ports. The default Service type depends on the provider.
 
@@ -38,30 +51,19 @@ On Kubernetes, bootstrap waits for the controller Service to have an address bef
 
 After a failed bootstrap, check whether cloud resources remain before retrying. On Kubernetes, a leftover controller namespace blocks a retry with the same name on the same cluster.
 
-(controller-nodes)=
-(controller-charm)=
-(controller-application)=
-### Controller application
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Controller application on one machine
-:caption: On a machine cloud, the `controller` model contains the `controller` application and its initial unit, `controller/0`. Juju assigns the unit to a controller machine. The controller agent on that machine runs the API server and Dqlite in the same process.
-:alt: On the left, the controller model contains the controller application and its initial unit, controller/0. An arrow shows the unit's assignment to the controller machine on the right. The machine contains the controller agent, which contains the API server and Dqlite.
-```
-
-The `controller` {ref}`model <model>` contains an {ref}`application <application>` also named `controller`. Juju deploys the application from the controller {ref}`charm <charm>` at {ref}`bootstrap <controller-bootstrap>`, with one {ref}`unit <unit>` named `controller/0`.
-
-Each unit of the `controller` application corresponds to a **controller node**. The node's {ref}`controller agent <controller-agent>` runs the API server and a [Dqlite](https://canonical.com/dqlite) database node in the same process. A controller node's ID is the number at the end of its unit name: `controller/0` has ID `0`.
-
 (controller-storage)=
 ### State and object storage
 
 The controller keeps deployment state in a {ref}`database <database>` and stores binary data separately in an object store. The object store initially saves its data as files in the `objectstore` directory under the controller agent's data directory. No controller configuration key selects the storage backend.
 
+(controller-nodes)=
+### Controller nodes
+
+Each unit of the {ref}`controller application <controller-application>` corresponds to a node of the same controller. The node's ID is the number at the end of its unit name: `controller/0` has ID `0`.
+
 (dqlite-cluster-of-the-controllers)=
 (controller-high-availability)=
-### Controller high availability
+#### Controller high availability
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -72,7 +74,7 @@ The controller keeps deployment state in a {ref}`database <database>` and stores
 
 With controller {ref}`high availability <high-availability>`, one Juju controller runs across multiple machines, with one controller node per machine. The nodes share one database cluster, reducing the risk that a machine failure takes the controller offline. Juju supports this topology only on {ref}`machine clouds <machine-cloud>`.
 
-Adding units to the {ref}`controller application <controller-application>` adds nodes to the same controller. The requested unit count does not tell you how many Dqlite nodes are running in the cluster.
+The requested unit count does not tell you how many Dqlite nodes are running in the cluster.
 
 To join the cluster, a Dqlite node needs the address it will listen on (its bind address) in the configuration the controller charm supplies. A Dqlite node listening only on its own machine (loopback) can switch to its cluster address when the configuration lists more than one member and includes that node's address.
 
