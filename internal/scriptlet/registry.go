@@ -11,6 +11,11 @@ import (
 	"github.com/canonical/starlark/starlark"
 )
 
+// RegisterEnv registers the common scriptlet environment features.
+func RegisterEnv(env *EnvRegistry) {
+	env.AddAppMethod(setStatusBuiltin)
+}
+
 // EnvRegistry holds declarations which define the scriptlet environment.
 // It is frozen by its first App call.
 type EnvRegistry struct {
