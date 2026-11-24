@@ -20,17 +20,13 @@ Units are also relevant when adding storage or scaling an application. See {ref}
 (add-a-unit)=
 ## Add a unit
 
-To add a unit, use the `add-unit` command followed by the application name:
-
-```{important}
-This is only true for machine deployments. For Kubernetes, see {ref}`control-the-number-of-units`.
-```
+On a machine or Kubernetes model, use `juju add-unit <application>` to add one unit to an existing application. Use `-n` to specify how many units to add, not the desired total. For example, to add two units:
 
 ```text
-juju add-unit mysql
+juju add-unit my-app -n 2
 ```
 
-By using various command options, you can also specify the number of units, the model, the kind of storage, the target machine (e.g., if you want to collocate multiple units of the same or of different applications on the same machine -- though watch out for potentials configuration clashes!), etc.
+On machine models, you can also use `--to` to choose a target machine or `--attach-storage` to attach an existing storage volume.
 
 ```{ibnote}
 See more: {ref}`command-juju-add-unit`
@@ -47,11 +43,13 @@ The procedure depends on whether you are on machines or rather Kubernetes.
 See more: {ref}`add-a-unit`, {ref}`remove-a-unit`
 ```
 
-**Kubernetes.** To control the number of an application's units in a Kubernetes deployment, run the `scale-application` command followed by the number of desired units (which can be both higher and lower than the current number).
+**Kubernetes.** Use `juju scale-application <application> <scale>` to set the desired total, whether it is higher or lower than the current count. This command is only available on Kubernetes models.
 
 ```text
 juju scale-application mediawiki 3
 ```
+
+To change the count by a specific amount instead, see {ref}`add-a-unit` or {ref}`remove-a-unit`.
 
 ```{ibnote}
 See more: {ref}`command-juju-scale-application`
@@ -127,11 +125,7 @@ See more: {ref}`command-juju-resolved`
 (remove-a-unit)=
 ## Remove a unit
 
-To remove individual units instead of the entire application (i.e. all the units), use the `remove-unit` command followed by the unit name. For example, the code below removes unit 2 of the PostgreSQL charm. For example:
-
-```{important}
-While this can be used for both machine and Kubernetes deployments, unless you care about which unit you're removing specifically, in Kubernetes you may also just run `juju scale-application <n>`, where `n` is less than the current number of units. See {ref}`control-the-number-of-units`.
-```
+**Machines.** Use `juju remove-unit` with the name of the unit you want to remove. For example, to remove unit 2 of `postgresql`:
 
 ```text
 juju remove-unit postgresql/2
@@ -155,6 +149,14 @@ juju remove-unit mediawiki/1 mediawiki/3 mediawiki/5 mysql/2
 To also destroy the storage attached to the units, add the `--destroy-storage` option.
 
 As a last resort, use the `--force` option.
+
+**Kubernetes.** You cannot remove a unit by name. Specify the application and use `--num-units` to set how many units to remove. For example, to remove one unit:
+
+```text
+juju remove-unit my-app --num-units 1
+```
+
+To set the desired total instead, see {ref}`control-the-number-of-units`.
 
 ```{ibnote}
 See more: {ref}`command-juju-remove-unit`, {ref}`removing-things`
