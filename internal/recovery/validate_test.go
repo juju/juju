@@ -21,10 +21,13 @@ import (
 	"github.com/juju/tc"
 
 	corebackups "github.com/juju/juju/core/backups"
+	"github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
+	corestorage "github.com/juju/juju/core/storage"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/recovery"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -39,6 +42,9 @@ func (s *validateSuite) TestValidateArchive(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(info.AgentVersion, tc.Equals, semversion.MustParse("4.1.0"))
+	c.Check(info.SourceBase, tc.Equals, "ubuntu@24.04/stable")
+	c.Check(info.SourceArch, tc.Equals, "amd64")
+	c.Check(info.MachineName, tc.Equals, "0")
 	c.Check(info.ControllerUUID, tc.Equals, testControllerUUID)
 	c.Check(info.ControllerName, tc.Equals, "source-ctrl")
 	c.Check(info.ControllerModelUUID, tc.Equals, testControllerModelUUID)
@@ -56,11 +62,145 @@ func (s *validateSuite) TestValidateArchive(c *tc.C) {
 	c.Check(info.Models[1].CloudType, tc.Equals, "lxd")
 }
 
+// TestValidateArchiveProvisioningInputs checks that the archived inputs a
+// replacement controller must reuse are extracted from both dumps: the cloud
+// region, the controller and model config, the constraints and the storage
+// pools.
+func (s *validateSuite) TestValidateArchiveProvisioningInputs(c *tc.C) {
+	path, sum := writeArchive(c, provisioningFiles())
+
+	info, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(info.CloudRegion, tc.Equals, "north")
+
+	// controller_config rows, plus the derived api and ssh server ports. The
+	// NULL row records no setting and must not arrive as an empty string.
+	c.Check(info.ControllerConfig, tc.DeepEquals, map[string]string{
+		"controller-name":  "source-ctrl",
+		"auditing-enabled": "true",
+		"api-port":         "17171",
+		"ssh-server-port":  "17172",
+	})
+	c.Check(info.ControllerName, tc.Equals, "source-ctrl")
+
+	// model_config rows, plus the derived agent stream.
+	c.Check(info.ControllerModelConfig, tc.DeepEquals, map[string]string{
+		"project":      "tenant-a",
+		"image-stream": "daily",
+		"agent-stream": "proposed",
+	})
+
+	c.Assert(info.ModelConstraints.Arch, tc.NotNil)
+	c.Check(*info.ModelConstraints.Arch, tc.Equals, "amd64")
+	c.Assert(info.ModelConstraints.CpuCores, tc.NotNil)
+	c.Check(*info.ModelConstraints.CpuCores, tc.Equals, uint64(2))
+	c.Assert(info.ModelConstraints.Mem, tc.NotNil)
+	c.Check(*info.ModelConstraints.Mem, tc.Equals, uint64(4096))
+	c.Assert(info.ModelConstraints.RootDiskSource, tc.NotNil)
+	c.Check(*info.ModelConstraints.RootDiskSource, tc.Equals, "pool-a")
+	c.Assert(info.ModelConstraints.VirtType, tc.NotNil)
+	c.Check(*info.ModelConstraints.VirtType, tc.Equals, "virtual-machine")
+	c.Assert(info.ModelConstraints.AllocatePublicIP, tc.NotNil)
+	c.Check(*info.ModelConstraints.AllocatePublicIP, tc.IsFalse)
+	c.Assert(info.ModelConstraints.Tags, tc.NotNil)
+	c.Check(*info.ModelConstraints.Tags, tc.DeepEquals, []string{"tag-a", "tag-b"})
+	c.Check(info.ModelConstraints.Spaces, tc.IsNil)
+
+	c.Assert(info.ControllerConstraints.Mem, tc.NotNil)
+	c.Check(*info.ControllerConstraints.Mem, tc.Equals, uint64(8192))
+	c.Assert(info.ControllerConstraints.RootDisk, tc.NotNil)
+	c.Check(*info.ControllerConstraints.RootDisk, tc.Equals, uint64(20480))
+	c.Assert(info.ControllerConstraints.VirtType, tc.NotNil)
+	c.Check(*info.ControllerConstraints.VirtType, tc.Equals, "virtual-machine")
+	c.Assert(info.ControllerConstraints.Spaces, tc.NotNil)
+	c.Check(*info.ControllerConstraints.Spaces, tc.DeepEquals,
+		[]string{"space-a", "^space-b"})
+	c.Assert(info.ControllerConstraints.Zones, tc.NotNil)
+	c.Check(*info.ControllerConstraints.Zones, tc.DeepEquals, []string{"zone-a"})
+
+	// Storage pools are in the bootstrap representation: the name and type
+	// under their bootstrap keys, alongside the pool's attributes.
+	c.Check(info.StoragePools, tc.DeepEquals, map[string]storage.Attrs{
+		"pool-a": {
+			corestorage.BootstrapStoragePoolNameKey: "pool-a",
+			corestorage.BootstrapStoragePoolTypeKey: "lxd",
+			"source":                                "/dev/sda1",
+		},
+		"pool-b": {
+			corestorage.BootstrapStoragePoolNameKey: "pool-b",
+			corestorage.BootstrapStoragePoolTypeKey: "tmpfs",
+			"size":                                  "1G",
+		},
+	})
+}
+
+// A minimal controller model dump records no provisioning inputs; validation
+// stays permissive so archives written without them remain recoverable.
+func (s *validateSuite) TestValidateArchiveNoProvisioningInputs(c *tc.C) {
+	path, sum := writeArchive(c, validFiles())
+
+	info, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.CloudRegion, tc.Equals, "")
+	c.Check(info.ControllerModelConfig, tc.HasLen, 0)
+	c.Check(info.StoragePools, tc.HasLen, 0)
+	c.Check(info.ModelConstraints, tc.DeepEquals, constraints.Value{})
+	c.Check(info.ControllerConstraints, tc.DeepEquals, constraints.Value{})
+}
+
+func (s *validateSuite) TestValidateArchiveUnknownCloudRegion(c *tc.C) {
+	files := provisioningFiles()
+	files["juju-backup/dump/controller.yaml"] = []byte(strings.Replace(
+		provisioningControllerDump(), "cloud_region_uuid: region-north",
+		"cloud_region_uuid: region-gone", 1))
+	path, sum := writeArchive(c, files)
+
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
+	c.Assert(err, tc.ErrorMatches,
+		`controller model "controller" references unknown cloud region "region-gone"`)
+}
+
+func (s *validateSuite) TestValidateArchiveNegativeConstraint(c *tc.C) {
+	files := provisioningFiles()
+	files["juju-backup/dump/models/"+testControllerModelUUID+".yaml"] = []byte(
+		strings.Replace(provisioningModelDump(), "mem: 4096", "mem: -1", 1))
+	path, sum := writeArchive(c, files)
+
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
+	c.Assert(err, tc.ErrorMatches,
+		`controller model ".*": model constraints: constraint "cons-model" records a negative mem value -1`)
+}
+
+func (s *validateSuite) TestValidateArchiveMalformedControllerModelDump(c *tc.C) {
+	files := provisioningFiles()
+	files["juju-backup/dump/models/"+testControllerModelUUID+".yaml"] = []byte("payload: {\n")
+	path, sum := writeArchive(c, files)
+
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
+	c.Assert(err, tc.ErrorMatches, `controller model ".*": decoding dump: .*`)
+}
+
 func (s *validateSuite) TestValidateArchiveChecksumMismatch(c *tc.C) {
 	path, _ := writeArchive(c, validFiles())
 
 	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, "deadbeef")
 	c.Assert(err, tc.ErrorMatches, "archive checksum mismatch: expected sha256 .deadbeef., archive is .*")
+}
+
+// TestValidateArchiveWithoutArch checks the behaviour on an archive whose
+// metadata does not record a source architecture, as produced before the
+// field existed: validation stays permissive and reports it empty, for
+// the recovery preflight to reject.
+func (s *validateSuite) TestValidateArchiveWithoutArch(c *tc.C) {
+	files := validFiles()
+	files["juju-backup/metadata.json"] = []byte(
+		strings.Replace(metadataJSON("4.1.0"), `"Arch":"amd64",`, "", 1))
+	path, sum := writeArchive(c, files)
+
+	info, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.SourceArch, tc.Equals, "")
 }
 
 func (s *validateSuite) TestValidateArchiveMissingMetadata(c *tc.C) {
@@ -258,6 +398,9 @@ func (s *validateSuite) TestValidateArchiveCreatedByBackup(c *tc.C) {
 		Machine:  "0",
 		Hostname: "myhost",
 		Version:  semversion.MustParse("4.1.0"),
+		// The channel spelling the producer records: the machine
+		// service base rendered as a string.
+		Base: "ubuntu@24.04/stable",
 	}
 	meta.Controller = corebackups.ControllerMetadata{
 		UUID:    testControllerUUID,
@@ -518,6 +661,21 @@ func (s *validateSuite) TestValidateArchiveMetadataMissingAgentVersion(c *tc.C) 
 	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorMatches,
 		"juju-backup/metadata.json does not record the source agent version")
+}
+
+// ValidateArchive leaves absent or empty bases for the provisioner to handle.
+func (s *validateSuite) TestValidateArchiveWithoutMachineBase(c *tc.C) {
+	for _, field := range []string{``, `"Base":"",`} {
+		c.Logf("base field: %q", field)
+		files := validFiles()
+		files["juju-backup/metadata.json"] = []byte(strings.Replace(
+			metadataJSON("4.1.0"), `"Base":"ubuntu@24.04/stable",`, field, 1))
+		path, sum := writeArchive(c, files)
+
+		info, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(info.SourceBase, tc.Equals, "")
+	}
 }
 
 func (s *validateSuite) TestValidateArchiveMetadataMalformedJSON(c *tc.C) {

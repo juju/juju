@@ -13,6 +13,7 @@ import (
 	context "context"
 
 	gomock "github.com/canonical/gomock/gomock"
+	base "github.com/juju/juju/core/base"
 	instance "github.com/juju/juju/core/instance"
 	machine "github.com/juju/juju/core/machine"
 	export "github.com/juju/juju/domain/export"
@@ -159,6 +160,7 @@ type MockMachineService struct {
 type MockMachineServiceMockRecorder struct {
 	mock                  *MockMachineService
 	getInstanceIDExpects  []*gomock.Call2_2[context.Context, machine.UUID, instance.Id, error]
+	getMachineBaseExpects []*gomock.Call2_2[context.Context, machine.Name, base.Base, error]
 	getMachineUUIDExpects []*gomock.Call2_2[context.Context, machine.Name, machine.UUID, error]
 }
 
@@ -191,6 +193,24 @@ func (mr *MockMachineServiceMockRecorder) GetInstanceID(ctx, machineUUID any) *M
 
 // MockMachineServiceGetInstanceIDCall is the typed call wrapper for GetInstanceID.
 type MockMachineServiceGetInstanceIDCall = gomock.Call2_2[context.Context, machine.UUID, instance.Id, error]
+
+// GetMachineBase mocks base method.
+func (m *MockMachineService) GetMachineBase(ctx context.Context, mName machine.Name) (base.Base, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getMachineBaseExpects, m.ctrl, m, "GetMachineBase", ctx, mName)
+}
+
+// GetMachineBase indicates an expected call of GetMachineBase.
+func (mr *MockMachineServiceMockRecorder) GetMachineBase(ctx, mName any) *MockMachineServiceGetMachineBaseCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, machine.Name, base.Base, error](mr.mock.ctrl.T, mr.mock, "GetMachineBase", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(mName))
+	mr.getMachineBaseExpects = append(mr.getMachineBaseExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockMachineServiceGetMachineBaseCall is the typed call wrapper for GetMachineBase.
+type MockMachineServiceGetMachineBaseCall = gomock.Call2_2[context.Context, machine.Name, base.Base, error]
 
 // GetMachineUUID mocks base method.
 func (m *MockMachineService) GetMachineUUID(ctx context.Context, mName machine.Name) (machine.UUID, error) {

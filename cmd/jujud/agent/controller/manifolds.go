@@ -1059,8 +1059,8 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// renews the controller backup lease while the archive is
 		// generated, and the API server consumes its output when a backup
 		// is requested. It resolves the controller machine's cloud
-		// instance ID from the controller model: this agent runs on a
-		// provider machine.
+		// instance ID and base from the controller model: this agent runs
+		// on a provider machine.
 		backupCreatorName: backup.Manifold(backup.ManifoldConfig{
 			LeaseManagerName:        leaseManagerName,
 			DomainServicesName:      domainServicesName,
@@ -1071,6 +1071,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ControllerTag:           config.ControllerAgentTag,
 			LocalConfigReader:       config.StartupValueProvider,
 			MachineInstanceIDGetter: backup.MachineInstanceID,
+			MachineBaseGetter:       backup.MachineBase,
 			Clock:                   config.Clock,
 			Logger:                  internallogger.GetLogger("juju.worker.backup"),
 			NewWorker:               backup.NewWorker,
@@ -1125,8 +1126,8 @@ func K8sManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}))),
 
 		// backupCreatorName owns backup archive creation. It records no
-		// machine instance ID: this agent runs on Kubernetes, where the
-		// controller has no provider machine.
+		// machine instance ID or base: this agent runs on Kubernetes,
+		// where the controller has no provider machine.
 		backupCreatorName: backup.Manifold(backup.ManifoldConfig{
 			LeaseManagerName:        leaseManagerName,
 			DomainServicesName:      domainServicesName,
@@ -1137,6 +1138,7 @@ func K8sManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ControllerTag:           config.ControllerAgentTag,
 			LocalConfigReader:       config.StartupValueProvider,
 			MachineInstanceIDGetter: backup.NoMachineInstanceID,
+			MachineBaseGetter:       backup.NoMachineBase,
 			Clock:                   config.Clock,
 			Logger:                  internallogger.GetLogger("juju.worker.backup"),
 			NewWorker:               backup.NewWorker,
