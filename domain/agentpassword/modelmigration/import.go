@@ -95,6 +95,9 @@ func (i *importOperation) importMachinePasswordHash(ctx context.Context, machine
 		}
 	}
 
+	// The description builds each container as a new child of its host, both
+	// in AddContainer and when it reads the YAML, so this recursion follows a
+	// tree and always ends.
 	for _, container := range machine.Containers() {
 		if err := i.importMachinePasswordHash(ctx, container); err != nil {
 			return err
