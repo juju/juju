@@ -391,7 +391,7 @@ run_provisioning_remove_machine_isolation() {
 
 	echo "Verify machine 1 is removed while machine 0 cannot be stopped"
 	result=0
-	wait_for_or_fail "! machine_exists 1" 180 || result=1
+	wait_for_or_fail "machine_removed 1" 180 || result=1
 	machine_exists 0 || result=1
 
 	lxc config unset "${instance_0}" security.protection.delete
@@ -402,7 +402,7 @@ run_provisioning_remove_machine_isolation() {
 	fi
 
 	echo "Verify machine 0 is removed once it can be stopped"
-	wait_for_or_fail "! machine_exists 0" 180
+	wait_for_or_fail "machine_removed 0" 180
 
 	destroy_model "provisioning-remove-isolation"
 }
@@ -410,4 +410,12 @@ run_provisioning_remove_machine_isolation() {
 # machine_exists returns whether the machine is in the current model.
 machine_exists() {
 	[[ "$(juju status --format json | yq ".machines | has(\"${1}\")")" == "true" ]]
+}
+
+# machine_removed returns whether a successful status query shows the machine
+# is gone. A failed query counts as not removed, so polling tries again.
+machine_removed() {
+	local status
+	status=$(juju status --format json) || return 1
+	[[ "$(echo "${status}" | yq ".machines | has(\"${1}\")")" == "false" ]]
 }
