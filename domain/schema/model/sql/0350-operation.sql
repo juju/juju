@@ -109,6 +109,12 @@ CREATE TABLE operation_task_output (
 CREATE INDEX idx_operation_task_output_store_path_task_uuid
 ON operation_task_output (store_path, task_uuid);
 
+-- operation_task_status_value holds the possible status values for a task.
+CREATE TABLE operation_task_status_value (
+    id INT PRIMARY KEY,
+    status TEXT NOT NULL
+);
+
 -- operation_task_status is the status of the task.
 CREATE TABLE operation_task_status (
     task_uuid TEXT NOT NULL PRIMARY KEY,
@@ -121,12 +127,6 @@ CREATE TABLE operation_task_status (
     CONSTRAINT fk_task_status
     FOREIGN KEY (status_id)
     REFERENCES operation_task_status_value (id)
-);
-
--- operation_task_status_value holds the possible status values for a task.
-CREATE TABLE operation_task_status_value (
-    id INT PRIMARY KEY,
-    status TEXT NOT NULL
 );
 
 INSERT INTO operation_task_status_value VALUES

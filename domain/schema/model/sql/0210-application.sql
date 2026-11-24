@@ -1,22 +1,21 @@
-CREATE TABLE application (
-    uuid TEXT NOT NULL PRIMARY KEY,
-    name TEXT NOT NULL,
-    life_id INT NOT NULL,
-    charm_uuid TEXT NOT NULL,
-    charm_modified_version INT NOT NULL DEFAULT 0,
-    charm_upgrade_on_error BOOLEAN DEFAULT FALSE,
-    -- space_uuid is the default binding for this application.
-    space_uuid TEXT NOT NULL,
-    CONSTRAINT fk_application_life
-    FOREIGN KEY (life_id)
-    REFERENCES life (id),
-    CONSTRAINT fk_application_charm
-    FOREIGN KEY (charm_uuid)
-    REFERENCES charm (uuid),
-    CONSTRAINT fk_space_uuid
-    FOREIGN KEY (space_uuid)
-    REFERENCES space (uuid)
-);
+CREATE VIEW v_application_charm_download_info AS
+SELECT
+    a.uuid AS application_uuid,
+    c.uuid AS charm_uuid,
+    c.reference_name AS name,
+    c.available,
+    cs.id AS source_id,
+    cp.name AS provenance,
+    cdi.charmhub_identifier,
+    cdi.download_url,
+    cdi.download_size,
+    ch.hash
+FROM application AS a
+LEFT JOIN charm AS c ON a.charm_uuid = c.uuid
+LEFT JOIN charm_download_info AS cdi ON c.uuid = cdi.charm_uuid
+LEFT JOIN charm_provenance AS cp ON cdi.provenance_id = cp.id
+LEFT JOIN charm_source AS cs ON c.source_id = cs.id
+LEFT JOIN charm_hash AS ch ON c.uuid = ch.charm_uuid;
 
 CREATE UNIQUE INDEX idx_application_name
 ON application (name);
@@ -100,61 +99,6 @@ CREATE TABLE application_scale (
     FOREIGN KEY (application_uuid)
     REFERENCES application (uuid)
 );
-
-CREATE TABLE application_exposed_endpoint_space (
-    application_uuid TEXT NOT NULL,
-    -- NULL application_endpoint_uuid represents the wildcard endpoint.
-    application_endpoint_uuid TEXT,
-    space_uuid TEXT NOT NULL,
-    CONSTRAINT fk_application_exposed_endpoint_space_application
-    FOREIGN KEY (application_uuid)
-    REFERENCES application (uuid),
-    CONSTRAINT fk_application_exposed_endpoint_space_application_endpoint
-    FOREIGN KEY (application_endpoint_uuid)
-    REFERENCES application_endpoint (uuid),
-    CONSTRAINT fk_application_exposed_endpoint_space_space
-    FOREIGN KEY (space_uuid)
-    REFERENCES space (uuid),
-    PRIMARY KEY (application_uuid, application_endpoint_uuid, space_uuid)
-);
-
-CREATE INDEX idx_application_exposed_endpoint_space
-ON application_exposed_endpoint_space (space_uuid);
-
--- There is no FK against the CIDR, because it's currently free-form.
-CREATE TABLE application_exposed_endpoint_cidr (
-    application_uuid TEXT NOT NULL,
-    -- NULL application_endpoint_uuid represents the wildcard endpoint.
-    application_endpoint_uuid TEXT,
-    cidr TEXT NOT NULL,
-    CONSTRAINT fk_application_exposed_endpoint_cidr_application
-    FOREIGN KEY (application_uuid)
-    REFERENCES application (uuid),
-    CONSTRAINT fk_application_exposed_endpoint_cidr_application_endpoint
-    FOREIGN KEY (application_endpoint_uuid)
-    REFERENCES application_endpoint (uuid),
-    PRIMARY KEY (application_uuid, application_endpoint_uuid, cidr)
-);
-
-CREATE VIEW v_application_exposed_endpoint (
-    application_uuid,
-    application_endpoint_uuid,
-    space_uuid,
-    cidr
-) AS
-SELECT
-    aes.application_uuid,
-    aes.application_endpoint_uuid,
-    aes.space_uuid,
-    NULL AS n
-FROM application_exposed_endpoint_space AS aes
-UNION
-SELECT
-    aec.application_uuid,
-    aec.application_endpoint_uuid,
-    NULL AS n,
-    aec.cidr
-FROM application_exposed_endpoint_cidr AS aec;
 
 CREATE TABLE application_config_hash (
     application_uuid TEXT NOT NULL PRIMARY KEY,
@@ -354,25 +298,78 @@ JOIN charm AS c ON a.charm_uuid = c.uuid
 LEFT JOIN charm_download_info AS cdi ON c.uuid = cdi.charm_uuid
 JOIN charm_hash AS ch ON c.uuid = ch.charm_uuid;
 
-CREATE VIEW v_application_endpoint_uuid AS
-SELECT
-    a.uuid,
-    c.name,
-    a.application_uuid
-FROM application_endpoint AS a
-JOIN charm_relation AS c ON a.charm_relation_uuid = c.uuid;
+-- The application_endpoint ties an application's relation definition to an
+-- endpoint binding via a space. A null space_uuid represents the endpoint
+-- is bound to the application's default space. Each relation has 2 endpoints,
+-- unless it is a peer relation. The space and charm relation combine represent
+-- the endpoint binding of this application endpoint.
+CREATE TABLE application_endpoint (
+    uuid TEXT NOT NULL PRIMARY KEY,
+    application_uuid TEXT NOT NULL,
+    space_uuid TEXT,
+    charm_relation_uuid TEXT NOT NULL,
+    CONSTRAINT fk_application_uuid
+    FOREIGN KEY (application_uuid)
+    REFERENCES application (uuid),
+    CONSTRAINT fk_space_uuid
+    FOREIGN KEY (space_uuid)
+    REFERENCES space (uuid),
+    CONSTRAINT fk_charm_relation_uuid
+    FOREIGN KEY (charm_relation_uuid)
+    REFERENCES charm_relation (uuid)
+);
 
--- v_application_subordinate provides an application, whether its charm is a
--- subordinate, and a relation_uuid if it exists. It's possible the application
--- is in zero or multiple relations.
-CREATE VIEW v_application_subordinate AS
+CREATE TABLE application_exposed_endpoint_space (
+    application_uuid TEXT NOT NULL,
+    -- NULL application_endpoint_uuid represents the wildcard endpoint.
+    application_endpoint_uuid TEXT,
+    space_uuid TEXT NOT NULL,
+    CONSTRAINT fk_application_exposed_endpoint_space_application
+    FOREIGN KEY (application_uuid)
+    REFERENCES application (uuid),
+    CONSTRAINT fk_application_exposed_endpoint_space_application_endpoint
+    FOREIGN KEY (application_endpoint_uuid)
+    REFERENCES application_endpoint (uuid),
+    CONSTRAINT fk_application_exposed_endpoint_space_space
+    FOREIGN KEY (space_uuid)
+    REFERENCES space (uuid),
+    PRIMARY KEY (application_uuid, application_endpoint_uuid, space_uuid)
+);
+
+CREATE INDEX idx_application_exposed_endpoint_space
+ON application_exposed_endpoint_space (space_uuid);
+
+-- There is no FK against the CIDR, because it's currently free-form.
+CREATE TABLE application_exposed_endpoint_cidr (
+    application_uuid TEXT NOT NULL,
+    -- NULL application_endpoint_uuid represents the wildcard endpoint.
+    application_endpoint_uuid TEXT,
+    cidr TEXT NOT NULL,
+    CONSTRAINT fk_application_exposed_endpoint_cidr_application
+    FOREIGN KEY (application_uuid)
+    REFERENCES application (uuid),
+    CONSTRAINT fk_application_exposed_endpoint_cidr_application_endpoint
+    FOREIGN KEY (application_endpoint_uuid)
+    REFERENCES application_endpoint (uuid),
+    PRIMARY KEY (application_uuid, application_endpoint_uuid, cidr)
+);
+
+CREATE VIEW v_application_exposed_endpoint (
+    application_uuid,
+    application_endpoint_uuid,
+    space_uuid,
+    cidr
+) AS
 SELECT
-    a.uuid AS application_uuid,
-    cm.subordinate,
-    re.relation_uuid
-FROM application AS a
-JOIN charm AS c ON a.charm_uuid = c.uuid
-JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid
-JOIN charm_relation AS cr ON c.uuid = cr.charm_uuid
-JOIN application_endpoint AS ae ON cr.uuid = ae.charm_relation_uuid
-JOIN relation_endpoint AS re ON ae.uuid = re.endpoint_uuid;
+    aes.application_uuid,
+    aes.application_endpoint_uuid,
+    aes.space_uuid,
+    NULL AS n
+FROM application_exposed_endpoint_space AS aes
+UNION
+SELECT
+    aec.application_uuid,
+    aec.application_endpoint_uuid,
+    NULL AS n,
+    aec.cidr
+FROM application_exposed_endpoint_cidr AS aec;
