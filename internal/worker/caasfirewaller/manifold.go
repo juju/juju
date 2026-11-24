@@ -112,7 +112,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		)
 	}
 
-	controllerServiceUpdater, ok := broker.(caas.ControllerServiceUpdater)
+	controllerServiceUpdater, ok := broker.(caas.ControllerServiceSSHPortUpdater)
 	if !ok {
 		return nil, errors.Errorf(
 			"caas broker %T does not support updating the controller service",
@@ -121,13 +121,13 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	}
 
 	w, err := config.NewFirewallWorker(FirewallerConfig{
-		ApplicationService:       domainServices.Application(),
-		Clock:                    clock,
-		Logger:                   config.Logger,
-		WorkerCreator:            appFirewallCreator,
-		ModelInfoService:         domainServices.ModelInfo(),
-		ControllerSSHService:     domainServices.ControllerSSH(),
-		ControllerServiceUpdater: controllerServiceUpdater,
+		ApplicationService:              domainServices.Application(),
+		Clock:                           clock,
+		Logger:                          config.Logger,
+		WorkerCreator:                   appFirewallCreator,
+		ModelInfoService:                domainServices.ModelInfo(),
+		ControllerSSHService:            domainServices.ControllerSSH(),
+		ControllerServiceSSHPortUpdater: controllerServiceUpdater,
 	})
 	if err != nil {
 		return nil, errors.Errorf("starting new worker for manifold: %w", err)

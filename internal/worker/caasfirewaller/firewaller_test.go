@@ -32,7 +32,7 @@ type firewallerSuite struct {
 	applicationService       *mocks.MockApplicationService
 	modelInfoService         *mocks.MockModelInfoService
 	controllerSSHService     *mocks.MockControllerSSHService
-	controllerServiceUpdater *mocks.MockControllerServiceUpdater
+	controllerServiceUpdater *mocks.MockControllerServiceSSHPortUpdater
 }
 
 // TestFirewallerSuite runs the tests defined in [firewallerSuite].
@@ -49,7 +49,7 @@ func (s *firewallerSuite) setupMocks(c *testing.T) *gomock.Controller {
 	s.applicationService = mocks.NewMockApplicationService(ctrl)
 	s.modelInfoService = mocks.NewMockModelInfoService(ctrl)
 	s.controllerSSHService = mocks.NewMockControllerSSHService(ctrl)
-	s.controllerServiceUpdater = mocks.NewMockControllerServiceUpdater(ctrl)
+	s.controllerServiceUpdater = mocks.NewMockControllerServiceSSHPortUpdater(ctrl)
 
 	c.Cleanup(func() {
 		s.appFirewallerWorker = nil
@@ -79,13 +79,13 @@ func (s *firewallerSuite) appFirewallerWorkerCreator(
 // suite.
 func (s *firewallerSuite) getValidConfig(t *testing.T) FirewallerConfig {
 	return FirewallerConfig{
-		ApplicationService:       s.applicationService,
-		Clock:                    clock.WallClock,
-		Logger:                   loggertesting.WrapCheckLog(t),
-		WorkerCreator:            s.appFirewallerWorkerCreator,
-		ModelInfoService:         s.modelInfoService,
-		ControllerSSHService:     s.controllerSSHService,
-		ControllerServiceUpdater: s.controllerServiceUpdater,
+		ApplicationService:              s.applicationService,
+		Clock:                           clock.WallClock,
+		Logger:                          loggertesting.WrapCheckLog(t),
+		WorkerCreator:                   s.appFirewallerWorkerCreator,
+		ModelInfoService:                s.modelInfoService,
+		ControllerSSHService:            s.controllerSSHService,
+		ControllerServiceSSHPortUpdater: s.controllerServiceUpdater,
 	}
 }
 
@@ -135,9 +135,9 @@ func (s *firewallerSuite) TestValidateConfig(c *tc.C) {
 		tc.Check(c, config.Validate(), tc.ErrorIs, coreerrors.NotValid)
 	})
 
-	c.Run("nil ControllerServiceUpdater", func(c *testing.T) {
+	c.Run("nil ControllerServiceSSHPortUpdater", func(c *testing.T) {
 		config := s.getValidConfig(c)
-		config.ControllerServiceUpdater = nil
+		config.ControllerServiceSSHPortUpdater = nil
 		tc.Check(c, config.Validate(), tc.ErrorIs, coreerrors.NotValid)
 	})
 }
@@ -364,7 +364,7 @@ func (s *firewallerSuite) TestControllerServiceSSHPortFollowsSSHServerPort(c *tc
 		)
 
 		updated := make(chan int, 2)
-		updater := mocks.NewMockControllerServiceUpdater(ctrl)
+		updater := mocks.NewMockControllerServiceSSHPortUpdater(ctrl)
 		updater.EXPECT().UpdateControllerServiceSSHPort(gomock.Any(), gomock.Any()).DoAndReturn(
 			func(_ context.Context, port int) error {
 				updated <- port
@@ -375,7 +375,7 @@ func (s *firewallerSuite) TestControllerServiceSSHPortFollowsSSHServerPort(c *tc
 		config := s.getValidConfig(c)
 		config.ModelInfoService = modelInfoService
 		config.ControllerSSHService = sshService
-		config.ControllerServiceUpdater = updater
+		config.ControllerServiceSSHPortUpdater = updater
 		w, err := NewFirewallerWorker(config)
 		tc.Assert(c, err, tc.ErrorIsNil)
 

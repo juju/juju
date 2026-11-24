@@ -24,7 +24,7 @@ import (
 // controller Service.
 const controllerServiceSSHPortName = "ssh-server"
 
-var _ caas.ControllerServiceUpdater = (*kubernetesClient)(nil)
+var _ caas.ControllerServiceSSHPortUpdater = (*kubernetesClient)(nil)
 
 // UpdateControllerServiceSSHPort sets the SSH server port on the controller
 // Service. The port is set at bootstrap, but the controller charm can change

@@ -30,7 +30,7 @@ var _ DomainServices = (services.DomainServices)(nil)
 // like the Kubernetes broker.
 type controllerBroker struct {
 	*mocks.MockExtCAASBroker
-	*mocks.MockControllerServiceUpdater
+	*mocks.MockControllerServiceSSHPortUpdater
 }
 
 // manifoldSuite defines a set of tests for asserting the contracts of the
@@ -52,8 +52,8 @@ func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.broker = &controllerBroker{
-		MockExtCAASBroker:            mocks.NewMockExtCAASBroker(ctrl),
-		MockControllerServiceUpdater: mocks.NewMockControllerServiceUpdater(ctrl),
+		MockExtCAASBroker:                   mocks.NewMockExtCAASBroker(ctrl),
+		MockControllerServiceSSHPortUpdater: mocks.NewMockControllerServiceSSHPortUpdater(ctrl),
 	}
 	s.domainServices = mocks.NewMockDomainServices(ctrl)
 	s.worker = mocks.NewMockWorker(ctrl)

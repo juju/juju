@@ -34,12 +34,12 @@ type FirewallerConfig struct {
 	Logger             logger.Logger
 	WorkerCreator      AppFirewallerWokerCreator
 
-	// ModelInfoService, ControllerSSHService and ControllerServiceUpdater
+	// ModelInfoService, ControllerSSHService and ControllerServiceSSHPortUpdater
 	// keep the controller Service's SSH port in step with the SSH server port
 	// in the controller model.
-	ModelInfoService         ModelInfoService
-	ControllerSSHService     ControllerSSHService
-	ControllerServiceUpdater caas.ControllerServiceUpdater
+	ModelInfoService                ModelInfoService
+	ControllerSSHService            ControllerSSHService
+	ControllerServiceSSHPortUpdater caas.ControllerServiceSSHPortUpdater
 }
 
 // firewaller is a worker responsible for watching applications in the model and
@@ -52,9 +52,9 @@ type firewaller struct {
 
 	workerCreator AppFirewallerWokerCreator
 
-	modelInfoService         ModelInfoService
-	controllerSSHService     ControllerSSHService
-	controllerServiceUpdater caas.ControllerServiceUpdater
+	modelInfoService                ModelInfoService
+	controllerSSHService            ControllerSSHService
+	controllerServiceSSHPortUpdater caas.ControllerServiceSSHPortUpdater
 }
 
 // applicationWorkerNamePrefix is the prefix used for naming application
@@ -151,9 +151,9 @@ func NewFirewallerWorker(config FirewallerConfig) (worker.Worker, error) {
 		logger:          config.Logger,
 		workerCreator:   config.WorkerCreator,
 
-		modelInfoService:         config.ModelInfoService,
-		controllerSSHService:     config.ControllerSSHService,
-		controllerServiceUpdater: config.ControllerServiceUpdater,
+		modelInfoService:                config.ModelInfoService,
+		controllerSSHService:            config.ControllerSSHService,
+		controllerServiceSSHPortUpdater: config.ControllerServiceSSHPortUpdater,
 	}
 
 	err = catacomb.Invoke(catacomb.Plan{
@@ -294,8 +294,8 @@ func (config FirewallerConfig) Validate() error {
 			coreerrors.NotValid,
 		)
 	}
-	if config.ControllerServiceUpdater == nil {
-		return errors.New("not valid nil ControllerServiceUpdater").Add(
+	if config.ControllerServiceSSHPortUpdater == nil {
+		return errors.New("not valid nil ControllerServiceSSHPortUpdater").Add(
 			coreerrors.NotValid,
 		)
 	}
@@ -333,7 +333,7 @@ func (p *firewaller) updateControllerServiceSSHPort(ctx context.Context) error {
 		return errors.Errorf("getting controller ssh server port: %w", err)
 	}
 	p.logger.Debugf(ctx, "setting controller service ssh port to %d", port)
-	if err := p.controllerServiceUpdater.UpdateControllerServiceSSHPort(ctx, port); err != nil {
+	if err := p.controllerServiceSSHPortUpdater.UpdateControllerServiceSSHPort(ctx, port); err != nil {
 		return errors.Errorf("updating controller service ssh port: %w", err)
 	}
 	return nil
