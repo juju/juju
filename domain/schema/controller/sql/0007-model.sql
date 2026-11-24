@@ -154,14 +154,14 @@ WHERE m.activated = TRUE;
 CREATE VIEW v_cloud
 AS
 -- This selects the controller model's cloud uuid. We use this when loading
--- clouds to know if the cloud is the controller's cloud. The controller model
--- is identified by its uuid in the controller table, as its qualifier is not
--- guaranteed to be the admin user.
+-- clouds to know if the cloud is the controller's cloud.
 WITH controllers AS (
     SELECT m.cloud_uuid
-    FROM controller AS ctrl
-    JOIN model AS m ON ctrl.model_uuid = m.uuid
-    WHERE m.activated = TRUE
+    FROM model AS m
+    WHERE
+        m.name = 'controller'
+        AND m.qualifier = 'admin'
+        AND m.activated = TRUE
 )
 
 SELECT
