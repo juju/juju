@@ -46,6 +46,14 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 	service := NewMockScriptletService(ctrl)
 	err = Config{ScriptletService: service}.Validate()
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorMatches, "nil StatusService not valid")
+
+	statusService := NewMockApplicationStatusService(ctrl)
+	err = Config{
+		ScriptletService: service,
+		StatusService:    statusService,
+	}.Validate()
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Assert(err, tc.ErrorMatches, "nil NewExecutor not valid")
 
 	newExecutor := func(context.Context, ExecutorConfig) (Executor, error) {
@@ -53,6 +61,7 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 	}
 	err = Config{
 		ScriptletService: service,
+		StatusService:    statusService,
 		NewExecutor:      newExecutor,
 	}.Validate()
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
@@ -60,6 +69,7 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 
 	err = Config{
 		ScriptletService: service,
+		StatusService:    statusService,
 		NewExecutor:      newExecutor,
 		Clock:            clock.WallClock,
 		MaxDuration:      time.Minute,
@@ -69,6 +79,7 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 
 	err = Config{
 		ScriptletService: service,
+		StatusService:    statusService,
 		NewExecutor:      newExecutor,
 		Clock:            clock.WallClock,
 		Logger:           newRecordingLogger(),
@@ -79,6 +90,7 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 
 	err = Config{
 		ScriptletService: service,
+		StatusService:    statusService,
 		NewExecutor:      newExecutor,
 		Clock:            clock.WallClock,
 		Logger:           newRecordingLogger(),
@@ -89,6 +101,7 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 
 	err = Config{
 		ScriptletService: service,
+		StatusService:    statusService,
 		NewExecutor:      newExecutor,
 		Clock:            clock.WallClock,
 		Logger:           newRecordingLogger(),
@@ -99,6 +112,7 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 
 	err = Config{
 		ScriptletService: service,
+		StatusService:    statusService,
 		NewExecutor:      newExecutor,
 		Clock:            clock.WallClock,
 		Logger:           newRecordingLogger(),
@@ -109,6 +123,7 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 
 	err = Config{
 		ScriptletService: service,
+		StatusService:    statusService,
 		NewExecutor:      newExecutor,
 		Clock:            clock.WallClock,
 		Logger:           newRecordingLogger(),
@@ -120,6 +135,8 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	service := NewMockScriptletService(ctrl)
+	statusService := NewMockApplicationStatusService(ctrl)
+	statusService.EXPECT().SetApplicationStatusByID(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	applicationUUID := coreapplication.UUID("app-uuid-1")
 	scriptletApp := domainunitless.ScriptletApplication{
 		UUID: applicationUUID,
@@ -179,6 +196,7 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 
 	w, err := NewWorker(Config{
 		ScriptletService: service,
+		StatusService:    statusService,
 		NewExecutor: func(ctx context.Context, config ExecutorConfig) (Executor, error) {
 			executorConfigs <- config
 			return executor, nil

@@ -183,6 +183,19 @@ func (s *modelStateSuite) TestGetApplicationUUIDByNameNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
+func (s *modelStateSuite) TestGetApplicationNameByUUID(c *tc.C) {
+	expectedAppUUID, _ := s.createIAASApplicationWithNUnits(c, "foo", 1)
+
+	name, err := s.state.GetApplicationNameByUUID(c.Context(), expectedAppUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(name, tc.Equals, "foo")
+}
+
+func (s *modelStateSuite) TestGetApplicationNameByUUIDNotFound(c *tc.C) {
+	_, err := s.state.GetApplicationNameByUUID(c.Context(), "deadbeef-0000-0000-0000-000000000000")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
 func (s *modelStateSuite) TestGetApplicationUUIDAndNameByUnitName(c *tc.C) {
 	expectedAppUUID, _ := s.createIAASApplicationWithNUnits(c, "foo", 1)
 

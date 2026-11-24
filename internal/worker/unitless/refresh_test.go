@@ -30,6 +30,7 @@ type refreshSuite struct {
 	coretesting.BaseSuite
 
 	service            *MockScriptletService
+	statusService      *MockApplicationStatusService
 	application        domainunitless.ScriptletApplication
 	appChanges         chan []string
 	appWatcher         *watchertest.MockStringsWatcher
@@ -49,7 +50,9 @@ func TestRefreshSuite(t *testing.T) {
 func (s *refreshSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.service = NewMockScriptletService(gomock.NewController(c))
+	ctrl := gomock.NewController(c)
+	s.service = NewMockScriptletService(ctrl)
+	s.statusService = NewMockApplicationStatusService(ctrl)
 	s.application = domainunitless.ScriptletApplication{
 		UUID:      tc.Must(c, coreapplication.NewUUID),
 		CharmUUID: tc.Must(c, corecharm.NewID),
@@ -152,6 +155,7 @@ func (s *refreshSuite) startWorker(c *tc.C) *scriptletWorker {
 	log := loggertesting.WrapCheckLog(c)
 	w, err := NewWorker(Config{
 		ScriptletService: s.service,
+		StatusService:    s.statusService,
 		NewExecutor: func(ctx context.Context, config ExecutorConfig) (Executor, error) {
 			select {
 			case s.executorConfigs <- config:

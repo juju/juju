@@ -36,6 +36,10 @@ func (s *manifoldSuite) TestValidate(c *tc.C) {
 	s.checkNotValid(c, config, "nil GetScriptletService not valid")
 
 	config = validManifoldConfig(c)
+	config.GetApplicationStatusService = nil
+	s.checkNotValid(c, config, "nil GetApplicationStatusService not valid")
+
+	config = validManifoldConfig(c)
 	config.NewWorker = nil
 	s.checkNotValid(c, config, "nil NewWorker not valid")
 
@@ -50,6 +54,7 @@ func (s *manifoldSuite) TestValidate(c *tc.C) {
 
 func (s *manifoldSuite) TestStart(c *tc.C) {
 	service := &stubScriptletService{}
+	statusService := &stubApplicationStatusService{}
 	logger := loggertesting.WrapCheckLog(c)
 	expectWorker := &stubWorker{}
 	expectClock := clock.WallClock
@@ -60,8 +65,13 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 			c.Check(name, tc.Equals, "domain-services")
 			return service, nil
 		},
+		GetApplicationStatusService: func(_ dependency.Getter, name string) (ApplicationStatusService, error) {
+			c.Check(name, tc.Equals, "domain-services")
+			return statusService, nil
+		},
 		NewWorker: func(config Config) (worker.Worker, error) {
 			c.Check(config.ScriptletService, tc.Equals, service)
+			c.Check(config.StatusService, tc.Equals, statusService)
 			c.Check(config.NewExecutor, tc.NotNil)
 			c.Check(config.Clock, tc.Equals, expectClock)
 			c.Check(config.MaxAllocs, tc.Equals, int64(defaultMaxAllocs))
@@ -91,6 +101,9 @@ func validManifoldConfig(c *tc.C) ManifoldConfig {
 		GetScriptletService: func(dependency.Getter, string) (ScriptletService, error) {
 			return &stubScriptletService{}, nil
 		},
+		GetApplicationStatusService: func(dependency.Getter, string) (ApplicationStatusService, error) {
+			return &stubApplicationStatusService{}, nil
+		},
 		NewWorker: func(Config) (worker.Worker, error) {
 			return &stubWorker{}, nil
 		},
@@ -101,6 +114,10 @@ func validManifoldConfig(c *tc.C) ManifoldConfig {
 
 type stubScriptletService struct {
 	ScriptletService
+}
+
+type stubApplicationStatusService struct {
+	ApplicationStatusService
 }
 
 type stubWorker struct {
