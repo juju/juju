@@ -43,7 +43,8 @@ func TestStateSuite(t *testing.T) {
 type baseSuite struct {
 	schematesting.ControllerSuite
 
-	uuid coremodel.UUID
+	uuid     coremodel.UUID
+	userUUID user.UUID
 }
 
 func (m *baseSuite) SetUpTest(c *tc.C) {
@@ -78,6 +79,7 @@ func (m *baseSuite) SetUpTest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	userUUID := usertesting.GenUserUUID(c)
+	m.userUUID = userUUID
 	err = accessState.AddUser(
 		c.Context(),
 		userUUID,
