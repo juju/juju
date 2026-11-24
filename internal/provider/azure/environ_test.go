@@ -2123,6 +2123,36 @@ func (s *environSuite) TestConstraintsConflict(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "arch" overlaps with "instance-type": instance-type="Standard_D1" expected arch="amd64" not "arm64"`)
 }
 
+func (s *environSuite) TestConstraintsArm64InstanceTypeFromCapability(c *gc.C) {
+	// Standard_E8pds_v6 is an Azure Cobalt 100 size. Its family is not one
+	// of the Arm64 families listed in getArchFromResourceSKU, so its
+	// architecture has to come from the CpuArchitectureType capability.
+	s.skus = append(s.skus, &armcompute.ResourceSKU{
+		Name:         to.Ptr("Standard_E8pds_v6"),
+		Locations:    to.SliceOfPtrs("westus"),
+		ResourceType: to.Ptr("virtualMachines"),
+		Capabilities: []*armcompute.ResourceSKUCapabilities{{
+			Name:  to.Ptr("MemoryGB"),
+			Value: to.Ptr("64"),
+		}, {
+			Name:  to.Ptr("vCPUs"),
+			Value: to.Ptr("8"),
+		}, {
+			Name:  to.Ptr("OSVhdSizeMB"),
+			Value: to.Ptr("1047552"),
+		}, {
+			Name:  to.Ptr("CpuArchitectureType"),
+			Value: to.Ptr("Arm64"),
+		}},
+		Family: to.Ptr("standardEPDSv6Family"),
+	})
+	validator := s.constraintsValidator(c)
+	_, err := validator.Validate(constraints.MustParse("arch=arm64 instance-type=Standard_E8pds_v6"))
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = validator.Validate(constraints.MustParse("arch=amd64 instance-type=Standard_E8pds_v6"))
+	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "arch" overlaps with "instance-type": instance-type="Standard_E8pds_v6" expected arch="arm64" not "amd64"`)
+}
+
 func (s *environSuite) constraintsValidator(c *gc.C) constraints.Validator {
 	env := s.openEnviron(c)
 	s.sender = azuretesting.Senders{s.resourceSKUsSender()}
@@ -2973,6 +3003,50 @@ func (s *environSuite) TestGetArchFromResourceSKUARM64(c *gc.C) {
 
 	arch = azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
 		Family: to.Ptr("standardEPSv5Family"),
+	})
+	c.Assert(arch, gc.Equals, corearch.ARM64)
+}
+
+func (s *environSuite) TestGetArchFromResourceSKUCapability(c *gc.C) {
+	// The CpuArchitectureType capability decides the architecture, whatever
+	// the family. The v6 and local disk v5 families below are Arm64 based but
+	// are not in the fallback family list.
+	for _, family := range []string{
+		"standardDPSv6Family",
+		"standardDPLSv6Family",
+		"standardDPDSv6Family",
+		"standardEPDSv6Family",
+		"standardDPDSv5Family",
+	} {
+		arch := azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
+			Family: to.Ptr(family),
+			Capabilities: []*armcompute.ResourceSKUCapabilities{{
+				Name:  to.Ptr("vCPUs"),
+				Value: to.Ptr("4"),
+			}, {
+				Name:  to.Ptr("CpuArchitectureType"),
+				Value: to.Ptr("Arm64"),
+			}},
+		})
+		c.Check(arch, gc.Equals, corearch.ARM64, gc.Commentf("family %s", family))
+	}
+
+	arch := azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
+		Family: to.Ptr("standardDSv5Family"),
+		Capabilities: []*armcompute.ResourceSKUCapabilities{{
+			Name:  to.Ptr("CpuArchitectureType"),
+			Value: to.Ptr("x64"),
+		}},
+	})
+	c.Assert(arch, gc.Equals, corearch.AMD64)
+
+	// An unknown value falls back to the family list.
+	arch = azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
+		Family: to.Ptr("standardDPSv5Family"),
+		Capabilities: []*armcompute.ResourceSKUCapabilities{{
+			Name:  to.Ptr("CpuArchitectureType"),
+			Value: to.Ptr(""),
+		}},
 	})
 	c.Assert(arch, gc.Equals, corearch.ARM64)
 }
