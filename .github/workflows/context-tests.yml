@@ -133,8 +133,8 @@ jobs:
               - 'generate/ddlgen/**'
               - '.github/workflows/ddl.yml'
             check-export-version:
-              - 'domain/schema/model/sql/**'
-              - 'domain/schema/controller/sql/**'
+              - 'domain/schema/dqlite/model/sql/**'
+              - 'domain/schema/dqlite/controller/sql/**'
               - 'domain/export/**'
               - 'domain/modelimport/**'
               - 'generate/export/**'

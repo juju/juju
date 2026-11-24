@@ -158,28 +158,6 @@ ON cloud_credential (cloud_uuid, owner_uuid, name);
 CREATE INDEX idx_cloud_credential_owner_uuid
 ON cloud_credential (owner_uuid);
 
--- view_cloud_credential is a convenience view for accessing a
--- credential UUID based on the natural key used to display the
--- credential to users.
-CREATE VIEW v_cloud_credential
-AS
-SELECT
-    cc.uuid,
-    cc.cloud_uuid,
-    c.name AS cloud_name,
-    cc.auth_type_id,
-    at.type AS auth_type,
-    cc.owner_uuid,
-    cc.name,
-    cc.revoked,
-    cc.invalid,
-    cc.invalid_reason,
-    u.name AS owner_name
-FROM cloud_credential AS cc
-JOIN cloud AS c ON cc.cloud_uuid = c.uuid
-JOIN user AS u ON cc.owner_uuid = u.uuid
-JOIN auth_type AS at ON cc.auth_type_id = at.id;
-
 CREATE TABLE cloud_credential_attribute (
     cloud_credential_uuid TEXT NOT NULL,
     "key" TEXT NOT NULL,
@@ -190,24 +168,3 @@ CREATE TABLE cloud_credential_attribute (
     FOREIGN KEY (cloud_credential_uuid)
     REFERENCES cloud_credential (uuid)
 );
-
--- v_cloud_credential_attribute returns a view of all cloud credentials
--- and their attributes repeated for every attribute.
-CREATE VIEW v_cloud_credential_attribute
-AS
-SELECT
-    cc.uuid,
-    cc.cloud_uuid,
-    cc.auth_type_id,
-    cc.auth_type,
-    cc.owner_uuid,
-    cc.name,
-    cc.revoked,
-    cc.invalid,
-    cc.invalid_reason,
-    cc.cloud_name,
-    cc.owner_name,
-    cca."key" AS attribute_key,
-    cca.value AS attribute_value
-FROM v_cloud_credential AS cc
-JOIN cloud_credential_attribute AS cca ON cc.uuid = cca.cloud_credential_uuid;

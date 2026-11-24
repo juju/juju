@@ -1,23 +1,10 @@
--- The application_endpoint ties an application's relation definition to an
--- endpoint binding via a space. A null space_uuid represents the endpoint
--- is bound to the application's default space. Each relation has 2 endpoints,
--- unless it is a peer relation. The space and charm relation combine represent
--- the endpoint binding of this application endpoint.
-CREATE TABLE application_endpoint (
-    uuid TEXT NOT NULL PRIMARY KEY,
-    application_uuid TEXT NOT NULL,
-    space_uuid TEXT,
-    charm_relation_uuid TEXT NOT NULL,
-    CONSTRAINT fk_application_uuid
-    FOREIGN KEY (application_uuid)
-    REFERENCES application (uuid),
-    CONSTRAINT fk_space_uuid
-    FOREIGN KEY (space_uuid)
-    REFERENCES space (uuid),
-    CONSTRAINT fk_charm_relation_uuid
-    FOREIGN KEY (charm_relation_uuid)
-    REFERENCES charm_relation (uuid)
-);
+CREATE VIEW v_application_endpoint_uuid AS
+SELECT
+    a.uuid,
+    c.name,
+    a.application_uuid
+FROM application_endpoint AS a
+JOIN charm_relation AS c ON a.charm_relation_uuid = c.uuid;
 
 CREATE INDEX idx_application_endpoint_app
 ON application_endpoint (application_uuid);
@@ -56,29 +43,6 @@ ON application_extra_endpoint (application_uuid, charm_extra_binding_uuid);
 CREATE INDEX idx_application_extra_endpoint_space
 ON application_extra_endpoint (space_uuid);
 
--- The relation_endpoint table links a relation to a single
--- application endpoint. If the relation is of type peer,
--- there will be one row in the table. If the relation has
--- a provider and requirer endpoint, there will be two rows
--- in the table.
-CREATE TABLE relation_endpoint (
-    uuid TEXT NOT NULL PRIMARY KEY,
-    relation_uuid TEXT NOT NULL,
-    endpoint_uuid TEXT NOT NULL,
-    CONSTRAINT fk_relation_uuid
-    FOREIGN KEY (relation_uuid)
-    REFERENCES relation (uuid),
-    CONSTRAINT fk_endpoint_uuid
-    FOREIGN KEY (endpoint_uuid)
-    REFERENCES application_endpoint (uuid)
-);
-
-CREATE UNIQUE INDEX idx_relation_endpoint
-ON relation_endpoint (relation_uuid, endpoint_uuid);
-
-CREATE INDEX idx_relation_endpoint_relation
-ON relation_endpoint (relation_uuid);
-
 -- The relation table represents a relation between two
 -- applications, or a peer relation.
 CREATE TABLE relation (
@@ -101,6 +65,44 @@ CREATE TABLE relation (
     FOREIGN KEY (scope_id)
     REFERENCES charm_relation_scope (id)
 );
+
+-- The relation_endpoint table links a relation to a single
+-- application endpoint. If the relation is of type peer,
+-- there will be one row in the table. If the relation has
+-- a provider and requirer endpoint, there will be two rows
+-- in the table.
+CREATE TABLE relation_endpoint (
+    uuid TEXT NOT NULL PRIMARY KEY,
+    relation_uuid TEXT NOT NULL,
+    endpoint_uuid TEXT NOT NULL,
+    CONSTRAINT fk_relation_uuid
+    FOREIGN KEY (relation_uuid)
+    REFERENCES relation (uuid),
+    CONSTRAINT fk_endpoint_uuid
+    FOREIGN KEY (endpoint_uuid)
+    REFERENCES application_endpoint (uuid)
+);
+
+-- v_application_subordinate provides an application, whether its charm is a
+-- subordinate, and a relation_uuid if it exists. It's possible the application
+-- is in zero or multiple relations.
+CREATE VIEW v_application_subordinate AS
+SELECT
+    a.uuid AS application_uuid,
+    cm.subordinate,
+    re.relation_uuid
+FROM application AS a
+JOIN charm AS c ON a.charm_uuid = c.uuid
+JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid
+JOIN charm_relation AS cr ON c.uuid = cr.charm_uuid
+JOIN application_endpoint AS ae ON cr.uuid = ae.charm_relation_uuid
+JOIN relation_endpoint AS re ON ae.uuid = re.endpoint_uuid;
+
+CREATE UNIQUE INDEX idx_relation_endpoint
+ON relation_endpoint (relation_uuid, endpoint_uuid);
+
+CREATE INDEX idx_relation_endpoint_relation
+ON relation_endpoint (relation_uuid);
 
 CREATE UNIQUE INDEX idx_relation_id
 ON relation (relation_id);

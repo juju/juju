@@ -16,23 +16,6 @@ ON controller_node (dqlite_node_id);
 CREATE UNIQUE INDEX idx_controller_node_dqlite_bind_address
 ON controller_node (dqlite_bind_address);
 
--- controller_node_agent_version tracks the reported agent version running for
--- each controller in the cluster.
-CREATE TABLE controller_node_agent_version (
-    controller_id TEXT NOT NULL PRIMARY KEY,
-    version TEXT NOT NULL,
-    architecture_id INT NOT NULL,
-    CONSTRAINT fk_controller_node_agent_version_controller
-    FOREIGN KEY (controller_id)
-    REFERENCES controller_node (controller_id),
-    CONSTRAINT fk_controller_node_agent_version_architecture
-    FOREIGN KEY (architecture_id)
-    REFERENCES architecture (id)
-);
-
-CREATE INDEX idx_controller_node_agent_version_architecture
-ON controller_node_agent_version (architecture_id);
-
 CREATE TABLE controller_api_address (
     controller_id TEXT NOT NULL,
     -- The value of the configured IP address with the port appended.
@@ -135,3 +118,20 @@ CREATE TABLE controller_node_nonce (
     controller_id TEXT NOT NULL PRIMARY KEY,
     nonce TEXT NOT NULL
 );
+
+-- controller_node_agent_version tracks the reported agent version running for
+-- each controller in the cluster.
+CREATE TABLE controller_node_agent_version (
+    controller_id TEXT NOT NULL PRIMARY KEY,
+    version TEXT NOT NULL,
+    architecture_id INT NOT NULL,
+    CONSTRAINT fk_controller_node_agent_version_controller
+    FOREIGN KEY (controller_id)
+    REFERENCES controller_node (controller_id),
+    CONSTRAINT fk_controller_node_agent_version_architecture
+    FOREIGN KEY (architecture_id)
+    REFERENCES architecture (id)
+);
+
+CREATE INDEX idx_controller_node_agent_version_architecture
+ON controller_node_agent_version (architecture_id);

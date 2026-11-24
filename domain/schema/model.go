@@ -10,27 +10,27 @@ import (
 	"github.com/juju/juju/core/database/schema"
 	"github.com/juju/juju/core/semversion"
 	coreversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/domain/schema/model/triggers"
+	"github.com/juju/juju/domain/schema/dqlite/model/triggers"
 )
 
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/blockdevice-triggers.gen.go -package=triggers -tables=block_device
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/model-triggers.gen.go -package=triggers -tables=model_config,model_migrating
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/secret-triggers.gen.go -package=triggers -tables=secret_metadata,secret_rotation,secret_revision,secret_revision_expire,secret_revision_obsolete,secret_reference,secret_deleted_value_ref
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/network-triggers.gen.go -package=triggers -tables=subnet,ip_address,fqdn_address,net_node_fqdn_address,k8s_service
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/controller-network-triggers.gen.go -package=triggers -tables=link_layer_device,space
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-triggers.gen.go -package=triggers -tables=machine,machine_lxd_profile,machine_cloud_instance,machine_requires_reboot,machine_reprovision,machine_ssh_host_key
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/ssh-connection-request-triggers.gen.go -package=triggers -tables=ssh_connection_request
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-triggers.gen.go -package=triggers -tables=application,application_config_hash,application_setting,charm,application_scale,port_range,application_exposed_endpoint_space,application_exposed_endpoint_cidr
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/unit-triggers.gen.go -package triggers -tables=unit,unit_principal,unit_resolved
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/relation-triggers.gen.go -package=triggers -tables=relation_application_settings_hash,relation_unit_settings_hash,relation_unit,relation,application_endpoint
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/cleanup-triggers.gen.go -package=triggers -tables=removal
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/operation-triggers.gen.go -package=triggers -tables=operation_task_log
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/crossmodelrelation-triggers.gen.go -package=triggers -tables=application_remote_offerer,application_remote_consumer,relation_network_ingress,relation_network_egress
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/offer-triggers.gen.go -package=triggers -tables=offer
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/status-triggers.gen.go -package=triggers -tables=application_status
+//go:generate go run ./../../generate/triggergen -db=model -destination=./dqlite/model/triggers/blockdevice-triggers.gen.go -package=triggers -tables=block_device
+//go:generate go run ./../../generate/triggergen -db=model -destination=./dqlite/model/triggers/model-triggers.gen.go -package=triggers -tables=model_config,model_migrating
+//go:generate go run ./../../generate/triggergen -db=model -destination=./dqlite/model/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path
+//go:generate go run ./../../generate/triggergen -db=model -destination=./dqlite/model/triggers/secret-triggers.gen.go -package=triggers -tables=secret_metadata,secret_rotation,secret_revision,secret_revision_expire,secret_revision_obsolete,secret_reference,secret_deleted_value_ref
+//go:generate go run ./../../generate/triggergen -db=model -destination=./dqlite/model/triggers/network-triggers.gen.go -package=triggers -tables=subnet,ip_address,fqdn_address,net_node_fqdn_address,k8s_service
+//go:generate go run ./../../generate/triggergen -db=model -destination=./dqlite/model/triggers/controller-network-triggers.gen.go -package=triggers -tables=link_layer_device,space
+//go:generate go run ./../../generate/triggergen -db=model -destination=./dqlite/model/triggers/machine-triggers.gen.go -package=triggers -tables=machine,machine_lxd_profile,machine_cloud_instance,machine_requires_reboot,machine_reprovision,machine_ssh_host_key
+//go:generate go run ./../../generate/triggergen -db=model -destination=./dqlite/model/triggers/ssh-connection-request-triggers.gen.go -package=triggers -tables=ssh_connection_request
+//go:generate go run ./../../generate/triggergen -db=model -destination=./dqlite/model/triggers/application-triggers.gen.go -package=triggers -tables=application,application_config_hash,application_setting,charm,application_scale,port_range,application_exposed_endpoint_space,application_exposed_endpoint_cidr
+//go:generate go run ./../../generate/triggergen -db=model -destination=./dqlite/model/triggers/unit-triggers.gen.go -package triggers -tables=unit,unit_principal,unit_resolved
+//go:generate go run ./../../generate/triggergen -db=model -destination=./dqlite/model/triggers/relation-triggers.gen.go -package=triggers -tables=relation_application_settings_hash,relation_unit_settings_hash,relation_unit,relation,application_endpoint
+//go:generate go run ./../../generate/triggergen -db=model -destination=./dqlite/model/triggers/cleanup-triggers.gen.go -package=triggers -tables=removal
+//go:generate go run ./../../generate/triggergen -db=model -destination=./dqlite/model/triggers/operation-triggers.gen.go -package=triggers -tables=operation_task_log
+//go:generate go run ./../../generate/triggergen -db=model -destination=./dqlite/model/triggers/crossmodelrelation-triggers.gen.go -package=triggers -tables=application_remote_offerer,application_remote_consumer,relation_network_ingress,relation_network_egress
+//go:generate go run ./../../generate/triggergen -db=model -destination=./dqlite/model/triggers/offer-triggers.gen.go -package=triggers -tables=offer
+//go:generate go run ./../../generate/triggergen -db=model -destination=./dqlite/model/triggers/status-triggers.gen.go -package=triggers -tables=application_status
 
-//go:embed model/sql/*.sql
+//go:embed dqlite/model/sql/*.sql
 var modelSchemaDir embed.FS
 
 const (
@@ -151,7 +151,7 @@ func ModelDDLForVersion(version semversion.Number) *schema.Schema {
 		panic("Cannot return the model DDL for a different major.minor version")
 	}
 
-	patches, err := readPatches(modelSchemaDir, "model/sql")
+	patches, err := readPatches(modelSchemaDir, "dqlite/model/sql")
 	if err != nil {
 		panic(err)
 	}
@@ -409,7 +409,7 @@ END;
 			postPatchFiles = append(postPatchFiles, postPatch.files...)
 		}
 	}
-	postPatches, err := readPostPatches(modelSchemaDir, "model/sql", postPatchFiles)
+	postPatches, err := readPostPatches(modelSchemaDir, "dqlite/model/sql", postPatchFiles)
 	if err != nil {
 		panic(err)
 	}
