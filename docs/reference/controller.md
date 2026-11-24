@@ -63,14 +63,16 @@ Each unit of the {ref}`controller application <controller-application>` correspo
 
 (dqlite-cluster-of-the-controllers)=
 (controller-high-availability)=
-#### Controller high availability
 
+````{container}
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Controller high availability
 :caption: One highly available controller spans three machines in this example. Juju assigns one unit of the `controller` application to each machine. The controller agent on each machine runs an API server and a Dqlite node in the same process. The dashed outline groups the three Dqlite nodes into one cluster.
 :alt: Three controller machines sit side by side. Inside each machine, a controller agent box contains an API server above a Dqlite node. A dashed outline spans the machines and encloses the Dqlite nodes but not the API servers.
 ```
+
+````
 
 With controller {ref}`high availability <high-availability>`, one Juju controller runs across multiple machines, with one controller node per machine. The nodes share one database cluster, reducing the risk that a machine failure takes the controller offline. Juju supports this topology only on {ref}`machine clouds <machine-cloud>`.
 
