@@ -88,7 +88,7 @@ A user with {ref}`controller login access <user-access-controller-login>` can re
 
 The API returns the stored port, or `17022` if no port is stored. Use this value instead of the {ref}`ssh-server-port <controller-config-ssh-server-port>` bootstrap setting to choose where to connect. The API read does not confirm that a node is listening on that port.
 
-After {ref}`model migration <model-migration-contract>`, the first SSH hop uses the destination controller's host key. Verify it against the key reported by the destination controller's API. For fingerprint verification with OpenSSH, see {ref}`access-a-machine-via-ssh`.
+After you {ref}`migrate a model <migrate-a-model>`, the first SSH hop uses the destination controller's host key. Verify it against the key reported by the destination controller's API. For fingerprint verification with OpenSSH, see {ref}`access-a-machine-via-ssh`.
 
 If the controller API refuses a port or host-key lookup, check the message:
 

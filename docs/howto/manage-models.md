@@ -26,7 +26,6 @@ You can also pass various options to choose a different controller or credential
 See more: {ref}`command-juju-add-model`
 ```
 
-(list-models-on-a-controller)=
 ## View all the models available on a controller
 
 To get a list of all the models in the current controller, use the `models` command:
@@ -90,7 +89,6 @@ The command also allows you to specify the target controller in an abbreviated f
 See more: {ref}`command-juju-switch`
 ```
 
-(view-the-status-of-a-model)=
 ## View the status of a model
 
 To see the status of a model and everything inside of it, run the `status` command:
