@@ -1486,33 +1486,26 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 	// controller ID from the pod ordinal and reserve bootstrap-state for
 	// controller-0. Later replicas have their agent config seeded by the charm
 	// init container before this container starts.
-	bootstrapSubcommand := "bootstrap-state"
-	if c.pcfg.Bootstrap.RecoveryMode {
-		bootstrapSubcommand = "recover-state"
-	}
-	bootstrapStateCmd := fmt.Sprintf(
-		"%s %s --data-dir $JUJU_DATA_DIR %s",
-		path.Join("$JUJU_TOOLS_DIR", "jujuagentd"),
-		bootstrapSubcommand,
-		loggingOption,
-	)
-	if !c.pcfg.Bootstrap.RecoveryMode {
-		// Only the fresh bootstrap performs timed state initialisation
-		// work; recover-state carries no timeout, matching the machine
-		// provisioning flow.
-		bootstrapStateCmd += " --timeout " + c.timeout.String()
-	}
+	featureFlagsEnv := ""
 	if featureFlags != "" {
-		bootstrapStateCmd = fmt.Sprintf("%s=%s %s", osenv.JujuFeatureFlagEnvKey, featureFlags, bootstrapStateCmd)
+		featureFlagsEnv = fmt.Sprintf("%s=%s", osenv.JujuFeatureFlagEnvKey, featureFlags)
 	}
+	bootstrapStateCmd := cloudconfig.AgentStartCommand(cloudconfig.AgentStartOptions{
+		ToolPath:        path.Join("$JUJU_TOOLS_DIR", "jujuagentd"),
+		DataDir:         "$JUJU_DATA_DIR",
+		LoggingOption:   loggingOption,
+		Timeout:         c.timeout,
+		FeatureFlagsEnv: featureFlagsEnv,
+		RecoveryMode:    c.pcfg.Bootstrap.RecoveryMode,
+	})
 	if c.pcfg.Bootstrap.RecoveryMode {
 		// Create the recovery marker only on controller-0's initial boot,
 		// before recover-state runs. Keeping it inside the ! -e agent.conf
 		// guard avoids re-creating the marker on later pod restarts or HA
 		// replicas after recovery completes. The path and permissions
 		// match the machine provisioning flow's marker.
-		markerPath := path.Join("$JUJU_DATA_DIR", agent.RecoveryParamsFile)
-		bootstrapStateCmd = fmt.Sprintf(`install -D -m 600 /dev/null "%s" && `, markerPath) + bootstrapStateCmd
+		markerPath := `"` + path.Join("$JUJU_DATA_DIR", agent.RecoveryParamsFile) + `"`
+		bootstrapStateCmd = cloudconfig.RecoveryMarkerCommand(markerPath) + " && " + bootstrapStateCmd
 	}
 	agentConfigPath := path.Join("$JUJU_DATA_DIR", agentConfigRelativePath)
 	var bootstrapSetup string
