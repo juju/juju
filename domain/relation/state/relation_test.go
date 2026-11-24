@@ -833,7 +833,7 @@ func (s *addRelationSuite) TestInferEndpoints(c *tc.C) {
 		// Act
 		var uuid1, uuid2 corerelation.EndpointUUID
 		err := db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-			ep1, ep2, err := s.state.inferEndpoints(ctx, tx, identifier1, identifier2, false)
+			ep1, ep2, err := s.state.inferEndpoints(ctx, tx, identifier1, identifier2)
 			uuid1 = ep1.ApplicationEndpointUUID
 			uuid2 = ep2.ApplicationEndpointUUID
 			return err
@@ -955,7 +955,7 @@ func (s *addRelationSuite) TestInferEndpointsError(c *tc.C) {
 
 		// Act
 		err := db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-			_, _, err = s.state.inferEndpoints(ctx, tx, identifier1, identifier2, false)
+			_, _, err = s.state.inferEndpoints(ctx, tx, identifier1, identifier2)
 			return err
 		})
 
@@ -1047,7 +1047,7 @@ func (s *addRelationSuite) TestInferEndpointsImplicit(c *tc.C) {
 		// Act
 		var uuid1, uuid2 corerelation.EndpointUUID
 		err := db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-			ep1, ep2, err := s.state.inferEndpoints(ctx, tx, identifier1, identifier2, true)
+			ep1, ep2, err := s.state.inferEndpoints(ctx, tx, identifier1, identifier2)
 			uuid1 = ep1.ApplicationEndpointUUID
 			uuid2 = ep2.ApplicationEndpointUUID
 			return err
@@ -1089,7 +1089,7 @@ func (s *addRelationSuite) TestInferEndpointsImplicitStillAmbiguous(c *tc.C) {
 
 	// Act
 	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, _, err := s.state.inferEndpoints(ctx, tx, identifier1, identifier2, true)
+		_, _, err := s.state.inferEndpoints(ctx, tx, identifier1, identifier2)
 		return err
 	})
 
@@ -4447,23 +4447,20 @@ func (s *relationSuite) TestInferRelationUUIDByEndpoints(c *tc.C) {
 	c.Check(obtainedUUID, tc.Equals, relUUID)
 }
 
-func (s *relationSuite) TestInferRelationUUIDByEndpointsFailInfer(c *tc.C) {
-	// Arrange relation endpoints where neither the name nor the interface
-	// match.
+// TestInferRelationUUIDByEndpointsEndpointName tests that a given endpoint
+// name must match the existing relation, on either side.
+func (s *relationSuite) TestInferRelationUUIDByEndpointsEndpointName(c *tc.C) {
+	// Arrange
 	relation1 := charm.Relation{
 		Name:      "fake-endpoint-name-1",
 		Role:      charm.RoleProvider,
 		Interface: "database",
-		Optional:  true,
-		Limit:     20,
 		Scope:     charm.ScopeGlobal,
 	}
 	relation2 := charm.Relation{
 		Name:      "fake-endpoint-name-2",
 		Role:      charm.RoleRequirer,
-		Interface: "cheese",
-		Optional:  false,
-		Limit:     10,
+		Interface: "database",
 		Scope:     charm.ScopeGlobal,
 	}
 	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, relation1)
@@ -4475,15 +4472,69 @@ func (s *relationSuite) TestInferRelationUUIDByEndpointsFailInfer(c *tc.C) {
 	relUUID := s.addRelation(c)
 	s.addRelationEndpoint(c, relUUID, applicationEndpointUUID1)
 	s.addRelationEndpoint(c, relUUID, applicationEndpointUUID2)
-	candidate1 := domainrelation.CandidateEndpointIdentifier{
+
+	app1 := domainrelation.CandidateEndpointIdentifier{
 		ApplicationName: s.fakeApplicationName1,
 	}
-	candidate2 := domainrelation.CandidateEndpointIdentifier{
+	app2 := domainrelation.CandidateEndpointIdentifier{
 		ApplicationName: s.fakeApplicationName2,
+	}
+	named1 := domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: s.fakeApplicationName1,
+		EndpointName:    "fake-endpoint-name-1",
+	}
+	named2 := domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: s.fakeApplicationName2,
+		EndpointName:    "fake-endpoint-name-2",
+	}
+	wrong1 := domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: s.fakeApplicationName1,
+		EndpointName:    "other",
+	}
+	wrong2 := domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: s.fakeApplicationName2,
+		EndpointName:    "other",
+	}
+
+	// Act & Assert: matching names, in either order.
+	for _, ids := range [][2]domainrelation.CandidateEndpointIdentifier{
+		{named1, app2}, {app1, named2}, {named1, named2}, {named2, named1},
+	} {
+		obtainedUUID, err := s.state.InferRelationUUIDByEndpoints(c.Context(), ids[0], ids[1])
+		c.Check(err, tc.ErrorIsNil, tc.Commentf("%s %s", ids[0], ids[1]))
+		c.Check(obtainedUUID, tc.Equals, relUUID, tc.Commentf("%s %s", ids[0], ids[1]))
+	}
+
+	// Act & Assert: a name that does not match, on either side.
+	for _, ids := range [][2]domainrelation.CandidateEndpointIdentifier{
+		{wrong1, app2}, {app1, wrong2}, {named1, wrong2},
+	} {
+		_, err := s.state.InferRelationUUIDByEndpoints(c.Context(), ids[0], ids[1])
+		c.Check(err, tc.ErrorIs, relationerrors.RelationNotFound, tc.Commentf("%s %s", ids[0], ids[1]))
+	}
+}
+
+// TestInferRelationUUIDByEndpointsPeer tests that a peer relation is not
+// found by giving its application twice.
+func (s *relationSuite) TestInferRelationUUIDByEndpointsPeer(c *tc.C) {
+	// Arrange
+	peer := charm.Relation{
+		Name:      "peers",
+		Role:      charm.RolePeer,
+		Interface: "cluster",
+		Scope:     charm.ScopeGlobal,
+	}
+	charmRelationUUID := s.addCharmRelation(c, s.fakeCharmUUID1, peer)
+	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
+	applicationEndpointUUID := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID)
+	relUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relUUID, applicationEndpointUUID)
+	candidate := domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: s.fakeApplicationName1,
 	}
 
 	// Act
-	_, err := s.state.InferRelationUUIDByEndpoints(c.Context(), candidate1, candidate2)
+	_, err := s.state.InferRelationUUIDByEndpoints(c.Context(), candidate, candidate)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
@@ -4533,14 +4584,13 @@ func (s *relationSuite) TestInferRelationUUIDByEndpointsFailGetUUID(c *tc.C) {
 }
 
 // TestInferRelationUUIDByEndpointsAmbiguousCharmSingleRelation tests that
-// when charm metadata has multiple compatible endpoint pairs (causing
-// ambiguity in inference), but only ONE relation actually exists between the
-// two applications, InferRelationUUIDByEndpoints successfully falls back to
-// finding the existing relation.
+// when charm metadata has multiple compatible endpoint pairs, but only ONE
+// relation actually exists between the two applications,
+// InferRelationUUIDByEndpoints finds the existing relation.
 func (s *relationSuite) TestInferRelationUUIDByEndpointsAmbiguousCharmSingleRelation(c *tc.C) {
 	// Arrange: Create two endpoints on app1 that can both relate to app2's
-	// endpoint (same interface, provider/requirer pair). This causes
-	// ambiguity during inference from charm metadata.
+	// endpoint (same interface, provider/requirer pair), so the charm
+	// metadata alone is ambiguous.
 	relation1a := charm.Relation{
 		Name:      "db",
 		Role:      charm.RoleProvider,
@@ -4587,7 +4637,7 @@ func (s *relationSuite) TestInferRelationUUIDByEndpointsAmbiguousCharmSingleRela
 	// Act
 	obtainedUUID, err := s.state.InferRelationUUIDByEndpoints(c.Context(), candidate1, candidate2)
 
-	// Assert: despite ambiguity in charm metadata, falls back to the single
+	// Assert: despite ambiguity in charm metadata, finds the single
 	// existing relation.
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedUUID, tc.Equals, relUUID)
@@ -4718,7 +4768,7 @@ func (s *relationSuite) TestInferRelationUUIDByEndpointsImplicit(c *tc.C) {
 	// Act
 	obtainedUUID, err := s.state.InferRelationUUIDByEndpoints(c.Context(), candidate1, candidate2)
 
-	// Assert: falls back to the single existing relation.
+	// Assert: finds the single existing relation.
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedUUID, tc.Equals, implicitRelUUID)
 
