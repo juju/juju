@@ -45,3 +45,14 @@ See more: {ref}`List of supported Kubernetes clouds <list-of-supported-kubernete
 
 The structure of a cloud definition and its supported authentication types and configuration keys depend on the specific cloud. See the relevant {ref}`cloud reference page <list-of-supported-clouds>` for details.
 
+(cloud-removal)=
+## Cloud removal
+
+```{ibnote}
+See also: {ref}`Juju CLI | Remove a cloud <remove-a-cloud>`
+```
+
+The controller refuses to remove a cloud definition while any model references that cloud. This includes the {ref}`controller model <model>`, so the controller's own cloud cannot be removed while that model exists.
+
+- *Error message:* `cannot delete cloud "<cloud>" as it is still referenced by models`. *Trigger:* A model still references the cloud. *What to do:* Remove or migrate the workload models that reference the cloud before retrying. If the controller model references it, leave the cloud definition in place.
+

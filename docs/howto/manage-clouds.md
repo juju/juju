@@ -250,11 +250,14 @@ The command also allows you to indicate whether the update should happen on the 
 See more: {ref}`command-juju-update-cloud`
 ```
 
+(remove-a-cloud)=
 ## Remove a cloud
 
 ```{ibnote}
 See also: {ref}`removing-things`
 ```
+
+Before removing a cloud from a controller, check whether it is still {ref}`referenced by a model <cloud-removal>`.
 
 Given a cloud definition that you've added explicitly to Juju via `add-cloud` or `add-k8s`, to remove that definition from Juju, run the `remove-cloud` command followed by the name of the cloud. For example:
 
