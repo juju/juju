@@ -59,12 +59,6 @@ The controller keeps deployment state in a {ref}`database <database>` and stores
 (controller-nodes)=
 ### Controller nodes
 
-Each unit of the {ref}`controller application <controller-application>` corresponds to a node of the same controller. The node's ID is the number at the end of its unit name: `controller/0` has ID `0`.
-
-Adding controller units is how you set up controller {ref}`high availability <high-availability>`; there is no separate HA setting. The units still belong to one Juju controller and, as their Dqlite nodes join, they share one database cluster. Each controller node runs on a separate machine on a {ref}`machine cloud <machine-cloud>` or in a separate pod of the controller StatefulSet on a {ref}`Kubernetes cloud <kubernetes-cloud>`.
-
-Adding a second unit starts the transition to a multi-node cluster, but a two-node Dqlite cluster settles on one voter. With three healthy voters, the database can keep quorum after losing one of them. A requested unit count does not tell you how many nodes have joined or can vote.
-
 (dqlite-cluster-of-the-controllers)=
 (controller-high-availability)=
 
@@ -72,11 +66,17 @@ Adding a second unit starts the transition to a multi-node cluster, but a two-no
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Controller high availability
-:caption: A three-node controller on a machine cloud. Each machine runs an API server and a Dqlite node in the same controller agent process. The dashed outline groups the Dqlite nodes into one cluster.
+:caption: One Juju controller can span several nodes. In this machine-cloud example, three machines each run a controller agent with its own API server and Dqlite node. The dashed outline groups the Dqlite nodes into one shared database cluster.
 :alt: Three controller machines sit side by side. Inside each machine, a controller agent box contains an API server above a Dqlite node. A dashed outline spans the machines and encloses the Dqlite nodes but not the API servers.
 ```
 
 ````
+
+Each unit of the {ref}`controller application <controller-application>` corresponds to a node of the same controller. The node's ID is the number at the end of its unit name: `controller/0` has ID `0`.
+
+Adding controller units is how you set up controller {ref}`high availability <high-availability>`; there is no separate HA setting. The units still belong to one Juju controller and, as their Dqlite nodes join, they share one database cluster. Each controller node runs on a separate machine on a {ref}`machine cloud <machine-cloud>` or in a separate pod of the controller StatefulSet on a {ref}`Kubernetes cloud <kubernetes-cloud>`.
+
+Adding a second unit starts the transition to a multi-node cluster, but a two-node Dqlite cluster settles on one voter. With three healthy voters, the database can keep quorum after losing one of them. A requested unit count does not tell you how many nodes have joined or can vote.
 
 A new Dqlite node waits for the controller charm to supply its bind address and at least one peer address. The bootstrap node can switch from loopback to its cluster address when the configuration lists more than one member and includes that node's address.
 
