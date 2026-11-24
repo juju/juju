@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/domain/deployment/charm"
 	domainrelation "github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/errors"
 )
@@ -81,6 +82,37 @@ func (st *State) InitialWatchRelatedUnits(
 			endpointForAppSettingsChange, relationUUID)
 	}
 
+	// In a container-scoped relation, a unit only ever sees the units it is
+	// co-located with: a subordinate unit sees its principal unit (and the
+	// principal's other subordinate units), and a principal unit sees only
+	// its own subordinate units. The co-location key of the input unit is
+	// its principal unit UUID, or its own UUID when it is not a subordinate.
+	// It is empty for globally-scoped relations, where no such restriction
+	// applies.
+	colocationKey, err := st.getColocationKey(ctx, unitUUID, relationUUID)
+	if err != nil {
+		return nil, nil, nil, errors.Errorf("getting co-location key for unit %q in relation %q: %w",
+			unitUUID, relationUUID, err)
+	}
+
+	// isRelatedUnit reports whether a unit of the relation is related to the
+	// watching unit: a unit is related iff it is not the watching unit
+	// itself, it is on the watched side of the relation (the remote side
+	// for non-peer relations) and, in container-scoped relations, it shares
+	// the watching unit's co-location key, i.e. it belongs to the same
+	// principal unit.
+	isRelatedUnit := func(u relationUnit) bool {
+		if u.UnitUUID == unitUUID {
+			return false
+		}
+		// If we are not in a peer relation, we want to watch the remote
+		// side, so we exclude the local side too.
+		if !isPeerRelation && appUUID == appByEndpoint[u.RelationEndpointUUID] {
+			return false
+		}
+		return colocationKey == "" || u.colocationKey() == colocationKey
+	}
+
 	return []string{relationApplicationSettingNamespace, relationUnitSettingNamespace, relationUnitNamespace},
 		// Initial query.
 		func(ctx context.Context, _ database.TxnRunner) ([]string, error) {
@@ -94,14 +126,9 @@ func (st *State) InitialWatchRelatedUnits(
 			// For non-peer relations, this is the remote application's UUID.
 			entityUUIDs := []string{domainrelation.EncodeApplicationUUID(appUUIDForAppSettingsChange)}
 
-			// Exclude the input unit from the list of related units.
+			// Only units related to the input unit are reported.
 			for _, u := range units {
-				if u.UnitUUID == unitUUID {
-					continue
-				}
-				// If we are not in a peer relation, we want to watch the remote
-				// side, so we exclude the local side too.
-				if !isPeerRelation && appUUID == appByEndpoint[u.RelationEndpointUUID] {
+				if !isRelatedUnit(u) {
 					continue
 				}
 				entityUUIDs = append(entityUUIDs, domainrelation.EncodeUnitUUID(u.UnitUUID))
@@ -117,15 +144,11 @@ func (st *State) InitialWatchRelatedUnits(
 			}
 
 			// Populate data structures for convenient lookups.
-			// Exclude the input unit from the list of related units.
+			// Only units related to the input unit are reported.
 			unitByRelationUnit := make(map[string]string)
 			relatedUnits := set.NewStrings()
 			for _, u := range unitsInRelation {
-				if u.UnitUUID == unitUUID {
-					continue
-				}
-				// If we are not in a peer relation, we want to watch the remote side, so we exclude the local side too.
-				if !isPeerRelation && appUUID == appByEndpoint[u.RelationEndpointUUID] {
+				if !isRelatedUnit(u) {
 					continue
 				}
 
@@ -195,7 +218,7 @@ func newApplicationUUIDEvent(event changestream.ChangeEvent, change string) mask
 	}
 }
 
-// newApplicationUUIDEvent creates a maskedEvent for unit UUIDs,
+// newUnitUUIDEvent creates a maskedEvent for unit UUIDs,
 // encoding the UUID with a custom function.
 func newUnitUUIDEvent(event changestream.ChangeEvent, change string) maskedEvent {
 	return maskedEvent{
@@ -210,6 +233,8 @@ func newUnitUUIDEvent(event changestream.ChangeEvent, change string) maskedEvent
 // Units that are in scope will have a populated RelationUnitUUID.
 // The RelationEndpointUUID can be used to tell what side of the relation
 // the returned units are on.
+// Subordinate units will have a populated PrincipalUUID, which allows
+// co-location filtering for container-scoped relations.
 func (st *State) getUnitsInRelation(ctx context.Context, relUUID string) ([]relationUnit, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -221,10 +246,12 @@ func (st *State) getUnitsInRelation(ctx context.Context, relUUID string) ([]rela
 	q := `
 SELECT u.uuid as &relationUnit.unit_uuid,
 	   re.uuid as &relationUnit.relation_endpoint_uuid,
-       IFNULL(ru.uuid, '') as &relationUnit.uuid
+       IFNULL(ru.uuid, '') as &relationUnit.uuid,
+       IFNULL(up.principal_uuid, '') as &relationUnit.principal_uuid
 FROM   relation_endpoint re
        JOIN application_endpoint ae ON re.endpoint_uuid = ae.uuid
        JOIN unit u ON ae.application_uuid = u.application_uuid
+       LEFT JOIN unit_principal AS up ON u.uuid = up.unit_uuid
        LEFT JOIN relation_unit ru ON u.uuid = ru.unit_uuid
                                   AND re.uuid = ru.relation_endpoint_uuid
 WHERE  re.relation_uuid = $relationUnit.relation_uuid
@@ -290,4 +317,42 @@ WHERE  re.relation_uuid = $entityUUID.uuid`
 	return transform.SliceToMap(endpoints, func(e appEndpoint) (string, string) {
 		return e.RelEndpointUUID, e.ApplicationUUID
 	}), nil
+}
+
+// getColocationKey returns the co-location key of a unit in a relation,
+// which identifies the container the unit belongs to: the UUID of its
+// principal unit if the unit is a subordinate, or the unit's own UUID.
+// An empty string is returned for globally-scoped relations, where
+// co-location does not restrict unit visibility.
+func (st *State) getColocationKey(ctx context.Context, unitUUID string, relUUID string) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var colocationKey string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		colocationKey = ""
+		scope, err := st.getRelationScope(ctx, tx, relUUID)
+		if err != nil {
+			return errors.Errorf("getting relation scope: %w", err)
+		}
+		if scope != string(charm.ScopeContainer) {
+			return nil
+		}
+
+		colocationKey = unitUUID
+		principalUUID, isSubordinate, err := st.getUnitPrincipalUUID(ctx, tx, unitUUID)
+		if err != nil {
+			return errors.Errorf("getting principal unit: %w", err)
+		}
+		if isSubordinate {
+			colocationKey = principalUUID
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return colocationKey, nil
 }

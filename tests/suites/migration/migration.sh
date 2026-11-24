@@ -494,11 +494,15 @@ run_migration_36_abort() {
 	# transfer), so the abort is observed via the migrationmaster logs,
 	# which are emitted into the source controller's controller-model
 	# stream.
+	#
+	# Replay the whole log: without --replay, 3.6 only returns the last 10
+	# lines. grep reads to the end because exiting early would fail the
+	# pipeline under pipefail.
 	attempt=0
-	until ${JUJU_36} debug-log -m "mig36-abort-src-12345:controller" --no-tail 2>/dev/null | grep -q "setting migration phase to ABORTDONE"; do
+	until ${JUJU_36} debug-log -m "mig36-abort-src-12345:controller" --replay --no-tail 2>/dev/null | grep "setting migration phase to ABORTDONE" >/dev/null; do
 		if [[ ${attempt} -ge 30 ]]; then
 			red 'Failed: migration abort did not complete'
-			${JUJU_36} debug-log -m "mig36-abort-src-12345:controller" --no-tail --lines 100 || true
+			${JUJU_36} debug-log -m "mig36-abort-src-12345:controller" --no-tail --limit 100 || true
 			exit 1
 		fi
 		echo "[+] (attempt ${attempt}) polling for migration abort"
@@ -507,7 +511,7 @@ run_migration_36_abort() {
 	done
 
 	# Assert the wrench-forced failure triggered the abort path.
-	abort_logs="$(${JUJU_36} debug-log -m "mig36-abort-src-12345:controller" --no-tail 2>/dev/null || true)"
+	abort_logs="$(${JUJU_36} debug-log -m "mig36-abort-src-12345:controller" --replay --no-tail 2>/dev/null || true)"
 	check_contains "${abort_logs}" "wrench in the transferModel works"
 
 	# The target controller must not have the model. Model removal on

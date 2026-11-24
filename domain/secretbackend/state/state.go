@@ -784,14 +784,16 @@ func (s *State) getSecretBackend(ctx context.Context, tx *sqlair.TX, identifier 
 	if identifier.ID != "" && identifier.Name != "" {
 		return nil, errors.Errorf("%w: both ID and name are provided", secretbackenderrors.NotValid)
 	}
-	columName := "uuid"
-	v := identifier.ID
 	if identifier.Name != "" {
-		columName = "name"
-		v = identifier.Name
+		return s.getSecretBackendByName(ctx, tx, identifier.Name)
 	}
+	return s.getSecretBackendByID(ctx, tx, identifier.ID)
+}
 
-	q := fmt.Sprintf(`
+func (s *State) getSecretBackendByID(
+	ctx context.Context, tx *sqlair.TX, id string,
+) (*secretbackend.SecretBackend, error) {
+	q := `
 SELECT
     b.uuid                  AS &SecretBackendRow.uuid,
     b.name                  AS &SecretBackendRow.name,
@@ -802,16 +804,43 @@ SELECT
 FROM secret_backend b
     JOIN secret_backend_type bt ON b.backend_type_id = bt.id
     LEFT JOIN secret_backend_config c ON b.uuid = c.backend_uuid
-WHERE b.%s = $M.identifier`, columName)
-	stmt, err := s.Prepare(q, sqlair.M{}, SecretBackendRow{})
+WHERE b.uuid = $secretBackendIdentifier.identifier`
+	return s.querySecretBackend(ctx, tx, q, id)
+}
+
+func (s *State) getSecretBackendByName(
+	ctx context.Context, tx *sqlair.TX, name string,
+) (*secretbackend.SecretBackend, error) {
+	q := `
+SELECT
+    b.uuid                  AS &SecretBackendRow.uuid,
+    b.name                  AS &SecretBackendRow.name,
+    bt.type                 AS &SecretBackendRow.backend_type,
+    b.token_rotate_interval AS &SecretBackendRow.token_rotate_interval,
+    c.name                  AS &SecretBackendRow.config_name,
+    c.content               AS &SecretBackendRow.config_content
+FROM secret_backend b
+    JOIN secret_backend_type bt ON b.backend_type_id = bt.id
+    LEFT JOIN secret_backend_config c ON b.uuid = c.backend_uuid
+WHERE b.name = $secretBackendIdentifier.identifier`
+	return s.querySecretBackend(ctx, tx, q, name)
+}
+
+// querySecretBackend runs the given secret backend query with the provided
+// identifier value and returns the single matching secret backend.
+func (s *State) querySecretBackend(
+	ctx context.Context, tx *sqlair.TX, q, identifier string,
+) (*secretbackend.SecretBackend, error) {
+	input := secretBackendIdentifier{Identifier: identifier}
+	stmt, err := s.Prepare(q, input, SecretBackendRow{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	var rows secretBackendRows
-	err = tx.Query(ctx, stmt, sqlair.M{"identifier": v}).GetAll(&rows)
+	err = tx.Query(ctx, stmt, input).GetAll(&rows)
 	if errors.Is(err, sql.ErrNoRows) || len(rows) == 0 {
-		return nil, errors.Errorf("%w: %q", secretbackenderrors.NotFound, v)
+		return nil, errors.Errorf("%w: %q", secretbackenderrors.NotFound, identifier)
 	}
 	if err != nil {
 		return nil, errors.Errorf("querying secret backends: %w", err)

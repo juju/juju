@@ -113,16 +113,16 @@ type SubnetState interface {
 // NetConfigState describes persistence layer methods for
 // working with link-layer devices and IP addresses.
 type NetConfigState interface {
-	// GetUnitAndK8sServiceAddresses returns the addresses of the specified unit.
-	// The addresses are taken by unioning the net node UUIDs of the cloud
-	// service (if any) and the net node UUIDs of the unit, where each net node
-	// has an associated address.
-	// This approach allows us to get the addresses regardless of the substrate
-	// (k8s or machines).
+	// GetUnitPublicAddresses returns addresses in the best available scope and
+	// family for the unit and its cloud service (if any). It falls back from
+	// public to cloud-local scope, preferring IPv4 within each scope.
+	// Other scopes are excluded. Results are ordered by primary status,
+	// IPv4 default-route device, origin and value.
 	//
 	// The following errors may be returned:
-	// - [uniterrors.UnitNotFound] if the unit does not exist.
-	GetUnitAndK8sServiceAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error)
+	// - [applicationerrors.UnitNotFound] if the unit does not exist.
+	// - [applicationerrors.UnitIsDead] if the unit is dead.
+	GetUnitPublicAddresses(ctx context.Context, uuid string) (network.SpaceAddresses, error)
 
 	// GetControllerAPIAddresses returns controller API address candidates for
 	// the specified unit, including the supplying device type.
@@ -138,8 +138,18 @@ type NetConfigState interface {
 	GetUnitAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error)
 
 	// GetNetNodeAddresses retrieves network space addresses associated with the
-	// given net node UUID. Returns an error if failed.
-	GetNetNodeAddresses(ctx context.Context, netNodeUUID string) (network.SpaceAddresses, error)
+	// given net node UUID. When preferDefaultRoute is true, primary IPv4 addresses
+	// on the default route device are preferred within their scope and type.
+	GetNetNodeAddresses(
+		ctx context.Context, netNodeUUID string, preferDefaultRoute bool,
+	) (network.SpaceAddresses, error)
+
+	// GetNetNodePublicAddress returns the preferred public address of a net
+	// node, falling back to cloud-local scope. It prefers IPv4 within each
+	// scope, then primary status, the IPv4 default-route device,
+	// origin and value. It returns a zero address and no error if no suitable
+	// address exists. Other scopes are excluded.
+	GetNetNodePublicAddress(ctx context.Context, netNodeUUID string) (network.SpaceAddress, error)
 
 	// GetControllerUnitUUIDByName returns the UUID for the named unit if it
 	// is a unit of the controller application.

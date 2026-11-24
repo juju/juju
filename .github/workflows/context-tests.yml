@@ -154,7 +154,7 @@ jobs:
   unit-tests:
     needs: [changed-files]
     name: Unit Tests
-    if: github.event.pull_request.draft == false && needs.changed-files.outputs.check-unit-tests == 'true'
+    if: github.event.pull_request.draft == false && (github.event_name != 'push' || needs.changed-files.outputs.check-unit-tests == 'true')
     uses: ./.github/workflows/unit-tests.yml
 
   snap:
@@ -220,7 +220,9 @@ jobs:
 
   result-check:
     needs:
+      - changed-files
       - build
+      - unit-tests
       - snap
       - generate
       - docs
@@ -233,27 +235,14 @@ jobs:
       - smoke
     runs-on: ubuntu-latest
     name: Check Tests Passed
-    if: always() && !cancelled()
+    if: always()
     steps:
       - name: Check Results
         shell: bash
         run: |
-          # TODO - add terraform once ready.
-
-          # upgrades are currently broken because of missing sync-agent-binary
-          # step. Until then, we skip checking its result.
-
-          if ${{ needs.build.result == 'success' || needs.build.result == 'skipped' }} \
-              && ${{ needs.snap.result == 'success' || needs.snap.result == 'skipped' }} \
-              && ${{ needs.generate.result == 'success' || needs.generate.result == 'skipped' }} \
-              && ${{ needs.docs.result == 'success' || needs.docs.result == 'skipped' }} \
-              && ${{ needs.client.result == 'success' || needs.client.result == 'skipped' }} \
-              && ${{ needs.migrate.result == 'success' || needs.migrate.result == 'skipped' }} \
-              && ${{ needs.ddl.result == 'success' || needs.ddl.result == 'skipped' }} \
-              && ${{ needs.export-version.result == 'success' || needs.export-version.result == 'skipped' }} \
-              && ${{ needs.terraform.result != 'fix me' || needs.terraform.result == 'skipped' }} \
-              && ${{ needs.upgrade.result == 'success' || needs.upgrade.result == 'skipped' }} \
-              && ${{ needs.smoke.result == 'success' || needs.smoke.result == 'skipped' }}; then
-            exit 0
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            exit 1
           fi
-          exit 1
+          if [ "${{ needs.changed-files.result }}" != "success" ]; then
+            exit 1
+          fi

@@ -65,7 +65,9 @@ var unsupportedConstraints = []string{
 // instanceTypeConstraints defines the fields defined on each of the
 // instance types. See instancetypes.go.
 var instanceTypeConstraints = []string{
-	// TODO: move to a dynamic conflict for arch when gce supports more than amd64
+	// TODO(JUJU-10685): GCE now reports real machine type architectures
+	// (amd64 and arm64); register a constraints.Arch vocabulary and a
+	// dynamic instance-type/arch conflict like EC2's ConstraintsValidator.
 	// constraints.Arch, // Arches
 	constraints.Cores,
 	constraints.CpuPower,
