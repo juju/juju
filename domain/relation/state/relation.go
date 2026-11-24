@@ -91,7 +91,7 @@ func (st *State) AddRelation(
 
 	return endpoint1, endpoint2, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Infers endpoint, ie get both application_endpoint_uuid.
-		ep1, ep2, err := st.inferEndpoints(ctx, tx, epIdentifier1, epIdentifier2)
+		ep1, ep2, err := st.inferEndpoints(ctx, tx, epIdentifier1, epIdentifier2, true)
 		if err != nil {
 			return errors.Errorf("cannot relate endpoints %q and %q: %w",
 				epIdentifier1,
@@ -181,7 +181,10 @@ func (st *State) InferRelationUUIDByEndpoints(
 
 	var potentialUUIDs []relationUUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		ep1, ep2, err := st.inferEndpoints(ctx, tx, epIdentifier1, epIdentifier2)
+		// Removal/lookup must not discard implicit matches: it needs
+		// the unfiltered AmbiguousRelation error below to fall back
+		// to checking which relations actually exist.
+		ep1, ep2, err := st.inferEndpoints(ctx, tx, epIdentifier1, epIdentifier2, false)
 		if errors.IsOneOf(err,
 			relationerrors.CompatibleEndpointsNotFound,
 			relationerrors.RelationEndpointNotFound,
@@ -3661,7 +3664,8 @@ WHERE  re.relation_uuid = $getCount.uuid
 func (st *State) inferEndpoints(
 	ctx context.Context,
 	tx *sqlair.TX,
-	identifier1, identifier2 domainrelation.CandidateEndpointIdentifier) (Endpoint, Endpoint, error) {
+	identifier1, identifier2 domainrelation.CandidateEndpointIdentifier,
+	preferExplicit bool) (Endpoint, Endpoint, error) {
 
 	// Get candidate endpoints.
 	endpoints1, err := st.getCandidateEndpoints(ctx, tx, identifier1)
@@ -3721,9 +3725,38 @@ func (st *State) inferEndpoints(
 		}
 	}
 
-	if matchCount := len(matches); matchCount == 0 {
+	if len(matches) == 0 {
 		return Endpoint{}, Endpoint{}, relationerrors.CompatibleEndpointsNotFound
-	} else if matchCount > 1 {
+	}
+
+	if preferExplicit && len(matches) > 1 {
+		// If there's ambiguity, try discarding matches that use an
+		// implicit endpoint (e.g. the juju-provided "juju-info"), the
+		// same way state.InferEndpoints did. A charm explicitly
+		// providing an interface is preferred over the implicit one
+		// juju provides for every application.
+		//
+		// Only do this when creating a new relation (AddRelation).
+		// InferRelationUUIDByEndpoints, used for lookup/removal,
+		// relies on the unfiltered AmbiguousRelation error to fall
+		// back to checking which relations actually exist: discarding
+		// implicit matches there would make it resolve to an explicit
+		// relation that may not exist while an implicit one does, or
+		// silently pick one of two already-existing relations instead
+		// of reporting the real ambiguity.
+		var filtered []match
+		for _, m := range matches {
+			if m.ep1.toRelationEndpoint().IsImplicit() || m.ep2.toRelationEndpoint().IsImplicit() {
+				continue
+			}
+			filtered = append(filtered, m)
+		}
+		if len(filtered) == 1 {
+			matches = filtered
+		}
+	}
+
+	if matchCount := len(matches); matchCount > 1 {
 		possibleMatches := make([]string, 0, matchCount)
 		for _, match := range matches {
 			possibleMatches = append(possibleMatches, fmt.Sprintf("\"%s %s\"", match.ep1, match.ep2))
