@@ -48,28 +48,17 @@ type removeUnitCommand struct {
 }
 
 const removeUnitDoc = `
-Remove application units from the model.
+On machine models, specify one or more unit names, such as wordpress/3.
 
-The usage of this command differs depending on whether it is being used on a
-Kubernetes or a machine model.
+On Kubernetes models, specify one application and use --num-units to say how
+many units to remove, not the number to keep. You cannot choose which units to
+remove by name.
 
-Removing all units of a application is not equivalent to removing the
-application itself; for that, the ` + "`juju remove-application`" + ` command
-is used.
+Removing all units does not remove the application itself. Use
+juju remove-application to remove the application.
 
-For Kubernetes models only a single application can be supplied and only the
-` + "`--num-units`" + ` argument supported.
-Specific units cannot be targeted for removal as that is handled by Kubernetes;
-instead the total number of units to be removed is specified.
-
-For cloud models specific units can be targeted for removal.
-Units of a application are numbered in sequence upon creation. For example, the
-fourth unit of wordpress will be designated ` + "`wordpress/3`" + `. These identifiers
-can be supplied in a space delimited list to remove unwanted units from the
-model.
-
-Juju will also remove the machine if the removed unit was the only unit left
-on that machine (including units in containers).
+On a machine model, removing the last unit on a machine can also remove the
+machine.
 
 Sometimes, the removal of the unit may fail as Juju encounters errors
 and failures that need to be dealt with before a unit can be removed.
@@ -86,15 +75,25 @@ to progress through steps without delay waiting for each step to complete.
 `
 
 const removeUnitExamples = `
+Remove two units from an application on Kubernetes:
+
+    juju remove-unit my-app --num-units 2
+
+Remove named units on a machine model:
+
     juju remove-unit wordpress/2 wordpress/3 wordpress/4
+
+Remove a unit on a machine model and destroy its attached storage:
 
     juju remove-unit wordpress/2 --destroy-storage
 
+Force removal of a unit on a machine model:
+
     juju remove-unit wordpress/2 --force
 
-    juju remove-unit wordpress/2 --force --no-wait
+Force removal on a machine model without waiting between removal steps:
 
-    juju remove-unit wordpress --num-units 2
+    juju remove-unit wordpress/2 --force --no-wait
 `
 
 var removeUnitMsgNoDryRun = `
