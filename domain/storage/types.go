@@ -550,7 +550,7 @@ func (i ImportVolumeAttachmentParams) Validate() error {
 
 	if i.Provisioned {
 		if i.DeviceName == "" && i.DeviceLink == "" {
-			return errors.New("a provisioned attachment with empty device name and device link not valid").Add(coreerrors.NotValid)
+			return errors.New("a provisioned attachment must set a device name or device link").Add(coreerrors.NotValid)
 		}
 	}
 	return nil
