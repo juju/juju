@@ -16,7 +16,7 @@ See also:
 
 In Juju, a **model**  is an abstraction that holds {ref}`applications <application>` and application supporting components -- {ref}`machines <machine>`, {ref}`storage <storage>`, {ref}`network spaces <space>`, {ref}`relations <relation>`, etc.
 
-A model is created by a {ref}`user <user>`, and owned in perpetuity by that user (or a new user with the same name), though it may also be used by any other user with model access level, within the limits of their level.
+A model has a qualifier and a name. The qualifier usually identifies the {ref}`user <user>` who created it, but it does not grant access. Other users can use the model within their own grants.
 
 A model is created on a {ref}`controller <controller>`.  Both the model and the controller are associated with a {ref}`cloud <cloud>` (and a cloud {ref}`credential <credential>`), though they do not both have to be on the same cloud (this is a scenario where you have a 'multicloud controller' and where you may have 'cross-model relations'). Any entities added to the model will use resources from that cloud.
 
@@ -26,7 +26,7 @@ One can deploy multiple applications to the same model. Thus, models allow the l
 
 Models are of two types:
 
-1. **The controller model (`controller`).** This is your Juju management model. A Juju deployment will have just one controller model, which is created by default when you create a controller (`juju bootstrap`). It typically contains a single machine, for the controller (the `controller` application). If controller {ref}`high availability <high-availability>` is enabled, then the controller model would contain multiple instances. The `controller` model may also contain certain applications which it makes sense to deploy near the controller -- e.g., starting with Juju `3.0`, the `juju-dashboard` application.
+1. **The controller model (`controller`).** Each controller has one management model, created at {ref}`bootstrap <controller-bootstrap>` with the `controller` application. That application starts with one unit on a machine or in a Kubernetes pod and can grow to multiple {ref}`controller nodes <controller-nodes>`. The model can also host other applications, such as `juju-dashboard`.
 
 2. **Regular model.** This is your Juju workload model. A Juju deployment may have many different workload models, which you create manually (`juju add-model`). It is the model where you typically deploy your applications.
 
@@ -94,7 +94,7 @@ See also:
 - {ref}`JAAS | Migrate a model within JAAS <jaas:migrate-a-model-within-jaas>`
 ```
 
-A {ref}`controller superuser <user-access-controller-superuser>` can request migration of a workload model to a different controller. A dry run checks the source and target without starting migration. When starting migration, the operation returns a migration ID or an error for each request entry.
+A {ref}`controller superuser <user-access-controller-superuser>` can request migration of a workload model to a different controller. A dry run checks the source, connects to the target and checks user compatibility unless that check was skipped. It does not run the target's import checks, such as checking for model name conflicts. A start request returns a migration ID or an error for each request entry.
 
 During export, user API connections to the model can call model status, storage listing, ping, and a limited set of SSH discovery and key-related methods. Other calls return `model migration in progress`. During import, user API calls are refused with `migration in progress, model is importing`.
 

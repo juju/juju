@@ -61,6 +61,10 @@ The controller keeps deployment state in a {ref}`database <database>` and stores
 
 Each unit of the {ref}`controller application <controller-application>` corresponds to a node of the same controller. The node's ID is the number at the end of its unit name: `controller/0` has ID `0`.
 
+Adding controller units is how you set up controller {ref}`high availability <high-availability>`; there is no separate HA setting. The units still belong to one Juju controller and, as their Dqlite nodes join, they share one database cluster. Each controller node runs on a separate machine on a {ref}`machine cloud <machine-cloud>` or in a separate pod of the controller StatefulSet on a {ref}`Kubernetes cloud <kubernetes-cloud>`.
+
+Adding a second unit starts the transition to a multi-node cluster, but a two-node Dqlite cluster settles on one voter. With three healthy voters, the database can keep quorum after losing one of them. A requested unit count does not tell you how many nodes have joined or can vote.
+
 (dqlite-cluster-of-the-controllers)=
 (controller-high-availability)=
 
@@ -68,17 +72,13 @@ Each unit of the {ref}`controller application <controller-application>` correspo
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Controller high availability
-:caption: One highly available controller spans three machines in this example. Juju assigns one unit of the `controller` application to each machine. The controller agent on each machine runs an API server and a Dqlite node in the same process. The dashed outline groups the three Dqlite nodes into one cluster.
+:caption: A three-node controller on a machine cloud. Each machine runs an API server and a Dqlite node in the same controller agent process. The dashed outline groups the Dqlite nodes into one cluster.
 :alt: Three controller machines sit side by side. Inside each machine, a controller agent box contains an API server above a Dqlite node. A dashed outline spans the machines and encloses the Dqlite nodes but not the API servers.
 ```
 
 ````
 
-With controller {ref}`high availability <high-availability>`, one Juju controller runs across multiple nodes that share one database cluster. On a {ref}`machine cloud <machine-cloud>`, each node runs on a separate machine, as shown above. On a {ref}`Kubernetes cloud <kubernetes-cloud>`, each node runs in a separate pod of the controller StatefulSet.
-
-The requested unit count does not tell you how many Dqlite nodes are running in the cluster.
-
-To join the cluster, a Dqlite node needs the address it will listen on (its bind address) in the configuration the controller charm supplies. A Dqlite node listening only on its own machine (loopback) can switch to its cluster address when the configuration lists more than one member and includes that node's address.
+A new Dqlite node waits for the controller charm to supply its bind address and at least one peer address. The bootstrap node can switch from loopback to its cluster address when the configuration lists more than one member and includes that node's address.
 
 Machine status for the controller model reports a Dqlite role (`cluster-role`) of `voter`, `standby`, or `spare` for a node listed in the Dqlite cluster. Juju omits the role if the cluster does not list that node or if the machine is not a controller node. The legacy `has-vote` and `wants-vote` fields are both true for voters and standbys, but a standby does not vote. Use the role to tell them apart, not to judge whether the node is reachable. For the Juju CLI status display, see {ref}`juju status <command-juju-status>`.
 
@@ -94,15 +94,9 @@ See also:
 - {ref}`Terraform Provider for Juju | Enable controller high availability after bootstrap <tfjuju:enable-controller-high-availability-post-bootstrap>`
 ```
 
-Adding a controller node means adding a unit to the `controller` application. On a machine cloud, clients add units directly. On Kubernetes, clients increase the application's desired scale, and Juju provisions additional controller pods.
+Adding nodes requires {ref}`write access <user-access-model-write>` to the controller model and is prevented by a {ref}`change block <model-command-blocks>`. The CLI's `juju add-unit` takes the number to add on either cloud: it calls `AddUnits` on machine clouds and increases the application's desired scale on Kubernetes.
 
-A request to add units specifies the number of **new** units, not the desired total. A new node cannot participate in the Dqlite cluster until it joins it.
-
-Adding nodes requires {ref}`write access <user-access-model-write>` to the controller model. A {ref}`change block <model-command-blocks>` on that model prevents the operation.
-
-For direct API clients, `AddUnits` on a Kubernetes model connection is refused after the permission and block checks:
-
-- *Error message:* `adding units to a container-based model is not supported`. *Trigger:* A client calls `AddUnits` on a Kubernetes model connection. *What to do:* Use `ScaleApplications` to increase the controller application's desired scale instead.
+- *Error message:* `adding units to a container-based model is not supported`. *Trigger:* A direct API client calls `AddUnits` on a Kubernetes model connection and passes the permission and block checks. *What to do:* Use `ScaleApplications` instead.
 
 (removing-a-controller)=
 #### Removing nodes
@@ -111,12 +105,10 @@ For direct API clients, `AddUnits` on a Kubernetes model connection is refused a
 See also: {ref}`Juju CLI | Reduce controller capacity <reduce-controller-capacity>`
 ```
 
-On a machine cloud, removing a controller node means removing its unit or the machine that hosts it. Removing a machine also removes its units. Either a {ref}`remove block or a change block <model-command-blocks>` on the controller model prevents removal.
-
-On Kubernetes, reducing the controller application's desired scale removes nodes. The scale request checks for a change block on the controller model. Both platforms require {ref}`write access <user-access-model-write>` to the controller model to reduce capacity.
+Reducing capacity requires {ref}`write access <user-access-model-write>` to the controller model. On machine clouds, remove a unit or its host machine; a {ref}`remove or change block <model-command-blocks>` prevents removal. On Kubernetes, reduce the application's desired scale; a change block prevents that request.
 
 ```{warning}
-Juju refuses to scale the controller application to zero. On a machine cloud, removing a unit or machine does not run that check. Before reducing capacity, check that the remaining nodes can still serve the controller.
+Kubernetes scaling refuses to leave zero controller units. Machine-cloud removal does not run that check. Before removing nodes, check that enough voting nodes will remain for the availability you need.
 ```
 
 These errors distinguish scaling the controller application from trying to remove it:

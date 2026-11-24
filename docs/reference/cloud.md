@@ -52,7 +52,9 @@ The structure of a cloud definition and its supported authentication types and c
 See also: {ref}`Juju CLI | Remove a cloud <remove-a-cloud>`
 ```
 
-The controller refuses to remove a cloud definition while any model references that cloud. This includes the {ref}`controller model <model>`, so the controller's own cloud cannot be removed while that model exists.
+Removing a cloud definition from a controller requires {ref}`controller superuser access <user-access-controller-superuser>` or {ref}`admin access to the cloud <user-access-cloud-admin>`. It also deletes the cloud's credentials stored on that controller.
 
-- *Error message:* `cannot delete cloud "<cloud>" as it is still referenced by models`. *Trigger:* A model still references the cloud. *What to do:* Remove or migrate the workload models that reference the cloud before retrying. If the controller model references it, leave the cloud definition in place.
+The controller refuses to remove a cloud definition while any model references it. This includes the {ref}`controller model <model>`, so the controller's own cloud cannot be removed while that model exists.
+
+- *Error message:* `cannot delete cloud "<cloud>" as it is still referenced by models`. *Trigger:* A model still references the cloud. *What to do:* If only workload models use it, remove or migrate them and wait until none references the cloud on this controller. If the controller model uses it, leave the cloud definition in place.
 

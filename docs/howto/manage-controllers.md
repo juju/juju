@@ -306,16 +306,16 @@ See more: {ref}`command-juju-unregister`
 ## Make a controller highly available
 
 ```{ibnote}
-See also: {ref}`high-availability`
+See also: {ref}`Controller nodes and Dqlite quorum <controller-nodes>`
 ```
 
-To make a controller highly available, add units to the `controller` application in the controller model using the `juju add-unit` command. The number after `-n` is the number of units to add, not the number of controllers you want. For example, starting from one controller, to have three:
+To make a controller highly available on a machine or Kubernetes cloud, add units to the `controller` application in the controller model. For example, if you have one unit, add two:
 
 ```text
 juju add-unit -m controller controller -n 2
 ```
 
-Run `juju status -m controller` to follow the new units. On a machine cloud, check the {ref}`Dqlite roles <dqlite-cluster-of-the-controllers>` before relying on the added nodes for availability; the number of units alone does not tell you which nodes can vote. On Kubernetes, wait for the expected number of controller units to appear and their agents to become idle without workload errors.
+Follow progress with `juju status -m controller`. On a machine cloud, check the {ref}`Dqlite roles <dqlite-cluster-of-the-controllers>` and node health before relying on the added nodes. On Kubernetes, wait for the expected units and their agents to become idle without workload errors. Unit readiness alone does not confirm database quorum.
 
 (reduce-controller-capacity)=
 To reduce capacity, first check that the remaining nodes can still serve the controller. On a machine cloud, remove a controller unit or its host machine. The scale-to-zero guard does not apply to these machine-cloud removal requests. For example, to remove machine 1 and its controller unit:
