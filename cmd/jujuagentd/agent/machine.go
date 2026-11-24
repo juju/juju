@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -58,6 +59,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/container/broker"
 	internaldependency "github.com/juju/juju/internal/dependency"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/flightrecorder"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/pki"
@@ -656,14 +658,48 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	return cmdutil.AgentDone(logger, err)
 }
 
+// errRecoveryImportPending is returned by validateRecoveryEngineStart
+// while the recovery marker exists: the allocation is waiting for its
+// state import.
+var errRecoveryImportPending = internalerrors.New("recovery import has not completed")
+
+// validateRecoveryEngineStart refuses to start the dependency engine while a
+// recovery allocation is waiting for its state import. The marker is written
+// before the agent can start, and removed once import completes.
+func validateRecoveryEngineStart(dataDir string) error {
+	isRecovery, err := agent.IsRecovery(dataDir)
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+	if isRecovery {
+		return errRecoveryImportPending
+	}
+	return nil
+}
+
 func (a *MachineAgent) makeEngineCreator(
 	agentName string, previousAgentVersion semversion.Number,
 	bufferedLogger *logsender.BufferedLogWriter,
 	legacyLogSinkWriter loggo.Writer,
 	localLogSink corelogger.LogSink,
 ) func(context.Context) (worker.Worker, error) {
+	// The runner restarts the engine worker every RestartDelay while
+	// the recovery import is pending, so the expected wait is logged
+	// once instead of erroring on every attempt. Genuine marker
+	// check failures are unexpected and stay errors each time.
+	logRecoveryWait := new(sync.Once)
 	return func(ctx context.Context) (worker.Worker, error) {
 		agentConfig := a.CurrentConfig()
+		if err := validateRecoveryEngineStart(agentConfig.DataDir()); err != nil {
+			if errors.Is(err, errRecoveryImportPending) {
+				logRecoveryWait.Do(func() {
+					logger.Infof(ctx, "recovery import pending; not starting the dependency engine yet")
+				})
+			} else {
+				logger.Errorf(ctx, "%v", err)
+			}
+			return nil, internalerrors.Capture(err)
+		}
 		engineConfigFunc := agentengine.DependencyEngineConfig
 		metrics := agentengine.NewMetrics()
 		controllerMetricsSink := metrics.ForModel(agentConfig.Model())

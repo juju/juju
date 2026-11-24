@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/controller"
+	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -43,25 +44,113 @@ func TestFreshControllerSuite(t *testing.T) {
 }
 
 func (s *freshControllerSuite) TestFreshIAASController(c *tc.C) {
-	s.assertFreshController(c, false, nil)
+	s.assertFreshController(c, false, nil, false, agent.BootstrapControllerId)
 }
 
 func (s *freshControllerSuite) TestFreshK8sController(c *tc.C) {
-	s.assertFreshController(c, true, nil)
+	s.assertFreshController(c, true, nil, false, agent.BootstrapControllerId)
 }
 
 func (s *freshControllerSuite) TestDatabaseFailureDoesNotPersistNewPassword(c *tc.C) {
-	s.assertFreshController(c, false, errors.New("database failed"))
+	s.assertFreshController(c, false, errors.New("database failed"), false, agent.BootstrapControllerId)
 }
 
-func (s *freshControllerSuite) assertFreshController(c *tc.C, isK8s bool, databaseErr error) {
+func (s *freshControllerSuite) TestRecoverySkipsDqliteInitialisation(c *tc.C) {
+	s.assertFreshController(c, false, nil, true, agent.BootstrapControllerId)
+}
+
+func (s *freshControllerSuite) TestRecoveryUsesArchivedMachineId(c *tc.C) {
+	s.assertFreshController(c, false, nil, true, "7")
+}
+
+func (s *freshControllerSuite) TestRecoveryK8sControllerNotSupported(c *tc.C) {
+	dataDir := c.MkDir()
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+	modelConfig := jujutesting.CustomModelConfig(c, jujutesting.Attrs{
+		"name": "controller", "uuid": modelUUID.String(), "type": cloud.CloudTypeKubernetes,
+		"agent-version": jujuversion.Current.String(),
+	})
+	params := instancecfg.StateInitializationParams{
+		ControllerConfig:      jujutesting.FakeControllerConfig(),
+		ControllerModelConfig: modelConfig,
+		ControllerCloud: cloud.Cloud{
+			Name: "test-cloud", Type: cloud.CloudTypeKubernetes, AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
+		},
+		RecoveryMode: true,
+	}
+	paramsData, err := params.Marshal()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(os.WriteFile(filepath.Join(dataDir, cloudconfig.FileNameBootstrapParams), paramsData, 0600), tc.ErrorIsNil)
+	writeRecoveryMarker(c, dataDir)
+
+	command := NewRecoverCommand()
+	command.AgentConf = agentconf.NewAgentConf(dataDir)
+	err = command.Run(cmdtesting.Context(c))
+	c.Check(err, tc.ErrorIs, coreerrors.NotSupported)
+}
+
+func (s *freshControllerSuite) TestRecoverRejectsFreshBootstrapParams(c *tc.C) {
+	dataDir := c.MkDir()
+	writeRecoveryMarker(c, dataDir)
+	params := recoveryGuardTestParams(c, false)
+	paramsData, err := params.Marshal()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(os.WriteFile(filepath.Join(dataDir, cloudconfig.FileNameBootstrapParams), paramsData, 0600), tc.ErrorIsNil)
+
+	command := NewRecoverCommand()
+	command.AgentConf = agentconf.NewAgentConf(dataDir)
+	err = command.Run(cmdtesting.Context(c))
+	c.Check(err, tc.ErrorMatches, "bootstrap params are not for a recovery allocation")
+}
+
+func (s *freshControllerSuite) TestRecoverRequiresRecoveryMarker(c *tc.C) {
+	dataDir := c.MkDir()
+	params := recoveryGuardTestParams(c, true)
+	paramsData, err := params.Marshal()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(os.WriteFile(filepath.Join(dataDir, cloudconfig.FileNameBootstrapParams), paramsData, 0600), tc.ErrorIsNil)
+
+	command := NewRecoverCommand()
+	command.AgentConf = agentconf.NewAgentConf(dataDir)
+	err = command.Run(cmdtesting.Context(c))
+	c.Check(err, tc.ErrorMatches, "agent data directory holds no recovery marker")
+}
+
+// writeRecoveryMarker mirrors the cloud-init command that creates the
+// recovery marker immediately before recover-state is invoked.
+func writeRecoveryMarker(c *tc.C, dataDir string) {
+	marker := filepath.Join(dataDir, agent.RecoveryParamsFile)
+	c.Assert(os.MkdirAll(filepath.Dir(marker), 0700), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(marker, nil, 0600), tc.ErrorIsNil)
+}
+
+// recoveryGuardTestParams returns marshalling-valid params for exercising
+// the recovery guards without a full bootstrap setup.
+func recoveryGuardTestParams(c *tc.C, recovery bool) instancecfg.StateInitializationParams {
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+	return instancecfg.StateInitializationParams{
+		ControllerConfig: jujutesting.FakeControllerConfig(),
+		ControllerModelConfig: jujutesting.CustomModelConfig(c, jujutesting.Attrs{
+			"name": "controller", "uuid": modelUUID.String(), "type": "dummy",
+			"agent-version": jujuversion.Current.String(),
+		}),
+		ControllerCloud: cloud.Cloud{
+			Name: "test-cloud", Type: "dummy", AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
+		},
+		RecoveryMode: recovery,
+	}
+}
+
+func (s *freshControllerSuite) assertFreshController(
+	c *tc.C, isK8s bool, databaseErr error, skipDqlite bool, machineId string,
+) {
 	dataDir := c.MkDir()
 	modelUUID := tc.Must0(c, coremodel.NewUUID)
 	cloudType := "dummy"
-	tag := names.Tag(names.NewMachineTag(agent.BootstrapControllerId))
+	tag := names.Tag(names.NewMachineTag(machineId))
 	if isK8s {
 		cloudType = cloud.CloudTypeKubernetes
-		tag = names.NewControllerAgentTag(agent.BootstrapControllerId)
+		tag = names.NewControllerAgentTag(machineId)
 	}
 	modelConfig := jujutesting.CustomModelConfig(c, jujutesting.Attrs{
 		"name": "controller", "uuid": modelUUID.String(), "type": cloudType,
@@ -73,11 +162,16 @@ func (s *freshControllerSuite) assertFreshController(c *tc.C, isK8s bool, databa
 		ControllerCloud: cloud.Cloud{
 			Name: "test-cloud", Type: cloudType, AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
 		},
+		RecoveryMode: skipDqlite,
 	}
 	paramsData, err := params.Marshal()
 	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(filepath.Join(dataDir, cloudconfig.FileNameBootstrapParams), paramsData, 0600)
 	c.Assert(err, tc.ErrorIsNil)
+	if skipDqlite {
+		// cloud-init writes the recovery marker before invoking recover-state.
+		writeRecoveryMarker(c, dataDir)
+	}
 
 	cfg, err := agent.NewStateMachineConfig(agent.AgentConfigParams{
 		Paths: agent.Paths{DataDir: dataDir}, Tag: tag,
@@ -107,16 +201,28 @@ func (s *freshControllerSuite) assertFreshController(c *tc.C, isK8s bool, databa
 		c.Check(args.Cloud.IsControllerCloud, tc.IsTrue)
 		c.Check(args.ControllerUUID, tc.Equals, jujutesting.ControllerTag.Id())
 	}
-	s.PatchValue(&environsNewIAAS, func(_ context.Context, args environs.OpenParams, _ environs.CredentialInvalidator) (environs.Environ, error) {
-		c.Check(isK8s, tc.IsFalse)
-		checkOpen(args)
-		return &freshBootstrapEnviron{cfg: modelConfig, addresses: addresses}, nil
-	})
-	s.PatchValue(&environsNewK8s, func(_ context.Context, args environs.OpenParams, _ environs.CredentialInvalidator) (caas.Broker, error) {
-		c.Check(isK8s, tc.IsTrue)
-		checkOpen(args)
-		return &freshBootstrapBroker{cfg: modelConfig, addresses: addresses}, nil
-	})
+	if skipDqlite {
+		// Recovery never opens the provider: state import is a later stage.
+		s.PatchValue(&environsNewIAAS, func(_ context.Context, _ environs.OpenParams, _ environs.CredentialInvalidator) (environs.Environ, error) {
+			c.Fatalf("recovery must not open the provider")
+			return nil, nil
+		})
+		s.PatchValue(&environsNewK8s, func(_ context.Context, _ environs.OpenParams, _ environs.CredentialInvalidator) (caas.Broker, error) {
+			c.Fatalf("recovery must not open the provider")
+			return nil, nil
+		})
+	} else {
+		s.PatchValue(&environsNewIAAS, func(_ context.Context, args environs.OpenParams, _ environs.CredentialInvalidator) (environs.Environ, error) {
+			c.Check(isK8s, tc.IsFalse)
+			checkOpen(args)
+			return &freshBootstrapEnviron{cfg: modelConfig, addresses: addresses}, nil
+		})
+		s.PatchValue(&environsNewK8s, func(_ context.Context, args environs.OpenParams, _ environs.CredentialInvalidator) (caas.Broker, error) {
+			c.Check(isK8s, tc.IsTrue)
+			checkOpen(args)
+			return &freshBootstrapBroker{cfg: modelConfig, addresses: addresses}, nil
+		})
+	}
 	s.PatchValue(&sshGenerateKey, func(string) (string, string, error) {
 		c.Check(isK8s, tc.IsFalse)
 		return "fresh-system-identity", "fresh-public-key", nil
@@ -126,55 +232,76 @@ func (s *freshControllerSuite) assertFreshController(c *tc.C, isK8s bool, databa
 		expectedIdentity = "provided-system-identity"
 	}
 
-	command := NewBootstrapCommand()
-	command.AgentConf = agentconf.NewAgentConf(dataDir)
-	const bindAddress = "192.168.1.10"
-	command.DqliteBindAddressResolver = func(
-		_ context.Context, gotAddresses network.ProviderAddresses,
-	) (string, error) {
-		c.Check(gotAddresses, tc.DeepEquals, addresses)
-		return bindAddress, nil
-	}
-	command.BootstrapAgent = func(args agentbootstrap.AgentBootstrapArgs) (*agentbootstrap.AgentBootstrap, error) {
-		c.Check(args.StateInitialisationParams.SSHServerHostKey, tc.Not(tc.Equals), "")
-		c.Check(args.BootstrapMachineAddresses, tc.DeepEquals, addresses)
-		return agentbootstrap.NewAgentBootstrap(args)
-	}
 	databaseCalled := false
-	command.DqliteInitialiser = func(_ context.Context, _ database.BootstrapNodeManager, gotBindAddress string, gotModelUUID coremodel.UUID, _ corelogger.Logger, _ ...database.BootstrapOpt) error {
-		databaseCalled = true
-		c.Check(gotBindAddress, tc.Equals, bindAddress)
-		c.Check(gotModelUUID, tc.Equals, modelUUID)
-		// Identity is persisted before database work; the new password is not.
-		identity, err := os.ReadFile(cfg.SystemIdentityPath())
+	if skipDqlite {
+		command := NewRecoverCommand()
+		command.AgentConf = agentconf.NewAgentConf(dataDir)
+		command.MachineId = machineId
+		err = command.Run(cmdtesting.Context(c))
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(string(identity), tc.Equals, expectedIdentity)
-		stored, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
-		c.Assert(err, tc.ErrorIsNil)
-		info, ok := stored.ControllerAgentInfo()
-		c.Assert(ok, tc.IsTrue)
-		c.Check(info.SystemIdentity, tc.Equals, expectedIdentity)
-		apiInfo, ok := stored.APIInfo()
-		c.Assert(ok, tc.IsTrue)
-		c.Check(apiInfo.Password, tc.Equals, "agent-before")
-		return databaseErr
+	} else {
+		command := NewBootstrapCommand()
+		command.AgentConf = agentconf.NewAgentConf(dataDir)
+		const bindAddress = "192.168.1.10"
+		command.DqliteBindAddressResolver = func(
+			_ context.Context, gotAddresses network.ProviderAddresses,
+		) (string, error) {
+			c.Check(gotAddresses, tc.DeepEquals, addresses)
+			return bindAddress, nil
+		}
+		command.BootstrapAgent = func(args agentbootstrap.AgentBootstrapArgs) (*agentbootstrap.AgentBootstrap, error) {
+			c.Check(args.StateInitialisationParams.SSHServerHostKey, tc.Not(tc.Equals), "")
+			c.Check(args.BootstrapMachineAddresses, tc.DeepEquals, addresses)
+			return agentbootstrap.NewAgentBootstrap(args)
+		}
+		command.DqliteInitialiser = func(_ context.Context, _ database.BootstrapNodeManager, gotBindAddress string, gotModelUUID coremodel.UUID, _ corelogger.Logger, _ ...database.BootstrapOpt) error {
+			databaseCalled = true
+			c.Check(gotBindAddress, tc.Equals, bindAddress)
+			c.Check(gotModelUUID, tc.Equals, modelUUID)
+			// Identity is persisted before database work; the new password is not.
+			identity, err := os.ReadFile(cfg.SystemIdentityPath())
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(string(identity), tc.Equals, expectedIdentity)
+			stored, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
+			c.Assert(err, tc.ErrorIsNil)
+			info, ok := stored.ControllerAgentInfo()
+			c.Assert(ok, tc.IsTrue)
+			c.Check(info.SystemIdentity, tc.Equals, expectedIdentity)
+			apiInfo, ok := stored.APIInfo()
+			c.Assert(ok, tc.IsTrue)
+			c.Check(apiInfo.Password, tc.Equals, "agent-before")
+			return databaseErr
+		}
+
+		err = command.Run(cmdtesting.Context(c))
+		if databaseErr == nil {
+			c.Assert(err, tc.ErrorIsNil)
+		} else {
+			c.Check(err, tc.ErrorIs, databaseErr)
+		}
+		c.Check(databaseCalled, tc.IsTrue)
 	}
 
-	err = command.Run(cmdtesting.Context(c))
-	if databaseErr == nil {
-		c.Assert(err, tc.ErrorIsNil)
-	} else {
-		c.Check(err, tc.ErrorIs, databaseErr)
-	}
-	c.Check(databaseCalled, tc.IsTrue)
 	stored, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
 	c.Assert(err, tc.ErrorIsNil)
+	info, ok := stored.ControllerAgentInfo()
+	c.Assert(ok, tc.IsTrue)
+	c.Check(info.SystemIdentity, tc.Equals, expectedIdentity)
+	identity, err := os.ReadFile(stored.SystemIdentityPath())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(identity), tc.Equals, expectedIdentity)
 	apiInfo, ok := stored.APIInfo()
 	c.Assert(ok, tc.IsTrue)
-	if databaseErr == nil {
+	switch {
+	case skipDqlite:
+		// Recovery persists the archived identity but never touches the
+		// bootstrap password.
+		c.Check(apiInfo.Password, tc.Equals, "agent-before")
+		c.Check(databaseCalled, tc.IsFalse)
+	case databaseErr == nil:
 		c.Check(apiInfo.Password, tc.Not(tc.Equals), "agent-before")
 		c.Check(apiInfo.Password, tc.Not(tc.Equals), "")
-	} else {
+	default:
 		c.Check(apiInfo.Password, tc.Equals, "agent-before")
 	}
 }
