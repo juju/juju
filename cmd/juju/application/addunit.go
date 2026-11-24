@@ -27,8 +27,9 @@ import (
 var usageAddUnitSummary = `Adds one or more units to a deployed application.`
 
 var usageAddUnitDetails = `
-The ` + "`add-unit`" + ` command is used to scale out an application for improved performance or
-availability.
+Use this command to add units on machine and Kubernetes models.
+The -n option specifies how many units to add, not the desired total.
+On Kubernetes, use scale-application to set the desired total.
 
 Note: Some charms will seamlessly support horizontal scaling while others may need
 an additional application support (e.g. a separate load balancer). See the
@@ -42,6 +43,10 @@ Further reading:
 `[1:]
 
 const usageAddUnitExamples = `
+Add two units to an application on Kubernetes:
+
+    juju add-unit my-app -n 2
+
 Add five units of mysql on five new machines:
 
     juju add-unit mysql -n 5
