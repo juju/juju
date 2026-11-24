@@ -349,9 +349,24 @@ sequence "juju bootstrap"      from "Juju" { select { behaviour: "bootstrap" } }
 sequence "juju add-k8s"        from "Juju" { select { behaviour: "add-k8s" } }
 sequence "juju bootstrap (Kubernetes)" from "Juju" { select { behaviour: "bootstrap-k8s" } }
 sequence "juju add-model"      from "Juju" { select { behaviour: "add-model" } }
-sequence "juju deploy"         from "Juju" { select { behaviour: "deploy" } }
-sequence "juju deploy (Kubernetes)" from "Juju" { select { behaviour: "deploy-k8s" } }
-sequence "juju config"         from "Juju" { select { behaviour: "config" } }
+sequence "juju deploy" from "Juju" {
+  select { behaviour: "deploy" }
+  annotations {
+    box [nodes: "unit_agent charm", label: "Unit"]
+  }
+}
+sequence "juju deploy (Kubernetes)" from "Juju" {
+  select { behaviour: "deploy-k8s" }
+  annotations {
+    box [nodes: "unit_agent charm", label: "Unit"]
+  }
+}
+sequence "juju config" from "Juju" {
+  select { behaviour: "config" }
+  annotations {
+    box [nodes: "unit_agent charm", label: "Unit"]
+  }
+}
 sequence "juju integrate"      from "Juju" { select { behaviour: "integrate" } }
 
 diagram "SSH proxy connections" from "Juju" {
