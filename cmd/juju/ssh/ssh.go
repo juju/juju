@@ -57,8 +57,10 @@ controller machine to be open. Use the ` + "`--direct`" + ` option for Juju 3 co
 and connect directly to the target. Note that new behaviour does not support connecting
 to nested containers running on machines as the legacy behaviour did.
 
-The ` + "`--proxy`" + ` flag requires ` + "`--direct`" + ` and routes the connection through
-the controller machine's OpenSSH server (port 22 by default).
+Use ` + "`--direct --proxy`" + ` to route the connection through the controller
+machine's OpenSSH server (port 22 by default). In direct mode on machine clouds,
+if ` + "`--proxy`" + ` is omitted, Juju uses the model's ` + "`proxy-ssh`" + ` setting.
+Use ` + "`--direct --proxy=false`" + ` to connect without this proxy.
 
 The SSH host keys of the target are verified. The ` + "`--no-host-key-checks`" + ` option
 can be used to disable these checks. Use of this option is not recommended as
@@ -247,7 +249,7 @@ func (c *sshCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
 		return errors.Errorf("no target name specified")
 	}
-	if c.proxy && !c.direct {
+	if c.proxy.b != nil && *c.proxy.b && !c.direct {
 		return errors.New("--proxy requires --direct")
 	}
 	if c.modelType, err = c.ModelType(context.TODO()); err != nil {

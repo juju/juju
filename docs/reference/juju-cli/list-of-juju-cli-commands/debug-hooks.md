@@ -20,7 +20,7 @@ juju debug-hooks [options] <unit name> [hook or action names]
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--no-host-key-checks` | false | Skip host key checking (INSECURE) |
 | `--print-keys` | false | Print SHA256 fingerprints of the controller and virtual host keys |
-| `--proxy` | false | Proxy through the controller machine's OpenSSH server (requires --direct) |
+| `--proxy` | &lt;auto&gt; | Proxy through the controller machine's OpenSSH server (requires --direct; defaults to the model's proxy-ssh setting) |
 | `--pty` | &lt;auto&gt; | Enable pseudo-tty allocation |
 | `--show-command` | false | Print the OpenSSH command instead of executing it |
 | `--ssh-key` |  | SSH private key to use when connecting through the controller |

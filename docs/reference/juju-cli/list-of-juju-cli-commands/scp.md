@@ -17,7 +17,7 @@ juju scp [options] <source> <destination>
 | `--direct` | false | Connect directly to the target (for Juju 3 controllers) |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--no-host-key-checks` | false | Skip host key checking (INSECURE) |
-| `--proxy` | false | Proxy through the controller machine's OpenSSH server (requires --direct) |
+| `--proxy` | &lt;auto&gt; | Proxy through the controller machine's OpenSSH server (requires --direct; defaults to the model's proxy-ssh setting) |
 | `--show-command` | false | Print the OpenSSH command instead of executing it |
 | `--ssh-key` |  | SSH private key to use when connecting through the controller |
 
@@ -123,9 +123,12 @@ be open. Use the `--direct` option for Juju 3 controllers and connect directly
 to the target. Note that new behaviour does not support connecting to nested
 containers running on machines as the legacy behaviour did.
 
-The `--proxy` flag requires `--direct` and routes the connection through
-the controller machine's OpenSSH server (port 22 by default). For transfers to or
-from containers on machines, the connection also goes through the container's host.
+Use `--direct --proxy` to route the connection through the controller
+machine's OpenSSH server (port 22 by default). For transfers to or from
+containers on machines, the connection also goes through the container's host.
+In direct mode on machine clouds, if `--proxy` is omitted, Juju uses the
+model's `proxy-ssh` setting. Use `--direct --proxy=false` to connect
+without this proxy.
 
 The SSH host keys of the target are verified by default. To disable this, add the
 `--no-host-key-checks` option. Using this option is strongly discouraged.
