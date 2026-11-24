@@ -163,27 +163,6 @@ func (st *State) NamespaceForTaskLogWatcher() string {
 	return "operation_task_log"
 }
 
-// count returns the number of records in the specified table.
-func (st *State) count(ctx context.Context, tx *sqlair.TX, table string) (int, error) {
-	type result struct {
-		Count int `db:"count"`
-	}
-	stmt, err := st.Prepare(fmt.Sprintf(`
-SELECT COUNT(*) as &result.count
-FROM   %q`, table),
-		result{})
-	if err != nil {
-		return 0, errors.Capture(err)
-	}
-
-	var count result
-	if err := tx.Query(ctx, stmt).Get(&count); err != nil {
-		return 0, errors.Errorf("counting element from table %q", err)
-	}
-	return count.Count, nil
-
-}
-
 // deleteOperationByUUIDs deletes the operations and their associated tasks.
 // It returns the storePaths that are to be linked with the deleted tasks
 func (st *State) deleteOperationByUUIDs(ctx context.Context, tx *sqlair.TX, toDelete []string) ([]string, error) {
