@@ -3215,6 +3215,9 @@ VALUES (?, 'big', ?, 0), (?, 'small', 'keep-me', 0)
 `, id.String(), bigValue, id.String())
 	c.Assert(err, tc.ErrorIsNil)
 
+	hashBefore, err := s.state.GetApplicationConfigHash(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+
 	err = s.state.UnsetApplicationConfigKeys(c.Context(), id, []string{"small"})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -3224,6 +3227,12 @@ VALUES (?, 'big', ?, 0), (?, 'small', 'keep-me', 0)
 	c.Check(hasSmall, tc.IsFalse)
 	_, hasBig := config["big"]
 	c.Check(hasBig, tc.IsTrue)
+
+	// The hash refresh must still have run, not just been skipped
+	// because quota checking was turned off for this call.
+	hashAfter, err := s.state.GetApplicationConfigHash(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hashAfter, tc.Not(tc.Equals), hashBefore)
 }
 
 func (s *applicationStateSuite) TestUnsetApplicationConfigKeysApplicationNotFound(c *tc.C) {
