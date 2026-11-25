@@ -620,6 +620,49 @@ def on_config_changed(event):
 	fixture.assertWatchersStopped(c)
 }
 
+func (s *applicationRunnerSuite) TestScriptletSetStatusAppliesIntent(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Drive the real Starform executor so the intent is produced by the
+	// set-status builtin, not stubbed by a fake executor.
+	s.application.Sources = []domainunitless.ScriptSource{{
+		LoadPath: "hooks.star",
+		Source: `
+def init():
+    juju.observe("config_changed", on_config_changed)
+
+def on_config_changed(event):
+    juju.set_status("active", message="updated")
+`,
+	}}
+	fixture := s.expectRunningApplication(c)
+	statuses := s.expectStatusSets()
+	s.config.NewExecutor = func(ctx context.Context, config ExecutorConfig) (Executor, error) {
+		fixture.executorConfigs <- config
+		return NewStarformExecutor(ctx, config)
+	}
+
+	// TODO(kcza): The construction of the config_changed event needs to
+	// be unified so that the event payload is populated with the
+	// application's current config.
+	event := domainunitless.Event{Name: "config_changed"}
+	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, event.Name).Return(event, nil)
+	runner := s.startRunner(c)
+	defer workertest.CleanKill(c, runner)
+
+	waitFor(c, fixture.executorConfigs)
+
+	fixture.eventChanges <- []string{event.Name.String()}
+	info := waitFor(c, statuses)
+	c.Check(info.Status, tc.Equals, corestatus.Active)
+	c.Check(info.Message, tc.Equals, "updated")
+	c.Check(info.Since, tc.NotNil)
+
+	workertest.CleanKill(c, runner)
+	fixture.assertWatchersStopped(c)
+}
+
 func (s *applicationRunnerSuite) TestExecutorErrorContinuesAndSetsBlockedStatus(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
