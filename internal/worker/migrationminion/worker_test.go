@@ -499,6 +499,39 @@ func (s *Suite) TestSUCCESSReportFailureStillWritesConfig(c *gc.C) {
 	c.Assert(s.agent.conf.addrs, gc.DeepEquals, addrs)
 }
 
+// TestSUCCESSReportAndConfigFailureBothReported covers the case where both
+// the SUCCESS report and the agent config write fail: the config error is the
+// one that must be acted on, but the report failure must not be lost.
+func (s *Suite) TestSUCCESSReportAndConfigFailureBothReported(c *gc.C) {
+	s.agent.conf.tag = names.NewUnitTag("app/0")
+	s.agent.conf.dir = "/var/lib/juju/agents/unit-app-0"
+
+	s.stub.SetErrors(errors.New("report boom"))
+	s.config.NewFacade = func(base.APICaller) (migrationminion.Facade, error) {
+		return &failingReportFacade{}, nil
+	}
+
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId: "id",
+		Phase:       migration.SUCCESS,
+		// An address without a port makes the agent config update fail.
+		TargetAPIAddrs: []string{"foo"},
+		TargetCACert:   caCert,
+		SourceAPIAddrs: []string{"3.3.3.3:3333"},
+		SourceCACert:   caCert,
+	}
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Advance past the fallback retry envelope so the report gives up and
+	// the config update is attempted.
+	err = s.clock.WaitAdvance(6*time.Minute, coretesting.LongWait, 1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, gc.ErrorMatches, `.*reporting migration status failed: .*report boom.*converting API addresses: .*`)
+}
+
 // TestSUCCESSFallbackReportCompletesDuringTeardown covers the race where the
 // worker is torn down while the SUCCESS report is in flight: the fallback
 // direct dial runs after the catacomb is already dying, and must not abort
@@ -597,6 +630,53 @@ func (s *Suite) TestSUCCESSFallbackReportStopsRetryingDuringTeardown(c *gc.C) {
 	w.Kill()
 	close(facade.proceed)
 
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, jc.ErrorIsNil)
+}
+
+// TestSUCCESSFallbackReportKilledDuringBackoffSleep covers the case where the
+// worker is killed while the fallback report is sleeping between attempts.
+// retry.Call reports that as a stopped retry rather than errWorkerDying, but
+// the worker must still die cleanly - the config has already been written, so
+// the report will replay on the next worker start.
+func (s *Suite) TestSUCCESSFallbackReportKilledDuringBackoffSleep(c *gc.C) {
+	s.agent.conf.tag = names.NewUnitTag("app/0")
+	s.agent.conf.dir = "/var/lib/juju/agents/unit-app-0"
+
+	// The in-flight report fails, forcing the fallback path.
+	s.stub.SetErrors(rpc.ErrShutdown)
+
+	attempted := make(chan struct{}, 1)
+	s.config.NewFacade = func(base.APICaller) (migrationminion.Facade, error) {
+		return &signallingFailingFacade{attempted: attempted}, nil
+	}
+
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.SUCCESS,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+		SourceAPIAddrs: []string{"3.3.3.3:3333"},
+		SourceCACert:   caCert,
+	}
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Wait for the first fallback attempt to fail, then for the retry loop
+	// to schedule its backoff sleep.
+	select {
+	case <-attempted:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for fallback report attempt")
+	}
+	select {
+	case <-s.clock.Alarms():
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for retry backoff")
+	}
+
+	// Killing during the sleep must be treated like dying mid-attempt.
+	w.Kill()
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -871,6 +951,21 @@ type failingReportFacade struct {
 }
 
 func (f *failingReportFacade) Report(string, migration.Phase, bool) error {
+	return errors.New("fallback report boom")
+}
+
+// signallingFailingFacade fails Report and signals each attempt, so a test can
+// wait for the retry loop to enter its backoff sleep.
+type signallingFailingFacade struct {
+	migrationminion.Facade
+	attempted chan<- struct{}
+}
+
+func (f *signallingFailingFacade) Report(string, migration.Phase, bool) error {
+	select {
+	case f.attempted <- struct{}{}:
+	default:
+	}
 	return errors.New("fallback report boom")
 }
 

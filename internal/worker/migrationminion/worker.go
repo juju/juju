@@ -379,7 +379,7 @@ func (w *Worker) dialNewController(addrs []string, caCert string) (api.Connectio
 	// Use zero DialOpts (no retries) because the worker must stay
 	// responsive to Kill requests. We don't want it to be blocked by
 	// a long set of retry attempts.
-	conn, err := w.dialWithRedirect(apiInfo, api.DialOpts{}, 0)
+	conn, err := w.dialWithRedirect(apiInfo, 0)
 	if err != nil {
 		return nil, newDetails{}, errors.Annotate(err, "failed to open API to target controller")
 	}
@@ -389,19 +389,19 @@ func (w *Worker) dialNewController(addrs []string, caCert string) (api.Connectio
 	}, nil
 }
 
-func (w *Worker) dialWithRedirect(apiInfo *api.Info, dialOpts api.DialOpts, redirectCount int) (api.Connection, error) {
+func (w *Worker) dialWithRedirect(apiInfo *api.Info, redirectCount int) (api.Connection, error) {
 	select {
 	case <-w.catacomb.Dying():
 		return nil, w.catacomb.ErrDying()
 	default:
 	}
-	return w.dialFollowingRedirects(apiInfo, dialOpts, redirectCount)
+	return w.dialFollowingRedirects(apiInfo, redirectCount)
 }
 
 // dialFollowingRedirects dials the controller, following redirects. Unlike
 // dialWithRedirect it does not abort when the worker is dying, so a fallback
 // report can complete while the worker is being torn down.
-func (w *Worker) dialFollowingRedirects(apiInfo *api.Info, dialOpts api.DialOpts, redirectCount int) (api.Connection, error) {
+func (w *Worker) dialFollowingRedirects(apiInfo *api.Info, redirectCount int) (api.Connection, error) {
 	if redirectCount >= maxRedirects {
 		return nil, errors.Errorf("too many redirects (%d) when connecting to target controller", redirectCount)
 	}
@@ -411,7 +411,7 @@ func (w *Worker) dialFollowingRedirects(apiInfo *api.Info, dialOpts api.DialOpts
 			w.config.Logger.Infof("following redirect to %v", redirectErr.Servers)
 			apiInfo.Addrs = network.CollapseToHostPorts(redirectErr.Servers).Strings()
 			apiInfo.CACert = redirectErr.CACert
-			return w.dialFollowingRedirects(apiInfo, dialOpts, redirectCount+1)
+			return w.dialFollowingRedirects(apiInfo, redirectCount+1)
 		}
 		return nil, errors.Annotatef(err, "failed to open API to target controller")
 	}
@@ -434,6 +434,9 @@ func (w *Worker) doSUCCESS(status watcher.MigrationStatus) (err error) {
 	// A report error is returned so the worker bounces and retries the
 	// report when the phase replays on the next worker start.
 	if cfgErr := w.updateAgentConfigForTargetController(status); cfgErr != nil {
+		if reportErr != nil {
+			cfgErr = errors.Annotatef(cfgErr, "reporting migration status failed: %v", reportErr)
+		}
 		return errors.Trace(cfgErr)
 	}
 	return errors.Annotate(reportErr, "reporting migration status")
@@ -520,7 +523,7 @@ func (w *Worker) robustReport(status watcher.MigrationStatus, success bool) erro
 		Func: func() error {
 			w.config.Logger.Infof("reporting back for phase %s: %v", status.Phase, success)
 
-			conn, err := w.dialFollowingRedirects(apiInfo, api.DialOpts{}, 0)
+			conn, err := w.dialFollowingRedirects(apiInfo, 0)
 			if err != nil {
 				return fmt.Errorf("cannot dial source controller: %w", err)
 			}
@@ -554,10 +557,19 @@ func (w *Worker) robustReport(status watcher.MigrationStatus, success bool) erro
 		Delay:       initialRetryDelay,
 		MaxDelay:    retryMaxDelay,
 		MaxDuration: retryMaxDuration,
-		BackoffFunc: retry.ExpBackoff(initialRetryDelay, retryMaxDelay, retryExpBackoff, false),
+		BackoffFunc: retry.ExpBackoff(initialRetryDelay, retryMaxDelay, retryExpBackoff, w.config.ApplyJitter),
 		Stop:        w.catacomb.Dying(),
 	})
-	if err != nil && !errors.Is(err, errWorkerDying) {
+	// A kill can land during the backoff sleep between attempts, in which
+	// case retry.Call returns a stopped error that does not wrap
+	// errWorkerDying. Treat that like the dying case too, so both arms of
+	// the teardown race die cleanly rather than reporting a retry stop.
+	select {
+	case <-w.catacomb.Dying():
+		return nil
+	default:
+	}
+	if err != nil {
 		return fmt.Errorf("cannot report migration status %v success=%v: %w", status, success, err)
 	}
 	return nil
