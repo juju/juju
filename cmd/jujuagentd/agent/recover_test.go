@@ -227,14 +227,25 @@ func (s *recoveryMachineSuite) TestRecoverDqliteAddsNodeRowWithoutSeeding(c *tc.
 
 	// Read the node row back through a fresh initialisation session on
 	// the same data directory: the row must survive the session that
-	// wrote it.
+	// wrote it. The transaction only reads; the assertions run after it
+	// so a retried transaction cannot carry partial results.
+	var (
+		nodeID, controllerID, bind, wantNodeID string
+		nodeRows                               int
+		seededRows                             map[string]int
+	)
+	seededTables := []string{"controller", "model", "controller_config"}
 	err = database.WithDqlite(c.Context(), mgr, bindAddress, logger,
 		func(ctx context.Context, session *database.DqliteSession) error {
 			controller, err := session.OpenDatabase(ctx, coredatabase.ControllerNS, schema.ControllerDDL())
 			if err != nil {
 				return errors.Capture(err)
 			}
+			wantNodeID = strconv.FormatUint(session.NodeID(), 10)
 			return controller.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+				// The transaction closure can be retried: clear what a
+				// previous attempt may have populated.
+				nodeRows, seededRows = 0, make(map[string]int, len(seededTables))
 				rows, err := tx.QueryContext(ctx, `
 SELECT controller_id, dqlite_node_id, dqlite_bind_address
 FROM controller_node`)
@@ -242,8 +253,6 @@ FROM controller_node`)
 					return errors.Capture(err)
 				}
 				defer rows.Close()
-				var nodeID, controllerID, bind string
-				nodeRows := 0
 				for rows.Next() {
 					nodeRows++
 					if err := rows.Scan(&controllerID, &nodeID, &bind); err != nil {
@@ -253,29 +262,31 @@ FROM controller_node`)
 				if err := rows.Err(); err != nil {
 					return errors.Capture(err)
 				}
-				c.Check(nodeRows, tc.Equals, 1)
-				c.Check(controllerID, tc.Equals, recoveryArchivedMachine)
-				c.Check(bind, tc.Equals, bindAddress)
-				// The stored node identity is the one this node still
-				// has after the restart: rejoining must not renumber
-				// the node.
-				c.Check(nodeID, tc.Equals, strconv.FormatUint(session.NodeID(), 10))
 
 				// No fresh bootstrap seeding: recovery initialises the
 				// controller database alone and adds only the node row.
-				for _, table := range []string{"controller", "model", "controller_config"} {
+				for _, table := range seededTables {
 					var count int
 					if err := tx.QueryRowContext(ctx,
 						"SELECT COUNT(*) FROM "+table,
 					).Scan(&count); err != nil {
 						return errors.Capture(err)
 					}
-					c.Check(count, tc.Equals, 0, tc.Commentf("table %s was seeded", table))
+					seededRows[table] = count
 				}
 				return nil
 			})
 		})
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(nodeRows, tc.Equals, 1)
+	c.Check(controllerID, tc.Equals, recoveryArchivedMachine)
+	c.Check(bind, tc.Equals, bindAddress)
+	// The stored node identity is the one this node still has after the
+	// restart: rejoining must not renumber the node.
+	c.Check(nodeID, tc.Equals, wantNodeID)
+	for _, table := range seededTables {
+		c.Check(seededRows[table], tc.Equals, 0, tc.Commentf("table %s was seeded", table))
+	}
 }
 
 // recoverySetup customises the provisioned replacement before it runs.
