@@ -152,9 +152,6 @@ def on_config_changed(event):
 `,
 			}},
 		},
-		// The steps and allocations budgets are deliberately generous,
-		// so that only the duration bound can abort the execution.
-		// Log messages are discarded.
 		MaxAllocs:   1 << 40,
 		MaxSteps:    1 << 40,
 		MaxDuration: 10 * time.Millisecond,
