@@ -70,6 +70,9 @@ func (s *Suite) SetUpTest(c *gc.C) {
 			s.stub.AddCall("ValidateMigration")
 			return nil
 		},
+		NewFacade: func(base.APICaller) (migrationminion.Facade, error) {
+			return s.client, nil
+		},
 		Logger: loggo.GetLogger("test"),
 	}
 }
@@ -483,7 +486,6 @@ func (s *Suite) TestSUCCESSReportFailureStillWritesConfig(c *gc.C) {
 	}
 	w, err := migrationminion.New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, w)
 
 	// The fallback retry is bounded by the same duration as the
 	// validation retry (5m); advance past it so the fallback exhausts
@@ -497,6 +499,11 @@ func (s *Suite) TestSUCCESSReportFailureStillWritesConfig(c *gc.C) {
 		c.Fatal("timed out waiting for agent config change")
 	}
 	c.Assert(s.agent.conf.addrs, gc.DeepEquals, addrs)
+
+	// The config write succeeded, so the worker must still bounce with
+	// the report error and replay the report on the next worker start.
+	err = w.Wait()
+	c.Assert(err, gc.ErrorMatches, "reporting migration status: cannot report migration status .*: max duration exceeded: fallback report boom")
 }
 
 // TestSUCCESSReportAndConfigFailureBothReported covers the case where both

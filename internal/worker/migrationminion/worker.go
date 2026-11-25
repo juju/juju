@@ -145,6 +145,9 @@ func (config Config) Validate() error {
 	if config.ValidateMigration == nil {
 		return errors.NotValidf("nil ValidateMigration")
 	}
+	if config.NewFacade == nil {
+		return errors.NotValidf("nil NewFacade")
+	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
@@ -379,7 +382,7 @@ func (w *Worker) dialNewController(addrs []string, caCert string) (api.Connectio
 	// Use zero DialOpts (no retries) because the worker must stay
 	// responsive to Kill requests. We don't want it to be blocked by
 	// a long set of retry attempts.
-	conn, err := w.dialWithRedirect(apiInfo, 0)
+	conn, err := w.dialUnlessDying(apiInfo, 0)
 	if err != nil {
 		return nil, newDetails{}, errors.Annotate(err, "failed to open API to target controller")
 	}
@@ -389,7 +392,7 @@ func (w *Worker) dialNewController(addrs []string, caCert string) (api.Connectio
 	}, nil
 }
 
-func (w *Worker) dialWithRedirect(apiInfo *api.Info, redirectCount int) (api.Connection, error) {
+func (w *Worker) dialUnlessDying(apiInfo *api.Info, redirectCount int) (api.Connection, error) {
 	select {
 	case <-w.catacomb.Dying():
 		return nil, w.catacomb.ErrDying()
@@ -399,7 +402,7 @@ func (w *Worker) dialWithRedirect(apiInfo *api.Info, redirectCount int) (api.Con
 }
 
 // dialFollowingRedirects dials the controller, following redirects. Unlike
-// dialWithRedirect it does not abort when the worker is dying, so a fallback
+// dialUnlessDying it does not abort when the worker is dying, so a fallback
 // report can complete while the worker is being torn down.
 func (w *Worker) dialFollowingRedirects(apiInfo *api.Info, redirectCount int) (api.Connection, error) {
 	if redirectCount >= maxRedirects {
