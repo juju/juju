@@ -9,6 +9,7 @@ def init():
 def on_config_changed(event):
     print("config changed")
     other_file_func()
+
     # fail('canary')
     juju.set_status("active", message="config changed")
 
