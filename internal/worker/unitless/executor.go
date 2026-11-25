@@ -7,6 +7,7 @@ import (
 	"context"
 	"reflect"
 	"sort"
+	"time"
 
 	"github.com/canonical/starform/starform"
 	"github.com/canonical/starlark/starlark"
@@ -32,6 +33,10 @@ type ExecutorConfig struct {
 	// during a single scriptlet function execution.
 	MaxSteps int64
 
+	// MaxDuration limits the wall-clock time that can elapse during
+	// a single scriptlet function execution.
+	MaxDuration time.Duration
+
 	// Logger logs scriptlet output.
 	Logger starform.Logger
 }
@@ -45,6 +50,9 @@ func (cfg ExecutorConfig) Validate() error {
 	}
 	if cfg.MaxSteps < 0 {
 		return errors.New("negative MaxSteps not valid").Add(coreerrors.NotValid)
+	}
+	if cfg.MaxDuration <= 0 {
+		return errors.New("non-positive MaxDuration not valid").Add(coreerrors.NotValid)
 	}
 	if cfg.Logger == nil {
 		return errors.New("nil Logger not valid").Add(coreerrors.NotValid)
@@ -83,7 +91,11 @@ func NewStarformExecutor(ctx context.Context, cfg ExecutorConfig) (Executor, err
 		return nil, errors.Errorf("loading Starform script sources: %w", err)
 	}
 
-	return &starformExecutor{scriptSet: scriptSet}, nil
+	ret := &starformExecutor{
+		scriptSet:   scriptSet,
+		maxDuration: cfg.MaxDuration,
+	}
+	return ret, nil
 }
 
 func newAppObject() *starform.AppObject {
@@ -104,12 +116,16 @@ func newAppObject() *starform.AppObject {
 }
 
 type starformExecutor struct {
-	scriptSet *starform.ScriptSet
+	scriptSet   *starform.ScriptSet
+	maxDuration time.Duration
 }
 
 // Handle handles a single Event, by dispatching it to the Scriptlet associated
 // with the event name, and returning the resulting intents.
 func (e *starformExecutor) Handle(ctx context.Context, event domainunitless.Event) ([]Intent, error) {
+	ctx, cancel := context.WithTimeout(ctx, e.maxDuration)
+	defer cancel()
+
 	attrs, err := attrsToStarlark(event.Attrs)
 	if err != nil {
 		return nil, errors.Errorf("serialising event attrs: %w", err)

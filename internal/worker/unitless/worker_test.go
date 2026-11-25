@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
@@ -60,6 +61,7 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 		ScriptletService: service,
 		NewExecutor:      newExecutor,
 		Clock:            clock.WallClock,
+		MaxDuration:      time.Minute,
 	}.Validate()
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Assert(err, tc.ErrorMatches, "nil Logger not valid")
@@ -89,6 +91,17 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 		NewExecutor:      newExecutor,
 		Clock:            clock.WallClock,
 		Logger:           newRecordingLogger(),
+		MaxDuration:      -1,
+	}.Validate()
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorMatches, "non-positive MaxDuration not valid")
+
+	err = Config{
+		ScriptletService: service,
+		NewExecutor:      newExecutor,
+		Clock:            clock.WallClock,
+		Logger:           newRecordingLogger(),
+		MaxDuration:      time.Minute,
 	}.Validate()
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -151,6 +164,7 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 	log := newRecordingLogger()
 	maxAllocs := int64(12345)
 	maxSteps := int64(67890)
+	maxDuration := 5 * time.Second
 
 	w, err := NewWorker(Config{
 		ScriptletService: service,
@@ -158,10 +172,11 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 			executorConfigs <- config
 			return executor, nil
 		},
-		Clock:     clock.WallClock,
-		MaxAllocs: maxAllocs,
-		MaxSteps:  maxSteps,
-		Logger:    log,
+		Clock:       clock.WallClock,
+		MaxAllocs:   maxAllocs,
+		MaxSteps:    maxSteps,
+		MaxDuration: maxDuration,
+		Logger:      log,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -171,6 +186,7 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 	c.Check(executorConfig.Scriptlet, tc.DeepEquals, scriptlet)
 	c.Check(executorConfig.MaxAllocs, tc.Equals, maxAllocs)
 	c.Check(executorConfig.MaxSteps, tc.Equals, maxSteps)
+	c.Check(executorConfig.MaxDuration, tc.Equals, maxDuration)
 	c.Check(executorConfig.Logger, tc.NotNil)
 	waitFor(c, eventWatchers)
 

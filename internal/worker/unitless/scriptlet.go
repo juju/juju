@@ -3,7 +3,10 @@
 
 package unitless
 
+import "time"
+
 const (
-	defaultMaxAllocs = 10 * 1024 * 1024
-	defaultMaxSteps  = 100_000
+	defaultMaxAllocs   = 10 * 1024 * 1024
+	defaultMaxSteps    = 100_000
+	defaultMaxDuration = 5 * time.Second
 )
