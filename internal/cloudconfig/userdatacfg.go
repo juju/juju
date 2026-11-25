@@ -7,8 +7,11 @@ package cloudconfig
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	stdos "os"
 	"path"
 	"path/filepath"
@@ -52,6 +55,10 @@ const (
 
 	// curlCommand is the base curl command used to download tools.
 	curlCommand = "curl -sSf"
+
+	// Larger backups use the file-backed transporter rather than retaining
+	// their entire contents in the generated cloud-init configuration.
+	maxInlineRecoveryFileSize = 32 << 20
 
 	// toolsDownloadWaitTime is the number of seconds to wait between
 	// each iterations of download attempts.
@@ -510,6 +517,9 @@ func (w *userdataConfig) configureBootstrap() error {
 		if w.icfg.Bootstrap.RecoveryArchivePath == "" {
 			w.conf.AddRunCmd(RecoveryMarkerCommand(shquote(paramsPath)))
 		} else {
+			if err := w.addRecoveryArchive(); err != nil {
+				return errors.Trace(err)
+			}
 			paramsData, err := internalrecovery.Params{
 				ArchivePath:  path.Join(w.icfg.DataDir, internalrecovery.ArchiveFile),
 				SHA256:       w.icfg.Bootstrap.RecoveryArchiveSHA256,
@@ -527,6 +537,59 @@ func (w *userdataConfig) configureBootstrap() error {
 	w.conf.AddScripts(AgentStartCommand(agentStartOptions))
 
 	return nil
+}
+
+// addRecoveryArchive schedules the archive with the other cloud-init files.
+// The destination is published only after its expected digest is verified.
+func (w *userdataConfig) addRecoveryArchive() error {
+	checksum := strings.TrimPrefix(w.icfg.Bootstrap.RecoveryArchiveSHA256, "sha256-")
+	if len(checksum) != sha256.Size*2 {
+		return errors.New("invalid recovery archive checksum")
+	}
+	if _, err := hex.DecodeString(checksum); err != nil {
+		return errors.Annotate(err, "invalid recovery archive checksum")
+	}
+	checksum = strings.ToLower(checksum)
+	destination := path.Join(w.icfg.DataDir, internalrecovery.ArchiveFile)
+	partial := destination + ".partial"
+	if err := w.addLocalBinaryFile(partial, w.icfg.Bootstrap.RecoveryArchivePath, 0600); err != nil {
+		return errors.Annotate(err, "staging recovery archive")
+	}
+
+	w.conf.AddScripts(
+		fmt.Sprintf("recovery_sha256=$(sha256sum %s) || exit 1", shquote(partial)),
+		fmt.Sprintf(`[ "${recovery_sha256%%%% *}" = %s ] || { echo "recovery archive checksum mismatch" >&2; exit 1; }`, shquote(checksum)),
+		fmt.Sprintf("mv -f %s %s", shquote(partial), shquote(destination)),
+	)
+	return nil
+}
+
+// addLocalBinaryFile uses the ordinary binary-file API for small files and
+// the same transporter with a file-backed source for larger ones.
+func (w *userdataConfig) addLocalBinaryFile(destination, source string, mode uint) error {
+	file, err := stdos.Open(source)
+	if err != nil {
+		return errors.Annotate(err, "opening local file")
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		return errors.Annotate(err, "reading local file metadata")
+	}
+	if !info.Mode().IsRegular() {
+		return errors.New("local file is not a regular file")
+	}
+	if info.Size() <= maxInlineRecoveryFileSize {
+		data, err := io.ReadAll(io.LimitReader(file, maxInlineRecoveryFileSize+1))
+		if err != nil {
+			return errors.Annotate(err, "reading local file")
+		}
+		if len(data) <= maxInlineRecoveryFileSize {
+			w.conf.AddRunBinaryFile(destination, data, mode)
+			return nil
+		}
+	}
+	return errors.Trace(w.conf.AddRunBinaryFileFromPath(destination, source, mode))
 }
 
 func (w *userdataConfig) addLocalControllerCharmsUpload() error {
@@ -553,11 +616,19 @@ func (w *userdataConfig) addLocalControllerCharmsUpload() error {
 func (w *userdataConfig) addDownloadToolsCmds() error {
 	tools := w.icfg.ToolsList()[0]
 	if strings.HasPrefix(tools.URL, fileSchemePrefix) {
-		toolsData, err := stdos.ReadFile(tools.URL[len(fileSchemePrefix):])
-		if err != nil {
-			return err
+		source := tools.URL[len(fileSchemePrefix):]
+		destination := path.Join(w.icfg.JujuTools(), "tools.tar.gz")
+		if w.icfg.Bootstrap != nil && w.icfg.Bootstrap.RecoveryMode {
+			if err := w.addLocalBinaryFile(destination, source, 0644); err != nil {
+				return errors.Annotate(err, "staging recovery agent")
+			}
+		} else {
+			toolsData, err := stdos.ReadFile(source)
+			if err != nil {
+				return err
+			}
+			w.conf.AddRunBinaryFile(destination, toolsData, 0644)
 		}
-		w.conf.AddRunBinaryFile(path.Join(w.icfg.JujuTools(), "tools.tar.gz"), toolsData, 0644)
 	} else {
 		curlCommand := curlCommand
 		var urls []string

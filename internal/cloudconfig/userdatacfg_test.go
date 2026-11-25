@@ -835,10 +835,12 @@ postruncmd:
 
 func (s *cloudinitSuite) TestCloudInitConfigureRecoveryBootstrapWithArchive(c *tc.C) {
 	const checksum = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	archivePath := filepath.Join(c.MkDir(), "archive.tar.gz")
+	c.Assert(os.WriteFile(archivePath, []byte("archive bytes"), 0600), tc.ErrorIsNil)
 	envConfig := minimalModelConfig(c)
 	instConfig := makeBootstrapConfig(jammy, 0).maybeSetModelConfig(envConfig)
 	instConfig.Bootstrap.RecoveryMode = true
-	instConfig.Bootstrap.RecoveryArchivePath = "/tmp/archive.tar.gz"
+	instConfig.Bootstrap.RecoveryArchivePath = archivePath
 	instConfig.Bootstrap.RecoveryArchiveSHA256 = checksum
 	instConfig.setMachineID("7")
 	instConfig.APIInfo.Tag = nil
@@ -846,11 +848,157 @@ func (s *cloudinitSuite) TestCloudInitConfigureRecoveryBootstrapWithArchive(c *t
 	scripts := bootstrapConfigScriptsForConfig(c, instConfig)
 	params := getStateInitializationParams(c, scripts)
 	c.Check(params.RecoveryMode, tc.IsTrue)
+	assertScriptMatch(c, scripts, `install -D -m 600 /dev/null '/var/lib/juju/recovery/archive.tar.gz.partial'
+echo -n YXJjaGl2ZSBieXRlcw== \| base64 -d > '/var/lib/juju/recovery/archive.tar.gz.partial'
+recovery_sha256=\$\(sha256sum '/var/lib/juju/recovery/archive.tar.gz.partial'\) \|\| exit 1
+.*recovery archive checksum mismatch.*
+mv -f '/var/lib/juju/recovery/archive.tar.gz.partial' '/var/lib/juju/recovery/archive.tar.gz'`, false)
 	assertScriptMatch(c, scripts, "archive-path: /var/lib/juju/recovery/archive.tar.gz", false)
 	assertScriptMatch(c, scripts, "sha256: "+checksum, false)
 	assertScriptMatch(c, scripts, `machine-name: "7"`, false)
 	assertScriptMatch(c, scripts, `node-config: .*recovery-mode: true`, false)
 	assertScriptMatch(c, scripts, `jujuagentd recover-state .* --show-log$`, false)
+}
+
+type recoveryFileTransporter struct {
+	bytesHint string
+	bytes     []byte
+	fileHint  string
+	filePath  string
+	files     map[string][]byte
+}
+
+func (t *recoveryFileTransporter) SendBytes(hint string, data []byte) string {
+	t.bytesHint = hint
+	t.bytes = append([]byte(nil), data...)
+	if t.files == nil {
+		t.files = make(map[string][]byte)
+	}
+	t.files[hint] = append([]byte(nil), data...)
+	return fmt.Sprintf("/tmp/staged-recovery-%d", len(t.files))
+}
+
+func (t *recoveryFileTransporter) SendFile(hint, source string) string {
+	t.fileHint = hint
+	t.filePath = source
+	return "/tmp/staged-recovery"
+}
+
+func (s *cloudinitSuite) TestRecoveryArchiveUsesBinaryFileTransport(c *tc.C) {
+	archive := filepath.Join(c.MkDir(), "backup.tar.gz")
+	c.Assert(os.WriteFile(archive, []byte("private backup"), 0600), tc.ErrorIsNil)
+	inst := makeBootstrapConfig(jammy, 0).maybeSetModelConfig(minimalModelConfig(c))
+	inst.Bootstrap.RecoveryMode = true
+	inst.Bootstrap.RecoveryArchivePath = archive
+	inst.Bootstrap.RecoveryArchiveSHA256 = "sha256-" + strings.Repeat("a", 64)
+	rendered := inst.render()
+	cfg, err := cloudinit.New("ubuntu")
+	c.Assert(err, tc.ErrorIsNil)
+	transporter := &recoveryFileTransporter{}
+	cfg.SetFileTransporter(transporter)
+	udata, err := cloudconfig.NewUserdataConfig(&rendered, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(udata.ConfigureJuju(), tc.ErrorIsNil)
+
+	c.Check(transporter.bytesHint, tc.Equals, "/var/lib/juju/recovery/archive.tar.gz.partial")
+	c.Check(string(transporter.bytes), tc.Equals, "private backup")
+	c.Check(transporter.filePath, tc.Equals, "")
+	script, err := cfg.RenderScript()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(strings.Contains(script, "install -D -m 600 /dev/null '/var/lib/juju/recovery/archive.tar.gz.partial'"), tc.IsTrue)
+	stagedAt := strings.Index(script, "cat '/tmp/staged-recovery-1'")
+	recoverAt := strings.Index(script, "jujuagentd recover-state")
+	c.Assert(stagedAt >= 0 && recoverAt >= 0, tc.IsTrue)
+	c.Check(stagedAt < recoverAt, tc.IsTrue)
+}
+
+func (s *cloudinitSuite) TestRecoveryStagesLocalAgentAndArchiveTogether(c *tc.C) {
+	archive := filepath.Join(c.MkDir(), "backup.tar.gz")
+	agent := filepath.Join(c.MkDir(), "agent.tar.gz")
+	c.Assert(os.WriteFile(archive, []byte("backup bytes"), 0600), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(agent, []byte("archived agent bytes"), 0600), tc.ErrorIsNil)
+	inst := makeBootstrapConfig(jammy, 0).maybeSetModelConfig(minimalModelConfig(c))
+	inst.Bootstrap.RecoveryMode = true
+	inst.Bootstrap.RecoveryArchivePath = archive
+	inst.Bootstrap.RecoveryArchiveSHA256 = strings.Repeat("a", 64)
+	rendered := inst.render()
+	version := rendered.AgentVersion()
+	c.Assert(rendered.SetTools(tools.List{{
+		Version: version, URL: "file://" + agent, SHA256: strings.Repeat("b", 64),
+	}}), tc.ErrorIsNil)
+	cfg, err := cloudinit.New("ubuntu")
+	c.Assert(err, tc.ErrorIsNil)
+	transporter := &recoveryFileTransporter{}
+	cfg.SetFileTransporter(transporter)
+	udata, err := cloudconfig.NewUserdataConfig(&rendered, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(udata.ConfigureJuju(), tc.ErrorIsNil)
+
+	c.Check(transporter.files, tc.DeepEquals, map[string][]byte{
+		path.Join(rendered.JujuTools(), "tools.tar.gz"): []byte("archived agent bytes"),
+		"/var/lib/juju/recovery/archive.tar.gz.partial": []byte("backup bytes"),
+	})
+	script, err := cfg.RenderScript()
+	c.Assert(err, tc.ErrorIsNil)
+	agentAt := strings.Index(script, "cat '/tmp/staged-recovery-1'")
+	archiveAt := strings.Index(script, "cat '/tmp/staged-recovery-2'")
+	recoverAt := strings.Index(script, "jujuagentd recover-state")
+	c.Assert(agentAt >= 0 && archiveAt >= 0 && recoverAt >= 0, tc.IsTrue)
+	c.Check(agentAt < archiveAt && archiveAt < recoverAt, tc.IsTrue)
+}
+
+func (s *cloudinitSuite) TestLargeRecoveryArchiveUsesFileBackedTransport(c *tc.C) {
+	archive := filepath.Join(c.MkDir(), "large-backup.tar.gz")
+	file, err := os.Create(archive)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(file.Truncate((32<<20)+1), tc.ErrorIsNil)
+	c.Assert(file.Close(), tc.ErrorIsNil)
+	inst := makeBootstrapConfig(jammy, 0).maybeSetModelConfig(minimalModelConfig(c))
+	inst.Bootstrap.RecoveryMode = true
+	inst.Bootstrap.RecoveryArchivePath = archive
+	inst.Bootstrap.RecoveryArchiveSHA256 = strings.Repeat("a", 64)
+	rendered := inst.render()
+	cfg, err := cloudinit.New("ubuntu")
+	c.Assert(err, tc.ErrorIsNil)
+	transporter := &recoveryFileTransporter{}
+	cfg.SetFileTransporter(transporter)
+	udata, err := cloudconfig.NewUserdataConfig(&rendered, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(udata.ConfigureJuju(), tc.ErrorIsNil)
+
+	c.Check(transporter.bytes, tc.HasLen, 0)
+	c.Check(transporter.fileHint, tc.Equals, "/var/lib/juju/recovery/archive.tar.gz.partial")
+	c.Check(transporter.filePath, tc.Equals, archive)
+
+	// Without a file-backed transporter the same archive fails explicitly
+	// rather than being loaded into memory or embedded in user data.
+	noTransporter, err := cloudinit.New("ubuntu")
+	c.Assert(err, tc.ErrorIsNil)
+	udata, err = cloudconfig.NewUserdataConfig(&rendered, noTransporter)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(udata.ConfigureJuju(), tc.ErrorMatches,
+		"staging recovery archive: file-backed cloud-init transfer not supported")
+}
+
+func (s *cloudinitSuite) TestRecoveryRejectsInvalidArchiveInputs(c *tc.C) {
+	for _, test := range []struct {
+		path, checksum, match string
+	}{
+		{"/missing/backup", "bad", "invalid recovery archive checksum"},
+		{"/missing/backup", strings.Repeat("z", 64), "invalid recovery archive checksum: .*"},
+		{"/missing/backup", strings.Repeat("a", 64), "staging recovery archive: opening local file: .*"},
+	} {
+		inst := makeBootstrapConfig(jammy, 0).maybeSetModelConfig(minimalModelConfig(c))
+		inst.Bootstrap.RecoveryMode = true
+		inst.Bootstrap.RecoveryArchivePath = test.path
+		inst.Bootstrap.RecoveryArchiveSHA256 = test.checksum
+		rendered := inst.render()
+		cfg, err := cloudinit.New("ubuntu")
+		c.Assert(err, tc.ErrorIsNil)
+		udata, err := cloudconfig.NewUserdataConfig(&rendered, cfg)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(udata.ConfigureJuju(), tc.ErrorMatches, test.match)
+	}
 }
 
 func (s *cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *tc.C) {

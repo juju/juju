@@ -405,9 +405,9 @@ type StateInitializationParams struct {
 	// running a fresh bootstrap. It initialises Dqlite but does not import state.
 	RecoveryMode bool
 
-	// RecoveryArchivePath is the local path of the verified recovery
-	// archive, uploaded to the replacement instance before its setup runs.
-	// It is transient and never serialised.
+	// RecoveryArchivePath is the local path of the verified recovery archive.
+	// Setup stages and verifies it before running recover-state. The path is
+	// transient and never serialised.
 	RecoveryArchivePath string
 
 	// RecoveryArchiveSHA256 is the expected SHA-256 digest of the recovery

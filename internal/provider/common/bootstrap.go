@@ -5,7 +5,6 @@ package common
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	stderrors "errors"
 	"fmt"
@@ -44,7 +43,6 @@ import (
 	internalerrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
-	internalrecovery "github.com/juju/juju/internal/recovery"
 	jujussh "github.com/juju/juju/internal/ssh"
 	"github.com/juju/juju/internal/storage"
 	coretools "github.com/juju/juju/internal/tools"
@@ -545,15 +543,6 @@ func ConfigureMachine(
 	if bootstrap.IsContextDone(ctx) {
 		return bootstrap.Cancelled()
 	}
-
-	// The recovery archive must reach the machine before any of its
-	// setup runs. Uploading here covers every provider that provisions
-	// through this shared boundary, unmanaged machines included, and
-	// keeps the upload ahead of the configuration below.
-	if err := uploadRecoveryArchiveIfRequired(ctx, client, host, instanceConfig, sshOptions); err != nil {
-		return errors.Trace(err)
-	}
-
 	// Bootstrap is synchronous, and will spawn a subprocess
 	// to complete the procedure. If the user hits Ctrl-C,
 	// SIGINT is sent to the foreground process attached to
@@ -636,205 +625,6 @@ func ConfigureMachine(
 		return err
 	}
 	return nil
-}
-
-// uploadRecoveryArchiveIfRequired copies the recovery archive to the
-// replacement instance before its setup runs.
-func uploadRecoveryArchiveIfRequired(
-	ctx environs.BootstrapContext,
-	client ssh.Client,
-	host string,
-	instanceConfig *instancecfg.InstanceConfig,
-	sshOptions *ssh.Options,
-) error {
-	if instanceConfig.Bootstrap == nil || !instanceConfig.Bootstrap.RecoveryMode {
-		return nil
-	}
-	if instanceConfig.Bootstrap.RecoveryArchivePath == "" {
-		return nil
-	}
-	return uploadRecoveryArchive(ctx, client, host, instanceConfig, sshOptions)
-}
-
-// recoveryCleanupTimeout bounds the removal of the remote staging
-// directory: the cleanup cannot depend on the upload's (possibly
-// cancelled) context, yet it must not hold the bootstrap up on a stuck
-// SSH connection either.
-var recoveryCleanupTimeout = 30 * time.Second
-
-// uploadRecoveryArchive stages the local archive on the replacement
-// instance, verifies its digest there and only then moves it into place.
-// A partial or corrupted upload can never reach recover-state.
-func uploadRecoveryArchive(
-	ctx environs.BootstrapContext,
-	client ssh.Client,
-	host string,
-	instanceConfig *instancecfg.InstanceConfig,
-	sshOptions *ssh.Options,
-) error {
-	if bootstrap.IsContextDone(ctx) {
-		return internalerrors.Errorf("uploading recovery archive: %w", bootstrap.Cancelled())
-	}
-
-	hostName := "ubuntu@" + host
-	runScript := func(script string) (string, error) {
-		cmd := client.Command(hostName, []string{"/bin/bash"}, sshOptions)
-		cmd.Stdin = strings.NewReader(script)
-		// The command result comes back on stdout, for instance the
-		// staged archive's digest, while diagnostics stay on stderr so
-		// neither stream can pollute the other.
-		var stdout, stderr bytes.Buffer
-		cmd.Stdout = &stdout
-		cmd.Stderr = &stderr
-		if err := cmd.Run(); err != nil {
-			if diag := strings.TrimSpace(stderr.String()); diag != "" {
-				return "", errors.Errorf("%s: %v", diag, err)
-			}
-			return "", errors.Trace(err)
-		}
-		return strings.TrimSpace(stdout.String()), nil
-	}
-
-	stagingDir, err := runScript("mktemp -d /tmp/juju-recovery.XXXXXX")
-	if err != nil {
-		return errors.Annotate(err, "creating recovery staging directory")
-	}
-	defer func() {
-		// The cleanup runs even when the bootstrap was interrupted, so
-		// it deliberately ignores the upload context; it stays bounded
-		// so it cannot hang the bootstrap on its way out.
-		if _, err := boundedRunScript(client, hostName, sshOptions,
-			"rm -rf "+utils.ShQuote(stagingDir), recoveryCleanupTimeout,
-		); err != nil {
-			ctx.Verbosef("could not remove recovery staging directory %s: %v", stagingDir, err)
-		}
-	}()
-
-	staged := path.Join(stagingDir, "archive.tar.gz")
-	if err := streamRecoveryArchive(ctx, client, hostName,
-		instanceConfig.Bootstrap.RecoveryArchivePath, staged, sshOptions); err != nil {
-		return errors.Trace(err)
-	}
-	checksum, err := runScript("sha256sum " + utils.ShQuote(staged) + " | cut -d' ' -f1")
-	if err != nil {
-		return errors.Annotate(err, "checksumming recovery archive")
-	}
-	expected := strings.TrimPrefix(instanceConfig.Bootstrap.RecoveryArchiveSHA256, "sha256-")
-	if !strings.EqualFold(checksum, expected) {
-		return errors.Errorf(
-			"recovery archive checksum %q does not match expected %q", checksum, expected)
-	}
-
-	// The staged archive is verified and complete. Do not install it if
-	// the bootstrap has been interrupted in the meantime: a cancelled
-	// upload must leave nothing behind for the setup to pick up.
-	if bootstrap.IsContextDone(ctx) {
-		return internalerrors.Errorf("installing recovery archive: %w", bootstrap.Cancelled())
-	}
-	destination := path.Join(instanceConfig.DataDir, internalrecovery.ArchiveFile)
-	partial := destination + ".partial"
-	if _, err := runScript(fmt.Sprintf(
-		"sudo install -D -m 0600 %s %s && sudo mv -f %s %s",
-		utils.ShQuote(staged), utils.ShQuote(partial), utils.ShQuote(partial), utils.ShQuote(destination),
-	)); err != nil {
-		return errors.Annotate(err, "installing recovery archive")
-	}
-	ctx.Infof("Uploaded recovery archive to %s", host)
-	return nil
-}
-
-// streamRecoveryArchive pipes the archive at localPath onto the staged
-// path on the target instance through the ssh command's stdin. The
-// redirection to the staged path is performed by the remote shell from
-// the command words themselves, so no scp-style [user@]host:path operand
-// is ever built: such operands cannot carry IPv6 host literals, while
-// the ssh command target can. The command words also stay compatible
-// with both the OpenSSH and go.crypto clients.
-//
-// The stream is bounded by ctx: once the context is done the ssh
-// process is killed and then reaped, so no upload is left running on
-// the machine after the bootstrap returns.
-func streamRecoveryArchive(
-	ctx context.Context,
-	client ssh.Client,
-	hostName, localPath, stagedPath string,
-	sshOptions *ssh.Options,
-) error {
-	archive, err := os.Open(localPath)
-	if err != nil {
-		return errors.Annotatef(err, "opening recovery archive %q", localPath)
-	}
-	defer archive.Close()
-
-	cmd := client.Command(hostName,
-		[]string{"cat", ">", utils.ShQuote(stagedPath)}, sshOptions)
-	cmd.Stdin = archive
-	// The remote cat writes to the staged path, so only diagnostics can
-	// ever arrive here; they are kept on stderr, separate from the
-	// command's unused stdout.
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Start(); err != nil {
-		return errors.Annotate(err, "starting recovery archive upload")
-	}
-	waitDone := make(chan error, 1)
-	go func() {
-		waitDone <- cmd.Wait()
-	}()
-	select {
-	case err := <-waitDone:
-		if err != nil {
-			if diag := strings.TrimSpace(stderr.String()); diag != "" {
-				return errors.Annotatef(err, "streaming recovery archive: %s", diag)
-			}
-			return errors.Annotate(err, "streaming recovery archive")
-		}
-		return nil
-	case <-ctx.Done():
-		// Kill, then reap: waiting for the killed process keeps a
-		// stray upload from outliving the bootstrap.
-		_ = cmd.Kill()
-		<-waitDone
-		return internalerrors.Errorf("streaming recovery archive: %w", bootstrap.Cancelled())
-	}
-}
-
-// boundedRunScript runs script on the target instance and waits no
-// longer than timeout for it to finish, killing and reaping the ssh
-// process if it overruns. It backs the staging-directory cleanup, which
-// cannot depend on the upload's context but must never hang either.
-func boundedRunScript(
-	client ssh.Client,
-	hostName string,
-	sshOptions *ssh.Options,
-	script string,
-	timeout time.Duration,
-) (string, error) {
-	cmd := client.Command(hostName, []string{"/bin/bash"}, sshOptions)
-	cmd.Stdin = strings.NewReader(script)
-	var output bytes.Buffer
-	cmd.Stdout = &output
-	cmd.Stderr = &output
-	// Start synchronously so a timeout can never race the process
-	// creation below.
-	if err := cmd.Start(); err != nil {
-		return "", errors.Trace(err)
-	}
-	waitDone := make(chan error, 1)
-	go func() {
-		waitDone <- cmd.Wait()
-	}()
-	select {
-	case err := <-waitDone:
-		if err != nil {
-			return "", errors.Errorf("%s: %v", strings.TrimSpace(output.String()), err)
-		}
-		return strings.TrimSpace(output.String()), nil
-	case <-time.After(timeout):
-		_ = cmd.Kill()
-		<-waitDone
-		return "", errors.Errorf("timed out after %v", timeout)
-	}
 }
 
 // HostSSHOptionsFunc is a function that, given a hostname, returns
