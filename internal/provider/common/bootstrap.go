@@ -541,7 +541,11 @@ func ConfigureMachine(
 	host string,
 	instanceConfig *instancecfg.InstanceConfig,
 	sshOptions *ssh.Options,
-) error {
+) (resultErr error) {
+	if bootstrap.IsContextDone(ctx) {
+		return bootstrap.Cancelled()
+	}
+
 	// The recovery archive must reach the machine before any of its
 	// setup runs. Uploading here covers every provider that provisions
 	// through this shared boundary, unmanaged machines included, and
@@ -573,7 +577,23 @@ func ConfigureMachine(
 		ProgressWriter: ctx.GetStderr(),
 	}
 
-	ft := sshinit.NewFileTransporter(sshinitConfig)
+	ft, err := sshinit.NewFileTransporter(sshinitConfig)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	configureFinished := false
+	defer func() {
+		if configureFinished {
+			// Cleanup ran in the remote script's EXIT trap. Reconnecting
+			// here would fail because setup may have rotated the host keys.
+			return
+		}
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+		if err := ft.Cleanup(cleanupCtx); err != nil {
+			resultErr = stderrors.Join(resultErr, errors.Annotate(err, "cleaning up staged files"))
+		}
+	}()
 	cloudcfg.SetFileTransporter(ft)
 
 	udata, err := cloudconfig.NewUserdataConfig(instanceConfig, cloudcfg)
@@ -593,15 +613,29 @@ func ConfigureMachine(
 
 	// Wait for the files to be sent to the machine.
 	if err := ft.Dispatch(ctx); err != nil {
+		if bootstrap.IsContextDone(ctx) {
+			return errors.Annotate(bootstrap.Cancelled(), "transporting files to machine")
+		}
 		return errors.Annotate(err, "transporting files to machine")
+	}
+	if bootstrap.IsContextDone(ctx) {
+		return bootstrap.Cancelled()
 	}
 
 	script := DumpOnErrorScript(
 		instanceConfig.CloudInitOutputLog,
 	) + configScript
 	ctx.Infof("Running machine configuration script...")
-	// TODO(benhoyt) - plumb context through juju/utils/ssh?
-	return sshinit.RunConfigureScript(script, sshinitConfig)
+	sshinitConfig.CleanupCommand = ft.CleanupCommand()
+	err = sshinit.RunConfigureScriptContext(ctx, script, sshinitConfig)
+	configureFinished = true
+	if err != nil {
+		if bootstrap.IsContextDone(ctx) {
+			return errors.Annotate(bootstrap.Cancelled(), "configuring machine")
+		}
+		return err
+	}
+	return nil
 }
 
 // uploadRecoveryArchiveIfRequired copies the recovery archive to the

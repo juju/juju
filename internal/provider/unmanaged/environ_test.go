@@ -4,6 +4,7 @@
 package unmanaged
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -14,18 +15,25 @@ import (
 	"testing"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	internalrecovery "github.com/juju/juju/internal/recovery"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/tools"
 )
 
 type baseEnvironSuite struct {
@@ -280,16 +288,12 @@ func (s *controllerInstancesSuite) TestControllerInstancesInternal(c *tc.C) {
 	c.Assert(instances, tc.DeepEquals, []instance.Id{BootstrapInstanceId})
 }
 
-// fakeSSHScript returns a bash script standing in for the ssh
-// executable. It simulates the remote end the way the recovery archive
-// upload exercises it: command words following the host are joined and
-// executed as one line, the way the remote shell runs them, and scripts
-// piped in on stdin are executed after relocating /tmp to root and
-// dropping sudo. Every invocation appends a tag to log, in order.
-func fakeSSHScript(root, log string) string {
+// fakeSSHScript runs only the archive-related setup commands in a temporary
+// directory. The rest of the machine setup is recorded but not executed.
+func fakeSSHScript(root, log, setupScript, mode string) string {
 	return fmt.Sprintf(`#!/bin/bash --norc
 set -euo pipefail
-cmd=()
+args=()
 found=0
 for arg in "$@"; do
 	if [[ $found -eq 0 ]]; then
@@ -297,40 +301,87 @@ for arg in "$@"; do
 			found=1
 		fi
 	else
-		cmd+=("$arg")
+		args+=("$arg")
 	fi
 done
-if [[ ${#cmd[@]} -eq 0 || ( ${#cmd[@]} -eq 1 && "${cmd[0]}" == "/bin/bash" ) ]]; then
-	# The remote runs /bin/bash with the script piped in on stdin.
-	script="$(cat)"
-	case "$script" in
-	mktemp\ -d*)
-		echo mktemp >> %q
-		script="${script//\/tmp\//%q/}"
-		eval "$script"
-		;;
-	sha256sum*)
-		echo checksum >> %q
-		eval "$script"
-		;;
-	sudo\ install*)
-		echo install >> %q
-		eval "${script//sudo /}"
-		;;
-	rm\ -rf*)
-		echo cleanup >> %q
-		eval "$script"
-		;;
-	*)
-		echo "unexpected script: $script" >&2
-		exit 1
-		;;
-	esac
-else
-	echo stream >> %q
-	eval "${cmd[*]}"
+[[ $found == 1 ]]
+if [[ "${args[0]}" == sudo ]]; then
+	cat > %q
+	echo setup >> %q
+	encoded="${args[-1]#*echo }"
+	encoded="${encoded%% | base64 -d*}"
+	encoded="$(printf '%%s' "$encoded" | tr -d "'")"
+	wrapper="$(printf '%%s' "$encoded" | base64 -d)"
+	cleanupLine="$(printf '%%s\n' "$wrapper" | sed -n 's/^[[:space:]]*if ! \(rm -rf -- .*\); then$/\1/p')"
+	runCleanup() {
+		if [[ -n "$cleanupLine" ]]; then
+			echo cleanup >> %q
+			if [[ %q == fail-cleanup ]]; then
+				echo 'cannot remove staging' >&2
+			else
+				eval "$cleanupLine"
+			fi
+		fi
+		echo setup-end >> %q
+		if [[ %q == fail-cleanup ]]; then
+			echo 'cleaning up staged files failed' >&2
+			return 1
+		fi
+		return 0
+	}
+	trap runCleanup EXIT
+	configFailed=0
+	while IFS= read -r line; do
+		case "$line" in
+		"install -D -m 600 /dev/null "*archive.tar.gz.partial*) echo install >> %q ;;
+		"cat "*archive.tar.gz.partial*) echo copy >> %q ;;
+		recovery_sha256=*) echo checksum >> %q ;;
+		*"recovery archive checksum mismatch"*) ;;
+		"mv -f "*archive.tar.gz.partial*) echo publish >> %q ;;
+		"install -D -m 600 /dev/null "*"/recovery/params'"*) eval "$line"; continue ;;
+		"echo 'archive-path:"*)
+			paramsCommand="$line"
+			while [[ "$line" != *"/recovery/params'" ]]; do
+				IFS= read -r line
+				paramsCommand+=$'\n'"$line"
+			done
+			eval "$paramsCommand"
+			echo params >> %q
+			continue
+			;;
+		*"jujuagentd recover-state"*) echo recover >> %q; continue ;;
+		*) continue ;;
+		esac
+		line="${line//\/tmp\/juju-/%s\/juju-}"
+		if eval "$line"; then
+			:
+		else
+			configFailed=$?
+			break
+		fi
+	done < %q
+	exit "$configFailed"
 fi
-`, log, root, log, log, log, log)
+command="${args[*]}"
+command="${command//\/tmp\/juju-/%s\/juju-}"
+case "${args[0]}" in
+	mkdir) echo mkdir >> %q ;;
+	umask) echo stream >> %q ;;
+	rm) echo cleanup >> %q ;;
+	*) echo "unexpected command: $command" >&2; exit 1 ;;
+esac
+if [[ "${args[0]}" == rm && %q == fail-cleanup ]]; then
+	echo 'cannot remove staging' >&2
+	exit 1
+fi
+eval "$command"
+if [[ "${args[0]}" == umask && %q == corrupt ]]; then
+	staged="${args[6]//\'/}"
+	staged="${staged/\/tmp\/juju-/%s\/juju-}"
+	echo CORRUPT >> "$staged"
+fi
+`, setupScript, log, log, mode, log, mode, log, log, log, log, log, log,
+		root, setupScript, root, log, log, log, mode, mode, root)
 }
 
 // readInvocationLog returns the tags logged by the fake ssh executable,
@@ -348,12 +399,25 @@ func readInvocationLog(c *tc.C, path string) []string {
 	return strings.Split(log, "\n")
 }
 
-// TestBootstrapFinaliserUploadsRecoveryArchive ensures the unmanaged
-// bootstrap path streams the recovery archive onto the target machine
-// before its setup runs: unmanaged machines are provisioned through
-// common.ConfigureMachine, the same shared boundary as provider
-// allocated ones.
-func (s *environSuite) TestBootstrapFinaliserUploadsRecoveryArchive(c *tc.C) {
+// TestBootstrapFinaliserStagesRecoveryArchive exercises the real unmanaged
+// finaliser through cloud-init staging and verifies the published archive.
+func (s *environSuite) TestBootstrapFinaliserStagesRecoveryArchive(c *tc.C) {
+	s.assertBootstrapRecoveryArchive(c, "")
+}
+
+func (s *environSuite) TestBootstrapFinaliserRejectsCorruptedRecoveryArchive(c *tc.C) {
+	s.assertBootstrapRecoveryArchive(c, "corrupt")
+}
+
+func (s *environSuite) TestBootstrapFinaliserReportsStagingCleanupFailure(c *tc.C) {
+	s.assertBootstrapRecoveryArchive(c, "fail-cleanup")
+}
+
+func (s *environSuite) TestBootstrapFinaliserFreshBootstrapDoesNotStageArchive(c *tc.C) {
+	s.assertBootstrapRecoveryArchive(c, "fresh")
+}
+
+func (s *environSuite) assertBootstrapRecoveryArchive(c *tc.C, mode string) {
 	s.PatchValue(&sshprovisioner.CheckProvisioned,
 		func(string, string) (bool, error) { return false, nil })
 	s.PatchValue(&initUbuntuUser,
@@ -365,9 +429,6 @@ func (s *environSuite) TestBootstrapFinaliserUploadsRecoveryArchive(c *tc.C) {
 			return instance.HardwareCharacteristics{Arch: &amd64}, ubuntuBase, nil
 		})
 
-	// The ssh executable is replaced with a faithful simulation of the
-	// remote end, so the archive is really staged, checksummed and
-	// installed on real files.
 	localArchive := filepath.Join(c.MkDir(), "backup.tar.gz")
 	payload := []byte("recovery archive payload")
 	c.Assert(os.WriteFile(localArchive, payload, 0o600), tc.ErrorIsNil)
@@ -375,7 +436,8 @@ func (s *environSuite) TestBootstrapFinaliserUploadsRecoveryArchive(c *tc.C) {
 
 	remoteRoot := c.MkDir()
 	logPath := filepath.Join(c.MkDir(), "ssh.log")
-	testhelpers.PatchExecutable(c, s, "ssh", fakeSSHScript(remoteRoot, logPath))
+	setupScript := filepath.Join(c.MkDir(), "setup.sh")
+	testhelpers.PatchExecutable(c, s, "ssh", fakeSSHScript(remoteRoot, logPath, setupScript, mode))
 
 	ctx := envtesting.BootstrapTestContext(c)
 	result, err := s.env.Bootstrap(ctx, environs.BootstrapParams{})
@@ -383,26 +445,89 @@ func (s *environSuite) TestBootstrapFinaliserUploadsRecoveryArchive(c *tc.C) {
 
 	icfg, err := instancecfg.NewBootstrapInstanceConfig(
 		coretesting.FakeControllerConfig(), constraints.Value{}, constraints.Value{},
-		ubuntuBase, "", nil,
+		ubuntuBase, "", map[string]string{"test": "true"},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	icfg.DataDir = filepath.Join(remoteRoot, "var", "lib", "juju")
-	icfg.Bootstrap.RecoveryMode = true
-	icfg.Bootstrap.RecoveryArchivePath = localArchive
-	icfg.Bootstrap.RecoveryArchiveSHA256 = "sha256-" + hex.EncodeToString(digest[:])
+	// Match managed bootstrap: setup replaces the initial host keys, so
+	// cleanup must not reconnect with those initial keys afterwards.
+	icfg.Bootstrap.InitialSSHHostKeys = instancecfg.SSHHostKeys{{
+		PublicKeyAlgorithm: "ssh-ed25519", Public: "ssh-ed25519 AAAA", Private: "private",
+	}}
+	icfg.APIInfo = &api.Info{
+		ModelTag: names.NewModelTag(s.env.Config().UUID()),
+		CACert:   coretesting.CACert,
+		Password: "secret",
+	}
+	icfg.Bootstrap.ControllerModelConfig = s.env.Config()
+	icfg.Bootstrap.ControllerConfig = coretesting.FakeControllerConfig()
+	icfg.Bootstrap.ControllerCloud = cloud.Cloud{Name: "manual", Type: "manual"}
+	icfg.Bootstrap.ControllerAgentInfo = controller.ControllerAgentInfo{
+		Cert: coretesting.ServerCert, PrivateKey: coretesting.ServerKey,
+		CAPrivateKey: coretesting.CAKey, APIPort: 17070,
+	}
+	icfg.Bootstrap.AgentVersion = coretesting.FakeVersionNumber
+	c.Assert(icfg.SetTools(tools.List{{
+		Version: semversion.Binary{Number: coretesting.FakeVersionNumber, Release: "ubuntu", Arch: arch.AMD64},
+		URL:     "https://example.invalid/agent.tgz",
+		SHA256:  strings.Repeat("0", 64),
+	}}), tc.ErrorIsNil)
+	if mode != "fresh" {
+		icfg.Bootstrap.RecoveryMode = true
+		icfg.Bootstrap.RecoveryArchivePath = localArchive
+		icfg.Bootstrap.RecoveryArchiveSHA256 = "sha256-" + hex.EncodeToString(digest[:])
+	}
 
-	// The instance config is deliberately not fully populated: the
-	// finaliser must upload the archive first and only then fail while
-	// generating the machine setup.
 	err = result.CloudBootstrapFinalizer(ctx, icfg, environs.BootstrapDialOpts{})
-	c.Check(err, tc.ErrorMatches, "invalid machine configuration: .*")
-
+	if err != nil {
+		c.Logf("configuration error output:\n%s", ctx.GetStderr())
+	}
+	destination := filepath.Join(icfg.DataDir, "recovery", "archive.tar.gz")
+	if mode == "fresh" {
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(readInvocationLog(c, logPath), tc.DeepEquals, []string{"setup", "setup-end"})
+		script, err := os.ReadFile(setupScript)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(strings.Contains(string(script), "Regenerating SSH host keys"), tc.IsTrue)
+		c.Check(strings.Contains(string(script), "jujuagentd bootstrap-state"), tc.IsTrue)
+		c.Check(strings.Contains(string(script), "jujuagentd recover-state"), tc.IsFalse)
+		return
+	}
+	if mode == "corrupt" {
+		c.Check(err, tc.ErrorMatches, "subprocess encountered error code 1")
+		stderr, ok := ctx.GetStderr().(*bytes.Buffer)
+		c.Assert(ok, tc.IsTrue)
+		c.Check(strings.Contains(stderr.String(), "recovery archive checksum mismatch"), tc.IsTrue)
+		c.Check(readInvocationLog(c, logPath), tc.DeepEquals,
+			[]string{"mkdir", "stream", "setup", "install", "copy", "checksum", "cleanup", "setup-end"})
+		_, statErr := os.Stat(destination)
+		c.Check(os.IsNotExist(statErr), tc.IsTrue)
+		return
+	}
+	if mode == "fail-cleanup" {
+		c.Check(err, tc.ErrorMatches, "subprocess encountered error code 1")
+		stderr, ok := ctx.GetStderr().(*bytes.Buffer)
+		c.Assert(ok, tc.IsTrue)
+		c.Check(strings.Contains(stderr.String(), "cleaning up staged files failed"), tc.IsTrue)
+	} else {
+		c.Assert(err, tc.ErrorIsNil)
+	}
 	c.Check(readInvocationLog(c, logPath), tc.DeepEquals,
-		[]string{"mktemp", "stream", "checksum", "install", "cleanup"})
-	// The archive the machine setup would find is the one that was
-	// streamed, byte for byte.
-	installed, err := os.ReadFile(
-		filepath.Join(icfg.DataDir, "recovery", "archive.tar.gz"))
+		[]string{"mkdir", "stream", "setup", "install", "copy", "checksum", "publish", "params", "recover", "cleanup", "setup-end"})
+	installed, err := os.ReadFile(destination)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(installed, tc.DeepEquals, payload)
+	info, err := os.Stat(destination)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.Mode().Perm(), tc.Equals, os.FileMode(0600))
+	params, err := internalrecovery.ReadParams(icfg.DataDir)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(params.ArchivePath, tc.Equals, destination)
+	c.Check(params.SHA256, tc.Equals, icfg.Bootstrap.RecoveryArchiveSHA256)
+	script, err := os.ReadFile(setupScript)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(strings.Contains(string(script), "Regenerating SSH host keys"), tc.IsTrue)
+	c.Check(strings.Contains(string(script), "archive-path: "+destination), tc.IsTrue)
+	c.Check(strings.Index(string(script), "archive-path: "+destination) <
+		strings.Index(string(script), "jujuagentd recover-state"), tc.IsTrue)
 }

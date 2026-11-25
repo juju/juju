@@ -34,6 +34,10 @@ type ConfigureParams struct {
 	// Config is the cloudinit config to carry out.
 	Config cloudinit.CloudConfig
 
+	// CleanupCommand runs in the remote shell's EXIT trap after setup. It
+	// avoids reconnecting after setup has changed the machine's SSH host keys.
+	CleanupCommand string
+
 	// ProgressWriter is an io.Writer to which progress will be written,
 	// for realtime feedback.
 	ProgressWriter io.Writer
@@ -43,12 +47,35 @@ type ConfigureParams struct {
 // SSH, and executes the provided script which is expected
 // to have been returned by cloudinit ConfigureScript.
 func RunConfigureScript(script string, params ConfigureParams) error {
-	logger.Tracef(context.TODO(), "running %d byte configuration script on %s", len(script), params.Host)
+	return RunConfigureScriptContext(context.Background(), script, params)
+}
 
+// RunConfigureScriptContext runs the configuration script synchronously. The
+// context is checked before and after the command; an already running command
+// is not interrupted because the SSH library cannot safely force-close both
+// backends.
+func RunConfigureScriptContext(ctx context.Context, script string, params ConfigureParams) error {
+	logger.Tracef(ctx, "running %d byte configuration script on %s", len(script), params.Host)
+
+	cleanupTrap := `trap "rm -f $tmpfile" EXIT`
+	if params.CleanupCommand != "" {
+		cleanupTrap = fmt.Sprintf(`cleanup() {
+	local status=$?
+	rm -f "$tmpfile"
+	if ! %s; then
+		echo "cleaning up staged files failed" >&2
+		if [ "$status" -eq 0 ]; then
+			status=1
+		fi
+	fi
+	return "$status"
+}
+trap cleanup EXIT`, params.CleanupCommand)
+	}
 	encoded := base64.StdEncoding.EncodeToString([]byte(`
 set -e
 tmpfile=$(mktemp)
-trap "rm -f $tmpfile" EXIT
+` + cleanupTrap + `
 cat > $tmpfile
 /bin/bash $tmpfile
 `))
@@ -77,5 +104,5 @@ cat > $tmpfile
 
 	cmd.Stdin = strings.NewReader(script)
 	cmd.Stderr = params.ProgressWriter
-	return cmd.Run()
+	return runCommand(ctx, cmd)
 }
