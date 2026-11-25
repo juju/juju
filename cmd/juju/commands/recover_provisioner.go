@@ -61,13 +61,17 @@ func provisionRecovery(
 	archivePath string,
 	info *recovery.ArchiveInfo,
 ) error {
-	// Recovery requires the exact archived agent version, including its build
-	// number, for compatible archive validation and initialisation.
-	if err := info.CheckAgentVersion(jujuversion.Current); err != nil {
-		return errors.Capture(err)
-	}
 	if jujucloud.CloudTypeIsCAAS(info.CloudType) {
+		// Kubernetes recovery does not obtain its agent from the archive.
+		if err := info.CheckAgentVersion(jujuversion.Current); err != nil {
+			return errors.Capture(err)
+		}
 		return provisionK8sRecovery(ctx, store, info)
+	}
+	// Machine recovery can use the archived agent, but that agent must
+	// understand the bootstrap parameters written by this client.
+	if err := info.CheckAgentCompatibility(jujuversion.Current); err != nil {
+		return errors.Capture(err)
 	}
 	return provisionMachineRecovery(ctx, store, archivePath, info)
 }

@@ -430,21 +430,77 @@ func (s *recoverySuite) TestProvisionRecoveryRequiresSourceArch(c *tc.C) {
 	}
 }
 
-// TestProvisionRecoveryRequiresMatchingAgentVersion checks that both machine
-// and Kubernetes archives from a different agent version are rejected before
-// any cloud access or local agent build.
-func (s *recoverySuite) TestProvisionRecoveryRequiresMatchingAgentVersion(c *tc.C) {
-	for _, cloudType := range []string{"lxd", jujucloud.CloudTypeKubernetes} {
+// TestProvisionRecoveryMachineAcceptsArchivedAgentVersion checks that the client
+// does not have to run the archived agent version: the replacement agent
+// is taken from packaged tools or, failing that, from the archive itself.
+// A missing machine name makes the command stop after the version check,
+// before looking for SSH keys or contacting a cloud.
+func (s *recoverySuite) TestProvisionRecoveryMachineAcceptsArchivedAgentVersion(c *tc.C) {
+	for _, test := range []struct {
+		summary  string
+		current  string
+		archived string
+	}{{
+		summary:  "pre-release build",
+		current:  "4.1-beta3",
+		archived: "4.1-beta3.1",
+	}, {
+		summary:  "release patch",
+		current:  "4.1.0",
+		archived: "4.1.7",
+	}} {
+		c.Logf("%s", test.summary)
+		s.PatchValue(&version.Current, semversion.MustParse(test.current))
 		err := provisionRecovery(cmdtesting.Context(c), nil, "", &recovery.ArchiveInfo{
-			CloudType:      cloudType,
-			ControllerName: "source-ctrl",
-			AgentVersion:   semversion.MustParse("9.9.9"),
-			SourceBase:     "ubuntu@24.04",
-			SourceArch:     "amd64",
-			MachineName:    "0",
+			CloudType:    "lxd",
+			AgentVersion: semversion.MustParse(test.archived),
+			SourceBase:   "ubuntu@24.04",
+			SourceArch:   "amd64",
+		})
+		c.Check(err, tc.ErrorMatches, "archive does not record a usable controller machine")
+	}
+}
+
+// TestProvisionRecoveryMachineRejectsOtherVersionLine checks that the client
+// still refuses an archive from another version line, before any cloud
+// access: the client writes the parameters the archived agent consumes
+// and keeps talking to the recovered controller, so major.minor and the
+// pre-release tag must match.
+func (s *recoverySuite) TestProvisionRecoveryMachineRejectsOtherVersionLine(c *tc.C) {
+	for _, test := range []struct {
+		summary  string
+		current  string
+		archived string
+	}{{
+		summary:  "different minor",
+		current:  "4.1.0",
+		archived: "4.2.0",
+	}, {
+		summary:  "different major",
+		current:  "4.1.0",
+		archived: "5.1.0",
+	}, {
+		summary:  "different pre-release tag",
+		current:  "4.1-beta3",
+		archived: "4.1-beta4",
+	}, {
+		summary:  "pre-release and release",
+		current:  "4.1-beta3",
+		archived: "4.1.0",
+	}} {
+		c.Logf("%s", test.summary)
+		s.PatchValue(&version.Current, semversion.MustParse(test.current))
+		err := provisionRecovery(cmdtesting.Context(c), nil, "", &recovery.ArchiveInfo{
+			CloudType:    "lxd",
+			CloudName:    "not-a-cloud",
+			AgentVersion: semversion.MustParse(test.archived),
+			SourceBase:   "ubuntu@24.04",
+			SourceArch:   "amd64",
+			MachineName:  "0",
 		})
 		c.Check(err, tc.ErrorMatches,
-			`archive was created by agent version 9\.9\.9 but this binary .*; recovery requires the exact same version`)
+			"archive was created by agent version .* but this binary is .*; "+
+				"recovery requires the same major.minor version line and pre-release tag")
 	}
 }
 
@@ -488,20 +544,19 @@ func (s *recoverySuite) TestAllocationTargetFromArchive(c *tc.C) {
 	c.Check(params.AgentVersion, tc.Equals, info.AgentVersion)
 }
 
-// TestProvisionRecoveryRequiresExactPatchVersion checks that a machine
-// archive written by another agent version is rejected before any cloud
-// access: archive validation and Dqlite initialisation require exact
-// compatibility with the archived agent version.
-func (s *recoverySuite) TestProvisionRecoveryRequiresExactPatchVersion(c *tc.C) {
-	other := version.Current
-	other.Patch++
-	err := provisionRecovery(cmdtesting.Context(c), nil, "", &recovery.ArchiveInfo{
-		CloudType:    "lxd",
-		AgentVersion: other,
-		SourceBase:   "ubuntu@24.04",
-		MachineName:  "0",
-	})
-	c.Check(err, tc.ErrorMatches, "archive was created by agent version .* recovery requires the exact same version")
+func (s *recoverySuite) TestProvisionRecoveryKubernetesRequiresExactAgentVersion(c *tc.C) {
+	for _, test := range []struct{ current, archived string }{
+		{"4.1.0", "4.1.7"},
+		{"4.1-beta3", "4.1-beta3.1"},
+	} {
+		s.PatchValue(&version.Current, semversion.MustParse(test.current))
+		err := provisionRecovery(cmdtesting.Context(c), nil, "", &recovery.ArchiveInfo{
+			CloudType:    jujucloud.CloudTypeKubernetes,
+			AgentVersion: semversion.MustParse(test.archived),
+		})
+		c.Check(err, tc.ErrorMatches,
+			"archive was created by agent version .* but this binary is .*; recovery requires the exact same version")
+	}
 }
 
 // TestProvisionRecoveryRequiresIAASMachineName checks that a machine
