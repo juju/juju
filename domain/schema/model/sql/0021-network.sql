@@ -380,7 +380,7 @@ SELECT
     -- between IPv6 addresses, or between secondary addresses on its device.
     CASE
         WHEN ipa.type_id = 0 /* ipv4 */
-            AND ipa.is_secondary IS NOT TRUE
+            AND ipa.is_secondary IS NOT true
             AND lld.is_default_gateway THEN 0
         ELSE 1
     END AS default_route_rank,
