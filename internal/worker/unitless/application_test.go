@@ -581,6 +581,45 @@ func (s *applicationRunnerSuite) TestEventLookupCanceledWithoutShutdown(c *tc.C)
 	fixture.assertWatchersStopped(c)
 }
 
+func (s *applicationRunnerSuite) TestScriptletFailureSetsBlockedStatus(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Drive the real Starform executor so the scriptlet's own error
+	// message, not a stubbed one, must reach the status write.
+	s.application.Sources = []domainunitless.ScriptSource{{
+		LoadPath: "hooks.star",
+		Source: `
+def init():
+    juju.observe("config_changed", on_config_changed)
+
+def on_config_changed(event):
+    fail("canary")
+`,
+	}}
+	fixture := s.expectRunningApplication(c)
+	statuses := s.expectStatusSets()
+	s.config.NewExecutor = func(ctx context.Context, config ExecutorConfig) (Executor, error) {
+		fixture.executorConfigs <- config
+		return NewStarformExecutor(ctx, config)
+	}
+
+	event := domainunitless.Event{Name: "config_changed"}
+	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, event.Name).Return(event, nil)
+	runner := s.startRunner(c)
+	defer workertest.CleanKill(c, runner)
+
+	waitFor(c, fixture.executorConfigs)
+
+	fixture.eventChanges <- []string{event.Name.String()}
+	info := waitFor(c, statuses)
+	c.Check(info.Status, tc.Equals, corestatus.Blocked)
+	c.Check(info.Message, tc.Matches, `.*canary.*`)
+
+	workertest.CleanKill(c, runner)
+	fixture.assertWatchersStopped(c)
+}
+
 func (s *applicationRunnerSuite) TestExecutorErrorContinuesAndSetsBlockedStatus(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
