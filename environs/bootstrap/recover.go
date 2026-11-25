@@ -5,8 +5,7 @@ package bootstrap
 
 import (
 	"context"
-	"os"
-	"path/filepath"
+	stderrors "errors"
 
 	"github.com/juju/names/v6"
 
@@ -17,10 +16,9 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/sync"
-	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/errors"
+	internalrecovery "github.com/juju/juju/internal/recovery"
 	coretools "github.com/juju/juju/internal/tools"
 	jujunames "github.com/juju/juju/juju/names"
 )
@@ -43,9 +41,8 @@ type MachineRecoveryParams struct {
 	MachineID string
 
 	// AvailableTools, when non-empty, supplies pre-resolved agent tools
-	// directly (for example in tests). When empty, recovery resolves packaged
-	// tools matching AgentVersion and falls back to packaging the local
-	// jujuagentd binary via BuildAgentTarball.
+	// directly (for example in tests). When empty, recovery searches packaged
+	// tools matching AgentVersion before using the agent in the backup.
 	AvailableTools coretools.List
 
 	// ArchivePath is the local path of the verified recovery archive.
@@ -56,10 +53,6 @@ type MachineRecoveryParams struct {
 
 	// SystemIdentity is the archived controller's private SSH identity.
 	SystemIdentity string
-
-	// BuildAgentTarball packages the local binary without building from source
-	// when no packaged tools match the archived version.
-	BuildAgentTarball sync.BuildAgentTarballFunc
 
 	// CAPrivateKey is the archived CA key used for the replacement certificate.
 	CAPrivateKey string
@@ -106,9 +99,6 @@ func (p MachineRecoveryParams) Validate() error {
 	if p.AdminSecret == "" {
 		return errors.Errorf("recovery without an admin secret %w", coreerrors.NotValid)
 	}
-	if len(p.AvailableTools) == 0 && p.BuildAgentTarball == nil {
-		return errors.Errorf("recovery without agent tools or builder %w", coreerrors.NotValid)
-	}
 	for _, tool := range p.AvailableTools {
 		if tool == nil {
 			return errors.Errorf("recovery with nil agent tool entry %w", coreerrors.NotValid)
@@ -117,6 +107,10 @@ func (p MachineRecoveryParams) Validate() error {
 			return errors.Errorf(
 				"recovery tool version %q not matching agent version %q %w",
 				tool.Version.Number, p.AgentVersion, coreerrors.NotValid)
+		}
+		if tool.Version.Arch != p.Arch || tool.Version.Release != p.BootstrapBase.OS {
+			return errors.Errorf("recovery tool platform %q does not match %s/%s %w",
+				tool.Version, p.BootstrapBase.OS, p.Arch, coreerrors.NotValid)
 		}
 	}
 	// The archived architecture is authoritative: an explicit constraint
@@ -233,6 +227,34 @@ func RecoverMachine(
 		return "", errors.Errorf("validating recovery parameters: %w", err)
 	}
 
+	allocated, err := recoverMachine(ctx, environ, args)
+	if err == nil && IsContextDone(ctx) {
+		err = Cancelled()
+	}
+	if err != nil {
+		if allocated != "" {
+			// Wrapping rather than replacing the error keeps its
+			// classification, including the cancellation sentinel,
+			// intact.
+			return allocated, errors.Errorf(
+				"replacement instance %q may require manual removal: %w",
+				allocated, err,
+			)
+		}
+		return "", err
+	}
+
+	ctx.Infof("Replacement agent now started on instance %q", allocated)
+	return allocated, nil
+}
+
+// recoverMachine keeps staged tools available through finalisation and returns
+// the replacement instance ID even if finalisation or tool cleanup fails.
+func recoverMachine(
+	ctx environs.BootstrapContext,
+	environ environs.BootstrapEnviron,
+	args MachineRecoveryParams,
+) (_ instance.Id, resultErr error) {
 	params := providerAllocationParams(args.AllocationParams)
 	// Pass the archived logical machine ID into provider allocation so
 	// StartInstance creates per-machine resources (hostnames, firewall
@@ -261,12 +283,16 @@ func RecoverMachine(
 		return "", errors.Capture(err)
 	}
 
-	availableTools, builtTools, err := discoverRecoveryTools(ctx, environ, prep, args)
+	availableTools, archivedTools, err := discoverRecoveryTools(ctx, environ, prep, args)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	if builtTools != nil {
-		defer func() { _ = os.RemoveAll(builtTools.Dir) }()
+	if archivedTools != nil {
+		defer func() {
+			if err := archivedTools.Close(); err != nil {
+				resultErr = stderrors.Join(resultErr, errors.Errorf("cleaning up archived agent: %w", err))
+			}
+		}()
 	}
 	bootstrapParams := prep.params
 	bootstrapParams.AvailableTools = availableTools
@@ -289,52 +315,36 @@ func RecoverMachine(
 		return "", errors.New("recovery provisioning returned no replacement instance")
 	}
 	allocated := result.InstanceID
-	err = checkMachineRecoveryResult(args, result)
-	if err == nil {
-		var instanceConfig *instancecfg.InstanceConfig
-		instanceConfig, err = finishMachineBootstrap(
-			ctx, environ, args.bootstrapParams(), bootstrapParams, result, prep.customImageMetadata,
-		)
-		if err == nil {
-			instanceConfig.MachineId = args.MachineID
-			instanceConfig.MachineAgentServiceName = jujunames.JujuAgentd + "-" +
-				names.NewMachineTag(args.MachineID).String()
-			instanceConfig.Bootstrap.StateInitializationParams.RecoveryMode = true
-			instanceConfig.Bootstrap.ControllerAgentInfo.SystemIdentity = args.SystemIdentity
-			instanceConfig.Bootstrap.RecoveryArchivePath = args.ArchivePath
-			instanceConfig.Bootstrap.RecoveryArchiveSHA256 = args.ArchiveSHA256
-			err = result.CloudBootstrapFinalizer(ctx, instanceConfig, args.DialOpts)
-		}
+	if err := checkMachineRecoveryResult(args, result); err != nil {
+		return allocated, err
 	}
-	if err == nil && IsContextDone(ctx) {
-		err = Cancelled()
-	}
+	instanceConfig, err := finishMachineBootstrap(
+		ctx, environ, args.bootstrapParams(), bootstrapParams, result, prep.customImageMetadata,
+	)
 	if err != nil {
-		// Wrapping rather than replacing the error keeps its
-		// classification, including the cancellation sentinel,
-		// intact.
-		return allocated, errors.Errorf(
-			"replacement instance %q may require manual removal: %w",
-			allocated, err,
-		)
+		return allocated, err
 	}
-
-	ctx.Infof("Replacement agent now started on instance %q", allocated)
-	return allocated, nil
+	instanceConfig.MachineId = args.MachineID
+	instanceConfig.MachineAgentServiceName = jujunames.JujuAgentd + "-" +
+		names.NewMachineTag(args.MachineID).String()
+	instanceConfig.Bootstrap.StateInitializationParams.RecoveryMode = true
+	instanceConfig.Bootstrap.ControllerAgentInfo.SystemIdentity = args.SystemIdentity
+	instanceConfig.Bootstrap.RecoveryArchivePath = args.ArchivePath
+	instanceConfig.Bootstrap.RecoveryArchiveSHA256 = args.ArchiveSHA256
+	return allocated, result.CloudBootstrapFinalizer(ctx, instanceConfig, args.DialOpts)
 }
 
 // discoverRecoveryTools resolves the exact archived agent binary for machine
 // recovery. If the caller supplied AvailableTools directly, those are used
 // as-is. Otherwise it searches packaged tools first (matching the exact
-// archived version, OS and architecture) and falls back to packaging the local
-// jujuagentd binary (without building from source) after checking that the
-// client host OS and architecture match the archived controller.
+// archived version, OS and architecture) and falls back to the agent stored
+// in the verified recovery archive.
 func discoverRecoveryTools(
 	ctx environs.BootstrapContext,
 	environ environs.BootstrapEnviron,
 	prep machinePreparation,
 	args MachineRecoveryParams,
-) (coretools.List, *sync.BuiltAgent, error) {
+) (coretools.List, *internalrecovery.StagedAgentTools, error) {
 	if len(args.AvailableTools) > 0 {
 		return args.AvailableTools, nil, nil
 	}
@@ -346,41 +356,35 @@ func discoverRecoveryTools(
 	if err != nil && !errors.Is(err, coreerrors.NotFound) {
 		return nil, nil, errors.Capture(err)
 	}
-	if len(availableTools) > 0 {
-		for _, tool := range availableTools {
+	var matching coretools.List
+	for _, tool := range availableTools {
+		if tool != nil && tool.Version.Number == args.AgentVersion &&
+			tool.Version.Arch == prep.arch && tool.Version.Release == prep.params.BootstrapBase.OS {
+			matching = append(matching, tool)
+		}
+	}
+	if len(matching) > 0 {
+		for _, tool := range matching {
 			ctx.Infof("Located Juju agent version %s at %s", tool.Version, tool.URL)
 		}
-		return availableTools, nil, nil
+		return matching, nil, nil
 	}
 
-	if args.BuildAgentTarball == nil {
-		return nil, nil, errors.New("cannot package local agent binary to upload")
-	}
-	if err := validateUploadAllowed(environ, &prep.arch, &prep.params.BootstrapBase, prep.validator); err != nil {
-		return nil, nil, errors.Capture(err)
-	}
-	// The fallback packages the local jujuagentd binary, so callers must
-	// ensure their own agent version equals args.AgentVersion exactly, as
-	// the recovering client does before allocation.
-	ctx.Infof("No packaged binary found, preparing local Juju agent binary")
-	builtTools, err := args.BuildAgentTarball(
-		false, "bootstrap", func(semversion.Number) semversion.Number {
-			return args.AgentVersion
-		},
-	)
-	if err != nil {
-		return nil, nil, errors.Errorf("cannot package recovery agent binary: %w", err)
-	}
-	return coretools.List{&coretools.Tools{
-		Version: semversion.Binary{
+	ctx.Infof("No packaged binary found, preparing the archived Juju agent")
+	archivedTools, err := internalrecovery.StageAgentTools(
+		ctx, args.ArchivePath, args.ArchiveSHA256, semversion.Binary{
 			Number:  args.AgentVersion,
 			Release: prep.params.BootstrapBase.OS,
 			Arch:    prep.arch,
 		},
-		URL:    "file://" + filepath.Join(builtTools.Dir, builtTools.StorageName),
-		SHA256: builtTools.Sha256Hash,
-		Size:   builtTools.Size,
-	}}, builtTools, nil
+	)
+	if err != nil {
+		return nil, nil, errors.Errorf("preparing archived agent binary: %w", err)
+	}
+	if archivedTools.Repackaged {
+		ctx.Infof("The original agent bundle was absent; reconstructed it from archived files (checksum may differ)")
+	}
+	return coretools.List{archivedTools.Tools}, archivedTools, nil
 }
 
 // k8sRecoveryEnviron supplies the recovery-specific operations after deployment.

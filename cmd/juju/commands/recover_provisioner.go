@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/environs/cloudspec"
 	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/password"
 	jujussh "github.com/juju/juju/internal/ssh"
@@ -62,9 +61,8 @@ func provisionRecovery(
 	archivePath string,
 	info *recovery.ArchiveInfo,
 ) error {
-	// The replacement runs this client's own agent binary when no packaged
-	// tools match the archive, so recovery requires this client to be the
-	// exact archived agent version, build number included.
+	// Recovery requires the exact archived agent version, including its build
+	// number, for compatible archive validation and initialisation.
 	if err := info.CheckAgentVersion(jujuversion.Current); err != nil {
 		return errors.Capture(err)
 	}
@@ -128,7 +126,6 @@ func provisionMachineRecovery(
 	params.ArchivePath = archivePath
 	params.ArchiveSHA256 = info.Checksum
 	params.SystemIdentity = info.SystemIdentity
-	params.BuildAgentTarball = sync.BuildAgentTarball
 
 	started, err := bootstrap.RecoverMachine(allocation.ctx, allocation.environ, params)
 	if err != nil {

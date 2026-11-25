@@ -114,8 +114,9 @@ var GetFilesToBackUp = func(rootDir string, paths *Paths) ([]string, error) {
 					// broken link. Hook-tool symlinks dangle when a
 					// unit's tools directory is wiped and recreated;
 					// a disaster-recovery snapshot must not fail on
-					// them, and recovery never installs archived tools
-					// anyway. Only a missing target is skipped: any
+					// them: controller tools may be restored, but
+					// hook-tool links are not. Only a missing target is
+					// skipped: any
 					// other stat failure — an unreadable target, a
 					// link loop — still fails the backup rather than
 					// silently dropping an intact symlink.
