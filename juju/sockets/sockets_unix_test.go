@@ -9,7 +9,10 @@ import (
 	"fmt"
 	"net"
 	"net/rpc"
+	"os"
 	"path/filepath"
+	"regexp"
+	"sync"
 	"testing"
 
 	"github.com/juju/tc"
@@ -57,6 +60,55 @@ func (s *SocketSuite) TestUNIXSocket(c *tc.C) {
 		Network: "unix",
 	}
 	s.testConn(c, socketDesc, socketDesc)
+}
+
+func (s *SocketSuite) TestUNIXSocketPermissions(c *tc.C) {
+	socketPath := filepath.Join(c.MkDir(), "a.socket")
+	listener, err := sockets.Listen(sockets.Socket{
+		Address: socketPath,
+		Network: "unix",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = listener.Close() }()
+
+	info, err := os.Stat(socketPath)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.Mode().Perm(), tc.Equals, os.FileMode(0700))
+}
+
+// TestUNIXSocketKeepsUmask checks that listening on unix sockets from
+// several goroutines leaves the process umask alone. The umask is
+// inherited by hooks, so a changed one makes charms create files that
+// only root can read.
+func (s *SocketSuite) TestUNIXSocketKeepsUmask(c *tc.C) {
+	socketDir := c.MkDir()
+	before := processUmask(c)
+
+	for round := range 100 {
+		var wg sync.WaitGroup
+		for i := range 4 {
+			wg.Go(func() {
+				listener, err := sockets.Listen(sockets.Socket{
+					Address: filepath.Join(socketDir, fmt.Sprintf("%d-%d.socket", round, i)),
+					Network: "unix",
+				})
+				if c.Check(err, tc.ErrorIsNil) {
+					_ = listener.Close()
+				}
+			})
+		}
+		wg.Wait()
+		c.Assert(processUmask(c), tc.Equals, before)
+	}
+}
+
+// processUmask reads the umask of the test process without changing it.
+func processUmask(c *tc.C) string {
+	status, err := os.ReadFile("/proc/self/status")
+	c.Assert(err, tc.ErrorIsNil)
+	match := regexp.MustCompile(`(?m)^Umask:\s+(\d+)$`).FindSubmatch(status)
+	c.Assert(match, tc.HasLen, 2)
+	return string(match[1])
 }
 
 func (s *SocketSuite) TestTLSOverTCP(c *tc.C) {
