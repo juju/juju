@@ -67,7 +67,8 @@ func (s *ConstraintsSuite) TestParseConstraintsOptions(c *gc.C) {
 func (s *ConstraintsSuite) TestParseConstraintsCountRange(c *gc.C) {
 	s.testParseError(c, "p,0,100M", `parsing storage count: count must be greater than zero, got "0"`)
 	s.testParseError(c, "p,00,100M", `parsing storage count: count must be greater than zero, got "00"`)
-	s.testParseError(c, "p,-1,100M", `parsing storage count: count must be greater than zero, got "-1"`)
+	s.testParseError(c, "p,-1,100M", `parsing storage count: count must not be negative, got "-1"`)
+	s.testParseError(c, "p,99999999999999999999999,100M", `parsing storage count: count is too large, got "99999999999999999999999"`)
 	s.testParseError(c, "", `storage constraints require at least one field to be specified`)
 	s.testParseError(c, ",", `storage constraints require at least one field to be specified`)
 }
@@ -94,6 +95,33 @@ func (s *ConstraintsSuite) TestParseConstraintsUnknown(c *gc.C) {
 	// Regression test for #1855181
 	s.testParseError(c, "p,100M database-b", `unrecognized storage constraint "100M database-b" not valid`)
 	s.testParseError(c, "p,$1234", `unrecognized storage constraint "\$1234" not valid`)
+}
+
+func (s *ConstraintsSuite) TestParseDirectivesCount(c *gc.C) {
+	cons, err := storage.ParseDirectives("p,0,100M")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons.Count, gc.NotNil)
+	c.Check(*cons.Count, gc.Equals, uint64(0))
+
+	cons, err = storage.ParseDirectives("p,100M")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cons.Count, gc.IsNil)
+
+	_, err = storage.ParseDirectives("p,-1,100M")
+	c.Check(err, gc.ErrorMatches, `parsing storage count: count must not be negative, got "-1"`)
+
+	_, err = storage.ParseDirectives("p,99999999999999999999999,100M")
+	c.Check(err, gc.ErrorMatches, `parsing storage count: count is too large, got "99999999999999999999999"`)
+}
+
+func (s *ConstraintsSuite) TestParseDirectivesMultipleCounts(c *gc.C) {
+	_, err := storage.ParseDirectives("pool1,10,20")
+	c.Check(err, gc.ErrorMatches, `storage instance count is already set to 10, new value 20 not valid`)
+}
+
+func (s *ConstraintsSuite) TestParseDirectivesMultipleStorageSize(c *gc.C) {
+	_, err := storage.ParseDirectives("pool1,10M,20M")
+	c.Check(err, gc.ErrorMatches, `storage size is already set to 10, new value 20 not valid`)
 }
 
 func (*ConstraintsSuite) testParse(c *gc.C, s string, expect storage.Constraints) {

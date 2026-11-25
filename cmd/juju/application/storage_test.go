@@ -260,6 +260,26 @@ func (s *ApplicationStorageSuite) TestSetDirectivesMultipleStorageKeys(c *gc.C) 
 	c.Assert(allecto.Size, gc.IsNil)
 }
 
+func (s *ApplicationStorageSuite) TestSetDirectivesZeroCount(c *gc.C) {
+	var got apiapplication.ApplicationStorageUpdate
+	s.mockAPI.updateFunc = func(up apiapplication.ApplicationStorageUpdate) error {
+		got = up
+		return nil
+	}
+
+	ctx, err := s.run(c, "storage-block", "data=loop,0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(strings.TrimSpace(cmdtesting.Stderr(ctx)), gc.Equals, "")
+
+	c.Assert(got.ApplicationTag, gc.Equals, names.NewApplicationTag("storage-block"))
+
+	data := got.StorageConstraints["data"]
+	c.Assert(data.Pool, gc.Equals, "loop")
+	c.Assert(data.Count, gc.NotNil)
+	c.Assert(*data.Count, gc.Equals, uint64(0))
+	c.Assert(data.Size, gc.IsNil)
+}
+
 func (s *ApplicationStorageSuite) TestSetDirectivesAPIError(c *gc.C) {
 	s.mockAPI.updateFunc = func(up apiapplication.ApplicationStorageUpdate) error {
 		return fmt.Errorf("api error")
@@ -271,6 +291,11 @@ func (s *ApplicationStorageSuite) TestSetDirectivesAPIError(c *gc.C) {
 func (s *ApplicationStorageSuite) TestSetDirectivesParseError(c *gc.C) {
 	_, err := s.run(c, "storage-block", "data=not-a-size,rootfs,one")
 	c.Assert(err, gc.ErrorMatches, `parsing storage constraints for "data": .*`)
+}
+
+func (s *ApplicationStorageSuite) TestSetDirectivesNegativeCount(c *gc.C) {
+	_, err := s.run(c, "storage-block", "data=loop,-1")
+	c.Assert(err, gc.ErrorMatches, `parsing storage constraints for "data": parsing storage count: count must not be negative, got "-1"`)
 }
 
 func assertTabLine(c *gc.C, line string, fields ...string) {
