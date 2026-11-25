@@ -640,18 +640,29 @@ func (task *provisionerTask) queueRemovalOfDeadMachines(
 			// pending ones, because if we start an instance and then fail to
 			// set its InstanceId on the machine.
 			// We don't want to start a new instance for the same machine ID.
-			failed, stopErr := task.doStopInstances(ctx, instanceClassification.instances)
+			stopErr := task.doStopInstances(ctx, instanceClassification.instances)
 
-			// A machine whose instance failed to stop is left for the retry
-			// that follows the returned error. It must not hold back the
-			// removal of the other machines.
-			dead := slices.DeleteFunc(slices.Clone(dead), func(m apiprovisioner.MachineProvisioner) bool {
-				instID, ok := instanceClassification.machineInstances[m.Id()]
-				return ok && failed.Contains(string(instID))
-			})
+			removable := dead
+			if stopErr != nil {
+				// Unless the broker names the instances that failed, assume
+				// they all did. A machine whose instance failed to stop is left
+				// for the retry that follows the returned error; it must not
+				// hold back the removal of the other machines.
+				var failed set.Strings
+				var typedErr *environs.StopInstancesError
+				if errors.As(stopErr, &typedErr) {
+					failed = set.NewStrings(transform.Slice(typedErr.Failed, instance.Id.String)...)
+				} else {
+					failed = set.NewStrings(instanceIds(instanceClassification.instances)...)
+				}
+				removable = slices.DeleteFunc(slices.Clone(dead), func(m apiprovisioner.MachineProvisioner) bool {
+					instID, ok := instanceClassification.instanceIDByMachine[m.Id()]
+					return ok && failed.Contains(string(instID))
+				})
+			}
 
 			// Remove any dead machines from state.
-			for _, machine := range dead {
+			for _, machine := range removable {
 				task.logger.Infof(ctx, "removing dead machine %q", machine.Id())
 				if err := machine.MarkForRemoval(ctx); err != nil {
 					task.logger.Errorf(ctx, "failed to remove dead machine %q: %v", machine.Id(), err)
@@ -659,7 +670,7 @@ func (task *provisionerTask) queueRemovalOfDeadMachines(
 			}
 
 			task.machinesMutex.Lock()
-			for _, machine := range dead {
+			for _, machine := range removable {
 				machID := machine.Id()
 				task.lockedRemoveMachineFromAZMap(machine)
 				delete(task.machines, machID)
@@ -773,9 +784,9 @@ type machineInstancesClassification struct {
 	redefer []apiprovisioner.MachineProvisioner
 	// instances are the instances for the input machines which can be stopped.
 	instances []instances.Instance
-	// machineInstances holds the ID of the instance in instances for each
-	// machine, keyed by machine ID.
-	machineInstances map[string]instance.Id
+	// instanceIDByMachine holds the ID associated with each machine's instance.
+	// Entries here correspond to entries in the instances field.
+	instanceIDByMachine map[string]instance.Id
 }
 
 // instancesForDeadMachines returns a list of instances that correspond to
@@ -785,7 +796,7 @@ func (task *provisionerTask) lockedInstancesForDeadMachines(
 	ctx context.Context, dead []apiprovisioner.MachineProvisioner,
 ) machineInstancesClassification {
 	ret := machineInstancesClassification{
-		machineInstances: make(map[string]instance.Id),
+		instanceIDByMachine: make(map[string]instance.Id),
 	}
 	for _, machine := range dead {
 		instID, err := machine.InstanceId(ctx)
@@ -817,7 +828,7 @@ func (task *provisionerTask) lockedInstancesForDeadMachines(
 			// If the instance is not found we can't stop it.
 			if inst, found := task.instances[instID]; found {
 				ret.instances = append(ret.instances, inst)
-				ret.machineInstances[machine.Id()] = instID
+				ret.instanceIDByMachine[machine.Id()] = instID
 			}
 		} else if err != nil {
 			task.logger.Errorf(
@@ -831,39 +842,24 @@ func (task *provisionerTask) lockedInstancesForDeadMachines(
 	return ret
 }
 
-// doStopInstances stops the given instances. It returns the IDs of the
-// instances that failed to stop, along with the error.
-func (task *provisionerTask) doStopInstances(
-	ctx context.Context, instances []instances.Instance,
-) (set.Strings, error) {
+func (task *provisionerTask) doStopInstances(ctx context.Context, instances []instances.Instance) error {
 	// Although calling StopInstance with an empty slice should produce no change in the
 	// provider, environs like dummy do not consider this a noop.
 	if len(instances) == 0 {
-		return nil, nil
+		return nil
+	}
+	if wrench.IsActive("provisioner", "stop-instances") {
+		return errors.New("wrench in the works")
 	}
 
 	ids := make([]instance.Id, len(instances))
 	for i, inst := range instances {
 		ids[i] = inst.Id()
 	}
-
-	var err error
-	if wrench.IsActive("provisioner", "stop-instances") {
-		err = errors.New("wrench in the works")
-	} else {
-		err = task.broker.StopInstances(ctx, ids...)
+	if err := task.broker.StopInstances(ctx, ids...); err != nil {
+		return errors.Annotate(err, "stopping instances")
 	}
-	if err == nil {
-		return nil, nil
-	}
-
-	// Unless the broker names the instances that failed, assume they all did.
-	failed := ids
-	var stopErr *environs.StopInstancesError
-	if errors.As(err, &stopErr) {
-		failed = stopErr.Failed
-	}
-	return set.NewStrings(transform.Slice(failed, instance.Id.String)...), errors.Annotate(err, "stopping instances")
+	return nil
 }
 
 func (task *provisionerTask) constructInstanceConfig(
