@@ -1137,7 +1137,7 @@ func (s *bootstrapSuite) TestBootstrapRecoveryK8s(c *tc.C) {
 	c.Check(env.podConfig.Bootstrap.StateInitializationParams.RecoveryMode, tc.IsTrue)
 }
 
-func (s *bootstrapSuite) TestBootstrapRecoveryK8sFinalizerError(c *tc.C) {
+func (s *bootstrapSuite) TestBootstrapRecoveryK8sFinaliserError(c *tc.C) {
 	finaliseErr := errors.New("finaliser failed")
 	env := &recoveryK8sEnviron{
 		bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
@@ -1232,7 +1232,7 @@ func (s *bootstrapSuite) TestBootstrapRecoveryK8sCancelled(c *tc.C) {
 	env.result = &environs.BootstrapResult{
 		Arch:                   arch.AMD64,
 		Base:                   corebase.MustParseBaseFromString("ubuntu@24.04"),
-		CaasBootstrapFinalizer: env.finalizer(),
+		CaasBootstrapFinalizer: env.finaliser(),
 	}
 	ns, err := bootstrap.RecoverK8s(
 		envtesting.BootstrapContext(ctx, c), env,
@@ -2647,9 +2647,9 @@ func (e *recoveryK8sEnviron) Bootstrap(
 	return e.result, nil
 }
 
-// finalizer returns a Kubernetes bootstrap finaliser that records the pod
+// finaliser returns a Kubernetes bootstrap finaliser that records the pod
 // configuration and optionally runs afterFinalize.
-func (e *recoveryK8sEnviron) finalizer() environs.CaasBootstrapFinalizer {
+func (e *recoveryK8sEnviron) finaliser() environs.CaasBootstrapFinalizer {
 	return func(
 		_ environs.BootstrapContext, pcfg *podcfg.ControllerPodConfig, _ environs.BootstrapDialOpts,
 	) error {

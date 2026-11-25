@@ -67,120 +67,187 @@ func provisionRecovery(
 	if err := info.CheckAgentVersion(jujuversion.Current); err != nil {
 		return errors.Capture(err)
 	}
+	if jujucloud.CloudTypeIsCAAS(info.CloudType) {
+		return provisionK8sRecovery(ctx, store, info)
+	}
+	return provisionMachineRecovery(ctx, store, info)
+}
 
-	isK8s := jujucloud.CloudTypeIsCAAS(info.CloudType)
+// provisionMachineRecovery prepares and starts a replacement controller
+// machine from the recovery archive.
+func provisionMachineRecovery(
+	ctx *cmd.Context,
+	store jujuclient.ClientStore,
+	info *recovery.ArchiveInfo,
+) error {
+	params, err := recoveryParamsFromArchive(info)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if !names.IsValidMachine(info.MachineName) {
+		return errors.New("archive does not record a usable controller machine")
+	}
+	params.MachineID = info.MachineName
 
-	var machineParams bootstrap.MachineRecoveryParams
-	var k8sParams bootstrap.K8sRecoveryParams
-	if isK8s {
-		var err error
-		k8sParams, err = k8sRecoveryParamsFromArchive(info)
-		if err != nil {
-			return errors.Capture(err)
-		}
-	} else {
-		var err error
-		machineParams, err = recoveryParamsFromArchive(info)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		if !names.IsValidMachine(info.MachineName) {
-			return errors.New("archive does not record a usable controller machine")
-		}
-		machineParams.MachineID = info.MachineName
+	// The recovering client's public keys are installed on the replacement
+	// instance so bootstrap configuration can connect to it.
+	keyFiles := jujusshtools.PrivateKeyFiles()
+	if len(keyFiles) == 0 {
+		return errors.New("no Juju SSH keys available for recovery")
+	}
+	sort.Strings(keyFiles)
+	authorizedKeys, err := jujussh.PublicKeysForPrivateKeyFiles(keyFiles)
+	if err != nil {
+		return errors.Errorf("reading Juju recovery SSH key: %w", err)
 	}
 
-	credentials, err := recoveryCredentials(ctx, store, info)
+	allocation, err := openRecoveryAllocation(ctx, store, info)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	defer allocation.stop()
+
+	adminSecret, err := password.RandomPassword()
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	controllerConfig, modelConfig, err := recoveryConfigs(ctx, info, credentials.provider)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	var (
-		keyFiles       []string
-		authorizedKeys []string
-	)
-	if !isK8s {
-		keyFiles = jujusshtools.PrivateKeyFiles()
-		if len(keyFiles) == 0 {
-			return errors.New("no Juju SSH keys available for recovery")
-		}
-		sort.Strings(keyFiles)
-		authorizedKeys, err = jujussh.PublicKeysForPrivateKeyFiles(keyFiles)
-		if err != nil {
-			return errors.Errorf("reading Juju recovery SSH key: %w", err)
-		}
-	}
-
-	// Let allocation unwind on Ctrl-C so it can report an instance or
-	// namespace that may need manual removal.
-	interruptCtx, stop := signal.NotifyContext(ctx, os.Interrupt)
-	defer stop()
-	stdCtx, cancel := context.WithTimeout(interruptCtx, recoveryAllocationTimeout)
-	defer cancel()
-	provisionCtx := environscmd.BootstrapContext(stdCtx, ctx)
-
-	environ, err := bootstrap.OpenController(isK8s, provisionCtx, environs.OpenParams{
-		Config:         modelConfig,
-		ControllerUUID: info.ControllerUUID,
-		Cloud:          credentials.spec,
-	})
-	if err != nil {
-		return errors.Capture(err)
-	}
-	if err := environ.PrepareForBootstrap(provisionCtx, info.ControllerName); err != nil {
-		return errors.Capture(err)
-	}
-
-	adminPassword, err := password.RandomPassword()
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	if isK8s {
-		k8sParams.Cloud = credentials.cloud
-		k8sParams.CloudRegion = credentials.spec.Region
-		k8sParams.CloudCredential = credentials.spec.Credential
-		k8sParams.CloudCredentialName = credentials.credentialName
-		k8sParams.ControllerConfig = controllerConfig
-		k8sParams.CAPrivateKey = info.CAPrivateKey
-		k8sParams.AdminSecret = adminPassword
-		k8sParams.DialOpts.Timeout = recoveryAllocationTimeout
-		namespace, err := bootstrap.RecoverK8s(provisionCtx, environ, k8sParams)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		return errors.Errorf(
-			"controller recovery database import is not available in this build; started replacement agent in namespace %s",
-			namespace,
-		)
-	}
-	machineParams.Cloud = credentials.cloud
-	machineParams.CloudRegion = credentials.spec.Region
-	machineParams.CloudCredential = credentials.spec.Credential
-	machineParams.CloudCredentialName = credentials.credentialName
-	machineParams.ControllerConfig = controllerConfig
-	machineParams.CAPrivateKey = info.CAPrivateKey
-	machineParams.AdminSecret = adminPassword
-	machineParams.BootstrapSSHAuthorizedKeys = authorizedKeys
-	machineParams.DialOpts = environs.BootstrapDialOpts{
+	allocation.apply(&params.AllocationParams)
+	params.CloudCredentialName = allocation.target.credentialName
+	params.CAPrivateKey = info.CAPrivateKey
+	params.AdminSecret = adminSecret
+	params.BootstrapSSHAuthorizedKeys = authorizedKeys
+	params.DialOpts = environs.BootstrapDialOpts{
 		Timeout:        recoveryAllocationTimeout,
 		IdentityFiles:  keyFiles,
 		RetryDelay:     recoveryDialRetryDelay,
 		AddressesDelay: recoveryDialAddressesDelay,
 	}
-	machineParams.BuildAgentTarball = sync.BuildAgentTarball
-	started, err := bootstrap.RecoverMachine(provisionCtx, environ, machineParams)
+	params.BuildAgentTarball = sync.BuildAgentTarball
+
+	started, err := bootstrap.RecoverMachine(allocation.ctx, allocation.environ, params)
 	if err != nil {
 		return errors.Capture(err)
 	}
+	return recoveryImportUnavailable("on instance " + string(started))
+}
+
+// provisionK8sRecovery prepares and starts a replacement controller pod in
+// the replacement namespace from the recovery archive.
+func provisionK8sRecovery(
+	ctx *cmd.Context,
+	store jujuclient.ClientStore,
+	info *recovery.ArchiveInfo,
+) error {
+	params, err := k8sRecoveryParamsFromArchive(info)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	allocation, err := openRecoveryAllocation(ctx, store, info)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	defer allocation.stop()
+
+	adminSecret, err := password.RandomPassword()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	allocation.apply(&params.AllocationParams)
+	params.CloudCredentialName = allocation.target.credentialName
+	params.CAPrivateKey = info.CAPrivateKey
+	params.AdminSecret = adminSecret
+	params.DialOpts.Timeout = recoveryAllocationTimeout
+
+	namespace, err := bootstrap.RecoverK8s(allocation.ctx, allocation.environ, params)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return recoveryImportUnavailable("in namespace " + namespace)
+}
+
+// recoveryImportUnavailable reports the started replacement agent and that
+// state import is left to a later recovery stage.
+func recoveryImportUnavailable(target string) error {
 	return errors.Errorf(
-		"controller recovery database import is not available in this build; started replacement agent on instance %s",
-		started,
+		"controller recovery database import is not available in this build; started replacement agent %s",
+		target,
 	)
+}
+
+// recoveryAllocation is the replacement environment opened for allocation,
+// together with the archived inputs both recovery workflows populate their
+// parameters from.
+type recoveryAllocation struct {
+	// ctx bounds allocation and unwinds on Ctrl-C.
+	ctx              environs.BootstrapContext
+	environ          environs.BootstrapEnviron
+	target           *recoveryTarget
+	controllerConfig controller.Config
+
+	// stop releases the allocation context and its interrupt handler.
+	stop func()
+}
+
+// apply fills the allocation inputs both recovery workflows take from the
+// resolved cloud and the archived controller configuration.
+func (a *recoveryAllocation) apply(params *bootstrap.AllocationParams) {
+	params.Cloud = a.target.cloud
+	params.CloudRegion = a.target.spec.Region
+	params.CloudCredential = a.target.spec.Credential
+	params.ControllerConfig = a.controllerConfig
+}
+
+// openRecoveryAllocation resolves the archived cloud, credentials and
+// configuration, then opens and prepares the replacement environment for
+// allocation. The caller must call stop when allocation finishes.
+func openRecoveryAllocation(
+	ctx *cmd.Context,
+	store jujuclient.ClientStore,
+	info *recovery.ArchiveInfo,
+) (*recoveryAllocation, error) {
+	target, err := recoveryCredentials(ctx, store, info)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	controllerConfig, modelConfig, err := recoveryConfigs(ctx, info, target.provider)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Let allocation unwind on Ctrl-C so it can report an instance or
+	// namespace that may need manual removal.
+	interruptCtx, stop := signal.NotifyContext(ctx, os.Interrupt)
+	stdCtx, cancel := context.WithTimeout(interruptCtx, recoveryAllocationTimeout)
+	provisionCtx := environscmd.BootstrapContext(stdCtx, ctx)
+	release := func() {
+		cancel()
+		stop()
+	}
+
+	environ, err := bootstrap.OpenController(
+		jujucloud.CloudTypeIsCAAS(info.CloudType), provisionCtx, environs.OpenParams{
+			Config:         modelConfig,
+			ControllerUUID: info.ControllerUUID,
+			Cloud:          target.spec,
+		})
+	if err != nil {
+		release()
+		return nil, errors.Capture(err)
+	}
+	if err := environ.PrepareForBootstrap(provisionCtx, info.ControllerName); err != nil {
+		release()
+		return nil, errors.Capture(err)
+	}
+	return &recoveryAllocation{
+		ctx:              provisionCtx,
+		environ:          environ,
+		target:           target,
+		controllerConfig: controllerConfig,
+		stop:             release,
+	}, nil
 }
 
 // recoveryParamsFromArchive prepares the machine-specific inputs before cloud
@@ -295,8 +362,10 @@ func recoveryCredentials(ctx *cmd.Context, store jujuclient.ClientStore, info *r
 	// Machine clouds pin the archived region: allocating anywhere else would
 	// move the replacement controller out of the location the archive
 	// records, and a region this cloud definition does not know fails here
-	// rather than silently falling back. Kubernetes clouds use the locally
-	// resolved cluster region, which is not recorded in the archive.
+	// rather than silently falling back. A Kubernetes cloud names regions
+	// after local kubeconfig contexts, so the archived name can be stale
+	// once the cloud is re-imported on this client: the locally resolved
+	// region wins.
 	targetRegion := info.CloudRegion
 	if isK8s || targetRegion == "" {
 		targetRegion = regionName

@@ -673,6 +673,25 @@ func (s *recoverySuite) TestRecoveryCredentialsUsesArchivedRegion(c *tc.C) {
 		`region "gone" not found \(expected one of .*\)`)
 }
 
+// TestRecoveryCredentialsUsesLocalKubernetesRegion checks that a Kubernetes
+// recovery allocates in the locally resolved cluster region even when the
+// archive records one: regions name local kubeconfig contexts, so the
+// archived name can be stale once the cloud is re-imported on this client.
+func (s *recoverySuite) TestRecoveryCredentialsUsesLocalKubernetesRegion(c *tc.C) {
+	store := setupKubernetesRecoveryCloud(c)
+	hostRegion := "microk8s/localhost"
+	replaceKubernetesProviderForTest(c, &fakeK8sRecoveryProvider{
+		hostCloudRegion: &hostRegion,
+	})
+
+	info := validKubernetesArchiveInfo(nil)
+	info.CloudRegion = "archived"
+
+	target, err := recoveryCredentials(cmdtesting.Context(c), store, info)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(target.spec.Region, tc.Equals, "localhost")
+}
+
 // TestProvisionRecoveryRequiresKubernetesControllerName checks that a
 // Kubernetes archive which does not record the source controller name
 // is rejected before any cloud access.
@@ -684,12 +703,12 @@ func (s *recoverySuite) TestProvisionRecoveryRequiresKubernetesControllerName(c 
 	c.Check(err, tc.ErrorMatches, "recovery archive does not record the source controller name")
 }
 
-// TestProvisionRecoveryFinalizesKubernetesCloudHostRegion checks that
+// TestProvisionRecoveryFinalisesKubernetesCloudHostRegion checks that
 // FinalizeCloud runs before the host-cloud-region guard so built-in clouds
-// such as microk8s (whose HostCloudRegion is discovered during finalization)
+// such as microk8s (whose HostCloudRegion is discovered during finalisation)
 // are accepted, while clouds that remain without a host cloud region after
-// finalization are still rejected.
-func (s *recoverySuite) TestProvisionRecoveryFinalizesKubernetesCloudHostRegion(c *tc.C) {
+// finalisation are still rejected.
+func (s *recoverySuite) TestProvisionRecoveryFinalisesKubernetesCloudHostRegion(c *tc.C) {
 	c.Assert(jujucloud.WritePersonalCloudMetadata(map[string]jujucloud.Cloud{
 		"myk8s": {
 			Name:    "myk8s",
@@ -718,10 +737,10 @@ func (s *recoverySuite) TestProvisionRecoveryFinalizesKubernetesCloudHostRegion(
 }
 
 // TestProvisionRecoveryKubernetes checks the end-to-end Kubernetes recovery
-// provisioning branch: opening the CAAS broker with the archived controller
-// identity, preparing bootstrap with the archived controller name before
-// allocation, forwarding constraints, storage pools and agent version into
-// RecoverK8s, invoking the controller finaliser in recovery mode, and
+// provisioning branch: opening the Kubernetes broker with the archived
+// controller identity, preparing bootstrap with the archived controller name
+// before allocation, forwarding constraints, storage pools and agent version
+// into RecoverK8s, invoking the controller finaliser in recovery mode, and
 // reporting the replacement namespace in the terminal error.
 func (s *recoverySuite) TestProvisionRecoveryKubernetes(c *tc.C) {
 	store := setupKubernetesRecoveryCloud(c)
@@ -892,7 +911,7 @@ func (p *fakeK8sRecoveryProvider) Open(
 	invalidator environs.CredentialInvalidator,
 ) (caas.Broker, error) {
 	if p.open == nil {
-		return nil, errors.New("unexpected CAAS broker open")
+		return nil, errors.New("unexpected Kubernetes broker open")
 	}
 	return p.open(ctx, args, invalidator)
 }

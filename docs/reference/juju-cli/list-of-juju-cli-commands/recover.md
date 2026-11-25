@@ -19,8 +19,8 @@ juju recover [options] <backup-file> <assertion-file>
 Controller recovery uses a backup archive and its unsigned SHA-256 assertion
 to restore a controller on a replacement machine or Kubernetes namespace.
 The client must be able to resolve the cloud named in the archive. On a new
-workstation, add the cloud with 'juju add-cloud --client' if it is not
-already available.
+workstation, add the cloud with 'juju add-cloud --client', or a Kubernetes
+cloud with 'juju add-k8s --client', if it is not already available.
 
 This version validates the archive and installs and starts a replacement
 controller agent only. It leaves the machine or namespace for inspection and

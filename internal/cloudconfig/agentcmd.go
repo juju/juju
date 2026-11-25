@@ -23,7 +23,8 @@ type AgentStartOptions struct {
 	// Timeout bounds the fresh state initialisation. It is ignored in
 	// recovery mode, where the subcommand accepts no such flag.
 	Timeout time.Duration
-	// MachineID, when non-empty, is passed as --machine-id.
+	// MachineID is the archived machine identity, passed as --machine-id
+	// in recovery mode only: bootstrap-state defines no such flag.
 	MachineID string
 	// FeatureFlagsEnv is a KEY=value prefix for the command, empty for
 	// no prefix.
@@ -35,17 +36,19 @@ type AgentStartOptions struct {
 // AgentStartCommand returns the shell command that runs jujuagentd's
 // state initialisation. It is the single owner of the differences between
 // a fresh bootstrap and a controller recovery: recover-state must never be
-// passed --timeout, because the command defines no such flag.
+// passed --timeout, and bootstrap-state must never be passed --machine-id,
+// because neither command defines the other mode's flag.
 func AgentStartCommand(options AgentStartOptions) string {
 	subcommand := "bootstrap-state"
 	if options.RecoveryMode {
 		subcommand = "recover-state"
 	}
 	args := []string{options.ToolPath, subcommand, "--data-dir", options.DataDir, options.LoggingOption}
-	if options.MachineID != "" {
-		args = append(args, "--machine-id", options.MachineID)
-	}
-	if !options.RecoveryMode {
+	if options.RecoveryMode {
+		if options.MachineID != "" {
+			args = append(args, "--machine-id", options.MachineID)
+		}
+	} else {
 		args = append(args, "--timeout", options.Timeout.String())
 	}
 	cmd := strings.Join(args, " ")

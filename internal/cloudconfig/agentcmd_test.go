@@ -52,10 +52,10 @@ func (*agentCmdSuite) TestAgentStartCommand(c *tc.C) {
 		expected: "/var/lib/juju/tools/jujuagentd bootstrap-state " +
 			"--data-dir '/var/lib/juju' --debug --timeout 10m0s",
 	}, {
-		about:   "fresh bootstrap with machine id",
+		about:   "fresh bootstrap ignores machine id",
 		options: withMachineID(base),
 		expected: "/var/lib/juju/tools/jujuagentd bootstrap-state " +
-			"--data-dir '/var/lib/juju' --debug --machine-id 7 --timeout 10m0s",
+			"--data-dir '/var/lib/juju' --debug --timeout 10m0s",
 	}, {
 		about:   "fresh bootstrap with feature flags",
 		options: withFlags(base),
@@ -63,11 +63,11 @@ func (*agentCmdSuite) TestAgentStartCommand(c *tc.C) {
 			"/var/lib/juju/tools/jujuagentd bootstrap-state " +
 			"--data-dir '/var/lib/juju' --debug --timeout 10m0s",
 	}, {
-		about:   "fresh bootstrap with machine id and feature flags",
+		about:   "fresh bootstrap with feature flags ignores machine id",
 		options: withFlags(withMachineID(base)),
 		expected: "JUJU_DEV_FEATURE_FLAGS=special " +
 			"/var/lib/juju/tools/jujuagentd bootstrap-state " +
-			"--data-dir '/var/lib/juju' --debug --machine-id 7 --timeout 10m0s",
+			"--data-dir '/var/lib/juju' --debug --timeout 10m0s",
 	}, {
 		about:   "recovery",
 		options: recovery(base),
@@ -96,13 +96,15 @@ func (*agentCmdSuite) TestAgentStartCommand(c *tc.C) {
 		got := cloudconfig.AgentStartCommand(test.options)
 		c.Check(got, tc.Equals, test.expected,
 			tc.Commentf("case %q", test.about))
-		// recover-state defines no --timeout flag: passing one crash-loops
-		// the agent on flag parse failure. Both decisions live in
-		// AgentStartCommand, so this pairing cannot drift.
+		// Each subcommand defines only its own mode's flags: recover-state
+		// has no --timeout and bootstrap-state has no --machine-id, so
+		// passing either crash-loops the agent on flag parse failure. Both
+		// decisions live in AgentStartCommand, so this pairing cannot drift.
 		c.Check(strings.Contains(got, "--timeout"), tc.Equals,
 			!test.options.RecoveryMode, tc.Commentf("case %q", test.about))
 		c.Check(strings.Contains(got, "--machine-id"), tc.Equals,
-			test.options.MachineID != "", tc.Commentf("case %q", test.about))
+			test.options.RecoveryMode && test.options.MachineID != "",
+			tc.Commentf("case %q", test.about))
 	}
 }
 

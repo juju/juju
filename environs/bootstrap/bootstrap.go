@@ -342,9 +342,9 @@ func prepareK8sConstraints(
 	return withDefaultCAASControllerConstraints(bootstrapConstraints), nil
 }
 
-// finishK8sBootstrap builds the controller pod configuration and finalizes
-// the bootstrap configuration. It does not invoke the provider finalizer;
-// callers apply any mode-specific overrides and invoke the finalizer.
+// finishK8sBootstrap builds the controller pod configuration and finalises
+// the bootstrap configuration. It does not invoke the provider finaliser;
+// callers apply any mode-specific overrides and invoke the finaliser.
 func finishK8sBootstrap(
 	ctx environs.BootstrapContext,
 	environ environs.BootstrapEnviron,
