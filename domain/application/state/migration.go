@@ -323,7 +323,7 @@ func (st *State) GetApplicationUnitSequence(ctx context.Context, appName string)
 SELECT s.value AS &importedUnitSequenceResult.value
 FROM sequence AS s
 WHERE s.namespace = $importedUnitSequence.namespace
-`, arg)
+`, arg, importedUnitSequenceResult{})
 	if err != nil {
 		return 0, false, errors.Capture(err)
 	}

@@ -606,7 +606,7 @@ func (s *migrationServiceSuite) TestImportCAASApplication(c *tc.C) {
 	s.state.EXPECT().GetAllUnitK8sPodIDsForApplication(gomock.Any(), id).Return(map[unit.Name]string{
 		"ubuntu/666": "provider-id",
 	}, nil)
-	s.state.EXPECT().GetApplicationUnitSequence(gomock.Any(), "ubuntu").Return(uint64(0), false, nil)
+	s.state.EXPECT().GetApplicationUnitSequence(gomock.Any(), "ubuntu").Return(uint64(0), false, nil).Times(2)
 	s.state.EXPECT().EnsureApplicationUnitSequenceAtLeast(gomock.Any(), "ubuntu", uint64(666)).Return(nil)
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
@@ -757,6 +757,45 @@ func (s *migrationServiceSuite) TestImportCAASApplicationRejectsUnmaterialisedSc
 		LegacyDesiredScale: 1,
 	})
 	c.Check(err, tc.ErrorMatches, "imported application .* scale request is not materialised")
+}
+
+func (s *migrationServiceSuite) TestImportCAASApplicationRejectsSparseOrdinals(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.state.EXPECT().GetApplicationUnitSequence(gomock.Any(), "ubuntu").Return(uint64(2), true, nil)
+	err := s.service.ImportCAASApplication(c.Context(), "ubuntu", ImportCAASApplicationArgs{
+		LegacyDesiredScale: 2,
+		Units: []ImportCAASUnitArg{
+			{ImportUnitArg: ImportUnitArg{UnitName: "ubuntu/0"}},
+			{ImportUnitArg: ImportUnitArg{UnitName: "ubuntu/2"}},
+		},
+	})
+	c.Assert(err, tc.ErrorIs, applicationerrors.ScalingStateInconsistent)
+	c.Check(err, tc.ErrorMatches, `imported application "ubuntu".*not contiguous.*`)
+}
+
+func (s *migrationServiceSuite) TestImportCAASApplicationRejectsSequenceGap(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.state.EXPECT().GetApplicationUnitSequence(gomock.Any(), "ubuntu").Return(uint64(5), true, nil)
+	err := s.service.ImportCAASApplication(c.Context(), "ubuntu", ImportCAASApplicationArgs{
+		LegacyDesiredScale: 1,
+		Units:              []ImportCAASUnitArg{{ImportUnitArg: ImportUnitArg{UnitName: "ubuntu/0"}}},
+	})
+	c.Assert(err, tc.ErrorIs, applicationerrors.ScalingStateInconsistent)
+	c.Check(err, tc.ErrorMatches, `imported application "ubuntu".*sequence 5 exceeds highest Alive ordinal 0.*`)
+}
+
+func (s *migrationServiceSuite) TestImportCAASApplicationRejectsPodOrdinalGap(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.state.EXPECT().GetApplicationUnitSequence(gomock.Any(), "ubuntu").Return(uint64(0), false, nil)
+	err := s.service.ImportCAASApplication(c.Context(), "ubuntu", ImportCAASApplicationArgs{
+		LegacyDesiredScale: 1,
+		Units: []ImportCAASUnitArg{{
+			ImportUnitArg: ImportUnitArg{UnitName: "ubuntu/0"},
+			K8sPod:        &application.K8sPodParams{ProviderID: "ubuntu-5"},
+		}},
+	})
+	c.Assert(err, tc.ErrorIs, applicationerrors.ScalingStateInconsistent)
+	c.Check(err, tc.ErrorMatches, `imported application "ubuntu".*sequence 5 exceeds highest Alive ordinal 0.*`)
 }
 
 func (s *migrationServiceSuite) TestGetUnitUUIDByName(c *tc.C) {

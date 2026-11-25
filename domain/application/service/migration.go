@@ -259,6 +259,27 @@ func (s *MigrationService) ImportCAASApplication(ctx context.Context, name strin
 	if args.LegacyDesiredScale != len(args.Units) {
 		return errors.Errorf("imported application %q has scale %d but %d units: scale request is not materialised", name, args.LegacyDesiredScale, len(args.Units))
 	}
+	// Sequences are imported before applications and already use last-returned
+	// semantics. Validate before writing the application or its units.
+	last, _, err := s.st.GetApplicationUnitSequence(ctx, name)
+	if err != nil {
+		return errors.Errorf("getting imported application %q unit sequence: %w", name, err)
+	}
+	names := make([]coreunit.Name, len(args.Units))
+	for i, unit := range args.Units {
+		names[i] = unit.UnitName
+		if unit.K8sPod == nil {
+			continue
+		}
+		ordinalText, ok := strings.CutPrefix(unit.K8sPod.ProviderID, name+"-")
+		ordinal, err := strconv.Atoi(ordinalText)
+		if ok && err == nil && ordinal >= 0 && uint64(ordinal) > last {
+			last = uint64(ordinal)
+		}
+	}
+	if err := application.ValidateK8sUnitRange(name, names, last); err != nil {
+		return errors.Errorf("imported application %q has incompatible unit ordinals: %w", name, err)
+	}
 
 	charmUUID, err := s.importCAASApplication(ctx, name, args)
 	if err != nil {

@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationmodelmigration "github.com/juju/juju/domain/application/modelmigration"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
@@ -907,6 +908,62 @@ func (s *importSuite) TestCAASApplicationRejectsUnmaterialisedScale(c *tc.C) {
 	applicationmodelmigration.RegisterImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 	err := s.coordinator.Perform(c.Context(), s.scope, desc)
 	c.Check(err, tc.ErrorMatches, ".*scale request is not materialised.*")
+}
+
+func (s *importSuite) TestCAASApplicationRejectsSparseOrdinals(c *tc.C) {
+	desc := description.NewModel(description.ModelArgs{Type: string(model.CAAS)})
+	app := setupMinimalApplication(desc)
+	app.SetDesiredScale(2)
+	for _, name := range []string{"foo/0", "foo/2"} {
+		app.AddUnit(description.UnitArgs{Name: name, Type: string(model.CAAS)})
+	}
+	desc.SetSequence("application-foo", 3)
+	sequencemodelmigration.RegisterImport(s.coordinator)
+	applicationmodelmigration.RegisterImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
+	err := s.coordinator.Perform(c.Context(), s.scope, desc)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ScalingStateInconsistent)
+	c.Check(err, tc.ErrorMatches, `.*imported application "foo".*not contiguous.*`)
+	var count int
+	err = s.DB().QueryRowContext(c.Context(), `SELECT COUNT(*) FROM application`).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
+func (s *importSuite) TestCAASApplicationRejectsSequenceGap(c *tc.C) {
+	desc := description.NewModel(description.ModelArgs{Type: string(model.CAAS)})
+	app := setupMinimalApplication(desc)
+	app.SetDesiredScale(2)
+	for _, name := range []string{"foo/0", "foo/1"} {
+		app.AddUnit(description.UnitArgs{Name: name, Type: string(model.CAAS)})
+	}
+	// Legacy counters store the next ordinal, so six becomes high-water five.
+	desc.SetSequence("application-foo", 6)
+	sequencemodelmigration.RegisterImport(s.coordinator)
+	applicationmodelmigration.RegisterImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
+	err := s.coordinator.Perform(c.Context(), s.scope, desc)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ScalingStateInconsistent)
+	c.Check(err, tc.ErrorMatches, `.*imported application "foo".*sequence 5 exceeds highest Alive ordinal 1.*`)
+	var count int
+	err = s.DB().QueryRowContext(c.Context(), `SELECT COUNT(*) FROM application`).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
+func (s *importSuite) TestCAASApplicationAtZeroRetainsSequence(c *tc.C) {
+	desc := description.NewModel(description.ModelArgs{Type: string(model.CAAS)})
+	app := setupMinimalApplication(desc)
+	app.SetDesiredScale(0)
+	desc.SetSequence("application-foo", 6)
+	sequencemodelmigration.RegisterImport(s.coordinator)
+	applicationmodelmigration.RegisterImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
+	err := s.coordinator.Perform(c.Context(), s.scope, desc)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.svc.SetApplicationScale(c.Context(), "foo", 1)
+	c.Assert(err, tc.ErrorIsNil)
+	var name string
+	err = s.DB().QueryRowContext(c.Context(), `SELECT name FROM unit`).Scan(&name)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(name, tc.Equals, "foo/6")
 }
 
 func (s *importSuite) TestImportCAASUnit(c *tc.C) {

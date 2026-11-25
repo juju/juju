@@ -142,7 +142,7 @@ func (s *importSuite) TestImportRestoresPendingUnitsAndSequence(c *tc.C) {
 			ApplicationUUID: "application-uuid", NetNodeUUID: "imported-net-node",
 			CharmUUID: "charm-uuid",
 		}},
-		Sequence: []v4_1_0.Sequence{{Namespace: "application_foo", Value: 4}},
+		Sequence: []v4_1_0.Sequence{{Namespace: "application_foo", Value: 2}},
 	}
 
 	err := modelimport.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), payload)
@@ -174,7 +174,7 @@ func (s *importSuite) TestImportRestoresPendingUnitsAndSequence(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(names, tc.DeepEquals, []string{"foo/2"})
-	c.Check(highWater, tc.Equals, 4)
+	c.Check(highWater, tc.Equals, 2)
 
 	// Reconciliation after a service restart must preserve the same identities.
 	modelDB := func(context.Context) (database.TxnRunner, error) {
@@ -196,7 +196,36 @@ func (s *importSuite) TestImportRestoresPendingUnitsAndSequence(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 1)
-	c.Check(highWater, tc.Equals, 4)
+	c.Check(highWater, tc.Equals, 2)
+}
+
+func (s *importSuite) TestImportRejectsIncompatibleOrdinalsBeforeWriting(c *tc.C) {
+	s.bootstrapModel(c)
+	for _, test := range []struct {
+		names []string
+		last  int64
+	}{
+		{names: []string{"foo/0", "foo/2"}, last: 2},
+		{names: []string{"foo/0", "foo/1"}, last: 5},
+	} {
+		payload := &latest.ModelExport{
+			ModelAgent:  []v4_1_0.ModelAgent{{ModelUUID: s.ModelUUID()}},
+			Model:       []v4_1_0.Model{{Type: "caas"}},
+			Application: []v4_1_0.Application{{UUID: "application-uuid", Name: "foo"}},
+			Sequence:    []v4_1_0.Sequence{{Namespace: "application_foo", Value: test.last}},
+		}
+		for _, name := range test.names {
+			payload.Unit = append(payload.Unit, v4_1_0.Unit{ApplicationUUID: "application-uuid", Name: name})
+		}
+		err := modelimport.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), payload)
+		c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+		for _, table := range []string{"application", "unit", "sequence"} {
+			var count int
+			err := s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM "+table).Scan(&count)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(count, tc.Equals, 0, tc.Commentf("%s", table))
+		}
+	}
 }
 
 func (s *importSuite) TestImportRejectsMissingUnitBeforeWriting(c *tc.C) {
@@ -226,6 +255,7 @@ func (s *importSuite) TestImportWithoutScaleReconcilesUnitSequence(c *tc.C) {
 
 	payload := &latest.ModelExport{
 		ModelAgent: []v4_1_0.ModelAgent{{ModelUUID: s.ModelUUID()}},
+		Model:      []v4_1_0.Model{{Type: "caas"}},
 		Charm: []v4_1_0.Charm{{
 			UUID: "charm-uuid", SourceID: 0, Revision: 1, ReferenceName: "foo",
 		}},

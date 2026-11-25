@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	corestorage "github.com/juju/juju/core/storage"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -128,6 +129,73 @@ func (s *serviceSuite) TestGetScale(c *tc.C) {
 	got, err := s.svc.GetApplicationScale(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.Equals, 2)
+}
+
+func (s *serviceSuite) TestSetScaleRejectsSequenceGap(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	appUUID := s.createApplication(c, "foo", service.AddUnitArg{}, service.AddUnitArg{})
+	_, err := s.DB().ExecContext(c.Context(), `UPDATE sequence SET value = 5 WHERE namespace = 'application_foo'`)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.svc.SetApplicationScale(c.Context(), "foo", 3)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ScalingStateInconsistent)
+	lives, err := s.svc.GetAllUnitLifeForApplication(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lives, tc.DeepEquals, map[coreunit.Name]life.Value{"foo/0": life.Alive, "foo/1": life.Alive})
+	last, hasSequence, err := s.svc.GetApplicationUnitSequence(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hasSequence, tc.IsTrue)
+	c.Check(last, tc.Equals, uint64(5))
+}
+
+func (s *serviceSuite) TestSetScaleRejectsSparseRemainingRange(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	appUUID := s.createApplication(c, "foo", service.AddUnitArg{}, service.AddUnitArg{}, service.AddUnitArg{})
+	_, err := s.DB().ExecContext(c.Context(), `UPDATE unit SET name = 'foo/4' WHERE name = 'foo/2'`)
+	c.Assert(err, tc.ErrorIsNil)
+	for _, target := range []int{3, 2} {
+		err := s.svc.SetApplicationScale(c.Context(), "foo", target)
+		c.Assert(err, tc.ErrorIs, applicationerrors.ScalingStateInconsistent)
+		lives, err := s.svc.GetAllUnitLifeForApplication(c.Context(), appUUID)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(lives, tc.DeepEquals, map[coreunit.Name]life.Value{
+			"foo/0": life.Alive, "foo/1": life.Alive, "foo/4": life.Alive,
+		})
+	}
+}
+
+func (s *serviceSuite) TestSetScaleAppendsAfterNonZeroRange(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	appUUID := s.createApplication(c, "foo", service.AddUnitArg{}, service.AddUnitArg{}, service.AddUnitArg{}, service.AddUnitArg{})
+	err := s.svc.SetApplicationScale(c.Context(), "foo", 2)
+	c.Assert(err, tc.ErrorIsNil)
+	// Departures can finish in the opposite order to their ordinals.
+	for _, name := range []string{"foo/1", "foo/0"} {
+		_, err = s.DB().ExecContext(c.Context(), `UPDATE unit SET life_id = 2 WHERE name = ?`, name)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+	err = s.svc.SetApplicationScale(c.Context(), "foo", 3)
+	c.Assert(err, tc.ErrorIsNil)
+	lives, err := s.svc.GetAllUnitLifeForApplication(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lives, tc.DeepEquals, map[coreunit.Name]life.Value{
+		"foo/0": life.Dead, "foo/1": life.Dead,
+		"foo/2": life.Alive, "foo/3": life.Alive, "foo/4": life.Alive,
+	})
+	last, _, err := s.svc.GetApplicationUnitSequence(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(last, tc.Equals, uint64(4))
+}
+
+func (s *serviceSuite) TestSetScaleFromZeroRetainsSequence(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	appUUID := s.createApplication(c, "foo")
+	_, err := s.DB().ExecContext(c.Context(), `INSERT INTO sequence (namespace, value) VALUES ('application_foo', 5)`)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.svc.SetApplicationScale(c.Context(), "foo", 1)
+	c.Assert(err, tc.ErrorIsNil)
+	lives, err := s.svc.GetAllUnitLifeForApplication(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lives, tc.DeepEquals, map[coreunit.Name]life.Value{"foo/6": life.Alive})
 }
 
 func (s *serviceSuite) TestChangeScale(c *tc.C) {

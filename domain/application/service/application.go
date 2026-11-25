@@ -1204,6 +1204,9 @@ func (s *Service) makeCAASUnitScalePlan(
 		}
 	}
 	if target <= len(alive) {
+		if err := application.ValidateK8sUnitRange(appName, alive[len(plan.leaving):], 0); err != nil {
+			return caasUnitScalePlan{}, errors.Capture(err)
+		}
 		return plan, nil
 	}
 
@@ -1232,8 +1235,7 @@ func (s *Service) nextCAASUnitOrdinal(
 		nextOrdinal = lastOrdinal + 1
 	}
 
-	// The sequence retains ordinal history when units have been removed,
-	// including when Alive units with lower ordinals remain.
+	// Preserve ordinal history without introducing a gap after Alive units.
 	lastOrdinal, hasSequence, err := s.st.GetApplicationUnitSequence(ctx, appName)
 	if err != nil {
 		return 0, errors.Capture(err)
@@ -1243,6 +1245,10 @@ func (s *Service) nextCAASUnitOrdinal(
 			return 0, applicationerrors.ScaleChangeInvalid
 		}
 		sequenceNextOrdinal := int(lastOrdinal) + 1
+		if len(alive) > 0 && sequenceNextOrdinal > nextOrdinal {
+			return 0, errors.Errorf("unit sequence %d exceeds highest Alive ordinal %d: %w",
+				lastOrdinal, nextOrdinal-1, applicationerrors.ScalingStateInconsistent)
+		}
 		if sequenceNextOrdinal > nextOrdinal {
 			nextOrdinal = sequenceNextOrdinal
 		}
