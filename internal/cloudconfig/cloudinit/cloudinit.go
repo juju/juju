@@ -406,7 +406,26 @@ func (cfg *cloudConfig) AddRunBinaryFile(filename string, data []byte, mode uint
 		cfg.AddScripts(addFileCopyCmds(source, filename, mode)...)
 		return
 	}
+	if mode&0077 == 0 {
+		// An inline binary may contain credentials. Keep its contents out
+		// of shell tracing without changing the caller's tracing state.
+		cfg.AddScripts("(", "set +x")
+		cfg.AddScripts(addFileCmds(filename, data, mode, true)...)
+		cfg.AddScripts(")")
+		return
+	}
 	cfg.AddScripts(addFileCmds(filename, data, mode, true)...)
+}
+
+// AddRunBinaryFileFromPath is defined on the WrittenFilesConfig interface.
+func (cfg *cloudConfig) AddRunBinaryFileFromPath(filename, source string, mode uint) error {
+	transporter, ok := cfg.fileTransporter.(FilePathTransporter)
+	if !ok {
+		return errors.NotSupportedf("file-backed cloud-init transfer")
+	}
+	staged := transporter.SendFile(filename, source)
+	cfg.AddScripts(addFileCopyCmds(staged, filename, mode)...)
+	return nil
 }
 
 // ShellRenderer is defined on the RenderConfig interface.

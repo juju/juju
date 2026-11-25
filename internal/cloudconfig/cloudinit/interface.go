@@ -316,8 +316,13 @@ type WrittenFilesConfig interface {
 	// NOTE: if the file already exists, it will be truncated.
 	AddRunBinaryFile(string, []byte, uint)
 
-	// SetFileTransporter sets an alternative transporter for files added with
-	// AddRunBinaryFile.
+	// AddRunBinaryFileFromPath schedules a local file without loading its
+	// contents into memory. The source must remain available until the
+	// configured file transporter completes. It returns an error when that
+	// transporter does not support file-backed transfers.
+	AddRunBinaryFileFromPath(filename, source string, mode uint) error
+
+	// SetFileTransporter sets an alternative transporter for binary files.
 	SetFileTransporter(FileTransporter)
 }
 
@@ -419,11 +424,19 @@ func WithNetplanMACMatch(enabled bool) func(*cloudConfig) {
 // FileTransporter is the interface set on CloudConfig when it wants to optionally
 // deliver files by its own means.
 type FileTransporter interface {
-	// SendBytes will ensure the payload is written to the target machine
-	// using the given hint in the file name (for debugging purposes).
+	// SendBytes will ensure the payload is written privately to the target
+	// machine using the given hint in the file name (for debugging purposes).
 	// SendBytes returns the path on the target machine where the payload is
 	// stored.
 	SendBytes(hint string, payload []byte) string
+}
+
+// FilePathTransporter can additionally transfer a local file without first
+// reading the whole file into memory.
+type FilePathTransporter interface {
+	// SendFile returns the path where the file will be staged privately on the target.
+	// The source must remain available until the transfer finishes.
+	SendFile(hint, source string) string
 }
 
 // New returns a new Config with no options set.
