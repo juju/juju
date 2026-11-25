@@ -458,6 +458,149 @@ func (s *Suite) TestSUCCESS(c *gc.C) {
 	s.stub.CheckCall(c, 4, "Report", "id", migration.SUCCESS, true)
 }
 
+// TestSUCCESSReportFailureStillWritesConfig covers the wedge seen in the
+// integration tests: a report RPC that dies mid-flight (context canceled,
+// connection torn down by a bounce) must not prevent the agent config
+// from being updated, otherwise the unit points at a controller whose
+// model is gone forever.
+func (s *Suite) TestSUCCESSReportFailureStillWritesConfig(c *gc.C) {
+	s.agent.conf.tag = names.NewUnitTag("app/0")
+	s.agent.conf.dir = "/var/lib/juju/agents/unit-app-0"
+
+	// The first report attempt fails, and every fallback attempt fails
+	// too, so robustReport returns an error; doSUCCESS must still update
+	// the agent config instead of aborting.
+	s.stub.SetErrors(errors.New("report boom"))
+	s.config.NewFacade = func(base.APICaller) (migrationminion.Facade, error) {
+		return &failingReportFacade{}, nil
+	}
+
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.SUCCESS,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	// The fallback retry is bounded by the same duration as the
+	// validation retry (5m); advance past it so the fallback exhausts
+	// and the config is written.
+	err = s.clock.WaitAdvance(6*time.Minute, coretesting.LongWait, 1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-s.agent.configChanged:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for agent config change")
+	}
+	c.Assert(s.agent.conf.addrs, gc.DeepEquals, addrs)
+}
+
+// TestSUCCESSFallbackReportCompletesDuringTeardown covers the race where the
+// worker is torn down while the SUCCESS report is in flight: the fallback
+// direct dial runs after the catacomb is already dying, and must not abort
+// on it - otherwise the report is lost and the migration master waits
+// forever.
+func (s *Suite) TestSUCCESSFallbackReportCompletesDuringTeardown(c *gc.C) {
+	s.agent.conf.tag = names.NewUnitTag("app/0")
+	s.agent.conf.dir = "/var/lib/juju/agents/unit-app-0"
+
+	facade := &blockingReportFacade{
+		Facade:  s.client,
+		started: make(chan struct{}),
+		proceed: make(chan struct{}),
+	}
+	s.config.Facade = facade
+
+	reported := make(chan struct{})
+	s.config.NewFacade = func(base.APICaller) (migrationminion.Facade, error) {
+		return &reportingFacade{reported: reported}, nil
+	}
+
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.SUCCESS,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+		SourceAPIAddrs: []string{"3.3.3.3:3333"},
+		SourceCACert:   caCert,
+	}
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Wait for the in-flight report, then kill the worker so the fallback
+	// dial runs with the catacomb already dying.
+	select {
+	case <-facade.started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for in-flight report")
+	}
+	w.Kill()
+	close(facade.proceed)
+
+	// The fallback dial and report must complete despite the teardown, and
+	// the agent config must still be written.
+	select {
+	case <-reported:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("fallback report did not complete during teardown")
+	}
+	select {
+	case <-s.agent.configChanged:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for agent config change")
+	}
+	workertest.CleanKill(c, w)
+}
+
+// TestSUCCESSFallbackReportStopsRetryingDuringTeardown covers the other
+// half of the teardown race: if the worker is killed and the fallback
+// report still fails, the retry loop must not keep retrying into the
+// teardown. The worker must die promptly.
+func (s *Suite) TestSUCCESSFallbackReportStopsRetryingDuringTeardown(c *gc.C) {
+	s.agent.conf.tag = names.NewUnitTag("app/0")
+	s.agent.conf.dir = "/var/lib/juju/agents/unit-app-0"
+
+	facade := &blockingReportFacade{
+		Facade:  s.client,
+		started: make(chan struct{}),
+		proceed: make(chan struct{}),
+	}
+	s.config.Facade = facade
+
+	s.config.NewFacade = func(base.APICaller) (migrationminion.Facade, error) {
+		return &failingReportFacade{}, nil
+	}
+
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.SUCCESS,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+		SourceAPIAddrs: []string{"3.3.3.3:3333"},
+		SourceCACert:   caCert,
+	}
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Wait for the in-flight report, then kill the worker; the failing
+	// fallback report must not retry: the worker dies without any clock
+	// advance.
+	select {
+	case <-facade.started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for in-flight report")
+	}
+	w.Kill()
+	close(facade.proceed)
+
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, jc.ErrorIsNil)
+}
+
 func (s *Suite) TestSUCCESSCantConnectNotReportForTryAgainError(c *gc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId:    "id",
@@ -479,31 +622,20 @@ func (s *Suite) TestSUCCESSCantConnectNotReportForTryAgainError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	// Advance time enough for all of the retries to be exhausted.
-	sleepTime := 100 * time.Millisecond
-	for i := 0; i < 9; i++ {
-		err := s.clock.WaitAdvance(sleepTime, coretesting.ShortWait, 1)
+	// The in-flight report dies on the shut down connection, the fallback
+	// dial to the source gets ErrTryAgain, and the bounded retry keeps
+	// dialling while the phase replays.
+	//
+	// Each fallback attempt waits on the bounded backoff delay; advance
+	// the clock past one delay at a time.
+	for _, expected := range [][]string{
+		{"Watch", "Lockdown", "API open", "API close", "Report", "API open"},
+		{"Watch", "Lockdown", "API open", "API close", "Report", "API open", "API open"},
+	} {
+		err = s.clock.WaitAdvance(100*time.Millisecond, coretesting.ShortWait, 1)
 		c.Assert(err, jc.ErrorIsNil)
-		sleepTime = sleepTime * 2
+		s.waitForStubCalls(c, expected)
 	}
-
-	s.waitForStubCalls(c, []string{
-		"Watch",
-		"Lockdown",
-		"API open",
-		"API close",
-		"Report",
-		"API open",
-		"API open",
-		"API open",
-		"API open",
-		"API open",
-		"API open",
-		"API open",
-		"API open",
-		"API open",
-		"API open",
-	})
 }
 
 func (s *Suite) TestSUCCESSRetryReport(c *gc.C) {
@@ -716,6 +848,41 @@ func newStubAgent() *stubAgent {
 	return &stubAgent{
 		configChanged: make(chan bool),
 	}
+}
+
+// blockingReportFacade blocks Report until the test releases it, so a test
+// can tear the worker down while a report is in flight.
+type blockingReportFacade struct {
+	migrationminion.Facade
+	started chan struct{}
+	proceed chan struct{}
+}
+
+func (f *blockingReportFacade) Report(string, migration.Phase, bool) error {
+	close(f.started)
+	<-f.proceed
+	return errors.New("report boom")
+}
+
+// failingReportFacade always fails Report, so a test can exhaust the fallback
+// report retries.
+type failingReportFacade struct {
+	migrationminion.Facade
+}
+
+func (f *failingReportFacade) Report(string, migration.Phase, bool) error {
+	return errors.New("fallback report boom")
+}
+
+// reportingFacade reports successfully, signalling when it has done so.
+type reportingFacade struct {
+	migrationminion.Facade
+	reported chan<- struct{}
+}
+
+func (f *reportingFacade) Report(string, migration.Phase, bool) error {
+	close(f.reported)
+	return nil
 }
 
 type stubAgent struct {
