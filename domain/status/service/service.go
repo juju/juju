@@ -315,11 +315,11 @@ func (s *Service) SetApplicationStatus(
 	return nil
 }
 
-// SetApplicationStatusByID validates and sets the status of the application
+// SetApplicationStatusByUUID validates and sets the status of the application
 // with the given UUID, overwriting any current status data. It returns an
 // error satisfying [applicationerrors.ApplicationNotFound] if the
 // application doesn't exist.
-func (s *Service) SetApplicationStatusByID(
+func (s *Service) SetApplicationStatusByUUID(
 	ctx context.Context,
 	applicationUUID coreapplication.UUID,
 	statusInfo corestatus.StatusInfo,

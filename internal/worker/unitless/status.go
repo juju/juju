@@ -12,9 +12,9 @@ import (
 
 // ApplicationStatusService sets the status of scriptlet applications.
 type ApplicationStatusService interface {
-	// SetApplicationStatusByID sets the status of the application with the
+	// SetApplicationStatusByUUID sets the status of the application with the
 	// given UUID, overwriting any current status data.
-	SetApplicationStatusByID(
+	SetApplicationStatusByUUID(
 		ctx context.Context,
 		applicationUUID coreapplication.UUID,
 		statusInfo corestatus.StatusInfo,

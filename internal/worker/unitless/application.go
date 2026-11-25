@@ -234,9 +234,16 @@ func (r *applicationRunner) handleEvent(ctx context.Context, eventName string) e
 	intents, err := r.executor.Handle(ctx, event)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			// The runner is shutting down; this is not a scriptlet
-			// failure, so no status is set.
-			return nil
+			select {
+			case <-r.catacomb.Dying():
+				// Respect runner shutdown.
+				r.config.Logger.Infof(
+					ctx, "scriptlet event %q for application %q interrupted by shutdown",
+					event.Name, r.config.ApplicationUUID)
+				return nil
+			default:
+				// Not shutdown; treat as a scriptlet failure.
+			}
 		}
 		r.config.Logger.Errorf(
 			ctx, "executing scriptlet event %q for application %q: %v", event.Name, r.config.ApplicationUUID, err)
@@ -273,7 +280,7 @@ func (r *applicationRunner) applyIntents(ctx context.Context, intents []scriptle
 func (r *applicationRunner) applySetStatusIntent(ctx context.Context, intent scriptlet.Intent) error {
 	statusName, _ := intent.Args["status"].(string)
 	message, _ := intent.Args["message"].(string)
-	return r.config.StatusService.SetApplicationStatusByID(
+	return r.config.StatusService.SetApplicationStatusByUUID(
 		ctx, r.config.ApplicationUUID,
 		corestatus.StatusInfo{
 			Status:  corestatus.Status(statusName),
@@ -286,7 +293,7 @@ func (r *applicationRunner) applySetStatusIntent(ctx context.Context, intent scr
 // setStatusBlocked sets the application status to blocked with the given
 // error message.
 func (r *applicationRunner) setStatusBlocked(ctx context.Context, err error) error {
-	return r.config.StatusService.SetApplicationStatusByID(
+	return r.config.StatusService.SetApplicationStatusByUUID(
 		ctx, r.config.ApplicationUUID,
 		corestatus.StatusInfo{
 			Status:  corestatus.Blocked,

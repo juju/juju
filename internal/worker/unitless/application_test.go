@@ -619,6 +619,32 @@ func (s *applicationRunnerSuite) TestExecutorErrorContinuesAndSetsBlockedStatus(
 	c.Check(s.logMessages(), tc.Not(tc.Contains), "intent:")
 }
 
+func (s *applicationRunnerSuite) TestUnexpectedCancellationSetsBlockedStatus(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// The runner is alive, so a canceled error cannot be shutdown; it
+	// must be treated as a scriptlet failure.
+	fixture := s.expectRunningApplication(c)
+	statuses := s.expectStatusSets()
+	fixture.executor.err = context.Canceled
+
+	event := domainunitless.Event{Name: "config_changed"}
+	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, event.Name).Return(event, nil)
+	runner := s.startRunner(c)
+	defer workertest.CleanKill(c, runner)
+
+	waitFor(c, fixture.executorConfigs)
+
+	fixture.eventChanges <- []string{event.Name.String()}
+	info := waitFor(c, statuses)
+	c.Check(info.Status, tc.Equals, corestatus.Blocked)
+	c.Check(info.Message, tc.Equals, "context canceled")
+
+	workertest.CleanKill(c, runner)
+	fixture.assertWatchersStopped(c)
+}
+
 func (s *applicationRunnerSuite) TestExecutorErrorStatusSetFailureStopsRunner(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
@@ -626,7 +652,7 @@ func (s *applicationRunnerSuite) TestExecutorErrorStatusSetFailureStopsRunner(c 
 	fixture := s.expectRunningApplication(c)
 	fixture.executor.err = errors.New("boom")
 	statusErr := errors.New("status boom")
-	s.statusService.EXPECT().SetApplicationStatusByID(gomock.Any(), s.application.UUID, gomock.Any()).
+	s.statusService.EXPECT().SetApplicationStatusByUUID(gomock.Any(), s.application.UUID, gomock.Any()).
 		Return(statusErr)
 
 	event := domainunitless.Event{Name: "config_changed"}
@@ -682,7 +708,7 @@ func (s *applicationRunnerSuite) TestSetStatusIntentFailureStopsRunner(c *tc.C) 
 		{Type: scriptlet.IntentSetStatus, Args: map[string]any{"status": "invalid"}},
 	}
 	statusErr := errors.New("status boom")
-	s.statusService.EXPECT().SetApplicationStatusByID(gomock.Any(), s.application.UUID, gomock.Any()).
+	s.statusService.EXPECT().SetApplicationStatusByUUID(gomock.Any(), s.application.UUID, gomock.Any()).
 		Return(statusErr)
 
 	event := domainunitless.Event{Name: "config_changed"}
@@ -701,7 +727,7 @@ func (s *applicationRunnerSuite) TestSetStatusIntentFailureStopsRunner(c *tc.C) 
 
 func (s *applicationRunnerSuite) expectStatusSets() chan corestatus.StatusInfo {
 	statuses := make(chan corestatus.StatusInfo, 10)
-	s.statusService.EXPECT().SetApplicationStatusByID(gomock.Any(), s.application.UUID, gomock.Any()).
+	s.statusService.EXPECT().SetApplicationStatusByUUID(gomock.Any(), s.application.UUID, gomock.Any()).
 		DoAndReturn(func(_ context.Context, _ coreapplication.UUID, info corestatus.StatusInfo) error {
 			statuses <- info
 			return nil
@@ -860,6 +886,7 @@ func (s *applicationRunnerSuite) TestShutdownCancelsEventExecutionAndStopsBatch(
 	ctx := waitFor(c, contexts)
 	workertest.CleanKill(c, runner)
 	c.Check(ctx.Err(), tc.ErrorIs, context.Canceled)
+	s.logger.waitFor(c, `interrupted by shutdown`)
 	fixture.assertWatchersStopped(c)
 }
 

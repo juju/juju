@@ -136,7 +136,7 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	service := NewMockScriptletService(ctrl)
 	statusService := NewMockApplicationStatusService(ctrl)
-	statusService.EXPECT().SetApplicationStatusByID(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	statusService.EXPECT().SetApplicationStatusByUUID(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	applicationUUID := coreapplication.UUID("app-uuid-1")
 	scriptletApp := domainunitless.ScriptletApplication{
 		UUID: applicationUUID,

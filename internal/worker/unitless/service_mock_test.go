@@ -147,8 +147,8 @@ type MockApplicationStatusService struct {
 
 // MockApplicationStatusServiceMockRecorder is the mock recorder for MockApplicationStatusService.
 type MockApplicationStatusServiceMockRecorder struct {
-	mock                            *MockApplicationStatusService
-	setApplicationStatusByIDExpects []*gomock.Call3_1[context.Context, application.UUID, status.StatusInfo, error]
+	mock                              *MockApplicationStatusService
+	setApplicationStatusByUUIDExpects []*gomock.Call3_1[context.Context, application.UUID, status.StatusInfo, error]
 }
 
 // NewMockApplicationStatusService creates a new mock instance.
@@ -163,20 +163,20 @@ func (m *MockApplicationStatusService) EXPECT() *MockApplicationStatusServiceMoc
 	return m.recorder
 }
 
-// SetApplicationStatusByID mocks base method.
-func (m *MockApplicationStatusService) SetApplicationStatusByID(ctx context.Context, applicationUUID application.UUID, statusInfo status.StatusInfo) error {
+// SetApplicationStatusByUUID mocks base method.
+func (m *MockApplicationStatusService) SetApplicationStatusByUUID(ctx context.Context, applicationUUID application.UUID, statusInfo status.StatusInfo) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.setApplicationStatusByIDExpects, m.ctrl, m, "SetApplicationStatusByID", ctx, applicationUUID, statusInfo)
+	return gomock.Dispatch3_1(&m.recorder.setApplicationStatusByUUIDExpects, m.ctrl, m, "SetApplicationStatusByUUID", ctx, applicationUUID, statusInfo)
 }
 
-// SetApplicationStatusByID indicates an expected call of SetApplicationStatusByID.
-func (mr *MockApplicationStatusServiceMockRecorder) SetApplicationStatusByID(ctx, applicationUUID, statusInfo any) *MockApplicationStatusServiceSetApplicationStatusByIDCall {
+// SetApplicationStatusByUUID indicates an expected call of SetApplicationStatusByUUID.
+func (mr *MockApplicationStatusServiceMockRecorder) SetApplicationStatusByUUID(ctx, applicationUUID, statusInfo any) *MockApplicationStatusServiceSetApplicationStatusByUUIDCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, application.UUID, status.StatusInfo, error](mr.mock.ctrl.T, mr.mock, "SetApplicationStatusByID", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(applicationUUID), gomock.EnsureMatcher(statusInfo))
-	mr.setApplicationStatusByIDExpects = append(mr.setApplicationStatusByIDExpects, call)
+	call := gomock.NewCall3_1[context.Context, application.UUID, status.StatusInfo, error](mr.mock.ctrl.T, mr.mock, "SetApplicationStatusByUUID", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(applicationUUID), gomock.EnsureMatcher(statusInfo))
+	mr.setApplicationStatusByUUIDExpects = append(mr.setApplicationStatusByUUIDExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockApplicationStatusServiceSetApplicationStatusByIDCall is the typed call wrapper for SetApplicationStatusByID.
-type MockApplicationStatusServiceSetApplicationStatusByIDCall = gomock.Call3_1[context.Context, application.UUID, status.StatusInfo, error]
+// MockApplicationStatusServiceSetApplicationStatusByUUIDCall is the typed call wrapper for SetApplicationStatusByUUID.
+type MockApplicationStatusServiceSetApplicationStatusByUUIDCall = gomock.Call3_1[context.Context, application.UUID, status.StatusInfo, error]
