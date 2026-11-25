@@ -357,7 +357,9 @@ func NewWatchableService(
 }
 
 // WatchRemovals watches for scheduled removal jobs.
-// The returned watcher emits the UUIDs of any inserted or updated jobs.
+// The returned watcher emits the UUIDs of any inserted, updated or
+// deleted jobs. Deletions matter because a completed dependency job
+// unblocks dependent removals.
 func (s *WatchableService) WatchRemovals(ctx context.Context) (watcher.StringsWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -366,7 +368,7 @@ func (s *WatchableService) WatchRemovals(ctx context.Context) (watcher.StringsWa
 		ctx,
 		s.modelState.NamespaceForWatchRemovals(),
 		"removals watcher",
-		changestream.Changed,
+		changestream.All,
 	)
 	if err != nil {
 		return nil, errors.Errorf("creating watcher for removals: %w", err)
