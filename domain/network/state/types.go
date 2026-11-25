@@ -657,6 +657,10 @@ type controllerAPIAddress struct {
 	DeviceType int `db:"device_type_id"`
 }
 
+type addressOrder struct {
+	PreferDefaultRoute bool `db:"prefer_default_route"`
+}
+
 // spaceConstraint represents a space name/UUID pair and its
 // role as a constraint (whether included or excluded).
 type spaceConstraint struct {

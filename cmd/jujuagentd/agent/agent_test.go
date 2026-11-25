@@ -100,16 +100,33 @@ func (f *fakeLoggingConfig) Value(key string) string {
 	return ""
 }
 
+// fakeMachineAgentConfigWriter is the minimal agent config writer double
+// used by the machine-agent tests. It embeds AgentConf so only the read
+// path needs explicit stubbing.
+type fakeMachineAgentConfigWriter struct {
+	agentconf.AgentConf
+	config agent.Config
+}
+
+func (f *fakeMachineAgentConfigWriter) CurrentConfig() agent.Config {
+	return f.config
+}
+
 // fakeMachineConfig is the minimal agent config double used by the
 // machine-agent command tests. machineAgentCommand.Init reads the provider
 // type and log dir from the current config.
 type fakeMachineConfig struct {
 	agent.Config
-	logDir string
+	dataDir string
+	logDir  string
 }
 
 func (*fakeMachineConfig) Value(string) string {
 	return ""
+}
+
+func (f *fakeMachineConfig) DataDir() string {
+	return f.dataDir
 }
 
 func (f *fakeMachineConfig) LogDir() string {
