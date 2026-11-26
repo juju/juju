@@ -16,6 +16,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	domainunitless "github.com/juju/juju/domain/unitless"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/scriptlet"
 )
 
 const requiredSafety = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
@@ -62,7 +63,7 @@ func (cfg ExecutorConfig) Validate() error {
 
 // Executor handles event and returns the collected intents.
 type Executor interface {
-	Handle(context.Context, domainunitless.Event) ([]Intent, error)
+	Handle(context.Context, domainunitless.Event) ([]scriptlet.Intent, error)
 }
 
 // ExecutorFactory creates an executor for a loaded application scriptlet.
@@ -74,8 +75,9 @@ func NewStarformExecutor(ctx context.Context, cfg ExecutorConfig) (Executor, err
 		return nil, errors.Capture(err)
 	}
 
+	registry := globalEnv()
 	scriptSet, err := starform.NewScriptSet(&starform.ScriptSetOptions{
-		App:            newAppObject(),
+		App:            registry.App(),
 		Logger:         cfg.Logger,
 		RequiredSafety: requiredSafety,
 		MaxAllocs:      cfg.MaxAllocs,
@@ -101,23 +103,6 @@ func NewStarformExecutor(ctx context.Context, cfg ExecutorConfig) (Executor, err
 	return ret, nil
 }
 
-func newAppObject() *starform.AppObject {
-	return &starform.AppObject{
-		Name: "juju",
-		Methods: []*starlark.Builtin{
-			// TODO (manadart 2026-07-06): There will be two builtin types.
-			// 1) Those that append intents (like this one), which will be
-			//    reusable in agents and probably live in a scriptlet domain.
-			// 2) Those that query external state, and will *not* be common.
-			//    This is because agents will need to go via an API, and
-			//    server-side workers directly via domain services.
-			// I forsee a visitor defined in the domain, which will add all
-			// the intent builtins to a script set.
-			setStatusBuiltin,
-		},
-	}
-}
-
 type starformExecutor struct {
 	scriptSet   *starform.ScriptSet
 	maxDuration time.Duration
@@ -125,7 +110,7 @@ type starformExecutor struct {
 
 // Handle handles a single Event, by dispatching it to the Scriptlet associated
 // with the event name, and returning the resulting intents.
-func (e *starformExecutor) Handle(ctx context.Context, event domainunitless.Event) ([]Intent, error) {
+func (e *starformExecutor) Handle(ctx context.Context, event domainunitless.Event) ([]scriptlet.Intent, error) {
 	ctx, cancel := context.WithTimeout(ctx, e.maxDuration)
 	defer cancel()
 
@@ -133,7 +118,7 @@ func (e *starformExecutor) Handle(ctx context.Context, event domainunitless.Even
 	if err != nil {
 		return nil, errors.Errorf("serialising event attrs: %w", err)
 	}
-	collector := IntentCollector{}
+	collector := scriptlet.IntentCollector{}
 	eo := starform.EventObject{
 		Name:  event.Name.String(),
 		Attrs: attrs,

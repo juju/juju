@@ -1,35 +1,50 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package service_test
+package service
 
 import (
 	"context"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/unitless"
 	unitlessinternal "github.com/juju/juju/domain/unitless/internal"
-	unitlessservice "github.com/juju/juju/domain/unitless/service"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
-type serviceSuite struct{}
+type serviceSuite struct {
+	coretesting.BaseSuite
+
+	state *MockState
+}
 
 func TestServiceSuite(t *testing.T) {
 	tc.Run(t, &serviceSuite{})
 }
 
 func (s *serviceSuite) TestWatchScriptletApplications(c *tc.C) {
-	w, err := unitlessservice.NewWatchableService(&stubState{}, &stubWatcherFactory{}).
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().InitialWatchStatementScriptletApplications().Return(
+		"application", func(context.Context, database.TxnRunner) ([]string, error) {
+			return nil, nil
+		},
+	)
+
+	w, err := NewWatchableService(s.state, &stubWatcherFactory{}).
 		WatchScriptletApplications(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -38,45 +53,66 @@ func (s *serviceSuite) TestWatchScriptletApplications(c *tc.C) {
 }
 
 func (s *serviceSuite) TestGetScriptletApplication(c *tc.C) {
-	st := &stubState{}
+	defer s.setupMocks(c).Finish()
+
+	charmUUID := tc.Must(c, corecharm.NewID)
 	applicationUUID := tc.Must(c, coreapplication.NewUUID)
-	scriptlet, err := unitlessservice.NewService(st).GetScriptletApplication(
+	s.state.EXPECT().GetScriptletApplication(gomock.Any(), applicationUUID.String()).Return(
+		unitlessinternal.ScriptletApplication{
+			UUID:      applicationUUID.String(),
+			Name:      "foo",
+			Life:      life.Alive,
+			CharmUUID: charmUUID.String(),
+			Sources: []unitlessinternal.ScriptSource{{
+				LoadPath: "hook.star",
+				Source:   "def init(): pass",
+			}},
+		}, nil,
+	)
+
+	scriptlet, err := NewService(s.state).GetScriptletApplication(
 		c.Context(), applicationUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(scriptlet, tc.DeepEquals, unitless.ScriptletApplication{
-		UUID: applicationUUID,
-		Name: "foo",
-		Life: corelife.Alive,
+		UUID:      applicationUUID,
+		Name:      "foo",
+		Life:      corelife.Alive,
+		CharmUUID: charmUUID,
 		Sources: []unitless.ScriptSource{{
 			LoadPath: "hook.star",
 			Source:   "def init(): pass",
 		}},
 	})
-	c.Check(st.applicationUUID, tc.Equals, applicationUUID.String())
 }
 
 func (s *serviceSuite) TestGetScriptletApplicationInvalidApplicationUUID(c *tc.C) {
-	st := &stubState{}
-	_, err := unitlessservice.NewService(st).GetScriptletApplication(
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewService(s.state).GetScriptletApplication(
 		c.Context(), coreapplication.UUID("not-valid"),
 	)
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `application UUID: uuid "not-valid" not valid`)
-	c.Check(st.applicationUUID, tc.Equals, "")
 }
 
 func (s *serviceSuite) TestWatchApplicationEvents(c *tc.C) {
-	st := &stubState{hash: "hash-1"}
+	defer s.setupMocks(c).Finish()
+
 	factory := &stubWatcherFactory{}
 	applicationUUID := tc.Must(c, coreapplication.NewUUID)
-	w, err := unitlessservice.NewWatchableService(st, factory).WatchApplicationEvents(
+	s.state.EXPECT().InitialWatchStatementApplicationConfigHash(applicationUUID.String()).Return(
+		"application_config_hash", func(context.Context, database.TxnRunner) ([]string, error) {
+			return []string{"hash-1"}, nil
+		},
+	)
+	s.state.EXPECT().GetApplicationConfigHash(gomock.Any(), applicationUUID.String()).Return("hash-2", nil).Times(2)
+
+	w, err := NewWatchableService(s.state, factory).WatchApplicationEvents(
 		c.Context(), applicationUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
-
-	c.Check(st.applicationUUID, tc.Equals, applicationUUID.String())
 
 	// The first config hash is always dispatched as a config changed event.
 	initialEvents, err := factory.initialQuery(c.Context(), nil)
@@ -86,7 +122,6 @@ func (s *serviceSuite) TestWatchApplicationEvents(c *tc.C) {
 	changes := []changestream.ChangeEvent{changeEvent{changed: applicationUUID.String()}}
 
 	// A config hash change emits a config changed event.
-	st.hash = "hash-2"
 	events, err := factory.mapper(c.Context(), changes)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(events, tc.DeepEquals, []string{unitless.EventConfigChanged.String()})
@@ -99,10 +134,18 @@ func (s *serviceSuite) TestWatchApplicationEvents(c *tc.C) {
 }
 
 func (s *serviceSuite) TestWatchApplicationEventsConfigHashDeleted(c *tc.C) {
-	st := &stubState{hash: "hash-1"}
+	defer s.setupMocks(c).Finish()
+
 	factory := &stubWatcherFactory{}
 	applicationUUID := tc.Must(c, coreapplication.NewUUID)
-	w, err := unitlessservice.NewWatchableService(st, factory).WatchApplicationEvents(
+	s.state.EXPECT().InitialWatchStatementApplicationConfigHash(applicationUUID.String()).Return(
+		"application_config_hash", func(context.Context, database.TxnRunner) ([]string, error) {
+			return []string{"hash-1"}, nil
+		},
+	)
+	s.state.EXPECT().GetApplicationConfigHash(gomock.Any(), applicationUUID.String()).Return("", nil)
+
+	w, err := NewWatchableService(s.state, factory).WatchApplicationEvents(
 		c.Context(), applicationUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -116,7 +159,6 @@ func (s *serviceSuite) TestWatchApplicationEventsConfigHashDeleted(c *tc.C) {
 	// the current hash is empty. No event is dispatched for the deletion;
 	// the dying watcher stops the application without a final spurious
 	// config changed event.
-	st.hash = ""
 	changes := []changestream.ChangeEvent{changeEvent{changed: applicationUUID.String()}}
 	events, err := factory.mapper(c.Context(), changes)
 	c.Assert(err, tc.ErrorIsNil)
@@ -124,99 +166,58 @@ func (s *serviceSuite) TestWatchApplicationEventsConfigHashDeleted(c *tc.C) {
 }
 
 func (s *serviceSuite) TestWatchApplicationEventsInvalidApplicationUUID(c *tc.C) {
-	st := &stubState{}
-	_, err := unitlessservice.NewWatchableService(st, &stubWatcherFactory{}).WatchApplicationEvents(
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewWatchableService(s.state, &stubWatcherFactory{}).WatchApplicationEvents(
 		c.Context(), coreapplication.UUID("not-valid"),
 	)
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `application UUID: uuid "not-valid" not valid`)
-	c.Check(st.applicationUUID, tc.Equals, "")
 }
 
 func (s *serviceSuite) TestGetScriptletEvent(c *tc.C) {
-	st := &stubState{}
+	defer s.setupMocks(c).Finish()
+
 	applicationUUID := tc.Must(c, coreapplication.NewUUID)
-	event, err := unitlessservice.NewService(st).GetScriptletEvent(
+	s.state.EXPECT().GetScriptletEvent(gomock.Any(), applicationUUID.String(), "config-changed").Return(unitless.Event{}, nil)
+
+	event, err := NewService(s.state).GetScriptletEvent(
 		c.Context(), applicationUUID, "config-changed",
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(event, tc.DeepEquals, unitless.Event{})
-	c.Check(st.applicationUUID, tc.Equals, applicationUUID.String())
-	c.Check(st.eventName, tc.Equals, "config-changed")
 }
 
 func (s *serviceSuite) TestGetScriptletEventInvalidApplicationUUID(c *tc.C) {
-	st := &stubState{}
-	_, err := unitlessservice.NewService(st).GetScriptletEvent(
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewService(s.state).GetScriptletEvent(
 		c.Context(), coreapplication.UUID("not-valid"), "config-changed",
 	)
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `application UUID: uuid "not-valid" not valid`)
-	c.Check(st.applicationUUID, tc.Equals, "")
 }
 
 func (s *serviceSuite) TestGetScriptletEventEmptyEventType(c *tc.C) {
-	st := &stubState{}
-	_, err := unitlessservice.NewService(st).GetScriptletEvent(
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewService(s.state).GetScriptletEvent(
 		c.Context(), tc.Must(c, coreapplication.NewUUID), "",
 	)
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, "empty event type not valid")
-	c.Check(st.applicationUUID, tc.Equals, "")
 }
 
-type stubState struct {
-	applicationUUID string
-	eventName       string
-	hash            string
-}
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
 
-func (s *stubState) InitialWatchStatementScriptletApplications() (string, eventsource.NamespaceQuery) {
-	return "application", func(context.Context, database.TxnRunner) ([]string, error) {
-		return nil, nil
-	}
-}
+	s.state = NewMockState(ctrl)
 
-func (s *stubState) FilterScriptletApplications(_ context.Context, applicationUUIDs []string) ([]string, error) {
-	return applicationUUIDs, nil
-}
+	c.Cleanup(func() {
+		s.state = nil
+	})
 
-func (s *stubState) GetScriptletApplication(
-	_ context.Context,
-	applicationUUID string,
-) (unitlessinternal.ScriptletApplication, error) {
-	s.applicationUUID = applicationUUID
-	return unitlessinternal.ScriptletApplication{
-		UUID: applicationUUID,
-		Name: "foo",
-		Life: 0,
-		Sources: []unitlessinternal.ScriptSource{{
-			LoadPath: "hook.star",
-			Source:   "def init(): pass",
-		}},
-	}, nil
-}
-
-func (s *stubState) GetScriptletEvent(
-	_ context.Context,
-	applicationUUID string,
-	eventName string,
-) (unitless.Event, error) {
-	s.applicationUUID = applicationUUID
-	s.eventName = eventName
-	return unitless.Event{}, nil
-}
-
-func (s *stubState) InitialWatchStatementApplicationConfigHash(applicationUUID string) (string, eventsource.NamespaceQuery) {
-	s.applicationUUID = applicationUUID
-	return "application_config_hash", func(context.Context, database.TxnRunner) ([]string, error) {
-		return []string{s.hash}, nil
-	}
-}
-
-func (s *stubState) GetApplicationConfigHash(_ context.Context, applicationUUID string) (string, error) {
-	s.applicationUUID = applicationUUID
-	return s.hash, nil
+	return ctrl
 }
 
 type changeEvent struct {

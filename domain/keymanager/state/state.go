@@ -130,7 +130,8 @@ SELECT $userPublicKeyInsert.comment,
        s.id
 FROM ssh_fingerprint_hash_algorithm AS s
 WHERE s.algorithm = $userPublicKeyInsert.algorithm
-`, userPublicKeyInsert{})
+RETURNING &userPublicKeyId.id
+`, userPublicKeyInsert{}, userPublicKeyId{})
 
 	if err != nil {
 		return 0, errors.Errorf(
@@ -167,17 +168,7 @@ AND k.fingerprint = $userPublicKeyInsert.fingerprint
 		)
 	}
 
-	// Work around canonical/dqlite#918: RETURNING may report _sqlair_0
-	// instead of a retryable write conflict.
-	// See TestReturningWriteConflictWorkaroundStillRequired before replacing
-	// this insert and lookup with INSERT ... RETURNING.
-	if err := tx.Query(ctx, insertStmt, key).Run(); err != nil {
-		return 0, errors.Errorf(
-			"inserting public key for user %q: %w", key.UserId, err,
-		)
-	}
-
-	err = tx.Query(ctx, selectExistingIdStmt, key).Get(&row)
+	err = tx.Query(ctx, insertStmt, key).Get(&row)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		// No row was inserted because the fingerprint hash algorithm
 		// is not known.
@@ -187,7 +178,7 @@ AND k.fingerprint = $userPublicKeyInsert.fingerprint
 		).Add(keyerrors.InvalidPublicKey)
 	} else if err != nil {
 		return 0, errors.Errorf(
-			"fetching id for newly inserted public key on user %q: %w",
+			"inserting public key for user %q: %w",
 			key.UserId, err,
 		)
 	}

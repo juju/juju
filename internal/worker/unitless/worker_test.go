@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	domainunitless "github.com/juju/juju/domain/unitless"
+	"github.com/juju/juju/internal/scriptlet"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -110,7 +111,7 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	service := NewMockScriptletService(ctrl)
 	applicationUUID := coreapplication.UUID("app-uuid-1")
-	scriptlet := domainunitless.ScriptletApplication{
+	scriptletApp := domainunitless.ScriptletApplication{
 		UUID: applicationUUID,
 		Name: "app",
 		Life: corelife.Alive,
@@ -135,9 +136,9 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 		watchertest.NewMockStringsWatcher(appChanges), nil,
 	)
 	service.EXPECT().GetScriptletApplication(gomock.Any(), applicationUUID).Return(
-		scriptlet, nil,
+		scriptletApp, nil,
 	)
-	service.EXPECT().WatchScriptletApplicationDying(gomock.Any(), applicationUUID).Return(
+	service.EXPECT().WatchScriptletApplication(gomock.Any(), applicationUUID).Return(
 		watchertest.NewMockNotifyWatcher(dyingChanges), nil,
 	)
 	service.EXPECT().WatchApplicationEvents(gomock.Any(), applicationUUID).DoAndReturn(
@@ -152,8 +153,8 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 
 	executor := &fakeExecutor{
 		handled: make(chan domainunitless.Event, 1),
-		intents: []Intent{{
-			Type: IntentSetStatus,
+		intents: []scriptlet.Intent{{
+			Type: scriptlet.IntentSetStatus,
 			Args: map[string]any{
 				"status":  "active",
 				"message": "updated",
@@ -183,7 +184,7 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 
 	appChanges <- []string{applicationUUID.String()}
 	executorConfig := waitFor(c, executorConfigs)
-	c.Check(executorConfig.Scriptlet, tc.DeepEquals, scriptlet)
+	c.Check(executorConfig.Scriptlet, tc.DeepEquals, scriptletApp)
 	c.Check(executorConfig.MaxAllocs, tc.Equals, maxAllocs)
 	c.Check(executorConfig.MaxSteps, tc.Equals, maxSteps)
 	c.Check(executorConfig.MaxDuration, tc.Equals, maxDuration)
@@ -200,11 +201,11 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 
 type fakeExecutor struct {
 	handled chan domainunitless.Event
-	intents []Intent
+	intents []scriptlet.Intent
 	err     error
 }
 
-func (e *fakeExecutor) Handle(_ context.Context, event domainunitless.Event) ([]Intent, error) {
+func (e *fakeExecutor) Handle(_ context.Context, event domainunitless.Event) ([]scriptlet.Intent, error) {
 	e.handled <- event
 	return e.intents, e.err
 }

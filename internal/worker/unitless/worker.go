@@ -149,11 +149,6 @@ func (w *scriptletWorker) handleApplicationChanges(ctx context.Context, applicat
 			continue
 		}
 
-		// TODO (stickupkid): Handle charm upgrades. Currently, a charm upgrade
-		// is ignored due to the fact that the scriptlet worker already exists.
-		// When this happens, we need to stop the existing scriptlet worker and
-		// start a new one with the updated charm.
-
 		err := w.runner.StartWorker(ctx, applicationUUID, func(context.Context) (worker.Worker, error) {
 			return newApplicationRunner(applicationRunnerConfig{
 				ApplicationUUID:  coreapplication.UUID(applicationUUID),
