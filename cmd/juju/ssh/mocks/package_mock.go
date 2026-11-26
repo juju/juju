@@ -822,6 +822,7 @@ type MockModelCommand struct {
 type MockModelCommandMockRecorder struct {
 	mock                        *MockModelCommand
 	controllerDetailsExpects    []*gomock.Call0_2[*jujuclient.ControllerDetails, error]
+	controllerNameExpects       []*gomock.Call0_2[string, error]
 	modelDetailsExpects         []*gomock.Call1_3[context.Context, string, *jujuclient.ModelDetails, error]
 	modelIdentifierExpects      []*gomock.Call0_2[string, error]
 	newAPIClientExpects         []*gomock.Call1_2[context.Context, *client.Client, error]
@@ -858,6 +859,24 @@ func (mr *MockModelCommandMockRecorder) ControllerDetails() *MockModelCommandCon
 
 // MockModelCommandControllerDetailsCall is the typed call wrapper for ControllerDetails.
 type MockModelCommandControllerDetailsCall = gomock.Call0_2[*jujuclient.ControllerDetails, error]
+
+// ControllerName mocks base method.
+func (m *MockModelCommand) ControllerName() (string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_2(&m.recorder.controllerNameExpects, m.ctrl, m, "ControllerName")
+}
+
+// ControllerName indicates an expected call of ControllerName.
+func (mr *MockModelCommandMockRecorder) ControllerName() *MockModelCommandControllerNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_2[string, error](mr.mock.ctrl.T, mr.mock, "ControllerName")
+	mr.controllerNameExpects = append(mr.controllerNameExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelCommandControllerNameCall is the typed call wrapper for ControllerName.
+type MockModelCommandControllerNameCall = gomock.Call0_2[string, error]
 
 // ModelDetails mocks base method.
 func (m *MockModelCommand) ModelDetails(ctx context.Context) (string, *jujuclient.ModelDetails, error) {

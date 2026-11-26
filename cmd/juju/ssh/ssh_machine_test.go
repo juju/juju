@@ -6,6 +6,7 @@ package ssh
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -78,8 +79,11 @@ func (s *argsSpec) check(c tc.LikeC, output string) {
 	}
 
 	if s.withProxy {
+		// The nested command must name the controller that resolved
+		// the model, not rely on the current controller. The test
+		// client store runs on controller "arthur".
 		expect("-o ProxyCommand juju ssh " +
-			"--model=controller " +
+			"--model=arthur:controller " +
 			"--proxy=false " +
 			"--no-host-key-checks " +
 			"--pty=false ubuntu@localhost -q \"nc %h %p\"")
@@ -257,6 +261,74 @@ func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForContainerMachineTarg
 	c.Assert(target.via, tc.Not(tc.IsNil), tc.Commentf("expected target.via to be populated for container target"))
 	c.Assert(target.via.user, tc.Equals, "ubuntu")
 	c.Assert(target.via.host, tc.Equals, "10.0.0.1", tc.Commentf("expected target.via.host to be set to the container's host machine address"))
+}
+
+// TestSetProxyCommandQualifiesModelWithResolvedController checks that both
+// proxy command variants qualify the model with the controller resolved when
+// the command was initialised, rather than relying on whichever controller is
+// current when the nested command runs.
+//
+// The resolved controller (ctrl-b) deliberately differs from the controller
+// the test client store runs on (arthur), so the nested command can only be
+// correct if it carries the resolved controller.
+func (s *SSHMachineSuite) TestSetProxyCommandQualifiesModelWithResolvedController(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// The model command resolves model "m" on controller "ctrl-b", which
+	// is not the current controller.
+	mc := mocks.NewMockModelCommand(ctrl)
+	mc.EXPECT().ModelIdentifier().Return("m", nil)
+	mc.EXPECT().ControllerName().Return("ctrl-b", nil)
+
+	machine := &sshMachine{
+		// Proxying explicitly requested: initRun does not query the API
+		// for the proxy-ssh setting. Pre-setting every API client makes
+		// ensureAPIClient skip opening a connection, so none of their
+		// methods are expected to be called. The API address is supplied
+		// here because ensureAPIClient is skipped.
+		proxy:        true,
+		apiAddr:      &url.URL{Host: "1.2.3.4:17070"},
+		sshClient:    mocks.NewMockSSHClientAPI(ctrl),
+		statusClient: mocks.NewMockStatusClientAPI(ctrl),
+	}
+	machine.setLeaderAPI(c.Context(), mocks.NewMockLeaderAPI(ctrl))
+
+	err := machine.initRun(c.Context(), mc)
+	c.Assert(err, tc.ErrorIsNil)
+
+	for i, t := range []struct {
+		about   string
+		targets []*resolvedTarget
+		expect  string
+	}{{
+		about:   "controller jump",
+		targets: []*resolvedTarget{{user: "ubuntu", host: "10.0.0.1"}},
+		expect: `juju ssh --model=ctrl-b:m --proxy=false ` +
+			`--no-host-key-checks --pty=false ubuntu@1.2.3.4 ` +
+			`-q "nc %h %p"`,
+	}, {
+		about: "via target",
+		targets: []*resolvedTarget{{
+			user: "ubuntu", host: "252.66.6.42",
+			via: &resolvedTarget{user: "ubuntu", host: "10.0.0.1"},
+		}},
+		expect: `juju ssh --model=ctrl-b:m --proxy=true ` +
+			`--no-host-key-checks --pty=false ubuntu@10.0.0.1 ` +
+			`-q "nc %h %p"`,
+	}} {
+		c.Logf("test %d: %s", i, t.about)
+
+		var options ssh.Options
+		err := machine.setProxyCommand(&options, t.targets)
+		c.Assert(err, tc.ErrorIsNil)
+
+		// The fake ssh installed by the suite echoes its arguments,
+		// including the rendered -o ProxyCommand value.
+		out, err := ssh.Command("ubuntu@10.0.0.1", nil, &options).CombinedOutput()
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(string(out), tc.Contains, "-o ProxyCommand "+t.expect)
+	}
 }
 
 func (s *SSHMachineSuite) setHostChecker(hostChecker jujussh.ReachableChecker) {
