@@ -346,7 +346,7 @@ chmod 0600 '/var/lib/juju/agents/machine-0/agent\.conf'
 install -D -m 600 /dev/null '/var/lib/juju/bootstrap-params'
 echo '.*' > '/var/lib/juju/bootstrap-params'
 echo 'Installing Juju machine agent'.*
-/var/lib/juju/tools/1\.2\.3-ubuntu-amd64/jujuagentd bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug
+/var/lib/juju/tools/1\.2\.3-ubuntu-amd64/jujuagentd bootstrap-state --data-dir '/var/lib/juju' --debug --timeout 10m0s
 /sbin/remove-juju-services
 `,
 	},
@@ -381,7 +381,7 @@ chmod 0600 '/var/lib/juju/agents/machine-0/agent\.conf'
 install -D -m 600 /dev/null '/var/lib/juju/bootstrap-params'
 echo '.*' > '/var/lib/juju/bootstrap-params'
 echo 'Installing Juju machine agent'.*
-/var/lib/juju/tools/1\.2\.3\.123-ubuntu-amd64/jujuagentd bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug
+/var/lib/juju/tools/1\.2\.3\.123-ubuntu-amd64/jujuagentd bootstrap-state --data-dir '/var/lib/juju' --debug --timeout 10m0s
 `,
 	},
 

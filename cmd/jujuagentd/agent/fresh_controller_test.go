@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/controller"
-	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -55,6 +54,24 @@ func (s *freshControllerSuite) TestDatabaseFailureDoesNotPersistNewPassword(c *t
 	s.assertFreshController(c, false, errors.New("database failed"), false, agent.BootstrapControllerId)
 }
 
+func (s *freshControllerSuite) TestK8sTemplateCopyCanBeRetried(c *tc.C) {
+	dataDir := c.MkDir()
+	tag := names.NewControllerAgentTag(agent.BootstrapControllerId)
+	dir := agent.Dir(dataDir, tag)
+	c.Assert(os.MkdirAll(dir, 0700), tc.ErrorIsNil)
+	c.Assert(ensureConfigFilesForK8s(dataDir), tc.ErrorIs, os.ErrNotExist)
+	configPath := agent.ConfigPath(dataDir, tag)
+	_, err := os.Stat(configPath)
+	c.Check(err, tc.ErrorIs, os.ErrNotExist)
+
+	template := filepath.Join(dir, k8sconstants.TemplateFileNameAgentConf)
+	c.Assert(os.WriteFile(template, []byte("controller config"), 0600), tc.ErrorIsNil)
+	c.Assert(ensureConfigFilesForK8s(dataDir), tc.ErrorIsNil)
+	data, err := os.ReadFile(configPath)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(data), tc.Equals, "controller config")
+}
+
 func (s *freshControllerSuite) TestRecoverySkipsDqliteInitialisation(c *tc.C) {
 	s.assertFreshController(c, false, nil, true, agent.BootstrapControllerId)
 }
@@ -63,30 +80,8 @@ func (s *freshControllerSuite) TestRecoveryUsesArchivedMachineId(c *tc.C) {
 	s.assertFreshController(c, false, nil, true, "7")
 }
 
-func (s *freshControllerSuite) TestRecoveryK8sControllerNotSupported(c *tc.C) {
-	dataDir := c.MkDir()
-	modelUUID := tc.Must0(c, coremodel.NewUUID)
-	modelConfig := jujutesting.CustomModelConfig(c, jujutesting.Attrs{
-		"name": "controller", "uuid": modelUUID.String(), "type": cloud.CloudTypeKubernetes,
-		"agent-version": jujuversion.Current.String(),
-	})
-	params := instancecfg.StateInitializationParams{
-		ControllerConfig:      jujutesting.FakeControllerConfig(),
-		ControllerModelConfig: modelConfig,
-		ControllerCloud: cloud.Cloud{
-			Name: "test-cloud", Type: cloud.CloudTypeKubernetes, AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
-		},
-		RecoveryMode: true,
-	}
-	paramsData, err := params.Marshal()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(os.WriteFile(filepath.Join(dataDir, cloudconfig.FileNameBootstrapParams), paramsData, 0600), tc.ErrorIsNil)
-	writeRecoveryMarker(c, dataDir)
-
-	command := NewRecoverCommand()
-	command.AgentConf = agentconf.NewAgentConf(dataDir)
-	err = command.Run(cmdtesting.Context(c))
-	c.Check(err, tc.ErrorIs, coreerrors.NotSupported)
+func (s *freshControllerSuite) TestRecoveryK8sController(c *tc.C) {
+	s.assertFreshController(c, true, nil, true, agent.BootstrapControllerId)
 }
 
 func (s *freshControllerSuite) TestRecoverRejectsFreshBootstrapParams(c *tc.C) {
@@ -185,8 +180,12 @@ func (s *freshControllerSuite) assertFreshController(
 	c.Assert(err, tc.ErrorIsNil)
 	cfg.SetPassword("agent-before")
 	if isK8s {
-		// The fresh Kubernetes workflow must create agent.conf from its template.
-		template := filepath.Join(agent.Dir(dataDir, tag), k8sconstants.TemplateFileNameAgentConf)
+		// Both fresh bootstrap and recovery must create agent.conf from its
+		// Kubernetes template.
+		template := filepath.Join(
+			agent.Dir(dataDir, names.NewControllerAgentTag(agent.BootstrapControllerId)),
+			k8sconstants.TemplateFileNameAgentConf,
+		)
 		err = os.MkdirAll(filepath.Dir(template), 0700)
 		c.Assert(err, tc.ErrorIsNil)
 		data, err := cfg.Render()
@@ -239,6 +238,11 @@ func (s *freshControllerSuite) assertFreshController(
 		command.MachineId = machineId
 		err = command.Run(cmdtesting.Context(c))
 		c.Assert(err, tc.ErrorIsNil)
+		if isK8s {
+			// A pod retry must also repair a truncated legacy template copy.
+			c.Assert(os.WriteFile(agent.ConfigPath(dataDir, tag), nil, 0600), tc.ErrorIsNil)
+			c.Assert(command.Run(cmdtesting.Context(c)), tc.ErrorIsNil)
+		}
 	} else {
 		command := NewBootstrapCommand()
 		command.AgentConf = agentconf.NewAgentConf(dataDir)

@@ -8,6 +8,7 @@ import (
 	"path"
 
 	"github.com/juju/gnuflag"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/agent"
 	agentconfig "github.com/juju/juju/agent/config"
@@ -15,7 +16,6 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/errors"
@@ -98,19 +98,17 @@ func (c *RecoverCommand) initialiseRecoveryController(
 	if !isRecovery {
 		return errors.New("agent data directory holds no recovery marker")
 	}
-	if args.ControllerCloud.Type == cloud.CloudTypeKubernetes {
-		return errors.Errorf("Kubernetes controller recovery %w", coreerrors.NotSupported)
-	}
-
-	if err := agentconfig.ReadAgentConfig(c, c.MachineId); err != nil {
+	isK8s := args.ControllerCloud.Type == cloud.CloudTypeKubernetes
+	if err := c.readRecoveryConfig(isK8s); err != nil {
 		return errors.Errorf("cannot read config: %w", err)
 	}
+
 	agentConfig := c.CurrentConfig()
 	info, ok := agentConfig.ControllerAgentInfo()
 	if !ok {
 		return errors.New("bootstrap machine config has no state serving info")
 	}
-	if err := ensureKeys(false, &args, &info); err != nil {
+	if err := ensureKeys(isK8s, &args, &info); err != nil {
 		return errors.Capture(err)
 	}
 
@@ -127,4 +125,19 @@ func (c *RecoverCommand) initialiseRecoveryController(
 
 	logger.Infof(ctx, "recovery database import is not available in this build")
 	return nil
+}
+
+func (c *RecoverCommand) readRecoveryConfig(isK8s bool) error {
+	err := agentconfig.ReadAgentConfig(c, c.MachineId)
+	if err == nil || !isK8s || c.MachineId != agent.BootstrapControllerId {
+		return err
+	}
+	// Older pods could leave a truncated config if their template copy was
+	// interrupted. The recovery fence is in place and the seed is available
+	// throughout startup, so retry from it when the config is unreadable.
+	tag := names.NewControllerAgentTag(agent.BootstrapControllerId)
+	if err := copyK8sControllerConfigTemplate(agent.ConfigPath(c.DataDir(), tag)); err != nil {
+		return errors.Capture(err)
+	}
+	return c.ReadConfig(tag.String())
 }

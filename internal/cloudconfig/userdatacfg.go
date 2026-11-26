@@ -490,36 +490,29 @@ func (w *userdataConfig) configureBootstrap() error {
 		// logger will be set to DEBUG. If it is, then we use --debug here too.
 		loggingOption = "--debug"
 	}
-	featureFlags := featureflag.AsEnvironmentValue()
-	if featureFlags != "" {
-		featureFlags = fmt.Sprintf("%s=%s ", osenv.JujuFeatureFlagEnvKey, featureFlags)
+	featureFlagsEnv := ""
+	if featureFlags := featureflag.AsEnvironmentValue(); featureFlags != "" {
+		featureFlagsEnv = fmt.Sprintf("%s=%s", osenv.JujuFeatureFlagEnvKey, featureFlags)
 	}
-	bootstrapSubcommand := "bootstrap-state"
-	var recoveryArgs []string
+	agentStartOptions := AgentStartOptions{
+		ToolPath:        w.icfg.JujuTools() + "/" + jujunames.JujuAgentd,
+		DataDir:         shquote(w.icfg.DataDir),
+		LoggingOption:   loggingOption,
+		Timeout:         w.icfg.Bootstrap.Timeout,
+		FeatureFlagsEnv: featureFlagsEnv,
+		RecoveryMode:    w.icfg.Bootstrap.RecoveryMode,
+	}
 	if w.icfg.Bootstrap.RecoveryMode {
 		// The marker must exist before jujuagentd machine starts so its
-		// dependency engine waits for the recovery import.
-		w.conf.AddRunCmd(fmt.Sprintf("install -D -m %o /dev/null %s",
-			0600, shquote(path.Join(w.icfg.DataDir, agent.RecoveryParamsFile))))
-		bootstrapSubcommand = "recover-state"
-		recoveryArgs = []string{"--machine-id", w.icfg.MachineId}
+		// dependency engine waits for the recovery import. The archived
+		// machine identity only applies to recovery too: bootstrap-state
+		// defines no --machine-id flag.
+		agentStartOptions.MachineID = w.icfg.MachineId
+		w.conf.AddRunCmd(RecoveryMarkerCommand(
+			shquote(path.Join(w.icfg.DataDir, agent.RecoveryParamsFile))))
 	}
-	bootstrapAgentArgs := []string{
-		featureFlags + w.icfg.JujuTools() + "/" + jujunames.JujuAgentd,
-		bootstrapSubcommand,
-	}
-	if !w.icfg.Bootstrap.RecoveryMode {
-		// Only the fresh bootstrap performs timed state initialisation
-		// work; recover-state carries no timeout.
-		bootstrapAgentArgs = append(bootstrapAgentArgs,
-			"--timeout", w.icfg.Bootstrap.Timeout.String())
-	}
-	bootstrapAgentArgs = append(bootstrapAgentArgs,
-		"--data-dir", shquote(w.icfg.DataDir))
-	bootstrapAgentArgs = append(bootstrapAgentArgs, loggingOption)
-	bootstrapAgentArgs = append(bootstrapAgentArgs, recoveryArgs...)
 	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Installing Juju machine agent"))
-	w.conf.AddScripts(strings.Join(bootstrapAgentArgs, " "))
+	w.conf.AddScripts(AgentStartCommand(agentStartOptions))
 
 	return nil
 }

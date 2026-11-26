@@ -6,6 +6,10 @@ package kubernetes_test
 import (
 	"context"
 	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,6 +31,7 @@ import (
 	clientkubernetes "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
+	k8sclientexec "k8s.io/client-go/util/exec"
 	"k8s.io/utils/pointer"
 
 	"github.com/juju/juju/agent"
@@ -35,8 +40,10 @@ import (
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/constraints"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/featureflag"
@@ -326,6 +333,175 @@ func (s *bootstrapSuite) TestControllerSpecWaitsForLocalControllerCharm(c *tc.C)
 	c.Check(startup, tc.Contains, "until test -e $JUJU_DATA_DIR/charms/controller.charm; do sleep 1; done")
 	c.Check(startup, tc.Contains, "$JUJU_TOOLS_DIR/jujuagentd bootstrap-state --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s")
 	c.Check(startup, tc.Not(tc.Contains), "test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf ||")
+	c.Check(startup, tc.Not(tc.Contains), "recovery/params")
+}
+
+func (s *bootstrapSuite) TestControllerSpecRecoveryMode(c *tc.C) {
+	newK8sClientFunc, newK8sRestClientFunc := s.setupK8sRestClient(c, s.pcfg.ControllerName)
+	var bootstrapWatchers []k8swatcher.KubernetesNotifyWatcher
+	s.setupBroker(c, newK8sClientFunc, newK8sRestClientFunc, &bootstrapWatchers)
+
+	s.pcfg.Bootstrap.Timeout = 10 * time.Minute
+	s.pcfg.Bootstrap.RecoveryMode = true
+
+	spec := s.controllerStackerGetter().BuildContainerSpecForController(c)
+	var apiServer *core.Container
+	for i := range spec.Containers {
+		if spec.Containers[i].Name == "api-server" {
+			apiServer = &spec.Containers[i]
+			break
+		}
+	}
+	c.Assert(apiServer, tc.NotNil)
+	c.Assert(apiServer.Args, tc.HasLen, 2)
+
+	startup := apiServer.Args[1]
+	c.Check(startup, tc.Contains, "$JUJU_TOOLS_DIR/jujuagentd recover-state --data-dir $JUJU_DATA_DIR --debug")
+	c.Check(startup, tc.Not(tc.Contains), "jujuagentd bootstrap-state")
+	// recover-state defines no --timeout flag: passing one crash-loops the
+	// pod on flag parse failure.
+	c.Check(startup, tc.Not(tc.Contains), "--timeout")
+	testRecoveryContainerRestarts(c, startup)
+	paramsData, err := s.pcfg.Bootstrap.StateInitializationParams.Marshal()
+	c.Assert(err, tc.ErrorIsNil)
+	var params instancecfg.StateInitializationParams
+	c.Assert(params.Unmarshal(paramsData), tc.ErrorIsNil)
+	c.Check(params.RecoveryMode, tc.IsTrue)
+}
+
+// Run the generated container entry point with stand-ins for the agent and
+// Pebble. The same data directory is mounted on each simulated restart.
+func testRecoveryContainerRestarts(c *tc.C, startup string) {
+	dir := c.MkDir()
+	data := filepath.Join(dir, "data")
+	agentPath := filepath.Join(dir, "jujuagentd")
+	pebblePath := filepath.Join(dir, "pebble")
+	c.Assert(os.WriteFile(agentPath, []byte(`#!/bin/sh
+echo "$1"
+mkdir -p "$JUJU_DATA_DIR/agents/controller-0"
+touch "$JUJU_DATA_DIR/agents/controller-0/agent.conf"
+exit "$RECOVER_EXIT"
+`), 0700), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(pebblePath, []byte("#!/bin/sh\necho pebble\n"), 0700), tc.ErrorIsNil)
+	startup = strings.NewReplacer(
+		"/opt/jujuagentd", agentPath, "/opt/pebble", pebblePath,
+		"/var/lib/pebble", filepath.Join(dir, "layers"), "/var/lib/juju", data,
+	).Replace(startup)
+	run := func(host, recoverExit string) (string, error) {
+		cmd := exec.CommandContext(c.Context(), "/bin/sh", "-c", startup)
+		cmd.Env = append(cmd.Environ(), "HOSTNAME="+host, "RECOVER_EXIT="+recoverExit)
+		out, err := cmd.CombinedOutput()
+		return string(out), err
+	}
+	out, err := run("controller-0", "42")
+	c.Assert(err, tc.ErrorMatches, "exit status 42")
+	c.Check(out, tc.Equals, "recover-state\n")
+	params := filepath.Join(data, agent.RecoveryParamsFile)
+	info, err := os.Stat(params)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.Mode(), tc.Equals, os.FileMode(0600))
+	c.Assert(os.WriteFile(params, []byte("pending"), 0600), tc.ErrorIsNil)
+	out, err = run("controller-0", "0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(out, tc.Equals, "recover-state\npebble\n")
+	content, err := os.ReadFile(params)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(content), tc.Equals, "pending")
+
+	c.Assert(os.WriteFile(filepath.Join(data, agent.RecoveryAgentWaitingFile), nil, 0600), tc.ErrorIsNil)
+	out, err = run("controller-0", "42")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(out, tc.Equals, "pebble\n")
+
+	c.Assert(os.RemoveAll(filepath.Dir(params)), tc.ErrorIsNil)
+	out, err = run("controller-0", "42")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(out, tc.Equals, "pebble\n")
+	_, err = os.Stat(params)
+	c.Check(err, tc.ErrorIs, os.ErrNotExist)
+
+	replicaDir := filepath.Join(data, "agents", "controller-1")
+	c.Assert(os.MkdirAll(replicaDir, 0700), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(filepath.Join(replicaDir, "agent.conf"), nil, 0600), tc.ErrorIsNil)
+	c.Assert(os.RemoveAll(filepath.Join(data, "agents", "controller-0")), tc.ErrorIsNil)
+	out, err = run("controller-1", "42")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(out, tc.Equals, "pebble\n")
+	_, err = os.Stat(params)
+	c.Check(err, tc.ErrorIs, os.ErrNotExist)
+}
+
+func (s *bootstrapSuite) TestWaitForPodCanCancelWithoutWatcherChanges(c *tc.C) {
+	pods, _ := k8swatchertest.NewKubernetesTestWatcher()
+	defer pods.Kill()
+	events, _ := k8swatchertest.NewKubernetesTestWatcher()
+	<-pods.Changes()
+	<-events.Changes()
+	s.k8sWatcherFn = k8swatchertest.NewKubernetesTestWatcherFunc(events)
+	client, rest := s.setupK8sRestClient(c, s.pcfg.ControllerName)
+	s.setupBroker(c, client, rest, nil)
+	s.pcfg.Bootstrap.Timeout = time.Minute
+
+	ctx, cancel := context.WithCancel(c.Context())
+	cancel()
+	err := s.controllerStackerGetter().WaitForPod(ctx, pods, s.pcfg.GetPodName())
+	c.Check(err, tc.ErrorIs, bootstrap.Cancelled())
+}
+
+func (s *bootstrapSuite) TestWaitForRecoveryAgent(c *tc.C) {
+	s.pcfg.Bootstrap.Timeout = time.Minute
+	client := &localControllerCharmExec{
+		execErrAt: 1,
+		execErr:   errors.Trace(k8sclientexec.CodeExitError{Err: errors.New("marker absent"), Code: 1}),
+	}
+	err := kubernetes.WaitForRecoveryAgent(c.Context(), client, s.pcfg)
+	c.Assert(err, tc.ErrorIsNil)
+	probe := []string{"test", "-f", "/var/lib/juju/recovery/params",
+		"&&", "test", "-f", "/var/lib/juju/recovery/agent-waiting"}
+	c.Check(client.execCommands, tc.DeepEquals, [][]string{probe, probe})
+	c.Check(client.execPod, tc.Equals, "controller-0")
+	c.Check(client.execContainer, tc.Equals, "api-server")
+}
+
+func (s *bootstrapSuite) TestWaitForRecoveryAgentRetriesContainerNotRunning(c *tc.C) {
+	s.pcfg.Bootstrap.Timeout = time.Minute
+	client := &localControllerCharmExec{
+		execErrAt: 1,
+		execErr:   errors.Trace(&k8sexec.ContainerNotRunningError{}),
+	}
+	err := kubernetes.WaitForRecoveryAgent(c.Context(), client, s.pcfg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(client.execCommands, tc.HasLen, 2)
+}
+
+func (s *bootstrapSuite) TestWaitForRecoveryAgentReportsExecFailure(c *tc.C) {
+	s.pcfg.Bootstrap.Timeout = time.Minute
+	client := &localControllerCharmExec{execErrAt: 1, execErr: errors.New("forbidden")}
+	err := kubernetes.WaitForRecoveryAgent(c.Context(), client, s.pcfg)
+	c.Check(err, tc.ErrorIs, client.execErr)
+	c.Check(client.execCommands, tc.HasLen, 1)
+}
+
+func (s *bootstrapSuite) TestWaitForRecoveryAgentDeadline(c *tc.C) {
+	s.pcfg.Bootstrap.Timeout = 0
+	client := &localControllerCharmExec{
+		execErrAt: 1,
+		execErr:   k8sclientexec.CodeExitError{Err: errors.New("marker absent"), Code: 1},
+	}
+	err := kubernetes.WaitForRecoveryAgent(c.Context(), client, s.pcfg)
+	c.Check(err, tc.ErrorIs, context.DeadlineExceeded)
+}
+
+func (s *bootstrapSuite) TestWaitForRecoveryAgentCancelled(c *tc.C) {
+	s.pcfg.Bootstrap.Timeout = time.Minute
+	ctx, cancel := context.WithCancel(c.Context())
+	cancel()
+	client := &localControllerCharmExec{
+		execErrAt: 1,
+		execErr:   k8sclientexec.CodeExitError{Err: errors.New("marker absent"), Code: 1},
+	}
+	err := kubernetes.WaitForRecoveryAgent(ctx, client, s.pcfg)
+	c.Check(err, tc.ErrorIs, context.Canceled)
 }
 
 func (s *bootstrapSuite) TestIsLocalControllerCharmPath(c *tc.C) {
@@ -1488,8 +1664,10 @@ type localControllerCharmExec struct {
 	stderr    string
 	copyErr   error
 
-	execCommands [][]string
-	copyParams   []k8sexec.CopyParams
+	execCommands  [][]string
+	execPod       string
+	execContainer string
+	copyParams    []k8sexec.CopyParams
 }
 
 func (e *localControllerCharmExec) Status(context.Context, k8sexec.StatusParams) (*k8sexec.Status, error) {
@@ -1497,6 +1675,7 @@ func (e *localControllerCharmExec) Status(context.Context, k8sexec.StatusParams)
 }
 
 func (e *localControllerCharmExec) Exec(_ context.Context, params k8sexec.ExecParams, _ <-chan struct{}) error {
+	e.execPod, e.execContainer = params.PodName, params.ContainerName
 	e.execCommands = append(e.execCommands, params.Commands)
 	if e.execErrAt != len(e.execCommands) {
 		return nil

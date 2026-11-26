@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
@@ -29,6 +30,7 @@ var (
 	GetLocalMicroK8sConfig  = getLocalMicroK8sConfig
 	AttemptMicroK8sCloud    = attemptMicroK8sCloud
 	EnsureMicroK8sSuitable  = ensureMicroK8sSuitable
+	WaitForRecoveryAgent    = waitForRecoveryAgent
 	NewK8sBroker            = newK8sBroker
 	ProcessSecretData       = processSecretData
 
@@ -57,6 +59,7 @@ type ControllerStackerForTest interface {
 	GetControllerSvcSpec(string, *podcfg.BootstrapConfig) (*controllerServiceSpec, error)
 	SetControllerAgentLokiConfig(string, *string, *bool, string)
 	BuildContainerSpecForController(*tc.C) *core.PodSpec
+	WaitForPod(context.Context, watcher.NotifyWatcher, string) error
 	UploadLocalControllerCharm(context.Context, string) error
 	UploadLocalControllerCharmWithRetry(context.Context, string) error
 	ControllerExecClient() (k8sexec.Executor, error)
@@ -105,6 +108,10 @@ func (cs *controllerStack) BuildContainerSpecForController(c *tc.C) *core.PodSpe
 	return spec
 }
 
+func (cs *controllerStack) WaitForPod(ctx context.Context, w watcher.NotifyWatcher, name string) error {
+	return cs.waitForPod(ctx, w, name)
+}
+
 func (cs *controllerStack) UploadLocalControllerCharm(ctx context.Context, podName string) error {
 	return cs.uploadLocalControllerCharm(ctx, podName)
 }
@@ -114,7 +121,7 @@ func (cs *controllerStack) UploadLocalControllerCharmWithRetry(ctx context.Conte
 }
 
 func (cs *controllerStack) ControllerExecClient() (k8sexec.Executor, error) {
-	return cs.controllerExecClient()
+	return cs.broker.controllerExecClient()
 }
 
 func (cs *controllerStack) SetControllerExecClientFactory(factory func() (k8sexec.Executor, error)) {

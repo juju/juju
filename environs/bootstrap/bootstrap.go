@@ -284,6 +284,7 @@ func withDefaultCAASControllerConstraints(cons constraints.Value) constraints.Va
 	return cons
 }
 
+// bootstrapCAAS performs a fresh Kubernetes controller bootstrap.
 func bootstrapCAAS(
 	ctx environs.BootstrapContext,
 	environ environs.BootstrapEnviron,
@@ -300,17 +301,10 @@ func bootstrapCAAS(
 		return errors.NotSupportedf("--bootstrap-series or --bootstrap-base when bootstrapping a k8s controller")
 	}
 
-	constraintsValidator, err := environ.ConstraintsValidator(ctx)
-	if err != nil {
-		return err
-	}
-	bootstrapConstraints, err := constraintsValidator.Merge(
-		args.ModelConstraints, args.BootstrapConstraints,
-	)
+	bootstrapConstraints, err := prepareK8sConstraints(ctx, environ, args.AllocationParams)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	bootstrapConstraints = withDefaultCAASControllerConstraints(bootstrapConstraints)
 	bootstrapParams.BootstrapConstraints = bootstrapConstraints
 
 	result, err := environ.Bootstrap(ctx, bootstrapParams)
@@ -318,6 +312,46 @@ func bootstrapCAAS(
 		return errors.Trace(err)
 	}
 
+	podConfig, err := finishK8sBootstrap(ctx, environ, args, result, bootstrapConstraints)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := result.CaasBootstrapFinalizer(ctx, podConfig, args.DialOpts); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// prepareK8sConstraints merges and defaults the bootstrap constraints for a
+// Kubernetes controller, shared by fresh bootstrap and recovery allocation.
+func prepareK8sConstraints(
+	ctx environs.BootstrapContext,
+	environ environs.BootstrapEnviron,
+	args AllocationParams,
+) (constraints.Value, error) {
+	constraintsValidator, err := environ.ConstraintsValidator(ctx)
+	if err != nil {
+		return constraints.Value{}, err
+	}
+	bootstrapConstraints, err := constraintsValidator.Merge(
+		args.ModelConstraints, args.BootstrapConstraints,
+	)
+	if err != nil {
+		return constraints.Value{}, errors.Trace(err)
+	}
+	return withDefaultCAASControllerConstraints(bootstrapConstraints), nil
+}
+
+// finishK8sBootstrap builds the controller pod configuration and finalises
+// the bootstrap configuration. It does not invoke the provider finaliser;
+// callers apply any mode-specific overrides and invoke the finaliser.
+func finishK8sBootstrap(
+	ctx environs.BootstrapContext,
+	environ environs.BootstrapEnviron,
+	args BootstrapParams,
+	result *environs.BootstrapResult,
+	bootstrapConstraints constraints.Value,
+) (*podcfg.ControllerPodConfig, error) {
 	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 		args.ControllerConfig,
 		args.ControllerName,
@@ -325,7 +359,7 @@ func bootstrapCAAS(
 		bootstrapConstraints,
 	)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	jujuVersion := jujuversion.Current
@@ -334,16 +368,13 @@ func bootstrapCAAS(
 	}
 	// set agent version before finalizing bootstrap config
 	if err := setBootstrapAgentVersion(ctx, environ, jujuVersion); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	podConfig.JujuVersion = jujuVersion
 	if err := finalizePodBootstrapConfig(ctx, podConfig, args, environ.Config()); err != nil {
-		return errors.Annotate(err, "finalizing bootstrap instance config")
+		return nil, errors.Annotate(err, "finalizing bootstrap instance config")
 	}
-	if err := result.CaasBootstrapFinalizer(ctx, podConfig, args.DialOpts); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return podConfig, nil
 }
 
 // machinePreparation holds the shared discovery and constraint results needed to
@@ -822,7 +853,8 @@ func providerBootstrapParams(args BootstrapParams) environs.BootstrapParams {
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped
 // environment. It always performs a fresh controller bootstrap; allocating a
-// replacement controller from a recovery archive is done by Recover.
+// replacement controller from a recovery archive is done by RecoverMachine
+// or RecoverK8s.
 func Bootstrap(
 	ctx environs.BootstrapContext,
 	environ environs.BootstrapEnviron,

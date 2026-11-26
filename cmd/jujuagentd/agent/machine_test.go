@@ -47,12 +47,18 @@ func (s *MachineSuite) TestStub(c *tc.C) {
 func (s *MachineSuite) TestValidateRecoveryEngineStart(c *tc.C) {
 	dataDir := c.MkDir()
 	c.Check(validateRecoveryEngineStart(dataDir), tc.ErrorIsNil)
+	waiting := filepath.Join(dataDir, agent.RecoveryAgentWaitingFile)
+	_, err := os.Stat(waiting)
+	c.Check(err, tc.ErrorIs, os.ErrNotExist)
 
 	paramsFile := filepath.Join(dataDir, agent.RecoveryParamsFile)
 	c.Assert(os.MkdirAll(filepath.Dir(paramsFile), 0755), tc.ErrorIsNil)
 	c.Assert(os.WriteFile(paramsFile, nil, 0600), tc.ErrorIsNil)
-	err := validateRecoveryEngineStart(dataDir)
-	c.Check(err, tc.ErrorMatches, "recovery import has not completed")
+	c.Assert(os.Mkdir(waiting, 0700), tc.ErrorIsNil)
+	err = validateRecoveryEngineStart(dataDir)
+	c.Check(err, tc.ErrorMatches, "acknowledging recovery import wait: .*")
+	c.Assert(os.Remove(waiting), tc.ErrorIsNil)
+	c.Check(validateRecoveryEngineStart(dataDir), tc.ErrorIs, errRecoveryImportPending)
 }
 
 // TestEngineCreatorWaitsForRecoveryImport exercises the engine creator the
@@ -70,7 +76,14 @@ func (s *MachineSuite) TestEngineCreatorWaitsForRecoveryImport(c *tc.C) {
 		"machine-7", semversion.Number{}, nil, nil, nil)
 	w, err := createEngine(context.Background())
 	c.Check(w, tc.IsNil)
-	c.Check(err, tc.ErrorMatches, "recovery import has not completed")
+	c.Assert(err, tc.ErrorIs, errRecoveryImportPending)
+	waiting := filepath.Join(dataDir, agent.RecoveryAgentWaitingFile)
+	fi, err := os.Stat(waiting)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(fi.Mode(), tc.Equals, os.FileMode(0600))
+	c.Check(validateRecoveryEngineStart(dataDir), tc.ErrorIs, errRecoveryImportPending)
+	c.Assert(os.Remove(paramsFile), tc.ErrorIsNil)
+	c.Check(validateRecoveryEngineStart(dataDir), tc.ErrorIsNil)
 }
 
 func (s *MachineSuite) TestIntegrationStub(c *tc.C) {

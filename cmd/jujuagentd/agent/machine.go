@@ -672,6 +672,9 @@ func validateRecoveryEngineStart(dataDir string) error {
 		return internalerrors.Capture(err)
 	}
 	if isRecovery {
+		if err := agent.AcknowledgeRecoveryWait(dataDir); err != nil {
+			return internalerrors.Errorf("acknowledging recovery import wait: %w", err)
+		}
 		return errRecoveryImportPending
 	}
 	return nil
