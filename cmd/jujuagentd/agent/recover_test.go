@@ -222,7 +222,7 @@ func (s *recoveryMachineSuite) TestRecoverDqliteAddsNodeRowWithoutSeeding(c *tc.
 	mgr := newLoopbackNodeManager(c, dataDir)
 	logger := loggertesting.WrapCheckLog(c)
 	const bindAddress = "127.0.0.1"
-	err := recoverDqlite(c.Context(), mgr, bindAddress, recoveryArchivedMachine, logger)
+	err := NewRecoverCommand().RecoverDqlite(c.Context(), mgr, bindAddress, recoveryArchivedMachine, logger)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Read the node row back through a fresh initialisation session on

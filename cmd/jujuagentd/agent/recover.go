@@ -27,7 +27,6 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
 	controllernodestate "github.com/juju/juju/domain/controllernode/state"
-	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/cloudconfig"
@@ -258,8 +257,7 @@ func (c *RecoverCommand) readK8sRecoveryConfig() error {
 	return c.ReadConfig(tag.String())
 }
 
-// recoverDqlite opens the replacement controller database and adds its
-// controller node row.
+// recoverDqlite wires the controller node service to the recovery session.
 func recoverDqlite(
 	ctx context.Context,
 	mgr database.BootstrapNodeManager,
@@ -267,20 +265,11 @@ func recoverDqlite(
 	machineName string,
 	logger corelogger.Logger,
 ) error {
-	return database.WithDqlite(ctx, mgr, bindAddress, logger,
-		func(ctx context.Context, session *database.DqliteSession) error {
-			controllerRunner, err := session.OpenDatabase(ctx, coredatabase.ControllerNS, schema.ControllerDDL())
-			if err != nil {
-				return errors.Capture(err)
-			}
-			nodes := controllernodeservice.NewService(
-				controllernodestate.NewState(func(context.Context) (coredatabase.TxnRunner, error) {
-					return controllerRunner, nil
-				}),
-				logger,
-			)
-			return errors.Capture(nodes.AddDqliteNode(
-				ctx, machineName, session.NodeID(), session.BindAddress(),
-			))
+	newControllerNodeService := func(runner coredatabase.TxnRunner) database.ControllerNodeService {
+		state := controllernodestate.NewState(func(context.Context) (coredatabase.TxnRunner, error) {
+			return runner, nil
 		})
+		return controllernodeservice.NewService(state, logger)
+	}
+	return database.RecoverDqlite(ctx, mgr, newControllerNodeService, bindAddress, machineName, logger)
 }
