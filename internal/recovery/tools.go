@@ -37,10 +37,7 @@ const (
 // Close must be called after the tools are no longer needed.
 type StagedAgentTools struct {
 	Tools *coretools.Tools
-	// Repackaged reports that the original bundle was absent and installed
-	// agent files were bundled anew, potentially changing the bundle digest.
-	Repackaged bool
-	dir        string
+	dir   string
 }
 
 // Close removes the staged bundle.
@@ -54,8 +51,11 @@ func (s *StagedAgentTools) Close() error {
 //
 // The backup stores installed files, not necessarily their original tarball.
 // If an original tarball is present, it is preferred so its existing digest
-// is retained. Otherwise the installed files are bundled without executing
-// the archived binary or assuming that the client's architecture matches.
+// is retained. Otherwise the installed files are bundled anew without
+// executing the archived binary or assuming that the client's architecture
+// matches. The reconstructed bundle carries the same installed agent, but
+// it is a different tarball, so its digest need not match the original's.
+// That is expected and harmless: either bundle serves the archived agent.
 func StageAgentTools(
 	ctx context.Context, archivePath, expectedSHA256 string, version semversion.Binary,
 ) (_ *StagedAgentTools, err error) {
@@ -148,8 +148,7 @@ func StageAgentTools(
 			SHA256:  digest,
 			Size:    size,
 		},
-		Repackaged: files.original == "",
-		dir:        dir,
+		dir: dir,
 	}, nil
 }
 

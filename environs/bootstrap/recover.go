@@ -381,9 +381,6 @@ func discoverRecoveryTools(
 	if err != nil {
 		return nil, nil, errors.Errorf("preparing archived agent binary: %w", err)
 	}
-	if archivedTools.Repackaged {
-		ctx.Infof("The original agent bundle was absent; reconstructed it from archived files (checksum may differ)")
-	}
 	return coretools.List{archivedTools.Tools}, archivedTools, nil
 }
 

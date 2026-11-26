@@ -98,7 +98,6 @@ func (s *archivedToolsSuite) TestStageInstalledAgentForDifferentArchitecture(c *
 	c.Assert(err, tc.ErrorIsNil)
 	sum := sha256.Sum256(data)
 	c.Check(staged.Tools.Version, tc.Equals, version)
-	c.Check(staged.Repackaged, tc.IsTrue)
 	c.Check(staged.Tools.SHA256, tc.Equals, hex.EncodeToString(sum[:]))
 	c.Check(staged.Tools.Size, tc.Equals, int64(len(data)))
 	second, err := recovery.StageAgentTools(c.Context(), archive, checksum, version)
@@ -158,7 +157,6 @@ func (s *archivedToolsSuite) TestRetainsOriginalAgentBundle(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(contents, tc.DeepEquals, original)
 	c.Check(staged.Tools.SHA256, tc.Equals, digest)
-	c.Check(staged.Repackaged, tc.IsFalse)
 }
 
 func (s *archivedToolsSuite) TestRetainsAgentBundleFromControllerObjectStore(c *tc.C) {
@@ -192,7 +190,6 @@ func (s *archivedToolsSuite) TestRetainsAgentBundleFromControllerObjectStore(c *
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(contents, tc.DeepEquals, original)
 		c.Check(staged.Tools.SHA256, tc.Equals, digest)
-		c.Check(staged.Repackaged, tc.IsFalse)
 		c.Assert(staged.Close(), tc.ErrorIsNil)
 	}
 }
