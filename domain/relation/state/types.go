@@ -301,15 +301,6 @@ func (e Endpoint) toRelationEndpoint() domainrelation.Endpoint {
 	}
 }
 
-// roEndpointIdentifier returns an EndpointIdentifier type for given
-// CandidateEndpointIdentifier.
-func (e Endpoint) toEndpointIdentifier() corerelation.EndpointIdentifier {
-	return corerelation.EndpointIdentifier{
-		ApplicationName: e.ApplicationName,
-		EndpointName:    e.EndpointName,
-	}
-}
-
 // setRelationEndpoint represents the mapping to insert a new relation endpoint
 // to the table `relation_endpoint`
 type setRelationEndpoint struct {
