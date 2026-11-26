@@ -93,14 +93,28 @@ Confirm with the output:
 
 ## Execute The Merge
 
-Run:
+Start the merge without committing it. This leaves time to run the same SQL
+lint check as CI and fix any failures before creating the merge commit:
 
 ```bash
-git merge upstream/SOURCE -m "chore: merge SOURCE into TARGET"
+git merge --no-commit --no-ff upstream/SOURCE
 ```
 
-- Exit `0`: continue to PR description generation.
+- Exit `0`: continue to pre-commit cleanup and validation.
 - Non-zero: continue to conflict handling.
+
+After an exit of `0`, verify that Git created merge state rather than relying
+on human-readable command output:
+
+```bash
+if ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+  echo "SOURCE is already fully merged into TARGET"
+  exit 0
+fi
+```
+
+If there is no `MERGE_HEAD`, stop and report that there is nothing to merge;
+do not run cleanup, lint, or create a commit.
 
 ## Handle Conflicts
 
@@ -183,21 +197,15 @@ For each conflicted file:
    git add FILE
    ```
 
-After all files are resolved, finalize the merge:
+After all files are resolved, do not run `git merge --continue`, because it
+would create the merge commit before linting. Leave every resolution staged
+and continue to pre-commit cleanup and validation.
 
-```bash
-git merge --continue
-```
+## Pre-Commit Cleanup And Validation
 
-In unattended runs, set `GIT_EDITOR=true` first so no editor opens.
-
-If `--continue` fails, use `git diff --check` until it passes cleanly.
-
-## Post-Merge Cleanup
-
-After the merge commit is created, remove the stale schema DDL snapshot
-files carried over from the source series; they are regenerated per
-release and must not accumulate on the target branch:
+Before creating the merge commit, remove the stale schema DDL snapshot files
+carried over from the source series; they are regenerated per release and
+must not accumulate on the target branch:
 
 ```bash
 rm -f domain/schema/controller/SOURCE.*.ddl
@@ -211,8 +219,46 @@ rm -f domain/schema/controller/4.0.*.ddl
 rm -f domain/schema/model/4.0.*.ddl
 ```
 
-Commit the removals as a separate commit on the merge branch and mention
-them in the PR description.
+Stage the removals, then inspect the SQL job in
+`.github/workflows/static-analysis.yml`. Install the SQLFluff version specified
+by its `Install SQLFluff` step and run the command from its `Lint SQL` step.
+
+```bash
+git add -u domain/schema/controller domain/schema/model
+sqlfluff lint --config .github/.sqlfluff domain/schema/**/sql/*.sql
+```
+
+If SQLFluff reports errors, fix every one before committing, including errors
+in SQL files not directly changed by the merge. CI checks the complete schema
+SQL tree, so documenting a remaining error does not make the check pass. From
+SQLFluff 3.0 onward `sqlfluff fix` applies fixes without prompting and has no
+dry-run mode, so inspect every resulting edit immediately. Revert unsafe
+automatic edits and correct those errors manually:
+
+```bash
+sqlfluff fix --config .github/.sqlfluff domain/schema/**/sql/*.sql
+git diff
+git diff --check
+sqlfluff lint --config .github/.sqlfluff domain/schema/**/sql/*.sql
+```
+
+Repeat the fix, inspection, and lint steps until SQLFluff exits successfully.
+Do not create a commit while lint errors remain. Stage only the stale DDL
+removals, conflict resolutions, and SQL lint fixes required for the merged
+tree to pass CI.
+
+For every lint-driven edit, record the file, the reported rule, and a concise
+explanation of what changed and why it preserves the SQL's behaviour. This
+detail is mandatory in the PR description; never summarise it only as
+"fixed lint". If no lint fixes were required, record that explicitly.
+
+Once validation passes, stage any remaining lint fixes and create the merge
+commit without opening an editor:
+
+```bash
+git add -u domain/schema/controller domain/schema/model
+GIT_EDITOR=true git commit -m "chore: merge SOURCE into TARGET"
+```
 
 ## Generate The PR Description
 
@@ -259,11 +305,30 @@ Merge-forward: SOURCE → TARGET
 ### Conflicts resolved
 
 No conflicts — clean merge.
+
+### SQL lint
+
+CI's SQL lint command passes.
+
+- No SQL lint fixes were required.
 ```
 
 The Automation section is the audit trail. Populate `GITHUB_RUN_URL` and
 `OPENCODE_MODEL` from the environment in CI runs; omit the section in
 interactive runs where they are unset.
+
+If pre-commit cleanup removed stale DDL snapshot files, add a
+`### Schema DDL cleanup` section before `### SQL lint`, listing every removed
+file by name:
+
+```text
+### Schema DDL cleanup
+
+- Removed `domain/schema/controller/4.0.14-controller-release.ddl`
+- Removed `domain/schema/model/4.0.9-model-release.ddl`
+```
+
+Omit the section when no files were removed.
 
 If conflicts were resolved, replace that section with:
 
@@ -277,6 +342,17 @@ If conflicts were resolved, replace that section with:
 
 Use only `low`, `medium`, or `high` for risk and confidence so reviewers
 can compare resolutions consistently.
+
+If lint fixes were required, replace the final SQL lint bullet with one entry
+per changed file. List every SQLFluff rule that prompted the edit,
+comma-separated when there are several, and describe the concrete change and
+why it does not alter behaviour:
+
+```text
+- `path/to/schema.sql` (`RULE1`, `RULE2`)
+  - Change: <specific formatting or structural change>
+  - Behaviour: <why query or schema semantics are unchanged>
+```
 
 ## Publish The Merge
 
