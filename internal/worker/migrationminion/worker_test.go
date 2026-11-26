@@ -6,6 +6,7 @@ package migrationminion_test
 import (
 	"reflect"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/migrationminion"
 	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -322,14 +324,14 @@ func (s *Suite) TestVALIDATIONCantConnect(c *gc.C) {
 	s.stub.CheckCall(c, 22, "Report", "id", migration.VALIDATION, false)
 }
 
-func (s *Suite) TestVALIDATIONCantConnectNotReportForTryAgainError(c *gc.C) {
+func (s *Suite) TestVALIDATIONCantConnectReportsFailureForTryAgainError(c *gc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId: "id",
 		Phase:       migration.VALIDATION,
 	}
 	s.config.APIOpen = func(*api.Info, api.DialOpts) (api.Connection, error) {
 		s.stub.AddCall("API open")
-		return nil, apiservererrors.ErrTryAgain
+		return nil, &rpc.RequestError{Message: "try again", Code: params.CodeTryAgain}
 	}
 	w, err := migrationminion.New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
@@ -343,6 +345,9 @@ func (s *Suite) TestVALIDATIONCantConnectNotReportForTryAgainError(c *gc.C) {
 		sleepTime = calculateSleepTime(i)
 	}
 
+	// The rate-limit retries are exhausted, so the failure must be reported
+	// immediately rather than leaving the migration master to wait for the
+	// minion report timeout.
 	s.waitForStubCalls(c, []string{
 		"Watch",
 		"Lockdown",
@@ -366,7 +371,36 @@ func (s *Suite) TestVALIDATIONCantConnectNotReportForTryAgainError(c *gc.C) {
 		"API open",
 		"API open",
 		"API open",
+		"Report",
 	})
+	s.stub.CheckCall(c, 22, "Report", "id", migration.VALIDATION, false)
+}
+
+func (s *Suite) TestVALIDATIONRetryStopsWhenKilledNoReport(c *gc.C) {
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId: "id",
+		Phase:       migration.VALIDATION,
+	}
+	s.config.APIOpen = func(*api.Info, api.DialOpts) (api.Connection, error) {
+		s.stub.AddCall("API open")
+		return nil, &rpc.RequestError{Message: "try again", Code: params.CodeTryAgain}
+	}
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	// Wait for the first retry to enter its backoff sleep, then kill the
+	// worker. A shutdown must not report validation failure.
+	select {
+	case <-s.clock.Alarms():
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for retry backoff")
+	}
+	w.Kill()
+
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, jc.ErrorIsNil)
+	s.stub.CheckCallNames(c, "Watch", "Lockdown", "API open")
 }
 
 func (s *Suite) TestVALIDATIONFail(c *gc.C) {
@@ -751,6 +785,263 @@ func (s *Suite) TestSUCCESSRetryReport(c *gc.C) {
 		"Report",
 		"API close",
 	})
+}
+
+func (s *Suite) TestSUCCESSTargetDialRetriesTryAgain(c *gc.C) {
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.SUCCESS,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	var attempts int
+	s.config.APIOpen = func(*api.Info, api.DialOpts) (api.Connection, error) {
+		s.stub.AddCall("API open")
+		attempts++
+		if attempts <= 2 {
+			return nil, &rpc.RequestError{Message: "try again", Code: params.CodeTryAgain}
+		}
+		return &stubConnection{stub: s.stub}, nil
+	}
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	// Advance the clock through the retry backoff delays.
+	for i := 0; i < 2; i++ {
+		err = s.clock.WaitAdvance(calculateSleepTime(i), coretesting.LongWait, 1)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	select {
+	case <-s.agent.configChanged:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for agent config change")
+	}
+	c.Assert(s.agent.conf.addrs, gc.DeepEquals, addrs)
+	c.Assert(s.agent.conf.caCert, gc.DeepEquals, caCert)
+	c.Assert(attempts, gc.Equals, 3)
+}
+
+func (s *Suite) TestPostSuccessTargetDialRetriesTryAgain(c *gc.C) {
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.REAP,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	var attempts int
+	s.config.APIOpen = func(*api.Info, api.DialOpts) (api.Connection, error) {
+		s.stub.AddCall("API open")
+		attempts++
+		if attempts <= 2 {
+			return nil, &rpc.RequestError{Message: "try again", Code: params.CodeTryAgain}
+		}
+		return &stubConnection{stub: s.stub}, nil
+	}
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	// Advance the clock through the retry backoff delays.
+	for i := 0; i < 2; i++ {
+		err = s.clock.WaitAdvance(calculateSleepTime(i), coretesting.LongWait, 1)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	select {
+	case <-s.agent.configChanged:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for agent config change")
+	}
+	c.Assert(s.agent.conf.addrs, gc.DeepEquals, addrs)
+	c.Assert(s.agent.conf.caCert, gc.DeepEquals, caCert)
+	c.Assert(attempts, gc.Equals, 3)
+}
+
+func (s *Suite) TestSUCCESSTargetDialFatalErrorNotRetried(c *gc.C) {
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.SUCCESS,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	s.config.APIOpen = func(*api.Info, api.DialOpts) (api.Connection, error) {
+		s.stub.AddCall("API open")
+		return nil, errors.New("boom")
+	}
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, gc.ErrorMatches, `.*failed to open API to target controller: boom`)
+	s.stub.CheckCallNames(c, "Watch", "Lockdown", "API open")
+}
+
+func (s *Suite) TestSUCCESSTargetDialFatalErrorAfterTryAgainNotRetried(c *gc.C) {
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.SUCCESS,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	var attempts int
+	s.config.APIOpen = func(*api.Info, api.DialOpts) (api.Connection, error) {
+		s.stub.AddCall("API open")
+		attempts++
+		if attempts == 1 {
+			return nil, &rpc.RequestError{Message: "try again", Code: params.CodeTryAgain}
+		}
+		return nil, errors.New("boom")
+	}
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	// Advance past the first retry delay so the fatal error is attempted.
+	err = s.clock.WaitAdvance(calculateSleepTime(0), coretesting.LongWait, 1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, gc.ErrorMatches, `.*failed to open API to target controller: boom`)
+	c.Check(attempts, gc.Equals, 2)
+}
+
+func (s *Suite) TestSUCCESSTargetDialTryAgainExhausted(c *gc.C) {
+	tw := &loggo.TestWriter{}
+	c.Assert(loggo.RegisterWriter("target-dial-exhausted-test", loggo.NewMinimumLevelWriter(tw, loggo.CRITICAL)), jc.ErrorIsNil)
+	defer func() {
+		_, err := loggo.RemoveWriter("target-dial-exhausted-test")
+		c.Check(err, jc.ErrorIsNil)
+	}()
+
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.SUCCESS,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	s.config.APIOpen = func(*api.Info, api.DialOpts) (api.Connection, error) {
+		s.stub.AddCall("API open")
+		return nil, &rpc.RequestError{Message: "try again", Code: params.CodeTryAgain}
+	}
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	// Advance time enough for all of the retries to be exhausted.
+	sleepTime := 100 * time.Millisecond
+	for i := 0; i < 20; i++ {
+		err = s.clock.WaitAdvance(sleepTime, coretesting.ShortWait, 1)
+		c.Assert(err, jc.ErrorIsNil)
+		sleepTime = calculateSleepTime(i)
+	}
+
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, gc.ErrorMatches, `.*try changing "agent-ratelimit-max" and "agent-ratelimit-rate".*`)
+
+	criticalFound := false
+	for _, entry := range tw.Log() {
+		if strings.Contains(entry.Message, "agent.conf left unchanged") &&
+			strings.Contains(entry.Message, "agent-ratelimit-max") {
+			criticalFound = true
+			break
+		}
+	}
+	c.Check(criticalFound, jc.IsTrue, gc.Commentf("critical log not found in %v", tw.Log()))
+}
+
+func (s *Suite) TestPostSuccessTargetDialTryAgainExhausted(c *gc.C) {
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.REAP,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	s.config.APIOpen = func(*api.Info, api.DialOpts) (api.Connection, error) {
+		s.stub.AddCall("API open")
+		return nil, &rpc.RequestError{Message: "try again", Code: params.CodeTryAgain}
+	}
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	// Advance time enough for all of the retries to be exhausted.
+	sleepTime := 100 * time.Millisecond
+	for i := 0; i < 20; i++ {
+		err = s.clock.WaitAdvance(sleepTime, coretesting.ShortWait, 1)
+		c.Assert(err, jc.ErrorIsNil)
+		sleepTime = calculateSleepTime(i)
+	}
+
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, gc.ErrorMatches, `.*try changing "agent-ratelimit-max" and "agent-ratelimit-rate".*`)
+}
+
+func (s *Suite) TestSUCCESSTargetDialRetryStopsWhenKilled(c *gc.C) {
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.SUCCESS,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	s.config.APIOpen = func(*api.Info, api.DialOpts) (api.Connection, error) {
+		s.stub.AddCall("API open")
+		return nil, apiservererrors.ErrTryAgain
+	}
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	// Wait for the first retry to enter its backoff sleep, then kill the
+	// worker. The retry must stop promptly rather than run to exhaustion.
+	select {
+	case <-s.clock.Alarms():
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for retry backoff")
+	}
+	w.Kill()
+
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *Suite) TestPostSuccessTargetDialKilledDuringBackoffNoCritical(c *gc.C) {
+	tw := &loggo.TestWriter{}
+	c.Assert(loggo.RegisterWriter("target-dial-test", loggo.NewMinimumLevelWriter(tw, loggo.CRITICAL)), jc.ErrorIsNil)
+	defer func() {
+		_, err := loggo.RemoveWriter("target-dial-test")
+		c.Check(err, jc.ErrorIsNil)
+	}()
+
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.REAP,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	s.config.APIOpen = func(*api.Info, api.DialOpts) (api.Connection, error) {
+		s.stub.AddCall("API open")
+		return nil, apiservererrors.ErrTryAgain
+	}
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	// Wait for the first retry to enter its backoff sleep, then kill the
+	// worker. The teardown must not be reported as a migration failure.
+	select {
+	case <-s.clock.Alarms():
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for retry backoff")
+	}
+	w.Kill()
+
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, jc.ErrorIsNil)
+	for _, entry := range tw.Log() {
+		c.Check(entry.Message, gc.Not(gc.Matches), `.*agent.conf left unchanged and pointing to source controller.*`)
+	}
 }
 
 func (s *Suite) TestSuccessAfterValidateWithRedirect(c *gc.C) {
