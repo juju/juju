@@ -7,6 +7,7 @@ import (
 	"context"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/internal/errors"
@@ -18,6 +19,10 @@ type ScriptletApplication struct {
 	UUID coreapplication.UUID
 	Name string
 	Life corelife.Value
+
+	// CharmUUID identifies the charm whose sources are loaded, so consumers can
+	// detect a refresh even when the sources are unchanged.
+	CharmUUID corecharm.ID
 
 	// Sources are the Starform sources to load.
 	Sources []ScriptSource

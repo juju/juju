@@ -124,7 +124,7 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 	service.EXPECT().GetScriptletApplication(gomock.Any(), applicationUUID).Return(
 		scriptlet, nil,
 	)
-	service.EXPECT().WatchScriptletApplicationDying(gomock.Any(), applicationUUID).Return(
+	service.EXPECT().WatchScriptletApplication(gomock.Any(), applicationUUID).Return(
 		watchertest.NewMockNotifyWatcher(dyingChanges), nil,
 	)
 	service.EXPECT().WatchApplicationEvents(gomock.Any(), applicationUUID).DoAndReturn(
