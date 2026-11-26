@@ -7,9 +7,13 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
+
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
-type scriptletSuite struct {}
+type scriptletSuite struct {
+	coretesting.BaseSuite
+}
 
 func TestScriptletSuite(t *testing.T) {
 	tc.Run(t, &scriptletSuite{})

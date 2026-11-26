@@ -12,9 +12,12 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	domainunitless "github.com/juju/juju/domain/unitless"
 	"github.com/juju/juju/internal/scriptlet"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
-type starformSuite struct {}
+type starformSuite struct {
+	coretesting.BaseSuite
+}
 
 func TestStarformSuite(t *testing.T) {
 	tc.Run(t, &starformSuite{})
