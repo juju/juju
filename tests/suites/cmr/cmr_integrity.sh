@@ -476,6 +476,107 @@ run_cmr_destroy_consuming_model() {
 	destroy_model "model-offer-destroy"
 }
 
+# assert_application_countdown fails if the application count that
+# destroy-model reported in the given output file ever goes back up.
+assert_application_countdown() {
+	local output counts
+	output=${1}
+
+	counts=$(grep -o '[0-9]\+ application(s)' "${output}" | cut -d' ' -f1 | tr '\n' ' ')
+	if [ -z "${counts}" ]; then
+		echo "    FAIL: destroy-model reported no application count"
+		return 1
+	fi
+	if ! echo "${counts}" | tr ' ' '\n' | awk 'NF { if (seen && $1 > prev) { exit 1 }; prev = $1; seen = 1 }'; then
+		echo "    FAIL: application count went back up while destroying the model: ${counts}"
+		return 1
+	fi
+	echo "    $(green "application countdown: ${counts}")"
+}
+
+# Destroying an offering model must not re-create the application that
+# represents the consumer in the offering model.
+#
+# The offering model removes the cross-model relation, and with it the
+# consumer's application, as soon as the offered unit has left the
+# relation. The offered application itself is still dying at that
+# point, and the consuming model's remote relation worker registers its
+# relations again every time it starts. Such a late registration has to
+# be refused: accepting it adds an application to the dying model, which
+# destroy-model shows as an application count that goes back up.
+#
+# The teardown is too quick to hit that window by chance, so the test
+# holds it open: a busy unit on a second, local relation keeps the
+# offered application dying, and a busy consuming unit keeps the
+# consumer's relation around.
+run_cmr_destroy_offering_model() {
+	echo
+	echo "=== run_cmr_destroy_offering_model: destroy-model on the offering side ==="
+
+	file="${TEST_DIR}/test-cmr-destroy-offer.log"
+	ensure "model-offer-dying" "${file}"
+
+	echo "Deploy workload with a local relation and create the offer"
+	juju deploy juju-qa-dummy-source --base ubuntu@22.04
+	juju deploy juju-qa-dummy-sink local-sink --base ubuntu@22.04
+	juju relate dummy-source local-sink
+	juju offer dummy-source:sink dummy-offer
+	wait_for "dummy-source" "$(idle_condition "dummy-source")"
+	wait_for "local-sink" "$(idle_condition "local-sink")"
+
+	echo "Deploy consumer and relate"
+	juju add-model model-consume-dying
+	juju switch model-consume-dying
+	juju deploy juju-qa-dummy-sink --base ubuntu@22.04
+	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
+
+	juju consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-offer-dying.dummy-offer"
+	juju relate dummy-sink dummy-offer
+	wait_for "dummy-offer" '.applications["dummy-sink"] | .relations.source[0]'
+	wait_for_cmr_established model-offer-dying dummy-offer model-consume-dying
+	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
+
+	# Consuming this offer later changes the consuming model's SAAS
+	# applications, which makes its remote relation worker start a worker
+	# for every one of them that is not running.
+	juju offer dummy-sink:source restart-offer
+
+	echo "Keep both sink units busy so that neither can leave its relation"
+	juju exec --background --unit dummy-sink/0 -- sleep 180
+	wait_for "executing" '.applications["dummy-sink"].units["dummy-sink/0"]["juju-status"].current'
+	juju switch model-offer-dying
+	juju exec --background --unit local-sink/0 -- sleep 180
+	wait_for "executing" '.applications["local-sink"].units["local-sink/0"]["juju-status"].current'
+
+	echo "Destroy the offering model"
+	output="${TEST_DIR}/model-offer-dying-destroy.log"
+	timeout "${DESTROY_TIMEOUT}" juju destroy-model --no-prompt --destroy-storage model-offer-dying >"${output}" 2>&1 &
+	destroy_pid=$!
+
+	echo "Wait for the offering model to remove the consumer's connection"
+	wait_for null '.offers."dummy-offer"."total-connected-count"'
+
+	echo "Restart the consuming model's worker for the dying SAAS application"
+	juju switch model-consume-dying
+	juju consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-consume-dying.restart-offer"
+
+	echo "Wait for the offering model to be destroyed"
+	wait "${destroy_pid}" || true
+	cat "${output}"
+	assert_application_countdown "${output}" || return 1
+
+	echo "Verify database integrity on the consuming model after offering model destroy"
+	juju remove-saas restart-offer
+	juju remove-offer "admin/model-consume-dying.restart-offer" --force -y
+	wait_for null '."application-endpoints"' 300
+	wait_for_db_checks model-consume-dying 300 \
+		"check_consumer_cleanup model-consume-dying" || return 1
+
+	echo "Clean up"
+	destroy_model "model-offer-dying"
+	destroy_model "model-consume-dying"
+}
+
 # Goal-state degrades gracefully when a saas app is missing.
 run_cmr_goal_state_missing_saas() {
 	echo
@@ -647,6 +748,7 @@ test_cmr_integrity() {
 
 		run "run_cmr_consume_remove_reconsume"
 		run "run_cmr_destroy_consuming_model"
+		run "run_cmr_destroy_offering_model"
 		run "run_cmr_goal_state_missing_saas"
 		run "run_cmr_offer_removed_remotely"
 	)
