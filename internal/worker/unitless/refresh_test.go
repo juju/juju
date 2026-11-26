@@ -162,10 +162,10 @@ func (s *refreshSuite) startWorker(c *tc.C) *scriptletWorker {
 			case <-ctx.Done():
 				return nil, ctx.Err()
 			}
-			return applicationExecutorFunc(func(ctx context.Context, event domainunitless.Event) ([]scriptlet.Intent, error) {
+			return applicationExecutorFunc(func(ctx context.Context, event domainunitless.Event) (*scriptlet.IntentCollectors, error) {
 				select {
 				case s.handled <- refreshedEvent{charmUUID: config.Scriptlet.CharmUUID, event: event}:
-					return nil, nil
+					return globalEnv().IntentCollectors(), nil
 				case <-ctx.Done():
 					return nil, ctx.Err()
 				}

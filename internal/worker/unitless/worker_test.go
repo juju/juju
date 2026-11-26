@@ -178,16 +178,14 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 		event, nil,
 	)
 
+	registry := globalEnv()
 	executor := &fakeExecutor{
-		handled: make(chan domainunitless.Event, 1),
-		intents: []scriptlet.Intent{{
-			Type: scriptlet.IntentSetStatus,
-			Args: map[string]any{
-				"status":  "active",
-				"message": "updated",
-			},
-		}},
+		handled:    make(chan domainunitless.Event, 1),
+		collectors: registry.IntentCollectors(),
 	}
+	statusCollector := scriptlet.IntentCollector[*scriptlet.StatusCollector](executor.collectors)
+	statusCollector.Status = "active"
+	statusCollector.Message = "updated"
 	executorConfigs := make(chan ExecutorConfig, 1)
 	log := newRecordingLogger()
 	maxAllocs := int64(12345)
@@ -222,20 +220,24 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 	eventChanges <- []string{"config_changed"}
 	handledEvent := waitFor(c, executor.handled)
 	c.Check(handledEvent, tc.DeepEquals, event)
-	log.waitFor(c, `scriptlet application "app-uuid-1" event "config_changed" intent: set-status`)
+	log.waitFor(c, `unitless application "app-uuid-1" event "config_changed" intent: set-status`)
 
 	workertest.CleanKill(c, w)
 }
 
 type fakeExecutor struct {
-	handled chan domainunitless.Event
-	intents []scriptlet.Intent
-	err     error
+	handled    chan domainunitless.Event
+	collectors *scriptlet.IntentCollectors
+	err        error
 }
 
-func (e *fakeExecutor) Handle(_ context.Context, event domainunitless.Event) ([]scriptlet.Intent, error) {
+func (e *fakeExecutor) Handle(_ context.Context, event domainunitless.Event) (*scriptlet.IntentCollectors, error) {
 	e.handled <- event
-	return e.intents, e.err
+	if e.collectors != nil {
+		return e.collectors, e.err
+	}
+	registry := globalEnv()
+	return registry.IntentCollectors(), e.err
 }
 
 type recordingLogger struct {

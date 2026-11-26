@@ -231,7 +231,7 @@ func (r *applicationRunner) handleEvent(ctx context.Context, eventName string) e
 		return internalerrors.Errorf("getting event snapshot: %w", err)
 	}
 
-	intents, err := r.executor.Handle(ctx, event)
+	collectors, err := r.executor.Handle(ctx, event)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			select {
@@ -253,33 +253,21 @@ func (r *applicationRunner) handleEvent(ctx context.Context, eventName string) e
 		}
 		return nil
 	}
-	for _, intent := range intents {
-		r.config.Logger.Infof(
-			ctx, "scriptlet application %q event %q intent: %s", r.config.ApplicationUUID, event.Name, intent.Type)
-	}
-	return r.applyIntents(ctx, intents)
+	return r.applyIntents(ctx, event.Name.String(), collectors)
 }
 
-// applyIntents applies the given intents, logging and skipping unknown types.
-func (r *applicationRunner) applyIntents(ctx context.Context, intents []scriptlet.Intent) error {
-	for _, intent := range intents {
-		switch intent.Type {
-		case scriptlet.IntentSetStatus:
-			if err := r.applySetStatusIntent(ctx, intent); err != nil {
-				return internalerrors.Errorf("applying intent %q: %w", intent.Type, err)
-			}
-		default:
-			r.config.Logger.Warningf(ctx, "ignoring unknown intent type %q", intent.Type)
-		}
+// applyIntents applies the given event's collected intents.
+func (r *applicationRunner) applyIntents(ctx context.Context, eventName string, collectors *scriptlet.IntentCollectors) error {
+	statusCollector := scriptlet.IntentCollector[*scriptlet.StatusCollector](collectors)
+	if statusCollector.Status == "" {
+		return nil
+	}
+	r.config.Logger.Infof(
+		ctx, "unitless application %q event %q intent: set-status", r.config.ApplicationUUID, eventName)
+	if err := r.setStatus(ctx, corestatus.Status(statusCollector.Status), statusCollector.Message); err != nil {
+		return internalerrors.Errorf("applying set-status intent: %w", err)
 	}
 	return nil
-}
-
-// applySetStatusIntent applies the given set-status intent.
-func (r *applicationRunner) applySetStatusIntent(ctx context.Context, intent scriptlet.Intent) error {
-	statusName, _ := intent.Args["status"].(string)
-	message, _ := intent.Args["message"].(string)
-	return r.setStatus(ctx, corestatus.Status(statusName), message)
 }
 
 // setStatus sets the given application's status and message.

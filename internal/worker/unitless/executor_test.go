@@ -116,7 +116,7 @@ def on_config_changed(event):
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	intents, err := executor.Handle(c.Context(), domainunitless.Event{
+	collectors, err := executor.Handle(c.Context(), domainunitless.Event{
 		Name: "config_changed",
 		Attrs: map[string]any{
 			"message": "updated",
@@ -126,16 +126,13 @@ def on_config_changed(event):
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(intents, tc.DeepEquals, []scriptlet.Intent{{
-		Type: scriptlet.IntentSetStatus,
-		Args: map[string]any{
-			"status":  "active",
-			"message": "updated",
-		},
-	}})
+	c.Check(scriptlet.IntentCollector[*scriptlet.StatusCollector](collectors), tc.DeepEquals, &scriptlet.StatusCollector{
+		Status:  "active",
+		Message: "updated",
+	})
 }
 
-func (s *starformSuite) TestHandleScriptErrorDiscardsIntents(c *tc.C) {
+func (s *starformSuite) TestHandleScriptErrorDiscardsCollectors(c *tc.C) {
 	executor, err := NewStarformExecutor(c.Context(), ExecutorConfig{
 		Scriptlet: domainunitless.ScriptletApplication{
 			Sources: []domainunitless.ScriptSource{{
@@ -157,9 +154,9 @@ def on_config_changed(event):
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	intents, err := executor.Handle(c.Context(), domainunitless.Event{Name: "config_changed"})
+	collectors, err := executor.Handle(c.Context(), domainunitless.Event{Name: "config_changed"})
 	c.Assert(err, tc.ErrorMatches, `.*division by zero.*`)
-	c.Check(intents, tc.IsNil)
+	c.Check(collectors, tc.IsNil)
 }
 
 func (s *starformSuite) TestHandleTimesOutLongRunningScriptlet(c *tc.C) {

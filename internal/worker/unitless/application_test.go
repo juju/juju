@@ -459,10 +459,11 @@ func (s *applicationRunnerSuite) TestDispatchesEventsInOrderAndLogsIntents(c *tc
 
 	fixture := s.expectRunningApplication(c)
 	statuses := s.expectStatusSets()
-	fixture.executor.intents = []scriptlet.Intent{
-		{Type: scriptlet.IntentSetStatus, Args: map[string]any{"status": "active"}},
-		{Type: scriptlet.IntentSetStatus, Args: map[string]any{"status": "waiting"}},
-	}
+	registry := globalEnv()
+	fixture.executor.collectors = registry.IntentCollectors()
+	statusCollector := scriptlet.IntentCollector[*scriptlet.StatusCollector](fixture.executor.collectors)
+	statusCollector.Status = "active"
+	statusCollector.Message = "updated"
 	first := domainunitless.Event{
 		Name:  "config_changed",
 		Attrs: map[string]any{"message": "updated"},
@@ -484,17 +485,17 @@ func (s *applicationRunnerSuite) TestDispatchesEventsInOrderAndLogsIntents(c *tc
 
 	s.logger.waitFor(c, `event "update_status" intent: set-status`)
 
-	// Each intent is applied to the status service, with the status
-	// argument coerced to a core status value.
-	expected := []corestatus.Status{corestatus.Active, corestatus.Waiting, corestatus.Active, corestatus.Waiting}
-	for _, want := range expected {
+	// Each event applies the status collected while handling it, in
+	// dispatch order.
+	for range 2 {
 		info := waitFor(c, statuses)
-		c.Check(info.Status, tc.Equals, want)
+		c.Check(info.Status, tc.Equals, corestatus.Active)
+		c.Check(info.Message, tc.Equals, "updated")
 	}
 
 	workertest.CleanKill(c, runner)
 	fixture.assertWatchersStopped(c)
-	c.Check(strings.Count(s.logMessages(), "intent: set-status"), tc.Equals, 4)
+	c.Check(strings.Count(s.logMessages(), "intent: set-status"), tc.Equals, 2)
 }
 
 func (s *applicationRunnerSuite) TestIgnoresEmptyEventsAndBatches(c *tc.C) {
@@ -670,7 +671,6 @@ func (s *applicationRunnerSuite) TestExecutorErrorContinuesAndSetsBlockedStatus(
 	fixture := s.expectRunningApplication(c)
 	statuses := s.expectStatusSets()
 	fixture.executor.err = errors.New("oh no")
-	fixture.executor.intents = []scriptlet.Intent{{Type: scriptlet.IntentSetStatus}}
 
 	first := domainunitless.Event{Name: "config_changed"}
 	second := domainunitless.Event{Name: "update_status"}
@@ -751,44 +751,15 @@ func (s *applicationRunnerSuite) TestExecutorErrorStatusSetFailureStopsRunner(c 
 	fixture.assertWatchersStopped(c)
 }
 
-func (s *applicationRunnerSuite) TestUnknownIntentTypeIgnored(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	fixture := s.expectRunningApplication(c)
-	fixture.executor.intents = []scriptlet.Intent{
-		{Type: scriptlet.IntentType("unknown-intent")},
-		{Type: scriptlet.IntentSetStatus, Args: map[string]any{"status": "active"}},
-	}
-	statuses := s.expectStatusSets()
-
-	event := domainunitless.Event{Name: "config_changed"}
-	s.scriptletService.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, event.Name).Return(event, nil)
-	runner := s.startRunner(c)
-	defer workertest.CleanKill(c, runner)
-
-	waitFor(c, fixture.executorConfigs)
-
-	fixture.eventChanges <- []string{event.Name.String()}
-	c.Check(waitFor(c, fixture.executor.handled), tc.DeepEquals, event)
-
-	// Only the known intent reaches the status service.
-	info := waitFor(c, statuses)
-	c.Check(info.Status, tc.Equals, corestatus.Active)
-	s.logger.waitFor(c, `ignoring unknown intent type "unknown-intent"`)
-
-	workertest.CleanKill(c, runner)
-	fixture.assertWatchersStopped(c)
-}
-
 func (s *applicationRunnerSuite) TestSetStatusIntentFailureStopsRunner(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	fixture := s.expectRunningApplication(c)
-	fixture.executor.intents = []scriptlet.Intent{
-		{Type: scriptlet.IntentSetStatus, Args: map[string]any{"status": "invalid"}},
-	}
+	registry := globalEnv()
+	fixture.executor.collectors = registry.IntentCollectors()
+	statusCollector := scriptlet.IntentCollector[*scriptlet.StatusCollector](fixture.executor.collectors)
+	statusCollector.Status = "invalid"
 	statusErr := errors.New("status oh no")
 	s.statusService.EXPECT().SetApplicationStatusByUUID(gomock.Any(), s.application.UUID, gomock.Any()).
 		Return(statusErr)
@@ -803,7 +774,7 @@ func (s *applicationRunnerSuite) TestSetStatusIntentFailureStopsRunner(c *tc.C) 
 	fixture.eventChanges <- []string{event.Name.String()}
 	err := runner.Wait()
 	c.Assert(err, tc.ErrorIs, statusErr)
-	c.Check(err, tc.ErrorMatches, `handling scriptlet event "config_changed" for application .*: applying intent "set-status": status oh no`)
+	c.Check(err, tc.ErrorMatches, `handling scriptlet event "config_changed" for application .*: applying set-status intent: status oh no`)
 	fixture.assertWatchersStopped(c)
 }
 
@@ -951,7 +922,7 @@ func (s *applicationRunnerSuite) TestShutdownCancelsEventExecutionAndStopsBatch(
 	contexts := make(chan context.Context, 1)
 	s.config.NewExecutor = func(_ context.Context, config ExecutorConfig) (Executor, error) {
 		fixture.executorConfigs <- config
-		return applicationExecutorFunc(func(ctx context.Context, _ domainunitless.Event) ([]scriptlet.Intent, error) {
+		return applicationExecutorFunc(func(ctx context.Context, _ domainunitless.Event) (*scriptlet.IntentCollectors, error) {
 			contexts <- ctx
 			<-ctx.Done()
 			return nil, ctx.Err()
@@ -1134,8 +1105,8 @@ func (w *applicationNotifyWatcher) Changes() <-chan struct{} {
 	return w.MockNotifyWatcher.Changes()
 }
 
-type applicationExecutorFunc func(context.Context, domainunitless.Event) ([]scriptlet.Intent, error)
+type applicationExecutorFunc func(context.Context, domainunitless.Event) (*scriptlet.IntentCollectors, error)
 
-func (f applicationExecutorFunc) Handle(ctx context.Context, event domainunitless.Event) ([]scriptlet.Intent, error) {
+func (f applicationExecutorFunc) Handle(ctx context.Context, event domainunitless.Event) (*scriptlet.IntentCollectors, error) {
 	return f(ctx, event)
 }

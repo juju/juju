@@ -45,6 +45,67 @@ func (s *scriptletSuite) TestRegistryRejectsSameNameBuiltins(c *tc.C) {
 	}, tc.PanicMatches, expected)
 }
 
+func (s *scriptletSuite) TestRegistryIntentCollectors(c *tc.C) {
+	registry := &EnvRegistry{}
+	registry.AddIntentCollector(StatusCollector{})
+
+	collectors := registry.IntentCollectors()
+	statusCollector := IntentCollector[*StatusCollector](collectors)
+	statusCollector.Status = "active"
+
+	// Each call yields fresh, independent collectors.
+	c.Check(IntentCollector[*StatusCollector](registry.IntentCollectors()), tc.DeepEquals, &StatusCollector{})
+}
+
+func (s *scriptletSuite) TestRegistryAddIntentCollectorFunc(c *tc.C) {
+	registry := &EnvRegistry{}
+	id := 0
+	registry.AddIntentCollectorFunc(func() any {
+		id++
+		return &testCollector{id: id}
+	})
+	registry.AddIntentCollector(StatusCollector{})
+
+	firstCollectors := registry.IntentCollectors()
+	secondCollectors := registry.IntentCollectors()
+
+	// The constructor is called once per event, its result is
+	// registered, and both collector types are retrievable.
+	c.Check(IntentCollector[*testCollector](firstCollectors), tc.DeepEquals, &testCollector{id: 1})
+	c.Check(IntentCollector[*testCollector](secondCollectors), tc.DeepEquals, &testCollector{id: 2})
+	c.Check(IntentCollector[*StatusCollector](firstCollectors), tc.NotNil)
+	c.Check(IntentCollector[*StatusCollector](secondCollectors), tc.NotNil)
+}
+
+func (s *scriptletSuite) TestIntentCollectorDuplicatePanics(c *tc.C) {
+	registry := &EnvRegistry{}
+	registry.AddIntentCollector(testCollector{})
+	registry.AddIntentCollectorFunc(func() any { return &testCollector{} })
+
+	c.Check(func() { registry.IntentCollectors() },
+		tc.PanicMatches, `intent collector already registered \*scriptlet\.testCollector`)
+}
+
+func (s *scriptletSuite) TestRegistryAddIntentCollectorPanics(c *tc.C) {
+	registry := &EnvRegistry{}
+	c.Check(func() { registry.AddIntentCollector(&StatusCollector{}) },
+		tc.PanicMatches, ".*must be a struct.*")
+	c.Check(func() { registry.AddIntentCollector(StatusCollector{Status: "active"}) },
+		tc.PanicMatches, ".*must have zero value.*")
+
+	registry.AddIntentCollector(StatusCollector{})
+	registry.IntentCollectors()
+	c.Check(func() { registry.AddIntentCollector(StatusCollector{}) },
+		tc.PanicMatches, ".*frozen.*")
+}
+
+// testCollector is a test-only collector type for exercising
+// registration with types other than StatusCollector; id distinguishes
+// instances.
+type testCollector struct {
+	id int
+}
+
 var builtin = starlark.NewBuiltinWithSafety("builtin", starlark.NotSafe, func(_ *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 	return starlark.None, nil
 })
