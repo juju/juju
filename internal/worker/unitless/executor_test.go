@@ -70,6 +70,27 @@ func (s *starformSuite) TestNewStarformExecutorRejectsInvalidConfig(c *tc.C) {
 	c.Check(executor, tc.IsNil)
 }
 
+func (s *starformSuite) TestNewStarformExecutorTimesOutLongRunningInit(c *tc.C) {
+	executor, err := NewStarformExecutor(c.Context(), ExecutorConfig{
+		Scriptlet: domainunitless.ScriptletApplication{
+			Sources: []domainunitless.ScriptSource{{
+				LoadPath: "hooks.star",
+				Source: `
+def init():
+    for i in range(1000000000000):
+        print(i)
+`,
+			}},
+		},
+		MaxAllocs:   1 << 40,
+		MaxSteps:    1 << 40,
+		MaxDuration: 10 * time.Millisecond,
+		Logger:      NewStarformLogAdapter(internallogger.Noop()),
+	})
+	c.Assert(err, tc.ErrorMatches, `.*Starlark computation cancelled: context deadline exceeded.*`)
+	c.Check(executor, tc.IsNil)
+}
+
 func (s *starformSuite) TestHandleCollectsIntents(c *tc.C) {
 	executor, err := NewStarformExecutor(c.Context(), ExecutorConfig{
 		Scriptlet: domainunitless.ScriptletApplication{

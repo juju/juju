@@ -85,6 +85,9 @@ func NewStarformExecutor(ctx context.Context, cfg ExecutorConfig) (Executor, err
 		return nil, errors.Errorf("creating Starform script set: %w", err)
 	}
 
+	ctx, cancel := context.WithTimeout(ctx, cfg.MaxDuration)
+	defer cancel()
+
 	if err := scriptSet.LoadSources(ctx, transform.Slice(cfg.Scriptlet.Sources, func(s domainunitless.ScriptSource) starform.ScriptSource {
 		return s
 	})); err != nil {
