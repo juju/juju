@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/internal/scriptlet"
 )
 
-type starformSuite struct{}
+type starformSuite struct {}
 
 func TestStarformSuite(t *testing.T) {
 	tc.Run(t, &starformSuite{})

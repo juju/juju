@@ -9,7 +9,7 @@ import (
 	"github.com/juju/tc"
 )
 
-type scriptletSuite struct{}
+type scriptletSuite struct {}
 
 func TestScriptletSuite(t *testing.T) {
 	tc.Run(t, &scriptletSuite{})
