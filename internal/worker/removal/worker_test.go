@@ -142,7 +142,7 @@ func (s *workerSuite) TestWorkerNotifiedSchedulesEarlierDeadline(c *tc.C) {
 
 	timer := NewMockTimer(ctrl)
 	timer.EXPECT().Chan().Return(make(chan time.Time)).AnyTimes()
-	timer.EXPECT().Reset(jobCheckMaxInterval).Return(true).Times(2)
+	timer.EXPECT().Reset(jobCheckMinInterval).Return(true).Times(2)
 	timer.EXPECT().Stop().Return(true)
 	s.clk.EXPECT().NewTimer(jobCheckMaxInterval).Return(timer)
 
