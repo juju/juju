@@ -4,6 +4,7 @@
 package unitless
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/juju/tc"
@@ -29,7 +30,9 @@ func (s *environmentSuite) TestGlobalEnvContainsCommonBuiltins(c *tc.C) {
 		names = append(names, method.Name())
 	}
 	c.Check(app.Name, tc.Equals, "juju")
-	c.Check(names, tc.DeepEquals, []string{"set_status"})
+
+	// One representative builtin per package contributing RegisterEnv.
+	c.Check(slices.Contains(names, "set_status"), tc.IsTrue)
 }
 
 func (s *environmentSuite) TestGlobalEnvReturnsSameRegistry(c *tc.C) {

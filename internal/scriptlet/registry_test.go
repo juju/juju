@@ -10,6 +10,17 @@ import (
 	"github.com/juju/tc"
 )
 
+func (s *scriptletSuite) TestRegisterEnv(c *tc.C) {
+	registry := &EnvRegistry{}
+	RegisterEnv(registry)
+
+	var names []string
+	for _, method := range registry.App().Methods {
+		names = append(names, method.Name())
+	}
+	c.Check(names, tc.DeepEquals, []string{"set_status"})
+}
+
 func (s *scriptletSuite) TestRegistryApp(c *tc.C) {
 	registry := &EnvRegistry{}
 	registry.AddAppMethod(builtin)
