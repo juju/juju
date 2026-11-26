@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/api/client/client"
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/sshclient"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/network"
 	jujussh "github.com/juju/juju/network/ssh"
 	"github.com/juju/juju/rpc/params"
@@ -37,7 +38,8 @@ var logger = loggo.GetLogger("juju.cmd.juju.ssh")
 // and DebugHooksCommand.
 type sshMachine struct {
 	leaderResolver
-	modelName string
+	modelName      string
+	controllerName string
 
 	proxy                  bool
 	noHostKeyChecks        bool
@@ -151,6 +153,9 @@ func (c *sshMachine) setPublicKeyRetryStrategy(retryStrategy retry.CallArgs) {
 // The sshClient, apiAddr and proxy fields are initialized after this call.
 func (c *sshMachine) initRun(mc ModelCommand) (err error) {
 	if c.modelName, err = mc.ModelIdentifier(); err != nil {
+		return errors.Trace(err)
+	}
+	if c.controllerName, err = mc.ControllerName(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -355,6 +360,11 @@ func (c *sshMachine) setProxyCommand(options *ssh.Options, targets []*resolvedTa
 		return errors.Errorf("failed to get juju executable path: %v", err)
 	}
 
+	// Qualify the model with the controller so that the nested command
+	// resolves it on the right controller, regardless of which controller
+	// is current when the proxy command runs.
+	modelName := modelcmd.JoinModelName(c.controllerName, c.modelName)
+
 	// TODO(mjs) 2016-05-09 LP #1579592 - It would be good to check the
 	// host key of the controller machine being used for proxying
 	// here. This isn't too serious as all traffic passing through the
@@ -370,7 +380,7 @@ func (c *sshMachine) setProxyCommand(options *ssh.Options, targets []*resolvedTa
 		// proxy command for each one
 		options.SetProxyCommand(
 			juju, "ssh",
-			"--model="+c.modelName,
+			"--model="+modelName,
 			// We still need to proxy through the controller to
 			// reach the via target as the target machine might not
 			// have a public IP address.
@@ -386,7 +396,7 @@ func (c *sshMachine) setProxyCommand(options *ssh.Options, targets []*resolvedTa
 		// to the ssh port of the target.
 		options.SetProxyCommand(
 			juju, "ssh",
-			"--model="+c.modelName,
+			"--model="+modelName,
 			"--proxy=false",
 			"--no-host-key-checks",
 			"--pty=false",

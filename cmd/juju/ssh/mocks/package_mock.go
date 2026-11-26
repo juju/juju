@@ -496,6 +496,21 @@ func (mr *MockModelCommandMockRecorder) ControllerDetails() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerDetails", reflect.TypeOf((*MockModelCommand)(nil).ControllerDetails))
 }
 
+// ControllerName mocks base method.
+func (m *MockModelCommand) ControllerName() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerName")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ControllerName indicates an expected call of ControllerName.
+func (mr *MockModelCommandMockRecorder) ControllerName() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerName", reflect.TypeOf((*MockModelCommand)(nil).ControllerName))
+}
+
 // ModelDetails mocks base method.
 func (m *MockModelCommand) ModelDetails() (string, *jujuclient.ModelDetails, error) {
 	m.ctrl.T.Helper()

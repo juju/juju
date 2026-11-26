@@ -5,6 +5,7 @@ package ssh
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -18,9 +19,11 @@ import (
 	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/ssh"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/client/client"
+	"github.com/juju/juju/cmd/juju/ssh/mocks"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/juju/testing"
 	jujussh "github.com/juju/juju/network/ssh"
@@ -80,7 +83,7 @@ func (s *argsSpec) check(c *gc.C, output string) {
 
 	if s.withProxy {
 		expect("-o ProxyCommand juju ssh " +
-			"--model=controller " +
+			"--model=" + testing.ControllerName + ":controller " +
 			"--proxy=false " +
 			"--no-host-key-checks " +
 			"--pty=false ubuntu@localhost -q \"nc %h %p\"")
@@ -257,6 +260,100 @@ func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForContainerMachineTarg
 	c.Assert(target.via, gc.Not(gc.IsNil), gc.Commentf("expected target.via to be populated for container target"))
 	c.Assert(target.via.user, gc.Equals, "ubuntu")
 	c.Assert(target.via.host, gc.Equals, "10.0.0.1", gc.Commentf("expected target.via.host to be set to the container's host machine address"))
+}
+
+// TestSetProxyCommandQualifiesModelWithResolvedController checks that
+// both proxy command variants qualify the model with the controller
+// resolved when the command was initialised, instead of relying on the
+// current controller. The resolved controller (ctrl-b) deliberately
+// differs from the suite's current controller (testing.ControllerName),
+// so the nested command must use the resolved one.
+func (s *SSHMachineSuite) TestSetProxyCommandQualifiesModelWithResolvedController(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// The model command resolves the target model "m" on the
+	// controller "ctrl-b", which is not the current controller.
+	mc := mocks.NewMockModelCommand(ctrl)
+	mc.EXPECT().ModelIdentifier().Return("m", nil)
+	mc.EXPECT().ControllerName().Return("ctrl-b", nil)
+
+	machine := &sshMachine{
+		// With proxying explicitly requested, initRun does not query
+		// the API for the proxy-ssh setting.
+		proxy: true,
+		// Pre-set API clients let initRun skip opening a connection;
+		// none of their methods are expected to be called. The API
+		// address is set here because ensureAPIClient is skipped.
+		sshClient: fakeAPIClient{},
+		apiAddr:   &url.URL{Host: "1.2.3.4:17070"},
+	}
+	machine.setLeaderAPI(mocks.NewMockLeaderAPI(ctrl))
+
+	err := machine.initRun(mc)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for i, t := range []struct {
+		about   string
+		targets []*resolvedTarget
+		expect  string
+	}{{
+		about:   "controller jump",
+		targets: []*resolvedTarget{{user: "ubuntu", host: "10.0.0.1"}},
+		expect: `juju ssh --model=ctrl-b:m --proxy=false ` +
+			`--no-host-key-checks --pty=false ubuntu@1.2.3.4 ` +
+			`-q "nc %h %p"`,
+	}, {
+		about: "via target",
+		targets: []*resolvedTarget{{
+			user: "ubuntu", host: "252.66.6.42",
+			via: &resolvedTarget{user: "ubuntu", host: "10.0.0.1"},
+		}},
+		expect: `juju ssh --model=ctrl-b:m --proxy=true ` +
+			`--no-host-key-checks --pty=false ubuntu@10.0.0.1 ` +
+			`-q "nc %h %p"`,
+	}} {
+		c.Logf("test %d: %s", i, t.about)
+
+		var options ssh.Options
+		err := machine.setProxyCommand(&options, t.targets)
+		c.Assert(err, jc.ErrorIsNil)
+
+		// The fake ssh set up by the suite echoes its arguments,
+		// including the rendered -o ProxyCommand value.
+		out, err := ssh.Command("ubuntu@10.0.0.1", nil, &options).CombinedOutput()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(string(out), jc.Contains, "-o ProxyCommand "+t.expect)
+	}
+}
+
+// fakeAPIClient implements sshAPIClient. It allows setting up
+// sshMachine without an API connection; none of its methods are
+// expected to be called.
+type fakeAPIClient struct{}
+
+func (fakeAPIClient) PublicAddress(string) (string, error) {
+	return "", errors.New("unexpected call to PublicAddress")
+}
+
+func (fakeAPIClient) PrivateAddress(string) (string, error) {
+	return "", errors.New("unexpected call to PrivateAddress")
+}
+
+func (fakeAPIClient) AllAddresses(string) ([]string, error) {
+	return nil, errors.New("unexpected call to AllAddresses")
+}
+
+func (fakeAPIClient) PublicKeys(string) ([]string, error) {
+	return nil, errors.New("unexpected call to PublicKeys")
+}
+
+func (fakeAPIClient) Proxy() (bool, error) {
+	return false, errors.New("unexpected call to Proxy")
+}
+
+func (fakeAPIClient) Close() error {
+	return errors.New("unexpected call to Close")
 }
 
 func (s *SSHMachineSuite) TestKeyFetchRetries(c *gc.C) {
