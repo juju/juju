@@ -24,6 +24,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -116,10 +117,9 @@ type StatusService interface {
 
 // RemovalService defines operations for removing juju entities.
 type RemovalService interface {
-	// MarkUnitAsDead marks the unit as dead. It will not remove the unit as
-	// that is a separate operation. This will advance the unit's life to dead
-	// and will not allow it to be transitioned back to alive.
-	MarkUnitAsDead(context.Context, coreunit.UUID) error
+	// MarkUnitAsDeadCascade marks the unit as dead, after having marked the
+	// unit's storage attachments as dead.
+	MarkUnitAsDeadCascade(context.Context, coreunit.UUID) error
 }
 
 // DeployerAPI provides access to the Deployer API facade.
@@ -346,8 +346,11 @@ func (d *DeployerAPI) Remove(ctx context.Context, args params.Entities) (params.
 		// The deployer also guards against the uniter existing and attempting
 		// to call remove on the unit, preventing the race between the deployer
 		// and the uniter calling ensure dead.
-		err = d.removalService.MarkUnitAsDead(ctx, unitUUID)
+		err = d.removalService.MarkUnitAsDeadCascade(ctx, unitUUID)
 		if errors.Is(err, applicationerrors.UnitNotFound) {
+			continue
+		} else if errors.Is(err, removalerrors.EntityStillAlive) {
+			// The unit's dependencies have not finished being removed.
 			continue
 		} else if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)

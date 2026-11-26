@@ -17,10 +17,12 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/unit"
+	unit "github.com/juju/juju/core/unit"
+	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/testhelpers"
 	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -31,6 +33,7 @@ type deployerSuite struct {
 
 	passwordService    *MockAgentPasswordService
 	applicationService *MockApplicationService
+	removalService     *MockRemovalService
 	watcherRegistry    *facademocks.MockWatcherRegistry
 
 	badTag names.Tag
@@ -45,9 +48,68 @@ func (s *deployerSuite) TestStub(c *tc.C) {
 	
  - Test deployer fails with non-machine agent user
  - Test life
- - Test remove
+ - Test remove with permission denied
+ - Test remove with unit not found
+ - Test remove with unit alive
  - Test connection info
  - Test set status`)
+}
+
+func (s *deployerSuite) TestRemove(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.applicationService.EXPECT().
+		GetUnitUUID(gomock.Any(), unit.Name("foo/0")).
+		Return(unitUUID, nil)
+	s.removalService.EXPECT().
+		MarkUnitAsDeadCascade(gomock.Any(), unitUUID).
+		Return(nil)
+
+	api := &DeployerAPI{
+		applicationService: s.applicationService,
+		removalService:     s.removalService,
+		getAuth: func(ctx context.Context) (common.AuthFunc, error) {
+			return func(names.Tag) bool { return true }, nil
+		},
+	}
+
+	result, err := api.Remove(c.Context(), params.Entities{
+		Entities: []params.Entity{{Tag: names.NewUnitTag("foo/0").String()}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *deployerSuite) TestRemoveDependenciesNotDead(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.applicationService.EXPECT().
+		GetUnitUUID(gomock.Any(), unit.Name("foo/0")).
+		Return(unitUUID, nil)
+	// The removal of the unit's storage attachments has not completed; the
+	// removal is refused and will be reattempted on the next change.
+	s.removalService.EXPECT().
+		MarkUnitAsDeadCascade(gomock.Any(), unitUUID).
+		Return(removalerrors.EntityStillAlive)
+
+	api := &DeployerAPI{
+		applicationService: s.applicationService,
+		removalService:     s.removalService,
+		getAuth: func(ctx context.Context) (common.AuthFunc, error) {
+			return func(names.Tag) bool { return true }, nil
+		},
+	}
+
+	result, err := api.Remove(c.Context(), params.Entities{
+		Entities: []params.Entity{{Tag: names.NewUnitTag("foo/0").String()}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	// Not an error; the removal is retried later.
+	c.Assert(result.Results[0].Error, tc.IsNil)
 }
 
 func (s *deployerSuite) TestWatchUnitsPermissionDenied(c *tc.C) {
@@ -199,11 +261,13 @@ func (s *deployerSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.passwordService = NewMockAgentPasswordService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
+	s.removalService = NewMockRemovalService(ctrl)
 	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 
 	c.Cleanup(func() {
 		s.passwordService = nil
 		s.applicationService = nil
+		s.removalService = nil
 		s.watcherRegistry = nil
 	})
 

@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
@@ -15,6 +16,8 @@ import (
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
+	"github.com/juju/juju/domain/storage"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -171,6 +174,60 @@ func (s *Service) MarkUnitAsDead(ctx context.Context, unitUUID unit.UUID) error 
 	}
 
 	return s.modelState.MarkUnitAsDead(ctx, unitUUID.String())
+}
+
+// MarkUnitAsDeadCascade marks the unit as dead, after having marked the
+// unit's storage attachments as dead.
+// The following errors may be returned:
+//   - [coreerrors.NotValid] when the supplied unit UUID is not valid.
+//   - [applicationerrors.UnitNotFound] when the unit does not exist.
+//   - [removalerrors.EntityStillAlive] when the unit cannot yet be marked
+//     dead because it is alive or still has associated entities.
+func (s *Service) MarkUnitAsDeadCascade(ctx context.Context, unitUUID unit.UUID) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	err := unitUUID.Validate()
+	if err != nil {
+		return errors.Errorf(
+			"validating unit uuid: %w", err,
+		).Add(coreerrors.NotValid)
+	}
+
+	saUUIDs, err := s.modelState.GetStorageAttachmentUUIDsForUnit(ctx, unitUUID.String())
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return errors.Errorf("unit %q not found", unitUUID).Add(applicationerrors.UnitNotFound)
+	} else if err != nil {
+		return errors.Errorf(
+			"getting storage attachments for unit %q: %w", unitUUID, err,
+		)
+	}
+
+	for _, saUUID := range saUUIDs {
+		err := s.MarkStorageAttachmentAsDead(ctx, storage.StorageAttachmentUUID(saUUID))
+		if errors.Is(err, storageerrors.StorageAttachmentNotFound) {
+			// The storage attachment has already been removed.
+			continue
+		} else if err != nil {
+			return errors.Errorf(
+				"marking storage attachment %q dead for unit %q: %w",
+				saUUID, unitUUID, err,
+			)
+		}
+	}
+
+	// The unit may only be marked dead once its associated entities have
+	// been removed, as is enforced by this call.
+	err = s.modelState.MarkUnitAsDeadWithNoEntities(ctx, unitUUID.String())
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return errors.Errorf("unit %q not found", unitUUID).Add(applicationerrors.UnitNotFound)
+	} else if err != nil {
+		return errors.Errorf(
+			"marking unit %q as dead: %w", unitUUID, err,
+		)
+	}
+
+	return nil
 }
 
 // leaveAllRelationScopes departs this unit from any relations that it is

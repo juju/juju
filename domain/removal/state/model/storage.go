@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
@@ -50,6 +52,65 @@ WHERE  uuid = $entityUUID.uuid`, attachmentUUID)
 	})
 
 	return attachmentExists, errors.Capture(err)
+}
+
+// GetStorageAttachmentUUIDsForUnit returns the UUIDs of all storage
+// attachments for the unit with the input UUID, irrespective of their life.
+//
+// The following errors may be returned:
+// - [applicationerrors.UnitNotFound] when the specified unit does not exist.
+func (st *State) GetStorageAttachmentUUIDsForUnit(
+	ctx context.Context, uUUID string,
+) ([]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	unitUUID := entityUUID{UUID: uUUID}
+	var attachmentUUIDs []entityUUID
+
+	existsStmt, err := st.Prepare(`
+SELECT &entityUUID.uuid
+FROM   unit
+WHERE  uuid = $entityUUID.uuid`, unitUUID)
+	if err != nil {
+		return nil, errors.Errorf("preparing unit exists query: %w", err)
+	}
+
+	attachmentsStmt, err := st.Prepare(`
+SELECT &entityUUID.uuid
+FROM   storage_attachment
+WHERE  unit_uuid = $entityUUID.uuid`, unitUUID)
+	if err != nil {
+		return nil, errors.Errorf("preparing unit storage attachments query: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, existsStmt, unitUUID).Get(&unitUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"unit %q not found", uUUID,
+			).Add(applicationerrors.UnitNotFound)
+		} else if err != nil {
+			return errors.Errorf("running unit exists query: %w", err)
+		}
+
+		err = tx.Query(ctx, attachmentsStmt, unitUUID).GetAll(&attachmentUUIDs)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Errorf("running unit storage attachments query: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return transform.Slice(attachmentUUIDs, func(u entityUUID) string {
+		return u.UUID
+	}), nil
 }
 
 // EnsureStorageAttachmentNotAlive ensures that there is no storage attachment

@@ -28,6 +28,15 @@ type StorageState interface {
 	// the input UUID.
 	StorageAttachmentExists(ctx context.Context, saUUID string) (bool, error)
 
+	// GetStorageAttachmentUUIDsForUnit returns the UUIDs of all storage
+	// attachments for the unit with the input UUID, irrespective of their
+	// life.
+	//
+	// The following errors may be returned:
+	// - [applicationerrors.UnitNotFound] when the specified unit does not
+	// exist.
+	GetStorageAttachmentUUIDsForUnit(ctx context.Context, uUUID string) ([]string, error)
+
 	// EnsureStorageAttachmentNotAlive ensures that there is no storage
 	// attachment identified by the input UUID that is still alive.
 	EnsureStorageAttachmentNotAlive(
