@@ -8,8 +8,8 @@ check_dependencies sha256sum
 
 sha() {
 	case ${BUILD_ARCH} in
-	amd64) echo "45c9bbc1291e3ae3a1254e8098fda0e1a4d9b0a64178093e4e253e6ac75caa3b" ;;
-	arm64) echo "e4c1e2ca250a80bc389930495bafa78dd45bd411eaca05b79bf72839c6050904" ;;
+	amd64) echo "45ba212378783f837501a87f3424dca5cf9080582ffc894cc9c53b04cba5d659" ;;
+	arm64) echo "fe43fa903601bedef66decf654ec21cc749927abdb0a4d8fdd6ba6cefd0000df" ;;
 	*) {
 		echo "Unsupported arch ${BUILD_ARCH}."
 		exit 1
