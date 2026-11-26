@@ -16,9 +16,11 @@ import (
 func main() {
 	args := os.Args
 
-	// enable debug except for command `version` which relies on command output. Debugging server
-	// will mess up with that command.
-	if slices.Contains(args, "version") {
+	// enable debug except for commands `version` and `recover-state` which
+	// rely on command output. Debugging server will mess up with those
+	// commands.
+	if slices.Contains(args, "version") ||
+		slices.Contains(args, "recover-state") {
 		os.Exit(Main(args))
 	}
 

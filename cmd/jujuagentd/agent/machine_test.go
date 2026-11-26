@@ -4,6 +4,9 @@
 package agent
 
 import (
+	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	jujuerrors "github.com/juju/errors"
@@ -11,6 +14,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/semversion"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internalworker "github.com/juju/juju/internal/worker"
 )
@@ -129,6 +133,34 @@ func (m *mockAgentInitializer) CheckArgs([]string) error {
 
 func (m *mockAgentInitializer) DataDir() string {
 	return ""
+}
+
+func (s *MachineSuite) TestValidateRecoveryEngineStart(c *tc.C) {
+	dataDir := c.MkDir()
+	c.Check(validateRecoveryEngineStart(dataDir), tc.ErrorIsNil)
+
+	paramsFile := filepath.Join(dataDir, agent.RecoveryParamsFile)
+	c.Assert(os.MkdirAll(filepath.Dir(paramsFile), 0755), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(paramsFile, nil, 0600), tc.ErrorIsNil)
+	err := validateRecoveryEngineStart(dataDir)
+	c.Check(err, tc.ErrorMatches, "recovery import has not completed")
+}
+
+// TestEngineCreatorWaitsForRecoveryImport exercises the engine creator the
+// startup path uses, so removing the recovery guard from it fails here.
+func (s *MachineSuite) TestEngineCreatorWaitsForRecoveryImport(c *tc.C) {
+	dataDir := c.MkDir()
+	paramsFile := filepath.Join(dataDir, agent.RecoveryParamsFile)
+	c.Assert(os.MkdirAll(filepath.Dir(paramsFile), 0755), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(paramsFile, nil, 0600), tc.ErrorIsNil)
+
+	machineAgent := &MachineAgent{AgentConfigWriter: &fakeMachineAgentConfigWriter{
+		config: &fakeMachineConfig{dataDir: dataDir},
+	}}
+	createEngine := machineAgent.makeEngineCreator(semversion.Number{}, nil, nil)
+	w, err := createEngine(context.Background())
+	c.Check(w, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "recovery import has not completed")
 }
 
 func (s *MachineSuite) TestIntegrationStub(c *tc.C) {

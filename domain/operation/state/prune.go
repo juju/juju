@@ -6,8 +6,6 @@ package state
 import (
 	"context"
 	"database/sql"
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -18,8 +16,22 @@ import (
 )
 
 const (
-	// UUID are stored in the database as 36 characters long strings.
-	uuidSizeInB = 36
+	// UUIDs are stored as canonical hyphenated strings.
+	uuidBytes = len("00000000-0000-0000-0000-000000000000")
+	// Fixed allowances, not the database's actual stored representation.
+	scalarBytes = 8 // integer or timestamp
+	boolBytes   = 1
+
+	// Field counts follow domain/schema/model/sql/0033-operation.sql.
+	operationRowBytes = uuidBytes + 4*scalarBytes + boolBytes // ID, timestamps, parallel
+	taskRowBytes      = 2*uuidBytes + 3*scalarBytes           // UUIDs, timestamps
+	logRowBytes       = uuidBytes + scalarBytes               // task UUID, timestamp
+	actionRowBytes    = 2 * uuidBytes                         // operation and charm UUIDs
+	parameterRowBytes = uuidBytes                             // operation UUID
+	statusRowBytes    = uuidBytes + 2*scalarBytes             // task UUID, status ID, timestamp
+	// Receiver links contain two UUIDs. Use the same allowance for outputs,
+	// whose paths are also counted with object-store metadata.
+	associationRowBytes = 2 * uuidBytes
 )
 
 // PruneOperations deletes operations older than maxAge and larger than maxSizeMB.
@@ -163,80 +175,105 @@ func (st *State) pruneOperationsToKeepUnderSizeMiB(ctx context.Context, maxSizeM
 // The average size is rounded down to the next multiple of humanize.KiByte,
 // but returns at least 1.
 func (st *State) estimateOperationSizeInKiB(ctx context.Context, tx *sqlair.TX) (int, int, error) {
-	// Get total number of operations
-	opCount, err := st.count(ctx, tx, "operation")
+	type estimate struct {
+		Count int `db:"count"`
+		Size  int `db:"size"`
+	}
+	type rowSizes struct {
+		Operation   int `db:"operation"`
+		Task        int `db:"task"`
+		Log         int `db:"log"`
+		Action      int `db:"action"`
+		Parameter   int `db:"parameter"`
+		Status      int `db:"status"`
+		Association int `db:"association"`
+	}
+	sizes := rowSizes{
+		Operation:   operationRowBytes,
+		Task:        taskRowBytes,
+		Log:         logRowBytes,
+		Action:      actionRowBytes,
+		Parameter:   parameterRowBytes,
+		Status:      statusRowBytes,
+		Association: associationRowBytes,
+	}
+	// Variable-length text is measured separately; the fixed allowances also
+	// count nullable fields. Schema changes must be reflected in the estimate.
+	stmt, err := st.Prepare(`
+WITH
+operations AS (
+    SELECT COUNT(*) AS count,
+           COALESCE(SUM($rowSizes.operation +
+               COALESCE(octet_length(o.summary), 0) +
+               COALESCE(octet_length(o.execution_group), 0)), 0) AS size
+    FROM operation AS o
+),
+tasks AS (
+    SELECT COALESCE(SUM($rowSizes.task + octet_length(t.task_id)), 0) AS size
+    FROM operation_task AS t
+),
+logs AS (
+    SELECT COALESCE(SUM($rowSizes.log + octet_length(l.content)), 0) AS size
+    FROM operation_task_log AS l
+),
+actions AS (
+    SELECT COALESCE(SUM($rowSizes.action + octet_length(a.charm_action_key)), 0) AS size
+    FROM operation_action AS a
+),
+parameters AS (
+    SELECT COALESCE(SUM($rowSizes.parameter + octet_length(p.key) + octet_length(p.value)), 0) AS size
+    FROM operation_parameter AS p
+),
+statuses AS (
+    SELECT COALESCE(SUM($rowSizes.status + COALESCE(octet_length(s.message), 0)), 0) AS size
+    FROM operation_task_status AS s
+),
+machine_tasks AS (
+    SELECT COUNT(*) * $rowSizes.association AS size FROM operation_machine_task AS mt
+),
+unit_tasks AS (
+    SELECT COUNT(*) * $rowSizes.association AS size FROM operation_unit_task AS ut
+),
+outputs AS (
+    SELECT COUNT(*) * $rowSizes.association AS size FROM operation_task_output AS oto
+),
+totals AS (
+    SELECT o.count AS count,
+           o.size + t.size + l.size + a.size + p.size + s.size +
+               mt.size + ut.size + oto.size AS size
+    FROM operations AS o
+    CROSS JOIN tasks AS t
+    CROSS JOIN logs AS l
+    CROSS JOIN actions AS a
+    CROSS JOIN parameters AS p
+    CROSS JOIN statuses AS s
+    CROSS JOIN machine_tasks AS mt
+    CROSS JOIN unit_tasks AS ut
+    CROSS JOIN outputs AS oto
+)
+SELECT t.count AS &estimate.count, t.size AS &estimate.size
+FROM totals AS t`, estimate{}, sizes)
 	if err != nil {
 		return 0, -1, errors.Capture(err)
 	}
-	if opCount == 0 {
+	var tableEstimate estimate
+	if err := tx.Query(ctx, stmt, sizes).Get(&tableEstimate); err != nil {
+		return 0, -1, errors.Errorf("estimating operation table sizes: %w", err)
+	}
+	if tableEstimate.Count == 0 {
 		return 0, -1, nil
 	}
 
-	// Table with variable content
-	opSizeB, err := st.computeTableSize(ctx, tx, humanize.Byte, "operation",
-		"uuid", "operation_id", "summary", "enqueued_at", "started_at", "completed_at", "parallel", "execution_group")
-	if err != nil {
-		return 0, -1, errors.Capture(err)
-	}
-	taskSizeB, err := st.computeTableSize(ctx, tx, humanize.Byte, "operation_task",
-		"uuid", "operation_uuid", "task_id", "enqueued_at", "started_at", "completed_at")
-	if err != nil {
-		return 0, -1, errors.Capture(err)
-	}
-	logSizeB, err := st.computeTableSize(ctx, tx, humanize.Byte, "operation_task_log",
-		"task_uuid", "content", "created_at")
-	if err != nil {
-		return 0, -1, errors.Capture(err)
-	}
-	actionSizeB, err := st.computeTableSize(ctx, tx, humanize.Byte, "operation_action",
-		"operation_uuid", "charm_uuid", "charm_action_key")
-	if err != nil {
-		return 0, -1, errors.Capture(err)
-	}
-	parameterSizeB, err := st.computeTableSize(ctx, tx, humanize.Byte, "operation_parameter",
-		"operation_uuid", "key", "value")
-	if err != nil {
-		return 0, -1, errors.Capture(err)
-	}
-	statusSizeB, err := st.computeTableSize(ctx, tx, humanize.Byte, "operation_task_status",
-		"task_uuid", "status_id", "message", "updated_at")
-	if err != nil {
-		return 0, -1, errors.Capture(err)
-	}
-
-	// association table (uuid only)
-	machineTaskCount, err := st.count(ctx, tx, "operation_machine_task")
-	if err != nil {
-		return 0, -1, errors.Capture(err)
-	}
-	unitTaskCount, err := st.count(ctx, tx, "operation_unit_task")
-	if err != nil {
-		return 0, -1, errors.Capture(err)
-	}
-	outputTaskCount, err := st.count(ctx, tx, "operation_task_output")
-	if err != nil {
-		return 0, -1, errors.Capture(err)
-	}
-
 	// Object store size
-	objectStoreSizeKiB, err := st.computeObjectStoreSize(ctx, tx, humanize.Byte)
+	objectStoreSizeB, err := st.computeObjectStoreSize(ctx, tx, humanize.Byte)
 	if err != nil {
 		return 0, -1, errors.Errorf("computing object store size: %w", err)
 	}
 
-	// Get total size of operation datas (in B)
-	totalSizeB :=
-		// precise size of operation
-		opSizeB + taskSizeB + logSizeB + actionSizeB + parameterSizeB + statusSizeB +
-			// association table
-			machineTaskCount*2*uuidSizeInB +
-			unitTaskCount*2*uuidSizeInB +
-			outputTaskCount*2*uuidSizeInB +
-			// object store size
-			objectStoreSizeKiB
+	totalSizeB := tableEstimate.Size + objectStoreSizeB
 
 	return roundUp(totalSizeB, humanize.KiByte),
-		roundDownNonZero(totalSizeB/opCount, humanize.KiByte), nil
+		roundDownNonZero(totalSizeB/tableEstimate.Count, humanize.KiByte), nil
 }
 
 // computeObjectStoreSize computes the size of the content related to tasks in
@@ -278,7 +315,7 @@ SELECT COALESCE(SUM(
     octet_length(osm.uuid) +
     octet_length(osm.sha_256) +
     octet_length(osm.sha_384) +
-    octet_length(osm.size)), 0) AS &result.size
+    octet_length(CAST(osm.size AS TEXT))), 0) AS &result.size
 FROM   object_store_metadata AS osm 
 WHERE  osm.uuid IN (SELECT u.metadata_uuid FROM uuids AS u)`, result{})
 	if err != nil {
@@ -305,34 +342,6 @@ func roundDownNonZero(size int, sizeFactor int) int {
 		return res
 	}
 	return 1
-}
-
-// computeTableSize computes the size of the table in the database.
-// The sizeFactor allows to convert the size in bytes to the size in another ratio.
-func (st *State) computeTableSize(ctx context.Context, tx *sqlair.TX, sizeFactor int, table string,
-	columns ...string) (int, error) {
-	type result struct {
-		Size int `db:"size"`
-	}
-	octetLengths := transform.Slice(columns, func(col string) string {
-		return fmt.Sprintf("octet_length(%q)", col)
-	})
-	sums := strings.Join(octetLengths, "+")
-	query := fmt.Sprintf(`
-SELECT COALESCE(SUM(
-	%s
-	), 0) AS &result.size
-FROM %q
-`, sums, table)
-	stmt, err := st.Prepare(query, result{})
-	if err != nil {
-		return 0, errors.Capture(err)
-	}
-	var res result
-	if err := tx.Query(ctx, stmt).Get(&res); err != nil {
-		return 0, errors.Errorf("compute table %q size with colums %v: %w", table, columns, err)
-	}
-	return (res.Size + sizeFactor - 1) / sizeFactor, nil
 }
 
 // getOperationToPruneUpTo returns a list of UUIDs of operations to prune

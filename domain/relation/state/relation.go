@@ -155,21 +155,15 @@ func (st *State) AddRelation(
 	})
 }
 
-// InferRelationUUIDByEndpoints infers the relation based on two endpoints.
-//
-// When the endpoint identifiers are not fully qualified (i.e., no endpoint
-// name is specified), this method first attempts to infer the relation from
-// charm metadata. If this results in ambiguity (multiple possible endpoint
-// pairs), it falls back to querying existing relations between the two
-// applications directly. This handles the common case where a user specifies
-// only application names for removal and there is a single existing relation
-// between them.
+// InferRelationUUIDByEndpoints finds the existing relation between two
+// endpoints. Endpoint names are optional: an identifier without one matches
+// any endpoint of its application.
 //
 // The following error types can be expected to be returned:
-//   - [relationerrors.RelationNotFound] is returned if endpoints cannot be
-//     found.
-//   - [relationerrors.AmbiguousRelation] is returned if multiple existing
-//     relations are found between the two applications.
+//   - [relationerrors.RelationNotFound] is returned if no existing relation
+//     matches.
+//   - [relationerrors.AmbiguousRelation] is returned if several existing
+//     relations match.
 func (st *State) InferRelationUUIDByEndpoints(
 	ctx context.Context,
 	epIdentifier1, epIdentifier2 domainrelation.CandidateEndpointIdentifier,
@@ -181,37 +175,9 @@ func (st *State) InferRelationUUIDByEndpoints(
 
 	var potentialUUIDs []relationUUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		ep1, ep2, err := st.inferEndpoints(ctx, tx, epIdentifier1, epIdentifier2)
-		if errors.IsOneOf(err,
-			relationerrors.CompatibleEndpointsNotFound,
-			relationerrors.RelationEndpointNotFound,
-		) {
-			return relationerrors.RelationNotFound
-		} else if errors.Is(err, relationerrors.AmbiguousRelation) {
-			// Charm metadata yields multiple compatible endpoint pairs.
-			// Fall back to checking which relations actually exist between
-			// the two applications.
-			potentialUUIDs, err = st.getExistingRegularRelationUUIDBetweenApplications(
-				ctx, tx,
-				epIdentifier1.ApplicationName,
-				epIdentifier2.ApplicationName,
-			)
-			return err
-		} else if err != nil {
-			return errors.Errorf("inferring endpoints: %w", err)
-		}
-
-		potentialUUIDs, err = st.getRegularRelationUUIDByEndpointIdentifiers(
-			ctx,
-			tx,
-			ep1.toEndpointIdentifier(),
-			ep2.toEndpointIdentifier(),
-		)
-		if err != nil {
-			return errors.Errorf("getting uuid for %q, %q: %w",
-				ep1.String(), ep2.String(), err)
-		}
-		return nil
+		potentialUUIDs, err = st.getRegularRelationUUIDsByCandidateIdentifiers(
+			ctx, tx, epIdentifier1, epIdentifier2)
+		return err
 	})
 	if err != nil {
 		return "", errors.Capture(err)
@@ -226,8 +192,8 @@ func (st *State) InferRelationUUIDByEndpoints(
 		return "", errors.Errorf(
 			"%w: multiple relations exist between %q and %q",
 			relationerrors.AmbiguousRelation,
-			epIdentifier1.ApplicationName,
-			epIdentifier2.ApplicationName,
+			epIdentifier1,
+			epIdentifier2,
 		)
 	}
 }
@@ -1127,52 +1093,57 @@ AND    e2.endpoint_name    = $endpointIdentifier2.endpoint_name
 	return uuid, errors.Capture(err)
 }
 
-// getExistingRegularRelationUUIDBetweenApplications queries for all existing
-// non-peer relations between two applications identified by name. A non-peer
-// relation is one that has endpoints from two distinct applications. This is
-// used as a fallback when endpoint inference from charm metadata is ambiguous
-// but the user has specified only application names for relation removal.
+// getRegularRelationUUIDsByCandidateIdentifiers returns the existing non-peer
+// relations matching the two identifiers. An identifier without an endpoint
+// name matches any endpoint of its application.
 //
 // The following error types can be expected to be returned:
 //   - [relationerrors.RelationNotFound] is returned if no existing relation
-//     is found between the two applications.
-func (st *State) getExistingRegularRelationUUIDBetweenApplications(
+//     matches.
+func (st *State) getRegularRelationUUIDsByCandidateIdentifiers(
 	ctx context.Context,
 	tx *sqlair.TX,
-	appName1, appName2 string,
+	identifier1, identifier2 domainrelation.CandidateEndpointIdentifier,
 ) ([]relationUUID, error) {
-	type applicationName1 struct {
-		Name string `db:"application_name"`
+	type endpointIdentifier1 endpointIdentifier
+	type endpointIdentifier2 endpointIdentifier
+	e1 := endpointIdentifier1{
+		ApplicationName: identifier1.ApplicationName,
+		EndpointName:    identifier1.EndpointName,
 	}
-	type applicationName2 struct {
-		Name string `db:"application_name"`
+	e2 := endpointIdentifier2{
+		ApplicationName: identifier2.ApplicationName,
+		EndpointName:    identifier2.EndpointName,
 	}
-	a1 := applicationName1{Name: appName1}
-	a2 := applicationName2{Name: appName2}
 
-	// Find relations that have endpoints from both applications. The INNER
-	// JOIN on two distinct endpoints of the same relation guarantees we only
-	// return regular (non-peer) relations, since peer relations have a
-	// single endpoint.
+	// Requiring two different applications excludes peer relations, whose
+	// single endpoint would otherwise join with itself.
 	stmt, err := st.Prepare(`
-SELECT DISTINCT r.uuid AS &relationUUID.uuid
+SELECT r.uuid AS &relationUUID.uuid
 FROM   relation r
 JOIN   v_relation_endpoint_identifier e1 ON r.uuid = e1.relation_uuid
 JOIN   v_relation_endpoint_identifier e2 ON r.uuid = e2.relation_uuid
-WHERE  e1.application_name = $applicationName1.application_name
-AND    e2.application_name = $applicationName2.application_name
+WHERE  e1.application_name = $endpointIdentifier1.application_name
+AND    e2.application_name = $endpointIdentifier2.application_name
 AND    e1.application_name != e2.application_name
-`, relationUUID{}, a1, a2)
+AND    (
+    $endpointIdentifier1.endpoint_name = ''
+    OR e1.endpoint_name = $endpointIdentifier1.endpoint_name
+)
+AND    (
+    $endpointIdentifier2.endpoint_name = ''
+    OR e2.endpoint_name = $endpointIdentifier2.endpoint_name
+)
+`, relationUUID{}, e1, e2)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	var uuids []relationUUID
-	err = tx.Query(ctx, stmt, a1, a2).GetAll(&uuids)
+	err = tx.Query(ctx, stmt, e1, e2).GetAll(&uuids)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return nil, relationerrors.RelationNotFound
-	}
-	if err != nil {
+	} else if err != nil {
 		return nil, errors.Capture(err)
 	}
 	return uuids, nil
@@ -3653,15 +3624,18 @@ WHERE  re.relation_uuid = $getCount.uuid
 	return count.Count, nil
 }
 
-// inferEndpoints determines and validates the endpoints of a given relation
-// based on the provided identifiers. It tries to find matching endpoint for both
-// application, regarding the name of endpoint if provided, their interfaces,
-// their roles and their scopes.
+// inferEndpoints chooses the endpoints of a new relation based on the provided
+// identifiers. It tries to find matching endpoint for both application,
+// regarding the name of endpoint if provided, their interfaces, their roles
+// and their scopes.
 // If there is several matches or none, it will return an error.
+// If there are several matches, those using an implicit endpoint (juju-info)
+// are discarded when that leaves exactly one.
 func (st *State) inferEndpoints(
 	ctx context.Context,
 	tx *sqlair.TX,
-	identifier1, identifier2 domainrelation.CandidateEndpointIdentifier) (Endpoint, Endpoint, error) {
+	identifier1, identifier2 domainrelation.CandidateEndpointIdentifier,
+) (Endpoint, Endpoint, error) {
 
 	// Get candidate endpoints.
 	endpoints1, err := st.getCandidateEndpoints(ctx, tx, identifier1)
@@ -3718,6 +3692,20 @@ func (st *State) inferEndpoints(
 			if ep1.CanRelateTo(ep2) {
 				matches = append(matches, match{ep1: &e1, ep2: &e2})
 			}
+		}
+	}
+
+	if len(matches) > 1 {
+		var explicit []match
+		for _, m := range matches {
+			if m.ep1.toRelationEndpoint().IsImplicit() ||
+				m.ep2.toRelationEndpoint().IsImplicit() {
+				continue
+			}
+			explicit = append(explicit, m)
+		}
+		if len(explicit) == 1 {
+			matches = explicit
 		}
 	}
 

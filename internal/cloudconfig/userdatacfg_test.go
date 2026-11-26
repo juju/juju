@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
@@ -1095,6 +1096,33 @@ test-key:
   - test line one
 `[1:]
 
+// bootstrapConfigScriptsForConfig renders the cloud-init scripts for the given
+// instance configuration.
+func bootstrapConfigScriptsForConfig(c *tc.C, instConfig *testInstanceConfig) []string {
+	loggo.GetLogger("").SetLogLevel(loggo.INFO)
+	rendered := instConfig.render()
+	cloudcfg, err := cloudinit.New(rendered.Base.OS)
+	c.Assert(err, tc.ErrorIsNil)
+	udata, err := cloudconfig.NewUserdataConfig(&rendered, cloudcfg)
+
+	c.Assert(err, tc.ErrorIsNil)
+	err = udata.Configure()
+	c.Assert(err, tc.ErrorIsNil)
+	data, err := cloudcfg.RenderYAML()
+	c.Assert(err, tc.ErrorIsNil)
+	configKeyValues := make(map[any]any)
+	err = goyaml.Unmarshal(data, &configKeyValues)
+	c.Assert(err, tc.ErrorIsNil)
+
+	scripts := getScripts(configKeyValues)
+	for i, script := range scripts {
+		if strings.Contains(script, "bootstrap") {
+			c.Logf("scripts[%d]: %q", i, script)
+		}
+	}
+	return scripts
+}
+
 func (s *cloudinitSuite) TestCloudInitPreruncmdError(c *tc.C) {
 	environConfig := minimalModelConfig(c)
 	environConfig, err := environConfig.Apply(map[string]any{
@@ -1129,6 +1157,35 @@ postruncmd:
 	c.Assert(err, tc.ErrorIsNil)
 	err = udata.Configure()
 	c.Assert(err, tc.ErrorMatches, `invalid postruncmd: .* got list containing float64`)
+}
+
+func (s *cloudinitSuite) TestCloudInitConfigureRecoveryBootstrap(c *tc.C) {
+	envConfig := minimalModelConfig(c)
+	instConfig := makeBootstrapConfig(jammy, 0).maybeSetModelConfig(envConfig)
+	instConfig.Bootstrap.StateInitializationParams.RecoveryMode = true
+	instConfig.setMachineID("7")
+	// Bootstrap instance configs carry no API entity tag; recovery sets the
+	// archived machine identity without changing that.
+	instConfig.APIInfo.Tag = nil
+
+	paramsData, err := instConfig.Bootstrap.StateInitializationParams.Marshal()
+	c.Assert(err, tc.ErrorIsNil)
+	var params instancecfg.StateInitializationParams
+	c.Assert(params.Unmarshal(paramsData), tc.ErrorIsNil)
+	c.Check(params.RecoveryMode, tc.IsTrue)
+
+	scripts := bootstrapConfigScriptsForConfig(c, instConfig)
+	// The marker must exist before recover-state runs, and the machine
+	// agent service starts only after it. bootstrap-state must never run:
+	// it would initialise fresh state on the replacement.
+	assertScriptMatch(c, scripts, `install -D -m 600 /dev/null '/var/lib/juju/recovery/params'
+jujuagentd recover-state --data-dir '/var/lib/juju' --show-log --machine-id 7$
+jujuagentd-machine-7`, false)
+	// recover-state performs no timed work, so it gets no --timeout flag.
+	c.Check(strings.Contains(strings.Join(scripts, "\n"), "--timeout"), tc.IsFalse)
+	c.Check(strings.Contains(strings.Join(scripts, "\n"), "bootstrap-state"), tc.IsFalse)
+	c.Check(scripts, tc.Not(tc.Contains),
+		"echo '' > '/var/lib/juju/recovery/params'")
 }
 
 func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *tc.C) {

@@ -16,6 +16,7 @@ import (
 	"text/template"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v4"
@@ -28,7 +29,10 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/controllerruntimeconfig"
+	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
+	jujunames "github.com/juju/juju/juju/names"
+	"github.com/juju/juju/juju/osenv"
 )
 
 var logger = internallogger.GetLogger("juju.cloudconfig")
@@ -513,6 +517,10 @@ func (w *userdataConfig) configureSnapBootstrap() error {
 		return errors.Annotate(err, "marshalling bootstrap params")
 	}
 
+	if w.icfg.Bootstrap.RecoveryMode {
+		return w.configureRecoveryBootstrap(bootstrapParams)
+	}
+
 	logSinkBurst, logSinkRefill, err := controllerruntimeconfig.ParseLogSinkRateLimits(w.icfg.AgentEnvironment)
 	if err != nil {
 		return errors.Annotate(err, "parsing log-sink rate limits")
@@ -653,6 +661,45 @@ snap run %[6]s.bootstrap-state --timeout %[7]s`,
 	// Step 6: Start and enable the initialized snap controller daemon.
 	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting snap controller"))
 	w.conf.AddRunCmd(fmt.Sprintf("snap start %s --enable", bootstrap.ControllerSnapPackageName))
+
+	return nil
+}
+
+// configureRecoveryBootstrap prepares a replacement controller allocated
+// from a recovery archive. The archived bootstrap params are written to the
+// agent data dir, the recovery marker is installed before the machine agent
+// starts so its dependency engine waits for the state import, and
+// recover-state prepares the local controller configuration. bootstrap-state
+// must never run on a recovery allocation: it would initialise fresh state
+// on the replacement.
+func (w *userdataConfig) configureRecoveryBootstrap(bootstrapParams []byte) error {
+	bootstrapParamsFile := path.Join(w.icfg.DataDir, FileNameBootstrapParams)
+	w.conf.AddRunTextFile(bootstrapParamsFile, string(bootstrapParams), 0600)
+
+	loggingOption := "--show-log"
+	if loggo.GetLogger("").LogLevel() == loggo.DEBUG {
+		// If the bootstrap command was requested with --debug, then the root
+		// logger will be set to DEBUG. If it is, then we use --debug here too.
+		loggingOption = "--debug"
+	}
+	featureFlags := featureflag.AsEnvironmentValue()
+	if featureFlags != "" {
+		featureFlags = fmt.Sprintf("%s=%s ", osenv.JujuFeatureFlagEnvKey, featureFlags)
+	}
+
+	// The marker must exist before jujuagentd machine starts so its
+	// dependency engine waits for the recovery import.
+	w.conf.AddRunCmd(fmt.Sprintf("install -D -m %o /dev/null %s",
+		0600, shquote(path.Join(w.icfg.DataDir, agent.RecoveryParamsFile))))
+	recoverAgentArgs := []string{
+		featureFlags + w.icfg.JujuTools() + "/" + jujunames.JujuAgentd,
+		"recover-state",
+		"--data-dir", shquote(w.icfg.DataDir),
+		loggingOption,
+		"--machine-id", w.icfg.MachineId,
+	}
+	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Installing Juju machine agent"))
+	w.conf.AddScripts(strings.Join(recoverAgentArgs, " "))
 
 	return nil
 }

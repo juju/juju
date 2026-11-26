@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/api/client/application"
 	apicharms "github.com/juju/juju/api/client/charms"
-	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/sshclient"
 	controllerapi "github.com/juju/juju/api/controller/controller"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
@@ -25,7 +24,6 @@ import (
 	jujussh "github.com/juju/juju/internal/network/ssh"
 	"github.com/juju/juju/internal/provider/kubernetes"
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
-	"github.com/juju/juju/rpc/params"
 )
 
 // sshContainer implements functionality shared by sshCommand, SCPCommand
@@ -350,8 +348,4 @@ func (c *sshContainer) getExecClient(ctx context.Context) (k8sexec.Executor, err
 		return nil, errors.Trace(err)
 	}
 	return c.execClientGetter(c.namespace, cloudSpec)
-}
-
-func (c *sshContainer) maybePopulateTargetViaField(ctx context.Context, _ *resolvedTarget, _ func(context.Context, *client.StatusArgs) (*params.FullStatus, error)) error {
-	return nil
 }

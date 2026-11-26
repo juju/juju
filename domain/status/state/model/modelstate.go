@@ -8,7 +8,6 @@ import (
 	"database/sql"
 	"net"
 	"slices"
-	"sort"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -2224,12 +2223,19 @@ SELECT
 	ipa.type_name AS &machineSpaceAddress.type_name,
 	ipa.origin_name AS &machineSpaceAddress.origin_name,
 	ipa.scope_name AS &machineSpaceAddress.scope_name,
-	sn.space_uuid AS &machineSpaceAddress.space_uuid,
-	sn.cidr AS &machineSpaceAddress.cidr
+	ipa.space_uuid AS &machineSpaceAddress.space_uuid,
+	ipa.cidr AS &machineSpaceAddress.cidr
 FROM machine AS m
-JOIN link_layer_device AS lld ON m.net_node_uuid = lld.net_node_uuid
-JOIN v_ip_address_with_names AS ipa ON lld.uuid = ipa.device_uuid
-LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
+JOIN v_ip_address_selection AS ipa ON m.net_node_uuid = ipa.net_node_uuid
+WHERE ipa.scope_id NOT IN (3, 4) /* exclude local-machine and link-local scopes */
+ORDER BY
+    m.uuid,
+    ipa.scope_rank,
+    ipa.type_id,
+    ipa.is_secondary,
+    ipa.default_route_rank,
+    ipa.origin_rank,
+    ipa.address_value
 `, machineSpaceAddress{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -2308,16 +2314,7 @@ LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
 			s.ConstraintAllocatePublicIP, s.ConstraintImageID,
 		)
 
-		machineAddresses := addresses[s.UUID.String()]
-		matchedAddrs := make(corenetwork.SpaceAddresses, 0, len(machineAddresses))
-		for _, mAddr := range machineAddresses {
-			switch mAddr.Scope {
-			case corenetwork.ScopeMachineLocal, corenetwork.ScopeLinkLocal:
-				continue
-			}
-			matchedAddrs = append(matchedAddrs, mAddr)
-		}
-		sort.Sort(matchedAddrs)
+		matchedAddrs := addresses[s.UUID.String()]
 		ipAddresses := transform.Slice(matchedAddrs, func(addr corenetwork.SpaceAddress) string {
 			return addr.Value
 		})

@@ -101,11 +101,9 @@ ON CONFLICT (relation_uuid, cidr) DO NOTHING
 }
 
 // GetRelationNetworkIngress retrieves all ingress network CIDRs for the
-// specified relation.
+// specified relation in lexical order.
 // It returns a [relationerrors.RelationNotFound] if the provided relation does
 // not exist.
-// It returns a [relationerrors.RelationNotAlive] if the provided relation is
-// dead.
 func (st *State) GetRelationNetworkIngress(ctx context.Context, relationUUID string) ([]string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -114,8 +112,9 @@ func (st *State) GetRelationNetworkIngress(ctx context.Context, relationUUID str
 
 	selectStmt, err := st.Prepare(`
 SELECT &cidr.*
-FROM   relation_network_ingress
-WHERE  relation_uuid = $uuid.uuid
+FROM   relation_network_ingress AS rni
+WHERE  rni.relation_uuid = $uuid.uuid
+ORDER BY rni.cidr
 `, cidr{}, uuid{})
 	if err != nil {
 		return nil, errors.Errorf("preparing select relation network ingress query: %w", err)
@@ -150,7 +149,7 @@ WHERE  relation_uuid = $uuid.uuid
 }
 
 // GetRelationNetworkEgress retrieves all egress network CIDRs for the
-// specified relation.
+// specified relation in lexical order.
 //
 // It returns a [relationerrors.RelationNotFound] if the provided relation does
 // not exist.
@@ -162,8 +161,9 @@ func (st *State) GetRelationNetworkEgress(ctx context.Context, relationUUID stri
 
 	selectStmt, err := st.Prepare(`
 SELECT &cidr.*
-FROM   relation_network_egress
-WHERE  relation_uuid = $uuid.uuid
+FROM   relation_network_egress AS rne
+WHERE  rne.relation_uuid = $uuid.uuid
+ORDER BY rne.cidr
 `, cidr{}, uuid{})
 	if err != nil {
 		return nil, errors.Errorf("preparing select relation network egress query: %w", err)
@@ -485,6 +485,7 @@ WHERE  key = $modelConfigKey.key
 
 // getRelationLife retrieves the life value for the specified relation.
 // It returns a [relationerrors.RelationNotFound] if the relation does not
+// exist.
 func (st *State) getRelationLife(ctx context.Context, tx *sqlair.TX, relationUUID string) (life.Value, error) {
 	ident := uuid{
 		UUID: relationUUID,

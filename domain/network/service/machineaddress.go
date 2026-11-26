@@ -21,7 +21,7 @@ func (s *Service) GetMachineAddresses(ctx context.Context, uuid machine.UUID) (n
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.getMachineAddresses(ctx, uuid)
+	return s.getMachineAddresses(ctx, uuid, true)
 }
 
 // GetMachinePublicAddress retrieves the public address of a machine identified
@@ -32,16 +32,23 @@ func (s *Service) GetMachinePublicAddress(ctx context.Context, uuid machine.UUID
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	addresses, err := s.getMachineAddresses(ctx, uuid)
-	if err != nil {
+	if err := uuid.Validate(); err != nil {
 		return network.SpaceAddress{}, errors.Capture(err)
 	}
 
-	addr, ok := addresses.OneMatchingScope(network.ScopeMatchPublic)
-	if !ok {
+	netNodeUUID, err := s.st.GetMachineNetNodeUUID(ctx, uuid.String())
+	if err != nil {
+		return network.SpaceAddress{}, errors.Errorf("retrieving net node for machine %q: %w", uuid, err)
+	}
+
+	address, err := s.st.GetNetNodePublicAddress(ctx, netNodeUUID)
+	if err != nil {
+		return network.SpaceAddress{}, errors.Errorf("retrieving public address for net node %q: %w", netNodeUUID, err)
+	}
+	if address.Value == "" {
 		return network.SpaceAddress{}, network.NoAddressError(network.ScopePublic.String())
 	}
-	return addr, nil
+	return address, nil
 }
 
 // GetMachinePrivateAddress retrieves the private address of a machine
@@ -52,7 +59,7 @@ func (s *Service) GetMachinePrivateAddress(ctx context.Context, uuid machine.UUI
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	addresses, err := s.getMachineAddresses(ctx, uuid)
+	addresses, err := s.getMachineAddresses(ctx, uuid, false)
 	if err != nil {
 		return network.SpaceAddress{}, errors.Capture(err)
 	}
@@ -64,7 +71,9 @@ func (s *Service) GetMachinePrivateAddress(ctx context.Context, uuid machine.UUI
 	return addr, nil
 }
 
-func (s *Service) getMachineAddresses(ctx context.Context, uuid machine.UUID) (network.SpaceAddresses, error) {
+func (s *Service) getMachineAddresses(
+	ctx context.Context, uuid machine.UUID, preferDefaultRoute bool,
+) (network.SpaceAddresses, error) {
 	if err := uuid.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -74,7 +83,7 @@ func (s *Service) getMachineAddresses(ctx context.Context, uuid machine.UUID) (n
 		return nil, errors.Errorf("retrieving net node for machine %q: %w", uuid, err)
 	}
 
-	addresses, err := s.st.GetNetNodeAddresses(ctx, netNodeUUID)
+	addresses, err := s.st.GetNetNodeAddresses(ctx, netNodeUUID, preferDefaultRoute)
 	if err != nil {
 		return nil, errors.Errorf("retrieving addresses for net node %q: %w", netNodeUUID, err)
 	}
