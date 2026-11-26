@@ -105,7 +105,10 @@ func HasMarker(dataDir, name, checksum string) (bool, error) {
 	if err != nil {
 		return false, errors.Capture(err)
 	}
-	if strings.TrimSpace(string(data)) != checksum {
+	// The digest is compared in its canonical form: the same archive
+	// must not be reported as another one when a marker or a parameter
+	// spells the checksum differently.
+	if canonicalChecksum(string(data)) != canonicalChecksum(checksum) {
 		return false, errors.New("recovery marker belongs to another archive")
 	}
 	return true, nil
@@ -125,7 +128,7 @@ func BeginInitialisation(dataDir, checksum string) error {
 		return errors.Errorf("claiming recovery initialisation: %w", err)
 	}
 	defer f.Close()
-	if _, err := f.WriteString(checksum + "\n"); err != nil {
+	if _, err := f.WriteString(canonicalChecksum(checksum) + "\n"); err != nil {
 		return errors.Capture(err)
 	}
 	if err := f.Sync(); err != nil {
@@ -137,4 +140,11 @@ func BeginInitialisation(dataDir, checksum string) error {
 	}
 	defer dir.Close()
 	return errors.Capture(dir.Sync())
+}
+
+// canonicalChecksum returns the form of a SHA-256 digest recorded in and
+// compared against recovery markers: whitespace-trimmed and lowercase,
+// without the optional "sha256-" prefix that parameters also accept.
+func canonicalChecksum(sum string) string {
+	return strings.ToLower(strings.TrimPrefix(strings.TrimSpace(sum), "sha256-"))
 }

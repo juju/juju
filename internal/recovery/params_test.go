@@ -6,6 +6,7 @@ package recovery_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	stdtesting "testing"
 
 	"github.com/juju/tc"
@@ -150,6 +151,42 @@ func (s *paramsSuite) TestBeginInitialisationIsExclusive(c *tc.C) {
 	c.Check(string(contents), tc.Equals, checksum+"\n")
 	err = recovery.BeginInitialisation(dataDir, checksum)
 	c.Check(err, tc.ErrorMatches, "claiming recovery initialisation: .*")
+}
+
+// TestMarkerChecksumSpelling checks that markers record and compare one
+// canonical digest form: the checksum legitimately arrives with or
+// without a "sha256-" prefix.
+func (s *paramsSuite) TestMarkerChecksumSpelling(c *tc.C) {
+	bare := s.validParams(c).SHA256
+	prefixed := "sha256-" + bare
+
+	// A prefixed input is recorded in its bare form and is read back
+	// with either spelling.
+	dataDir := c.MkDir()
+	c.Assert(recovery.BeginInitialisation(dataDir, prefixed), tc.ErrorIsNil)
+	contents, err := os.ReadFile(filepath.Join(dataDir, recovery.StartedFile))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(contents), tc.Equals, bare+"\n")
+	for _, spelling := range []string{bare, prefixed} {
+		found, err := recovery.HasMarker(dataDir, recovery.StartedFile, spelling)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(found, tc.IsTrue, tc.Commentf("spelling %q", spelling))
+	}
+
+	// A pre-existing marker that records the prefixed spelling matches a
+	// bare checksum, and reading it does not rewrite it.
+	dataDir = c.MkDir()
+	writeRecoveryFile(c, dataDir, recovery.StartedFile, prefixed+"\n")
+	found, err := recovery.HasMarker(dataDir, recovery.StartedFile, bare)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(found, tc.IsTrue)
+	contents, err = os.ReadFile(filepath.Join(dataDir, recovery.StartedFile))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(contents), tc.Equals, prefixed+"\n")
+
+	// A different digest is another archive under any spelling.
+	_, err = recovery.HasMarker(dataDir, recovery.StartedFile, "sha256-"+strings.Repeat("0", 64))
+	c.Check(err, tc.ErrorMatches, "recovery marker belongs to another archive")
 }
 
 func (s *paramsSuite) validParams(c *tc.C) recovery.Params {
