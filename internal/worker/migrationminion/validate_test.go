@@ -65,6 +65,12 @@ func (*ValidateSuite) TestMissingValidateMigration(c *gc.C) {
 	checkNotValid(c, config, "nil ValidateMigration not valid")
 }
 
+func (*ValidateSuite) TestMissingNewFacade(c *gc.C) {
+	config := validConfig()
+	config.NewFacade = nil
+	checkNotValid(c, config, "nil NewFacade not valid")
+}
+
 func (*ValidateSuite) TestMissingLogger(c *gc.C) {
 	config := validConfig()
 	config.Logger = nil
@@ -79,6 +85,7 @@ func validConfig() migrationminion.Config {
 		Clock:             struct{ clock.Clock }{},
 		APIOpen:           func(*api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
 		ValidateMigration: func(base.APICaller) error { return nil },
+		NewFacade:         func(base.APICaller) (migrationminion.Facade, error) { return nil, nil },
 		Logger:            loggo.GetLogger("test"),
 	}
 }
