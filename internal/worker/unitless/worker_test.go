@@ -92,6 +92,16 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 		NewExecutor:      newExecutor,
 		Clock:            clock.WallClock,
 		Logger:           newRecordingLogger(),
+		MaxDuration:      0,
+	}.Validate()
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorMatches, "non-positive MaxDuration not valid")
+
+	err = Config{
+		ScriptletService: service,
+		NewExecutor:      newExecutor,
+		Clock:            clock.WallClock,
+		Logger:           newRecordingLogger(),
 		MaxDuration:      -1,
 	}.Validate()
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
