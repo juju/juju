@@ -1482,6 +1482,59 @@ func (s *MigrationImportSuite) TestRemoteEntities(c *gc.C) {
 	c.Assert(token, gc.Equals, "ccc-ddd-zzz")
 }
 
+// TestRemoteEntitiesLegacyOfferShapeThroughImporter exercises the real
+// migration_import.go wiring (not a mocked RemoteEntitiesInput) for an
+// application that both offers and consumes, where the source only has a
+// legacy-shaped remote entity: the offer's token recorded solely under the
+// application's own tag, with no distinct applicationoffer-tagged entity.
+func (s *MigrationImportSuite) TestRemoteEntitiesLegacyOfferShapeThroughImporter(c *gc.C) {
+	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "admin"})
+
+	application := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+
+	stOffers := state.NewApplicationOffers(s.State)
+	stOffer, err := stOffers.AddOffer(
+		crossmodel.AddApplicationOfferArgs{
+			OfferName:       "my-offer",
+			Owner:           "admin",
+			ApplicationName: application.Name(),
+			Endpoints:       map[string]string{"server": "server"},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The same application also consumes a remote offer, so this reproduces
+	// the exact PR scenario: an app that both offers and consumes.
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "upstream-sink",
+		URL:         "other/model.upstream-sink",
+		SourceModel: s.Model.ModelTag(),
+		Token:       "upstream-token",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	srcRemoteEntities := s.State.RemoteEntities()
+	err = srcRemoteEntities.ImportRemoteEntity(application.Tag(), "legacy-offer-token")
+	c.Assert(err, jc.ErrorIsNil)
+
+	newSt := s.importModel(c, s.State, func(map[string]interface{}) {
+		// Offer permissions are keyed on the offer uuid rather than a model
+		// uuid, so remove the source's copy before import to avoid a
+		// DocMissing collision with the imported offer's permissions.
+		err := s.State.RemoveOfferAccess(
+			names.NewApplicationOfferTag(stOffer.OfferUUID),
+			names.NewUserTag("admin"),
+		)
+		c.Assert(err, jc.ErrorIsNil)
+	})
+	defer func() { _ = newSt.Close() }()
+
+	newRemoteEntities := newSt.RemoteEntities()
+	token, err := newRemoteEntities.GetToken(names.NewApplicationOfferTag(stOffer.OfferUUID))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(token, gc.Equals, "legacy-offer-token")
+}
+
 func (s *MigrationImportSuite) TestRelationNetworks(c *gc.C) {
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")

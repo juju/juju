@@ -361,6 +361,84 @@ func (s *MigrationImportTasksSuite) TestImportRemoteEntities(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesKeepsApplicationAndOfferIDsDistinctWhenBothPresent(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	offerUUID := utils.MustNewUUID().String()
+	applicationEntity := s.remoteEntity(ctrl, "application-app2", "application-token")
+	offerEntity := s.remoteEntity(ctrl, "applicationoffer-"+offerUUID, "offer-token")
+
+	model := NewMockRemoteEntitiesInput(ctrl)
+	model.EXPECT().RemoteEntities().Return([]description.RemoteEntity{
+		applicationEntity,
+		offerEntity,
+	})
+	model.EXPECT().OfferUUIDForApp("app2").Return(offerUUID, nil)
+	model.EXPECT().DocID("application-app2").Return("doc-application-app2")
+	model.EXPECT().DocID("applicationoffer-" + offerUUID).Return("doc-applicationoffer")
+
+	runner := NewMockTransactionRunner(ctrl)
+	runner.EXPECT().RunTransaction([]txn.Op{
+		{
+			C:      remoteEntitiesC,
+			Id:     "doc-application-app2",
+			Assert: txn.DocMissing,
+			Insert: &remoteEntityDoc{
+				DocID: "doc-application-app2",
+				Token: "application-token",
+			},
+		},
+		{
+			C:      remoteEntitiesC,
+			Id:     "doc-applicationoffer",
+			Assert: txn.DocMissing,
+			Insert: &remoteEntityDoc{
+				DocID: "doc-applicationoffer",
+				Token: "offer-token",
+			},
+		},
+	}).Return(nil)
+
+	m := ImportRemoteEntities{}
+	err := m.Execute(model, runner)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesLegacyShapeConvertsSoleApplicationEntity(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// A legacy (pre-3.6) export may hold only a single "application-<app>"
+	// entity for an app's offer token, with no distinct "applicationoffer-"
+	// entity. This must still be converted, even if the app also consumes
+	// a remote offer elsewhere, since there is no other entity for its
+	// offer to land under.
+	applicationEntity := s.remoteEntity(ctrl, "application-app2", "offer-token")
+
+	model := NewMockRemoteEntitiesInput(ctrl)
+	model.EXPECT().RemoteEntities().Return([]description.RemoteEntity{applicationEntity})
+	model.EXPECT().OfferUUIDForApp("app2").Return("uuid2", nil)
+	model.EXPECT().DocID("applicationoffer-uuid2").Return("doc-uuid2")
+
+	runner := NewMockTransactionRunner(ctrl)
+	runner.EXPECT().RunTransaction([]txn.Op{
+		{
+			C:      remoteEntitiesC,
+			Id:     "doc-uuid2",
+			Assert: txn.DocMissing,
+			Insert: &remoteEntityDoc{
+				DocID: "doc-uuid2",
+				Token: "offer-token",
+			},
+		},
+	}).Return(nil)
+
+	m := ImportRemoteEntities{}
+	err := m.Execute(model, runner)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesApplicationOfferApplicationName(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
