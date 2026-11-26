@@ -20,6 +20,7 @@ import (
 	domainunitless "github.com/juju/juju/domain/unitless"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/scriptlet"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
@@ -156,7 +157,7 @@ func (s *refreshSuite) startWorker(c *tc.C) *scriptletWorker {
 			case <-ctx.Done():
 				return nil, ctx.Err()
 			}
-			return applicationExecutorFunc(func(ctx context.Context, event domainunitless.Event) ([]Intent, error) {
+			return applicationExecutorFunc(func(ctx context.Context, event domainunitless.Event) ([]scriptlet.Intent, error) {
 				select {
 				case s.handled <- refreshedEvent{charmUUID: config.Scriptlet.CharmUUID, event: event}:
 					return nil, nil
