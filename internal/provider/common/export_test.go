@@ -4,6 +4,7 @@
 package common
 
 var (
-	ConnectSSH     = &connectSSH
-	FormatHardware = formatHardware
+	ConnectSSH      = &connectSSH
+	FilesDispatched = &filesDispatched
+	FormatHardware  = formatHardware
 )

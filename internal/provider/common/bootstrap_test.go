@@ -871,6 +871,63 @@ func (s *BootstrapSuite) TestConfigureMachineCleanupFailurePreservesSetupError(c
 	c.Check(stagedFiles(c, root), tc.HasLen, 1)
 }
 
+// TestConfigureMachineCancelledDuringDispatch checks that a context
+// cancelled while files are being transported is reported as the
+// cancellation sentinel with the transport context: the configuration
+// script never runs and the staged remainder is cleaned up.
+func (s *BootstrapSuite) TestConfigureMachineCancelledDuringDispatch(c *tc.C) {
+	fixture := s.newConfigureFixture(c, "")
+	ctx, cancel := context.WithCancel(c.Context())
+	defer cancel()
+	client, err := ssh.NewOpenSSHClient()
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = fixture.run(envtesting.BootstrapContext(ctx, c),
+		&cancellingClient{Client: client, cancelOn: "umask", cancel: cancel})
+
+	c.Check(err, tc.ErrorIs, bootstrap.Cancelled())
+	c.Check(strings.Contains(err.Error(), "transporting files to machine"), tc.IsTrue)
+	// The configure script never ran: the trailing ssh call is the
+	// fallback cleanup of the partially staged files.
+	c.Check(readSSHLog(c, fixture.logPath), tc.DeepEquals,
+		[]string{"mkdir", "cleanup"})
+}
+
+// TestConfigureMachineCancelledBeforeConfigure checks that a context
+// cancelled once the files are staged stops before the configuration
+// script: the cancellation sentinel is returned and the staged files
+// are cleaned up without running setup.
+func (s *BootstrapSuite) TestConfigureMachineCancelledBeforeConfigure(c *tc.C) {
+	fixture := s.newConfigureFixture(c, "")
+	ctx, cancel := context.WithCancel(c.Context())
+	defer cancel()
+	s.PatchValue(common.FilesDispatched, func(context.Context) { cancel() })
+	client, err := ssh.NewOpenSSHClient()
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = fixture.run(envtesting.BootstrapContext(ctx, c), client)
+
+	c.Check(err, tc.ErrorIs, bootstrap.Cancelled())
+	c.Check(readSSHLog(c, fixture.logPath), tc.DeepEquals,
+		[]string{"mkdir", "stream", "cleanup"})
+}
+
+// cancellingClient cancels the run's context synchronously when the
+// named remote command is issued, driving a cancellation mid-dispatch
+// without sleeps or timers.
+type cancellingClient struct {
+	ssh.Client
+	cancelOn string
+	cancel   context.CancelFunc
+}
+
+func (c *cancellingClient) Command(host string, command []string, options *ssh.Options) *ssh.Cmd {
+	if len(command) > 0 && command[0] == c.cancelOn {
+		c.cancel()
+	}
+	return c.Client.Command(host, command, options)
+}
+
 // runConfigureWithFakeSSH renders a replacement machine configuration
 // whose recovery archive is staged over SSH, then runs ConfigureMachine
 // against a fake ssh executable. It returns the fake machine's root,
@@ -878,6 +935,30 @@ func (s *BootstrapSuite) TestConfigureMachineCleanupFailurePreservesSetupError(c
 func (s *BootstrapSuite) runConfigureWithFakeSSH(
 	c *tc.C, mode string,
 ) (string, string, error) {
+	fixture := s.newConfigureFixture(c, mode)
+	client, err := ssh.NewOpenSSHClient()
+	c.Assert(err, tc.ErrorIsNil)
+	return fixture.root, fixture.logPath,
+		fixture.run(envtesting.BootstrapTestContext(c), client)
+}
+
+// configureFixture is a provisioned machine replacement configuration
+// staging its recovery archive over SSH against a fake machine.
+type configureFixture struct {
+	icfg    *instancecfg.InstanceConfig
+	root    string
+	logPath string
+}
+
+// run executes ConfigureMachine over the given context and client.
+func (f *configureFixture) run(ctx environs.BootstrapContext, client ssh.Client) error {
+	return common.ConfigureMachine(ctx, client, "10.0.0.1", f.icfg, nil)
+}
+
+// newConfigureFixture provisions the machine replacement configuration
+// and patches the fake ssh executable; see fakeSetupSSHScript for the
+// modes and the invocation log.
+func (s *BootstrapSuite) newConfigureFixture(c *tc.C, mode string) configureFixture {
 	remoteRoot := c.MkDir()
 	logPath := filepath.Join(c.MkDir(), "ssh.log")
 	testhelpers.PatchExecutable(c, s, "ssh", fakeSetupSSHScript(remoteRoot, logPath, mode))
@@ -930,11 +1011,7 @@ func (s *BootstrapSuite) runConfigureWithFakeSSH(
 	icfg.Bootstrap.RecoveryArchivePath = localArchive
 	icfg.Bootstrap.RecoveryArchiveSHA256 = "sha256-" + hex.EncodeToString(digest[:])
 
-	client, err := ssh.NewOpenSSHClient()
-	c.Assert(err, tc.ErrorIsNil)
-	err = common.ConfigureMachine(
-		envtesting.BootstrapTestContext(c), client, "10.0.0.1", icfg, nil)
-	return remoteRoot, logPath, err
+	return configureFixture{icfg: icfg, root: remoteRoot, logPath: logPath}
 }
 
 // fakeSetupSSHScript runs the staged-file commands against a local root

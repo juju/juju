@@ -533,6 +533,12 @@ func DumpOnErrorScript(filenames ...string) string {
 	return strings.Join(lines, "\n")
 }
 
+// filesDispatched runs at the boundary between the staged file
+// transport and the machine configuration script. It is a no-op
+// outside tests, which patch it to cancel the context at that exact
+// point deterministically.
+var filesDispatched = func(context.Context) {}
+
 func ConfigureMachine(
 	ctx environs.BootstrapContext,
 	client ssh.Client,
@@ -607,6 +613,7 @@ func ConfigureMachine(
 		}
 		return errors.Annotate(err, "transporting files to machine")
 	}
+	filesDispatched(ctx)
 	if bootstrap.IsContextDone(ctx) {
 		return bootstrap.Cancelled()
 	}
