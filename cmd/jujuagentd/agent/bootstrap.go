@@ -6,7 +6,6 @@ package agent
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -16,6 +15,7 @@ import (
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v6"
+	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/ssh"
 
 	"github.com/juju/juju/agent"
@@ -100,54 +100,26 @@ func (c *BootstrapCommand) Init(args []string) error {
 	return c.AgentConf.CheckArgs(args)
 }
 
-func copyFile(dest, source string) error {
-	df, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0600)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	defer df.Close()
-
-	f, err := os.Open(source)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	defer f.Close()
-
-	_, err = io.Copy(df, f)
-	return errors.Capture(err)
-}
-
-func copyFileFromTemplate(to, from string) (err error) {
-	if _, err := os.Stat(to); os.IsNotExist(err) {
-		logger.Debugf(context.TODO(), "copying file from %q to %s", from, to)
-		if err := copyFile(to, from); err != nil {
-			return errors.Capture(err)
-		}
-	} else if err != nil {
-		return errors.Capture(err)
-	}
-	return nil
-}
-
 func ensureConfigFilesForK8s(dataDir string) error {
 	tag := names.NewControllerAgentTag(agent.BootstrapControllerId)
-	for _, v := range []struct {
-		to, from string
-	}{
-		{
-			// ensure agent.conf
-			to: agent.ConfigPath(dataDir, tag),
-			from: filepath.Join(
-				agent.Dir(dataDir, tag),
-				k8sconstants.TemplateFileNameAgentConf,
-			),
-		},
-	} {
-		if err := copyFileFromTemplate(v.to, v.from); err != nil {
-			return errors.Capture(err)
-		}
+	configPath := agent.ConfigPath(dataDir, tag)
+	if _, err := os.Stat(configPath); !os.IsNotExist(err) {
+		return errors.Capture(err)
 	}
-	return nil
+	return copyK8sControllerConfigTemplate(configPath)
+}
+
+func copyK8sControllerConfigTemplate(configPath string) error {
+	template := filepath.Join(filepath.Dir(configPath), k8sconstants.TemplateFileNameAgentConf)
+	return copyFile(configPath, template)
+}
+
+func copyFile(dest, source string) error {
+	data, err := os.ReadFile(source)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return errors.Capture(utils.AtomicWriteFile(dest, data, 0600))
 }
 
 var (

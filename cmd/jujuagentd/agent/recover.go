@@ -8,6 +8,7 @@ import (
 	"path"
 
 	"github.com/juju/gnuflag"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/agent"
 	agentconfig "github.com/juju/juju/agent/config"
@@ -98,13 +99,7 @@ func (c *RecoverCommand) initialiseRecoveryController(
 		return errors.New("agent data directory holds no recovery marker")
 	}
 	isK8s := args.ControllerCloud.Type == cloud.CloudTypeKubernetes
-	if isK8s {
-		if err := ensureConfigFilesForK8s(c.DataDir()); err != nil {
-			return errors.Capture(err)
-		}
-	}
-
-	if err := agentconfig.ReadAgentConfig(c, c.MachineId); err != nil {
+	if err := c.readRecoveryConfig(isK8s); err != nil {
 		return errors.Errorf("cannot read config: %w", err)
 	}
 
@@ -130,4 +125,19 @@ func (c *RecoverCommand) initialiseRecoveryController(
 
 	logger.Infof(ctx, "recovery database import is not available in this build")
 	return nil
+}
+
+func (c *RecoverCommand) readRecoveryConfig(isK8s bool) error {
+	err := agentconfig.ReadAgentConfig(c, c.MachineId)
+	if err == nil || !isK8s || c.MachineId != agent.BootstrapControllerId {
+		return err
+	}
+	// Older pods could leave a truncated config if their template copy was
+	// interrupted. The recovery fence is in place and the seed is available
+	// throughout startup, so retry from it when the config is unreadable.
+	tag := names.NewControllerAgentTag(agent.BootstrapControllerId)
+	if err := copyK8sControllerConfigTemplate(agent.ConfigPath(c.DataDir(), tag)); err != nil {
+		return errors.Capture(err)
+	}
+	return c.ReadConfig(tag.String())
 }

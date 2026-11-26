@@ -778,7 +778,7 @@ func (s *recoverySuite) TestProvisionRecoveryKubernetes(c *tc.C) {
 	c.Assert(openParams.Cloud.Credential, tc.NotNil)
 	c.Check(openParams.Cloud.Credential.Attributes()["Token"], tc.Equals, "test-token")
 
-	c.Check(broker.steps, tc.DeepEquals, []string{"prepare", "bootstrap", "finalize"})
+	c.Check(broker.steps, tc.DeepEquals, []string{"prepare", "bootstrap", "finalize", "wait"})
 	c.Check(broker.preparedControllerName, tc.Equals, "source-ctrl")
 	c.Check(broker.bootstrapArgs.CloudName, tc.Equals, "myk8s")
 	c.Check(broker.bootstrapArgs.CloudRegion, tc.Equals, "localhost")
@@ -972,6 +972,12 @@ func (b *fakeK8sRecoveryBroker) Bootstrap(
 
 func (b *fakeK8sRecoveryBroker) Namespace() string {
 	return b.namespace
+}
+
+func (b *fakeK8sRecoveryBroker) WaitForRecoveryAgent(_ context.Context, cfg *podcfg.ControllerPodConfig) error {
+	b.c.Check(cfg, tc.Equals, b.podConfig)
+	b.steps = append(b.steps, "wait")
+	return nil
 }
 
 // hookedOpenFS delegates every filesystem operation, except Open, to

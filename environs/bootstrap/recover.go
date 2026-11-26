@@ -4,6 +4,7 @@
 package bootstrap
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/errors"
 	coretools "github.com/juju/juju/internal/tools"
 	jujunames "github.com/juju/juju/juju/names"
@@ -371,10 +373,13 @@ func discoverRecoveryTools(
 	}}, builtTools, nil
 }
 
-// namespaceNamer reports the namespace a Kubernetes provider created for the
-// replacement controller.
-type namespaceNamer interface {
+// k8sRecoveryEnviron supplies the recovery-specific operations after deployment.
+type k8sRecoveryEnviron interface {
 	Namespace() string
+
+	// WaitForRecoveryAgent returns when the replacement agent has reached its
+	// import fence, or when startup fails, times out or is cancelled.
+	WaitForRecoveryAgent(context.Context, *podcfg.ControllerPodConfig) error
 }
 
 // RecoverK8s prepares the replacement Kubernetes controller allocation inputs
@@ -397,7 +402,7 @@ func RecoverK8s(
 		return "", errors.Errorf("validating recovery parameters: %w", err)
 	}
 
-	namer, ok := environ.(namespaceNamer)
+	target, ok := environ.(k8sRecoveryEnviron)
 	if !ok {
 		return "", errors.Errorf("Kubernetes recovery allocation for %T %w", environ, coreerrors.NotSupported)
 	}
@@ -426,12 +431,22 @@ func RecoverK8s(
 	podConfig.Bootstrap.StateInitializationParams.RecoveryMode = true
 	err = result.CaasBootstrapFinalizer(ctx, podConfig, args.DialOpts)
 
-	namespace := namer.Namespace()
-	if err == nil && namespace == "" {
-		return "", errors.New("recovery provisioning returned no replacement namespace")
-	}
-	if err == nil && IsContextDone(ctx) {
-		err = Cancelled()
+	namespace := target.Namespace()
+	if err == nil {
+		if namespace == "" {
+			return "", errors.New("recovery provisioning returned no replacement namespace")
+		}
+		if IsContextDone(ctx) {
+			err = Cancelled()
+		} else {
+			err = target.WaitForRecoveryAgent(ctx, podConfig)
+			switch {
+			case IsContextDone(ctx):
+				err = Cancelled()
+			case err != nil:
+				err = errors.Errorf("waiting for replacement agent: %w", err)
+			}
+		}
 	}
 	if err != nil {
 		if namespace != "" {

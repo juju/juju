@@ -317,7 +317,7 @@ func newControllerStack(
 		portAPIServer: pcfg.Bootstrap.ControllerConfig.APIPort(),
 		portSSHServer: pcfg.Bootstrap.ControllerConfig.SSHServerPort(),
 	}
-	cs.controllerExecClientFactory = cs.controllerExecClient
+	cs.controllerExecClientFactory = broker.controllerExecClient
 	cs.resourceNameService = cs.getResourceName("service")
 	cs.resourceNameHeadlessService = cs.getResourceName("service-endpoints")
 	cs.resourceNameConfigMap = cs.getResourceName("configmap")
@@ -440,12 +440,12 @@ func (c *controllerStack) uploadLocalControllerCharmWithRetry(ctx context.Contex
 	})
 }
 
-func (c *controllerStack) controllerExecClient() (k8sexec.Executor, error) {
-	restConfig := c.broker.restConfig()
+func (k *kubernetesClient) controllerExecClient() (k8sexec.Executor, error) {
+	restConfig := k.restConfig()
 	if restConfig == nil {
 		return nil, errors.NotValidf("empty kubernetes rest config")
 	}
-	return k8sexec.New(c.broker.Namespace(), c.broker.client(), restConfig), nil
+	return k8sexec.New(k.Namespace(), k.client(), restConfig), nil
 }
 
 func (c *controllerStack) isPrivateRepo() bool {
@@ -1081,6 +1081,7 @@ func (c *controllerStack) createControllerStatefulset(ctx context.Context) error
 
 func (c *controllerStack) waitForPod(ctx context.Context, podWatcher watcher.NotifyWatcher, podName string) error {
 	timeout := c.broker.clock.NewTimer(c.timeout)
+	defer timeout.Stop()
 
 	podEventWatcher, err := c.broker.watchEvents(podName, "Pod")
 	if err != nil {
@@ -1181,7 +1182,12 @@ func (c *controllerStack) waitForPod(ctx context.Context, podWatcher watcher.Not
 
 	_ = printPodEvents()
 	for {
+		if environsbootstrap.IsContextDone(ctx) {
+			return environsbootstrap.Cancelled()
+		}
 		select {
+		case <-ctx.Done():
+			return environsbootstrap.Cancelled()
 		case <-podWatcher.Changes():
 			_ = printPodEvents()
 			pod, err := c.broker.getPod(ctx, podName)
@@ -1498,18 +1504,11 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 		FeatureFlagsEnv: featureFlagsEnv,
 		RecoveryMode:    c.pcfg.Bootstrap.RecoveryMode,
 	})
-	if c.pcfg.Bootstrap.RecoveryMode {
-		// Create the recovery marker only on controller-0's initial boot,
-		// before recover-state runs. Keeping it inside the ! -e agent.conf
-		// guard avoids re-creating the marker on later pod restarts or HA
-		// replicas after recovery completes. The path and permissions
-		// match the machine provisioning flow's marker.
-		markerPath := `"` + path.Join("$JUJU_DATA_DIR", agent.RecoveryParamsFile) + `"`
-		bootstrapStateCmd = cloudconfig.RecoveryMarkerCommand(markerPath) + " && " + bootstrapStateCmd
-	}
 	agentConfigPath := path.Join("$JUJU_DATA_DIR", agentConfigRelativePath)
 	var bootstrapSetup string
-	if isLocalControllerCharmPath(c.pcfg.Bootstrap.ControllerCharmPath) {
+	if c.pcfg.Bootstrap.RecoveryMode {
+		bootstrapSetup = recoveryPodSetup(agentConfigPath, bootstrapStateCmd)
+	} else if isLocalControllerCharmPath(c.pcfg.Bootstrap.ControllerCharmPath) {
 		charmArchivePath := path.Join("$JUJU_DATA_DIR", "charms", environsbootstrap.ControllerCharmArchive)
 		bootstrapSetup = fmt.Sprintf(
 			"if ! test -e %s; then mkdir -p %s; until test -e %s; do sleep 1; done; %s; fi",
@@ -1518,8 +1517,6 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 			charmArchivePath,
 			bootstrapStateCmd,
 		)
-	} else if c.pcfg.Bootstrap.RecoveryMode {
-		bootstrapSetup = fmt.Sprintf("if ! test -e %s; then %s; fi", agentConfigPath, bootstrapStateCmd)
 	} else {
 		bootstrapSetup = fmt.Sprintf("test -e %s || %s", agentConfigPath, bootstrapStateCmd)
 	}

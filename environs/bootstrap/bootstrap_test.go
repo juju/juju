@@ -1137,6 +1137,41 @@ func (s *bootstrapSuite) TestBootstrapRecoveryK8s(c *tc.C) {
 	c.Check(env.podConfig.Bootstrap.StateInitializationParams.RecoveryMode, tc.IsTrue)
 }
 
+func (s *bootstrapSuite) TestBootstrapRecoveryK8sAgentWaitFailure(c *tc.C) {
+	env := &recoveryK8sEnviron{
+		bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+		namespace:        "controller-recovery-k8s",
+		waitErr:          errors.New("agent wait failed"),
+	}
+	env.result = &environs.BootstrapResult{CaasBootstrapFinalizer: env.finaliser()}
+	ns, err := bootstrap.RecoverK8s(envtesting.BootstrapTestContext(c), env,
+		recoveryK8sParams(coretesting.FakeControllerConfig(), coretesting.FakeVersionNumber))
+	c.Check(err, tc.ErrorIs, env.waitErr)
+	c.Check(err, tc.ErrorMatches, `replacement namespace "controller-recovery-k8s" may require manual removal: waiting for replacement agent: agent wait failed`)
+	c.Check(ns, tc.Equals, env.namespace)
+	c.Check(env.waitCount, tc.Equals, 1)
+}
+
+func (s *bootstrapSuite) TestBootstrapRecoveryK8sCancelledDuringAgentWait(c *tc.C) {
+	ctx, cancel := context.WithCancel(c.Context())
+	defer cancel()
+
+	env := &recoveryK8sEnviron{
+		bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+		namespace:        "controller-recovery-k8s",
+		onWait:           cancel,
+		waitErr:          context.Canceled,
+	}
+	env.result = &environs.BootstrapResult{CaasBootstrapFinalizer: env.finaliser()}
+	ns, err := bootstrap.RecoverK8s(envtesting.BootstrapContext(ctx, c), env,
+		recoveryK8sParams(coretesting.FakeControllerConfig(), coretesting.FakeVersionNumber))
+	c.Check(ns, tc.Equals, env.namespace)
+	c.Check(err, tc.ErrorIs, bootstrap.Cancelled())
+	c.Check(err, tc.ErrorMatches,
+		`replacement namespace "controller-recovery-k8s" may require manual removal: cancelled`)
+	c.Check(env.waitCount, tc.Equals, 1)
+}
+
 func (s *bootstrapSuite) TestBootstrapRecoveryK8sFinaliserError(c *tc.C) {
 	finaliseErr := errors.New("finaliser failed")
 	env := &recoveryK8sEnviron{
@@ -1243,6 +1278,7 @@ func (s *bootstrapSuite) TestBootstrapRecoveryK8sCancelled(c *tc.C) {
 	c.Check(err, tc.ErrorMatches,
 		`replacement namespace "controller-recovery-k8s" may require manual removal: cancelled`)
 	c.Check(env.finalizerCount, tc.Equals, 1)
+	c.Check(env.waitCount, tc.Equals, 0)
 }
 
 func (s *bootstrapSuite) TestBootstrapRecoveryK8sUnsupportedEnviron(c *tc.C) {
@@ -2633,6 +2669,9 @@ type recoveryK8sEnviron struct {
 	*bootstrapEnviron
 
 	result        *environs.BootstrapResult
+	waitErr       error
+	waitCount     int
+	onWait        func()
 	namespace     string
 	podConfig     *podcfg.ControllerPodConfig
 	afterFinalize func()
@@ -2664,6 +2703,14 @@ func (e *recoveryK8sEnviron) finaliser() environs.CaasBootstrapFinalizer {
 
 func (e *recoveryK8sEnviron) Namespace() string {
 	return e.namespace
+}
+
+func (e *recoveryK8sEnviron) WaitForRecoveryAgent(_ context.Context, _ *podcfg.ControllerPodConfig) error {
+	e.waitCount++
+	if e.onWait != nil {
+		e.onWait()
+	}
+	return e.waitErr
 }
 
 type bootstrapEnvironWithRegion struct {

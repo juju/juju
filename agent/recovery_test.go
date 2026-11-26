@@ -71,3 +71,37 @@ func (s *recoverySuite) TestIsRecoverySymlink(c *tc.C) {
 		`invalid recovery params path ".*/recovery/params": expected regular file`)
 	c.Check(isRecovery, tc.IsFalse)
 }
+
+func (s *recoverySuite) TestAcknowledgeRecoveryWaitCreatesAndIsIdempotent(c *tc.C) {
+	dataDir := c.MkDir()
+	waiting := filepath.Join(dataDir, agent.RecoveryAgentWaitingFile)
+	c.Assert(os.MkdirAll(filepath.Dir(waiting), 0700), tc.ErrorIsNil)
+
+	c.Assert(agent.AcknowledgeRecoveryWait(dataDir), tc.ErrorIsNil)
+	info, err := os.Lstat(waiting)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.Mode(), tc.Equals, os.FileMode(0600))
+
+	c.Assert(agent.AcknowledgeRecoveryWait(dataDir), tc.ErrorIsNil)
+}
+
+func (s *recoverySuite) TestAcknowledgeRecoveryWaitMissingDirectory(c *tc.C) {
+	dataDir := c.MkDir()
+	err := agent.AcknowledgeRecoveryWait(dataDir)
+	c.Check(err, tc.ErrorMatches, `.*no such file or directory`)
+	_, statErr := os.Stat(filepath.Dir(filepath.Join(dataDir, agent.RecoveryAgentWaitingFile)))
+	c.Check(statErr, tc.ErrorIs, os.ErrNotExist)
+}
+
+func (s *recoverySuite) TestAcknowledgeRecoveryWaitRejectsNonRegular(c *tc.C) {
+	dataDir := c.MkDir()
+	waiting := filepath.Join(dataDir, agent.RecoveryAgentWaitingFile)
+	c.Assert(os.MkdirAll(waiting, 0700), tc.ErrorIsNil)
+	c.Check(agent.AcknowledgeRecoveryWait(dataDir), tc.ErrorMatches,
+		`invalid recovery acknowledgement ".*/recovery/agent-waiting": expected regular file`)
+
+	c.Assert(os.Remove(waiting), tc.ErrorIsNil)
+	c.Assert(os.Symlink("/nonexistent/waiting", waiting), tc.ErrorIsNil)
+	c.Check(agent.AcknowledgeRecoveryWait(dataDir), tc.ErrorMatches,
+		`invalid recovery acknowledgement ".*/recovery/agent-waiting": expected regular file`)
+}
