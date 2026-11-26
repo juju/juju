@@ -7,6 +7,7 @@ import (
 	"context"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/internal/errors"
@@ -18,6 +19,10 @@ type ScriptletApplication struct {
 	UUID coreapplication.UUID
 	Name string
 	Life corelife.Value
+
+	// CharmUUID identifies the charm whose sources are loaded, so consumers can
+	// detect a refresh even when the sources are unchanged.
+	CharmUUID corecharm.ID
 
 	// Sources are the Starform sources to load.
 	Sources []ScriptSource
@@ -58,11 +63,25 @@ func (s ScriptSource) Content(context.Context) ([]byte, error) {
 	return []byte(s.Source), nil
 }
 
+// EventType is the name of an event emitted to an application's scriptlet.
+type EventType string
+
+// String returns the name of the event type.
+func (e EventType) String() string {
+	return string(e)
+}
+
+const (
+	// EventConfigChanged is the event emitted when an application's
+	// configuration changes.
+	EventConfigChanged EventType = "config_changed"
+)
+
 // Event is emitted to an application's staged scriptlet when something
 // pertinent to the application changes.
 type Event struct {
-	// Name is the name of the event.
-	Name string
+	// Name is the type of the event.
+	Name EventType
 
 	// Attrs are data associated with the event,
 	// particular to the application receiving it.

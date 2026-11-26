@@ -77,27 +77,87 @@ func (s *watcherSuite) TestWatchScriptletApplications(c *tc.C) {
 	harness.Run(c, []string{})
 }
 
-func (s *watcherSuite) TestWatchScriptletApplicationDying(c *tc.C) {
+func (s *watcherSuite) TestWatchScriptletApplication(c *tc.C) {
 	charmID := s.insertCharm(c, virtualCharm)
 	applicationID := tc.Must(c, coreapplication.NewUUID)
 	s.insertApplication(c, applicationID, charmID)
+	s.AssertChangeStreamIdle(c, "before watching application")
 
 	st := unitlessstate.NewState(s.TxnRunnerFactory())
 	factory := domain.NewWatcherFactory(
-		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unitless-dying"),
+		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unitless-application"),
 		loggertesting.WrapCheckLog(c),
 	)
 	svc := unitlessservice.NewWatchableService(st, factory)
-	w, err := svc.WatchScriptletApplicationDying(c.Context(), applicationID)
+	w, err := svc.WatchScriptletApplication(c.Context(), applicationID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
+	harness.AddTest(c, func(c *tc.C) {
+		// Changes to another application must not reach this watcher.
+		s.insertApplication(c, tc.Must(c, coreapplication.NewUUID), charmID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+	harness.AddTest(c, func(c *tc.C) {
+		s.setApplicationCharm(c, applicationID, s.insertCharm(c, virtualCharm))
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+	harness.AddTest(c, func(c *tc.C) {
+		// A charm without scriptlets must still notify the application watcher.
+		s.setApplicationCharm(c, applicationID, s.insertCharm(c, regularCharm))
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
 	harness.AddTest(c, func(c *tc.C) {
 		s.setApplicationLife(c, applicationID, domainlife.Dying)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 	harness.Run(c, struct{}{})
+}
+
+func (s *watcherSuite) TestWatchApplicationEvents(c *tc.C) {
+	charmID := s.insertCharm(c, virtualCharm)
+	applicationID := tc.Must(c, coreapplication.NewUUID)
+	s.insertApplication(c, applicationID, charmID)
+	s.setApplicationConfigHash(c, applicationID, "hash-1")
+
+	otherCharmID := s.insertCharm(c, virtualCharm)
+	otherID := tc.Must(c, coreapplication.NewUUID)
+	s.insertApplication(c, otherID, otherCharmID)
+	s.setApplicationConfigHash(c, otherID, "other-hash-1")
+
+	st := unitlessstate.NewState(s.TxnRunnerFactory())
+	factory := domain.NewWatcherFactory(
+		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application_config_hash"),
+		loggertesting.WrapCheckLog(c),
+	)
+	svc := unitlessservice.NewWatchableService(st, factory)
+	w, err := svc.WatchApplicationEvents(c.Context(), applicationID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
+	harness.AddTest(c, func(c *tc.C) {
+		// A change to another application's config hash is not reported.
+		s.setApplicationConfigHash(c, otherID, "other-hash-2")
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+	harness.AddTest(c, func(c *tc.C) {
+		s.setApplicationConfigHash(c, applicationID, "hash-2")
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.StringSliceAssert("config_changed"))
+	})
+	harness.AddTest(c, func(c *tc.C) {
+		// Setting the config hash to the same value is not a change.
+		s.setApplicationConfigHash(c, applicationID, "hash-2")
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+	// The first config hash is dispatched as the initial watcher state.
+	harness.Run(c, []string{"config_changed"})
 }
 
 func (s *watcherSuite) insertCharm(c *tc.C, kind charmKind) corecharm.ID {
@@ -145,6 +205,32 @@ UPDATE application
 SET life_id = ?
 WHERE uuid = ?;
 `, life, applicationID.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *watcherSuite) setApplicationCharm(
+	c *tc.C, applicationID coreapplication.UUID, charmID corecharm.ID,
+) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE application SET charm_uuid = ? WHERE uuid = ?;
+`, charmID.String(), applicationID.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *watcherSuite) setApplicationConfigHash(
+	c *tc.C, applicationID coreapplication.UUID, hash string,
+) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO application_config_hash (application_uuid, sha256)
+VALUES (?, ?)
+ON CONFLICT(application_uuid) DO UPDATE SET sha256 = excluded.sha256;
+`, applicationID.String(), hash)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

@@ -674,7 +674,7 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 	units ...AddIAASUnitArg,
 ) (string, application.AddIAASApplicationArg, []application.AddIAASUnitArg, error) {
 	var err error
-	if args, err = s.validateCreateApplicationArgs(ctx, name, charm, origin, args); err != nil {
+	if args, err = s.validateCreateApplicationArgs(ctx, name, charm, origin, args, len(units)); err != nil {
 		return "", application.AddIAASApplicationArg{}, nil,
 			errors.Errorf("validating create application args: %w", err)
 	}
@@ -749,7 +749,7 @@ func (s *ProviderService) makeCAASApplicationArg(
 	units ...AddUnitArg,
 ) (string, application.AddCAASApplicationArg, []application.AddCAASUnitArg, error) {
 	var err error
-	if args, err = s.validateCreateApplicationArgs(ctx, name, charm, origin, args); err != nil {
+	if args, err = s.validateCreateApplicationArgs(ctx, name, charm, origin, args, len(units)); err != nil {
 		return "", application.AddCAASApplicationArg{}, nil,
 			errors.Errorf("validating create application args: %w", err)
 	}
@@ -808,6 +808,7 @@ func (s *ProviderService) validateCreateApplicationArgs(
 	charm internalcharm.Charm,
 	origin corecharm.Origin,
 	args AddApplicationArgs,
+	numUnits int,
 ) (AddApplicationArgs, error) {
 	if err := validateCharmAndApplicationParams(
 		name,
@@ -816,6 +817,12 @@ func (s *ProviderService) validateCreateApplicationArgs(
 		origin,
 	); err != nil {
 		return AddApplicationArgs{}, errors.Errorf("invalid application args: %w", err)
+	}
+
+	// A unitless charm runs controller-side scriptlets instead of unit
+	// hooks, so its application is deployed without units.
+	if numUnits > 0 && isUnitlessCharm(charm) {
+		return AddApplicationArgs{}, applicationerrors.UnitlessApplicationWithUnitsNotSupported
 	}
 
 	err := s.storageService.ValidateCharmStorage(ctx, charm.Meta().Storage)
@@ -855,6 +862,13 @@ func (s *ProviderService) validateCreateApplicationArgs(
 	}
 
 	return args, nil
+}
+
+// isUnitlessCharm reports whether the charm is a unitless-only charm: one
+// that assumes the unitless feature and runs controller-side scriptlets
+// instead of traditional unit hooks. Such charms are deployed without units.
+func isUnitlessCharm(ch internalcharm.Charm) bool {
+	return assumes.HasFeature(ch.Meta().Assumes, "unitless")
 }
 
 func (s *ProviderService) makeApplicationArg(

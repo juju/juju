@@ -398,6 +398,183 @@ func (s *providerServiceSuite) TestCreateIAASApplication(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *providerServiceSuite) TestCreateIAASApplicationUnitlessCharm(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	setCreateApplicationNoopStorageExpects(c, s.state, s.storageService)
+
+	id := tc.Must(c, coreapplication.NewUUID)
+
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{
+		Arch: new(arch.AMD64),
+	}, nil)
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
+
+	// A unitless-only charm is deployed without units, so no unit args may
+	// reach state and no instances are prechecked.
+	var receivedUnits []application.AddIAASUnitArg
+	s.state.EXPECT().CreateIAASApplication(
+		gomock.Any(), "unitless", gomock.Any(), gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context, _ string, _ application.AddIAASApplicationArg, units []application.AddIAASUnitArg,
+	) (coreapplication.UUID, []coremachine.Name, error) {
+		receivedUnits = units
+		return id, nil, nil
+	})
+
+	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
+	s.charm.EXPECT().Config().Return(&internalcharm.ConfigSpec{}).MinTimes(1)
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{
+		Bases: []internalcharm.Base{
+			{
+				Name: "ubuntu",
+				Channel: internalcharm.Channel{
+					Risk: internalcharm.Stable,
+				},
+				Architectures: []string{"amd64"},
+			},
+		},
+	}).MinTimes(1)
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
+		Name:    "unitless",
+		Assumes: unitlessAssumes(),
+	}).MinTimes(1)
+
+	_, err := s.service.CreateIAASApplication(c.Context(), "unitless", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
+		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
+		Revision: new(42),
+	}, AddApplicationArgs{
+		ReferenceName: "unitless",
+		DownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
+			CharmhubIdentifier: "unitless",
+			DownloadURL:        "https://example.com/unitless",
+			DownloadSize:       42,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(receivedUnits, tc.HasLen, 0)
+}
+
+func (s *providerServiceSuite) TestCreateIAASApplicationUnitlessCharmWithUnits(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
+		Name:    "unitless",
+		Assumes: unitlessAssumes(),
+	}).MinTimes(1)
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{
+		Bases: []internalcharm.Base{
+			{
+				Name: "ubuntu",
+				Channel: internalcharm.Channel{
+					Risk: internalcharm.Stable,
+				},
+				Architectures: []string{"amd64"},
+			},
+		},
+	})
+
+	_, err := s.service.CreateIAASApplication(c.Context(), "unitless", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
+		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
+		Revision: new(42),
+	}, AddApplicationArgs{
+		ReferenceName: "unitless",
+	}, AddIAASUnitArg{})
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitlessApplicationWithUnitsNotSupported)
+	c.Check(err, tc.ErrorMatches, "preparing application args: validating create application args: unitless application must be deployed without units")
+}
+
+func (s *providerServiceSuite) TestCreateCAASApplicationUnitlessCharm(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	setCreateApplicationNoopStorageExpects(c, s.state, s.storageService)
+
+	id := tc.Must(c, coreapplication.NewUUID)
+
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{
+		Arch: new(arch.AMD64),
+	}, nil)
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
+
+	// A unitless-only charm is deployed without units, so no unit args and a
+	// scale of zero may reach state.
+	var receivedUnits []application.AddCAASUnitArg
+	s.state.EXPECT().CreateCAASApplication(
+		gomock.Any(), "unitless", gomock.Any(), gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context, _ string, arg application.AddCAASApplicationArg, units []application.AddCAASUnitArg,
+	) (coreapplication.UUID, error) {
+		c.Check(arg.Scale, tc.Equals, 0)
+		receivedUnits = units
+		return id, nil
+	})
+
+	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
+	s.charm.EXPECT().Config().Return(&internalcharm.ConfigSpec{}).MinTimes(1)
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{
+		Bases: []internalcharm.Base{
+			{
+				Name: "ubuntu",
+				Channel: internalcharm.Channel{
+					Risk: internalcharm.Stable,
+				},
+				Architectures: []string{"amd64"},
+			},
+		},
+	}).MinTimes(1)
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
+		Name:    "unitless",
+		Assumes: unitlessAssumes(),
+	}).MinTimes(1)
+
+	_, err := s.service.CreateCAASApplication(c.Context(), "unitless", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
+		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
+		Revision: new(42),
+	}, AddApplicationArgs{
+		ReferenceName: "unitless",
+		DownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
+			CharmhubIdentifier: "unitless",
+			DownloadURL:        "https://example.com/unitless",
+			DownloadSize:       42,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(receivedUnits, tc.HasLen, 0)
+}
+
+func (s *providerServiceSuite) TestCreateCAASApplicationUnitlessCharmWithUnits(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
+		Name:    "unitless",
+		Assumes: unitlessAssumes(),
+	}).MinTimes(1)
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{
+		Bases: []internalcharm.Base{
+			{
+				Name: "ubuntu",
+				Channel: internalcharm.Channel{
+					Risk: internalcharm.Stable,
+				},
+				Architectures: []string{"amd64"},
+			},
+		},
+	})
+
+	_, err := s.service.CreateCAASApplication(c.Context(), "unitless", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
+		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
+		Revision: new(42),
+	}, AddApplicationArgs{
+		ReferenceName: "unitless",
+	}, AddUnitArg{})
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitlessApplicationWithUnitsNotSupported)
+	c.Check(err, tc.ErrorMatches, "preparing CAAS application args: validating create application args: unitless application must be deployed without units")
+}
+
 func (s *providerServiceSuite) TestCreateIAASApplicationWithConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	setCreateApplicationNoopStorageExpects(c, s.state, s.storageService)

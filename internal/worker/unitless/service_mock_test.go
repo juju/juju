@@ -27,12 +27,12 @@ type MockScriptletService struct {
 
 // MockScriptletServiceMockRecorder is the mock recorder for MockScriptletService.
 type MockScriptletServiceMockRecorder struct {
-	mock                                  *MockScriptletService
-	getScriptletApplicationExpects        []*gomock.Call2_2[context.Context, application.UUID, unitless.ScriptletApplication, error]
-	getScriptletEventExpects              []*gomock.Call3_2[context.Context, application.UUID, string, unitless.Event, error]
-	watchApplicationEventsExpects         []*gomock.Call2_2[context.Context, application.UUID, watcher.StringsWatcher, error]
-	watchScriptletApplicationDyingExpects []*gomock.Call2_2[context.Context, application.UUID, watcher.NotifyWatcher, error]
-	watchScriptletApplicationsExpects     []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
+	mock                              *MockScriptletService
+	getScriptletApplicationExpects    []*gomock.Call2_2[context.Context, application.UUID, unitless.ScriptletApplication, error]
+	getScriptletEventExpects          []*gomock.Call3_2[context.Context, application.UUID, unitless.EventType, unitless.Event, error]
+	watchApplicationEventsExpects     []*gomock.Call2_2[context.Context, application.UUID, watcher.StringsWatcher, error]
+	watchScriptletApplicationExpects  []*gomock.Call2_2[context.Context, application.UUID, watcher.NotifyWatcher, error]
+	watchScriptletApplicationsExpects []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
 }
 
 // NewMockScriptletService creates a new mock instance.
@@ -66,22 +66,22 @@ func (mr *MockScriptletServiceMockRecorder) GetScriptletApplication(ctx, applica
 type MockScriptletServiceGetScriptletApplicationCall = gomock.Call2_2[context.Context, application.UUID, unitless.ScriptletApplication, error]
 
 // GetScriptletEvent mocks base method.
-func (m *MockScriptletService) GetScriptletEvent(ctx context.Context, applicationUUID application.UUID, eventName string) (unitless.Event, error) {
+func (m *MockScriptletService) GetScriptletEvent(ctx context.Context, applicationUUID application.UUID, eventType unitless.EventType) (unitless.Event, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.getScriptletEventExpects, m.ctrl, m, "GetScriptletEvent", ctx, applicationUUID, eventName)
+	return gomock.Dispatch3_2(&m.recorder.getScriptletEventExpects, m.ctrl, m, "GetScriptletEvent", ctx, applicationUUID, eventType)
 }
 
 // GetScriptletEvent indicates an expected call of GetScriptletEvent.
-func (mr *MockScriptletServiceMockRecorder) GetScriptletEvent(ctx, applicationUUID, eventName any) *MockScriptletServiceGetScriptletEventCall {
+func (mr *MockScriptletServiceMockRecorder) GetScriptletEvent(ctx, applicationUUID, eventType any) *MockScriptletServiceGetScriptletEventCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[context.Context, application.UUID, string, unitless.Event, error](mr.mock.ctrl.T, mr.mock, "GetScriptletEvent", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(applicationUUID), gomock.EnsureMatcher(eventName))
+	call := gomock.NewCall3_2[context.Context, application.UUID, unitless.EventType, unitless.Event, error](mr.mock.ctrl.T, mr.mock, "GetScriptletEvent", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(applicationUUID), gomock.EnsureMatcher(eventType))
 	mr.getScriptletEventExpects = append(mr.getScriptletEventExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockScriptletServiceGetScriptletEventCall is the typed call wrapper for GetScriptletEvent.
-type MockScriptletServiceGetScriptletEventCall = gomock.Call3_2[context.Context, application.UUID, string, unitless.Event, error]
+type MockScriptletServiceGetScriptletEventCall = gomock.Call3_2[context.Context, application.UUID, unitless.EventType, unitless.Event, error]
 
 // WatchApplicationEvents mocks base method.
 func (m *MockScriptletService) WatchApplicationEvents(ctx context.Context, applicationUUID application.UUID) (watcher.StringsWatcher, error) {
@@ -101,23 +101,23 @@ func (mr *MockScriptletServiceMockRecorder) WatchApplicationEvents(ctx, applicat
 // MockScriptletServiceWatchApplicationEventsCall is the typed call wrapper for WatchApplicationEvents.
 type MockScriptletServiceWatchApplicationEventsCall = gomock.Call2_2[context.Context, application.UUID, watcher.StringsWatcher, error]
 
-// WatchScriptletApplicationDying mocks base method.
-func (m *MockScriptletService) WatchScriptletApplicationDying(ctx context.Context, applicationUUID application.UUID) (watcher.NotifyWatcher, error) {
+// WatchScriptletApplication mocks base method.
+func (m *MockScriptletService) WatchScriptletApplication(ctx context.Context, applicationUUID application.UUID) (watcher.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.watchScriptletApplicationDyingExpects, m.ctrl, m, "WatchScriptletApplicationDying", ctx, applicationUUID)
+	return gomock.Dispatch2_2(&m.recorder.watchScriptletApplicationExpects, m.ctrl, m, "WatchScriptletApplication", ctx, applicationUUID)
 }
 
-// WatchScriptletApplicationDying indicates an expected call of WatchScriptletApplicationDying.
-func (mr *MockScriptletServiceMockRecorder) WatchScriptletApplicationDying(ctx, applicationUUID any) *MockScriptletServiceWatchScriptletApplicationDyingCall {
+// WatchScriptletApplication indicates an expected call of WatchScriptletApplication.
+func (mr *MockScriptletServiceMockRecorder) WatchScriptletApplication(ctx, applicationUUID any) *MockScriptletServiceWatchScriptletApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, application.UUID, watcher.NotifyWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchScriptletApplicationDying", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(applicationUUID))
-	mr.watchScriptletApplicationDyingExpects = append(mr.watchScriptletApplicationDyingExpects, call)
+	call := gomock.NewCall2_2[context.Context, application.UUID, watcher.NotifyWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchScriptletApplication", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(applicationUUID))
+	mr.watchScriptletApplicationExpects = append(mr.watchScriptletApplicationExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockScriptletServiceWatchScriptletApplicationDyingCall is the typed call wrapper for WatchScriptletApplicationDying.
-type MockScriptletServiceWatchScriptletApplicationDyingCall = gomock.Call2_2[context.Context, application.UUID, watcher.NotifyWatcher, error]
+// MockScriptletServiceWatchScriptletApplicationCall is the typed call wrapper for WatchScriptletApplication.
+type MockScriptletServiceWatchScriptletApplicationCall = gomock.Call2_2[context.Context, application.UUID, watcher.NotifyWatcher, error]
 
 // WatchScriptletApplications mocks base method.
 func (m *MockScriptletService) WatchScriptletApplications(arg0 context.Context) (watcher.StringsWatcher, error) {

@@ -71,6 +71,13 @@ const (
 	// subordinate application is expected but a prinicpal application is found.
 	ApplicationNotSubordinate = errors.ConstError("application not subordinate")
 
+	// UnitlessApplicationWithUnitsNotSupported describes an error that occurs
+	// when deploying a unitless charm application with units. Unitless charm
+	// applications run controller-side scriptlets instead of unit agents, so
+	// they are deployed without units.
+	UnitlessApplicationWithUnitsNotSupported = errors.ConstError(
+		"unitless application must be deployed without units")
+
 	// ScalingStateInconsistent is returned by SetScalingState when the scaling
 	// state is inconsistent with the application scale.
 	ScalingStateInconsistent = errors.ConstError("scaling state is inconsistent")

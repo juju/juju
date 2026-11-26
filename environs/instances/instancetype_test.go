@@ -223,6 +223,19 @@ var getInstanceTypesTest = []struct {
 			{Id: "1", Name: "it-1", Arch: "amd64", Mem: 512, CpuCores: 4, Cost: 100},
 		},
 		expectedItypes: []string{"it-2"},
+	},
+	{
+		about: "largest mem available matching other constraints if mem not specified, name is final tie breaker",
+		cons:  "cores=4",
+		itypesToUse: []InstanceType{
+			{Id: "3", Name: "it-3", Arch: "amd64", Mem: 256, CpuCores: 4},
+			// Equal mem and cost: the fallback sorts by name and keeps
+			// the last element, so the lexicographically smallest name
+			// wins. Ids are anti-correlated to catch an Id tie-break.
+			{Id: "2", Name: "it-1", Arch: "amd64", Mem: 512, CpuCores: 4},
+			{Id: "1", Name: "it-2", Arch: "amd64", Mem: 512, CpuCores: 4},
+		},
+		expectedItypes: []string{"it-1"},
 	}, {
 		about:          "virt-type filtered by constraint",
 		cons:           "virt-type=hvm",
@@ -357,6 +370,15 @@ var byCostTests = []struct {
 			"it-1", "it-2",
 		},
 	}, {
+		about: "when cost is the same, ram takes precedence over name",
+		itypesToUse: []InstanceType{
+			{Id: "1", Name: "a-type", CpuCores: 1, Mem: 4096, Cost: 240},
+			{Id: "2", Name: "z-type", CpuCores: 1, Mem: 2048, Cost: 240},
+		},
+		expectedItypes: []string{
+			"z-type", "a-type",
+		},
+	}, {
 		about: "when cost and ram is the same, pick lowest cpu power",
 		itypesToUse: []InstanceType{
 			{Id: "2", Name: "it-2", CpuCores: 2, CpuPower: CpuPower(200)},
@@ -400,6 +422,18 @@ var byCostTests = []struct {
 		},
 		expectedItypes: []string{
 			"it-1", "it-2",
+		},
+	}, {
+		about: "when every attribute is the same, pick the lowest name for a deterministic order",
+		itypesToUse: []InstanceType{
+			// Ids are anti-correlated with name order so that an
+			// Id-based tie-break cannot silently pass this case.
+			{Id: "1", Name: "n2-standard-2", CpuCores: 2, Mem: 8192},
+			{Id: "2", Name: "e2-standard-2", CpuCores: 2, Mem: 8192},
+			{Id: "3", Name: "n2d-standard-2", CpuCores: 2, Mem: 8192},
+		},
+		expectedItypes: []string{
+			"e2-standard-2", "n2-standard-2", "n2d-standard-2",
 		},
 	},
 }

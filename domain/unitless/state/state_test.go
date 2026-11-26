@@ -34,9 +34,10 @@ func (s *stateSuite) TestGetScriptletApplication(c *tc.C) {
 	scriptlet, err := st.GetScriptletApplication(c.Context(), applicationID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(scriptlet, tc.DeepEquals, unitlessinternal.ScriptletApplication{
-		UUID: applicationID.String(),
-		Name: applicationID.String(),
-		Life: 0,
+		UUID:      applicationID.String(),
+		Name:      applicationID.String(),
+		Life:      0,
+		CharmUUID: charmID.String(),
 		Sources: []unitlessinternal.ScriptSource{{
 			LoadPath: "hook.star",
 			Source:   "load hook",
@@ -84,10 +85,69 @@ func (s *stateSuite) TestFilterScriptletApplications(c *tc.C) {
 
 func (s *stateSuite) TestGetScriptletEvent(c *tc.C) {
 	event, err := unitlessstate.NewState(s.TxnRunnerFactory()).GetScriptletEvent(
-		c.Context(), "application-uuid", "config-changed",
+		c.Context(), "application-uuid", "config_changed",
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(event, tc.DeepEquals, unitless.Event{})
+	c.Check(event, tc.DeepEquals, unitless.Event{Name: "config_changed"})
+}
+
+func (s *stateSuite) TestGetApplicationConfigHash(c *tc.C) {
+	charmID := tc.Must(c, corecharm.NewID)
+	applicationID := tc.Must(c, coreapplication.NewUUID)
+	s.insertApplication(c, charmID.String(), applicationID.String(), false)
+	s.insertApplicationConfigHash(c, applicationID.String(), "hash-1")
+
+	hash, err := unitlessstate.NewState(s.TxnRunnerFactory()).GetApplicationConfigHash(
+		c.Context(), applicationID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hash, tc.Equals, "hash-1")
+}
+
+func (s *stateSuite) TestGetApplicationConfigHashNoHash(c *tc.C) {
+	charmID := tc.Must(c, corecharm.NewID)
+	applicationID := tc.Must(c, coreapplication.NewUUID)
+	s.insertApplication(c, charmID.String(), applicationID.String(), false)
+
+	hash, err := unitlessstate.NewState(s.TxnRunnerFactory()).GetApplicationConfigHash(
+		c.Context(), applicationID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hash, tc.Equals, "")
+}
+
+func (s *stateSuite) TestInitialWatchStatementApplicationConfigHash(c *tc.C) {
+	charmID := tc.Must(c, corecharm.NewID)
+	applicationID := tc.Must(c, coreapplication.NewUUID)
+	s.insertApplication(c, charmID.String(), applicationID.String(), false)
+	s.insertApplicationConfigHash(c, applicationID.String(), "hash-1")
+
+	otherCharmID := tc.Must(c, corecharm.NewID)
+	otherID := tc.Must(c, coreapplication.NewUUID)
+	s.insertApplication(c, otherCharmID.String(), otherID.String(), false)
+	s.insertApplicationConfigHash(c, otherID.String(), "other-hash")
+
+	runner := s.TxnRunner()
+	_, query := unitlessstate.NewState(s.TxnRunnerFactory()).
+		InitialWatchStatementApplicationConfigHash(applicationID.String())
+
+	hashes, err := query(c.Context(), runner)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hashes, tc.DeepEquals, []string{"hash-1"})
+}
+
+func (s *stateSuite) TestInitialWatchStatementApplicationConfigHashNoHash(c *tc.C) {
+	charmID := tc.Must(c, corecharm.NewID)
+	applicationID := tc.Must(c, coreapplication.NewUUID)
+	s.insertApplication(c, charmID.String(), applicationID.String(), false)
+
+	runner := s.TxnRunner()
+	_, query := unitlessstate.NewState(s.TxnRunnerFactory()).
+		InitialWatchStatementApplicationConfigHash(applicationID.String())
+
+	hashes, err := query(c.Context(), runner)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hashes, tc.HasLen, 0)
 }
 
 func (s *stateSuite) insertApplication(c *tc.C, charmID, applicationID string, scriptlet bool) {
@@ -109,5 +169,13 @@ VALUES (?, 'status.star', 'set status'), (?, 'hook.star', 'load hook');
 INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid)
 VALUES (?, ?, 0, ?, '656b4a82-e28c-53d6-a014-f0dd53417eb6');
 `, applicationID, applicationID, charmID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *stateSuite) insertApplicationConfigHash(c *tc.C, applicationID, hash string) {
+	_, err := s.DB().Exec(`
+INSERT INTO application_config_hash (application_uuid, sha256)
+VALUES (?, ?);
+`, applicationID, hash)
 	c.Assert(err, tc.ErrorIsNil)
 }

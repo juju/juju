@@ -27,9 +27,14 @@ type applicationUUIDs []string
 
 type scriptletSource struct {
 	ApplicationName string    `db:"application_name"`
+	CharmUUID       string    `db:"charm_uuid"`
 	Life            life.Life `db:"life_id"`
 	Path            string    `db:"path"`
 	Content         []byte    `db:"content"`
+}
+
+type applicationConfigHash struct {
+	SHA256 string `db:"sha256"`
 }
 
 // State provides persistence operations for unitless applications.
@@ -62,7 +67,8 @@ func (st *State) GetScriptletApplication(
 SELECT cs.path AS &scriptletSource.path,
        cs.content AS &scriptletSource.content,
        a.name AS &scriptletSource.application_name,
-       a.life_id AS &scriptletSource.life_id
+       a.life_id AS &scriptletSource.life_id,
+       a.charm_uuid AS &scriptletSource.charm_uuid
 FROM application AS a
 JOIN charm_scriptlet AS cs ON cs.charm_uuid = a.charm_uuid
 WHERE a.uuid = $applicationUUID.uuid
@@ -88,9 +94,10 @@ ORDER BY cs.path;
 	}
 
 	return unitlessinternal.ScriptletApplication{
-		UUID: applicationID,
-		Name: rows[0].ApplicationName,
-		Life: rows[0].Life,
+		UUID:      applicationID,
+		Name:      rows[0].ApplicationName,
+		Life:      rows[0].Life,
+		CharmUUID: rows[0].CharmUUID,
 		Sources: transform.Slice(rows, func(row scriptletSource) unitlessinternal.ScriptSource {
 			return unitlessinternal.ScriptSource{
 				LoadPath: row.Path,
@@ -128,7 +135,49 @@ JOIN charm_scriptlet AS cs ON cs.charm_uuid = a.charm_uuid;
 			return row.UUID
 		}), nil
 	}
-	return "application", query
+	return st.ScriptletApplicationNamespace(), query
+}
+
+// ScriptletApplicationNamespace returns the namespace used to watch an
+// application's lifecycle and charm.
+func (st *State) ScriptletApplicationNamespace() string {
+	return "application"
+}
+
+// InitialWatchStatementApplicationConfigHash returns the initial namespace
+// and query for watching an application's config hash. The application is
+// identified by applicationID.
+func (st *State) InitialWatchStatementApplicationConfigHash(applicationID string) (string, eventsource.NamespaceQuery) {
+	query := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
+		ident := applicationUUID{UUID: applicationID}
+		stmt, err := st.Prepare(`
+SELECT ach.sha256 AS &applicationConfigHash.sha256
+FROM application_config_hash AS ach
+WHERE ach.application_uuid = $applicationUUID.uuid;
+`, applicationConfigHash{}, ident)
+		if err != nil {
+			return nil, errors.Errorf("preparing initial application config hash query: %w", err)
+		}
+
+		// application_uuid is the primary key of application_config_hash,
+		// so the query returns at most one row.
+		var hash applicationConfigHash
+		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			err := tx.Query(ctx, stmt, ident).Get(&hash)
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return nil
+			}
+			return err
+		})
+		if err != nil {
+			return nil, errors.Errorf("getting initial application config hash: %w", err)
+		}
+		if hash.SHA256 == "" {
+			return nil, nil
+		}
+		return []string{hash.SHA256}, nil
+	}
+	return "application_config_hash", query
 }
 
 // FilterScriptletApplications returns the application UUIDs whose charms have
@@ -170,10 +219,45 @@ WHERE a.uuid IN ($applicationUUIDs[:]);
 }
 
 // GetScriptletEvent returns the event payload for an application event.
+// Currently only the event name is returned; event attributes will be
+// populated as events gain them.
 func (st *State) GetScriptletEvent(
-	context.Context,
-	string,
-	string,
+	_ context.Context,
+	_ string,
+	eventName string,
 ) (unitless.Event, error) {
-	return unitless.Event{}, nil
+	return unitless.Event{Name: unitless.EventType(eventName)}, nil
+}
+
+// GetApplicationConfigHash returns the SHA256 hash of the application config
+// for the application identified by applicationID. If the application has
+// no config hash, an empty string is returned.
+func (st *State) GetApplicationConfigHash(ctx context.Context, applicationID string) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	ident := applicationUUID{UUID: applicationID}
+	stmt, err := st.Prepare(`
+SELECT ach.sha256 AS &applicationConfigHash.sha256
+FROM application_config_hash AS ach
+WHERE ach.application_uuid = $applicationUUID.uuid;
+`, applicationConfigHash{}, ident)
+	if err != nil {
+		return "", errors.Errorf("preparing application config hash query: %w", err)
+	}
+
+	var hash applicationConfigHash
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, ident).Get(&hash)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return "", errors.Errorf("getting application config hash: %w", err)
+	}
+	return hash.SHA256, nil
 }

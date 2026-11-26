@@ -101,7 +101,7 @@ func (e *starformExecutor) Handle(ctx context.Context, event domainunitless.Even
 	}
 	collector := scriptlet.IntentCollector{}
 	eo := starform.EventObject{
-		Name:  event.Name,
+		Name:  event.Name.String(),
 		Attrs: attrs,
 		State: &collector,
 	}

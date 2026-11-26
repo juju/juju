@@ -8,7 +8,6 @@ import (
 	"maps"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	"github.com/juju/loggo/v3"
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/internal/charmhub"
 	containerbroker "github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/container/lxd"
+	"github.com/juju/juju/internal/errors"
 	internalhttp "github.com/juju/juju/internal/http"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/upgrades"
@@ -212,10 +212,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 	//  2) to decide how to deal with fatal, non-recoverable errors
 	//     e.g. apicaller.ErrConnectImpossible.
 	connectFilter := func(err error) error {
-		cause := errors.Cause(err)
-		if cause == apicaller.ErrConnectImpossible {
+		if errors.Is(err, apicaller.ErrConnectImpossible) {
 			return jworker.ErrTerminateAgent
-		} else if cause == apicaller.ErrChangedPassword {
+		} else if errors.Is(err, apicaller.ErrChangedPassword) {
 			return dependency.ErrBounce
 		}
 		return err

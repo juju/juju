@@ -10,9 +10,12 @@ import (
 	"github.com/juju/worker/v5/catacomb"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainunitless "github.com/juju/juju/domain/unitless"
 	internalerrors "github.com/juju/juju/internal/errors"
 )
 
@@ -28,7 +31,10 @@ type applicationRunnerConfig struct {
 type applicationRunner struct {
 	catacomb catacomb.Catacomb
 	config   applicationRunnerConfig
-	executor Executor
+
+	charmUUID    corecharm.ID
+	eventWatcher watcher.StringsWatcher
+	executor     Executor
 }
 
 func newApplicationRunner(config applicationRunnerConfig) (worker.Worker, error) {
@@ -62,62 +68,34 @@ func (r *applicationRunner) loop() error {
 	applicationUUID := r.config.ApplicationUUID
 
 	log.Infof(ctx, "starting scriptlet application runner %q", applicationUUID)
-	dyingWatcher, err := r.config.ScriptletService.WatchScriptletApplicationDying(ctx, applicationUUID)
-	if internalerrors.Is(err, applicationerrors.ApplicationNotFound) {
-		log.Infof(ctx, "scriptlet application %q not found, stopping runner", applicationUUID)
-		return nil
-	} else if err != nil {
-		return internalerrors.Errorf("watching scriptlet application life %q: %w", applicationUUID, err)
+	appWatcher, err := r.config.ScriptletService.WatchScriptletApplication(ctx, applicationUUID)
+	if err != nil {
+		return internalerrors.Errorf("watching scriptlet application %q: %w", applicationUUID, err)
 	}
-	if err := r.catacomb.Add(dyingWatcher); err != nil {
+	if err := r.catacomb.Add(appWatcher); err != nil {
 		return internalerrors.Capture(err)
 	}
 
-	// Wait for the subscription to be active before reading application life.
+	// Wait for the subscription to be active before reading application state.
 	select {
 	case <-r.catacomb.Dying():
 		return r.catacomb.ErrDying()
-	case _, ok := <-dyingWatcher.Changes():
+	case _, ok := <-appWatcher.Changes():
 		if !ok {
-			return internalerrors.New("scriptlet application dying watcher closed")
+			return internalerrors.New("scriptlet application watcher closed")
 		}
 	}
 
-	application, err := r.config.ScriptletService.GetScriptletApplication(ctx, applicationUUID)
-	if internalerrors.Is(err, applicationerrors.ApplicationNotFound) {
-		// The application was removed before we could start the runner, so just
-		// exit cleanly.
-		log.Infof(ctx, "scriptlet application %q not found, stopping runner", applicationUUID)
-		return nil
-	} else if err != nil {
-		return internalerrors.Errorf("getting scriptlet for application %q: %w", applicationUUID, err)
-	}
-
-	// If the application is no longer alive, exit cleanly.
-	if life.IsNotAlive(application.Life) {
-		log.Infof(ctx, "scriptlet application %q is no longer alive, stopping runner", applicationUUID)
-		return nil
-	}
-
-	eventWatcher, err := r.config.ScriptletService.WatchApplicationEvents(ctx, applicationUUID)
-	if internalerrors.Is(err, applicationerrors.ApplicationNotFound) {
-		log.Infof(ctx, "scriptlet application %q was removed, stopping runner", applicationUUID)
-		return nil
-	} else if err != nil {
-		return internalerrors.Errorf("watching scriptlet events for application %q: %w", applicationUUID, err)
-	}
-	if err := r.catacomb.Add(eventWatcher); err != nil {
+	application, stop, err := r.getScriptletApplication(ctx)
+	if err != nil {
 		return internalerrors.Capture(err)
 	}
+	if stop {
+		return nil
+	}
 
-	r.executor, err = r.config.NewExecutor(ctx, ExecutorConfig{
-		Scriptlet: application,
-		MaxAllocs: r.config.MaxAllocs,
-		MaxSteps:  r.config.MaxSteps,
-		Logger:    NewStarformLogAdapter(log),
-	})
-	if err != nil {
-		return internalerrors.Errorf("creating scriptlet executor for application %q: %w", applicationUUID, err)
+	if err := r.startScriptlet(ctx, application); err != nil {
+		return internalerrors.Capture(err)
 	}
 
 	for {
@@ -125,36 +103,42 @@ func (r *applicationRunner) loop() error {
 		case <-r.catacomb.Dying():
 			return r.catacomb.ErrDying()
 
-		case _, ok := <-dyingWatcher.Changes():
+		case _, ok := <-appWatcher.Changes():
 			if !ok {
-				return internalerrors.New("scriptlet application dying watcher closed")
-			}
-			application, err := r.config.ScriptletService.GetScriptletApplication(ctx, applicationUUID)
-			if internalerrors.Is(err, applicationerrors.ApplicationNotFound) {
-				// The application was removed before we saw the dying event, so
-				// just exit cleanly.
-				log.Infof(ctx, "scriptlet application %q was removed, stopping runner", applicationUUID)
-				return nil
-			} else if err != nil {
-				return internalerrors.Errorf("getting scriptlet application life %q: %w", applicationUUID, err)
+				return internalerrors.New("scriptlet application watcher closed")
 			}
 
-			// If the application is no longer alive, exit cleanly.
-			if life.IsNotAlive(application.Life) {
-				log.Infof(ctx, "scriptlet application %q is no longer alive, stopping runner", applicationUUID)
+			application, stop, err := r.getScriptletApplication(ctx)
+			if err != nil {
+				return internalerrors.Capture(err)
+			}
+			if stop {
 				return nil
 			}
+			if application.CharmUUID == r.charmUUID {
+				continue
+			}
 
-		case eventNames, ok := <-eventWatcher.Changes():
+			log.Infof(ctx, "refreshing scriptlet application %q", applicationUUID)
+			if err := worker.Stop(r.eventWatcher); err != nil {
+				return internalerrors.Errorf("stopping scriptlet events for application %q: %w", applicationUUID, err)
+			}
+			if err := r.startScriptlet(ctx, application); err != nil {
+				return internalerrors.Capture(err)
+			}
+
+		case eventNames, ok := <-r.eventWatcher.Changes():
 			if !ok {
 				return internalerrors.New("scriptlet event watcher closed")
 			}
+
 			for _, eventName := range eventNames {
 				select {
 				case <-r.catacomb.Dying():
 					return r.catacomb.ErrDying()
 				default:
 				}
+
 				if err := r.handleEvent(ctx, eventName); internalerrors.Is(err, applicationerrors.ApplicationNotFound) {
 					log.Infof(ctx, "scriptlet application %q was removed, stopping runner", applicationUUID)
 					return nil
@@ -169,13 +153,71 @@ func (r *applicationRunner) loop() error {
 	}
 }
 
+// getScriptletApplication returns the current scriptlet application and whether
+// the runner should stop because it was removed, became a normal charm, or is
+// no longer alive.
+func (r *applicationRunner) getScriptletApplication(
+	ctx context.Context,
+) (domainunitless.ScriptletApplication, bool, error) {
+	applicationUUID := r.config.ApplicationUUID
+	log := r.config.Logger
+
+	application, err := r.config.ScriptletService.GetScriptletApplication(ctx, applicationUUID)
+	if internalerrors.Is(err, applicationerrors.ApplicationNotFound) {
+		// The application was removed or its charm no longer has scriptlets,
+		// so stop executing it.
+		log.Infof(ctx, "scriptlet application %q not found, stopping runner", applicationUUID)
+		return domainunitless.ScriptletApplication{}, true, nil
+	} else if err != nil {
+		return domainunitless.ScriptletApplication{}, false,
+			internalerrors.Errorf("getting scriptlet application %q: %w", applicationUUID, err)
+	}
+
+	if life.IsNotAlive(application.Life) {
+		log.Infof(ctx, "scriptlet application %q is no longer alive, stopping runner", applicationUUID)
+		return application, true, nil
+	}
+	return application, false, nil
+}
+
+// startScriptlet creates a fresh executor and event watcher. Restarting the
+// watcher dispatches the initial config event to the refreshed charm.
+func (r *applicationRunner) startScriptlet(
+	ctx context.Context, application domainunitless.ScriptletApplication,
+) error {
+	applicationUUID := r.config.ApplicationUUID
+	eventWatcher, err := r.config.ScriptletService.WatchApplicationEvents(ctx, applicationUUID)
+	if err != nil {
+		return internalerrors.Errorf("watching scriptlet events for application %q: %w", applicationUUID, err)
+	}
+
+	if err := r.catacomb.Add(eventWatcher); err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	executor, err := r.config.NewExecutor(ctx, ExecutorConfig{
+		Scriptlet: application,
+		MaxAllocs: r.config.MaxAllocs,
+		MaxSteps:  r.config.MaxSteps,
+		Logger:    NewStarformLogAdapter(r.config.Logger),
+	})
+	if err != nil {
+		return internalerrors.Errorf("creating scriptlet executor for application %q: %w", applicationUUID, err)
+	}
+	r.charmUUID = application.CharmUUID
+	r.eventWatcher = eventWatcher
+	r.executor = executor
+	return nil
+}
+
 func (r *applicationRunner) handleEvent(ctx context.Context, eventName string) error {
 	if eventName == "" {
 		r.config.Logger.Warningf(ctx, "ignoring empty scriptlet event for application %q", r.config.ApplicationUUID)
 		return nil
 	}
 
-	event, err := r.config.ScriptletService.GetScriptletEvent(ctx, r.config.ApplicationUUID, eventName)
+	event, err := r.config.ScriptletService.GetScriptletEvent(
+		ctx, r.config.ApplicationUUID, domainunitless.EventType(eventName))
 	if err != nil {
 		return internalerrors.Errorf("getting event snapshot: %w", err)
 	}

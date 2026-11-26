@@ -104,6 +104,14 @@ func handleApplicationDomainDeployError(err error) error {
 		return apiservererrors.ParamsErrorf(params.CodeNotValid,
 			"application name is not valid",
 		)
+
+	// When deploying a unitless charm application with units. Unitless charm
+	// applications run controller-side scriptlets instead of unit agents, so
+	// they are deployed without units.
+	case errors.Is(err, applicationerrors.UnitlessApplicationWithUnitsNotSupported):
+		return errors.New(
+			"unitless application must be deployed without units",
+		).Add(coreerrors.NotSupported)
 	}
 
 	return err
