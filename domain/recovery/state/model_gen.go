@@ -231,6 +231,17 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			},
 		})
 	}
+	if dump.Present["application_exposed_cidr"] {
+		tables = append(tables, replayTable{
+			name:      "application_exposed_cidr",
+			deleteSQL: `DELETE FROM "application_exposed_cidr" AS t`,
+			insertSQL: `INSERT INTO "application_exposed_cidr" ("application_uuid", "cidr") SELECT $ApplicationExposedCidr.application_uuid AS "application_uuid", $ApplicationExposedCidr.cidr AS "cidr"`,
+			sample:    exporttypes.ApplicationExposedCidr{},
+			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
+				return insertRows(ctx, tx, stmt, dump.ApplicationExposedCidr, nil)
+			},
+		})
+	}
 	if dump.Present["application_exposed_endpoint_cidr"] {
 		tables = append(tables, replayTable{
 			name:      "application_exposed_endpoint_cidr",
@@ -250,6 +261,17 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			sample:    exporttypes.ApplicationExposedEndpointSpace{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
 				return insertRows(ctx, tx, stmt, dump.ApplicationExposedEndpointSpace, nil)
+			},
+		})
+	}
+	if dump.Present["application_exposed_space"] {
+		tables = append(tables, replayTable{
+			name:      "application_exposed_space",
+			deleteSQL: `DELETE FROM "application_exposed_space" AS t`,
+			insertSQL: `INSERT INTO "application_exposed_space" ("application_uuid", "space_uuid") SELECT $ApplicationExposedSpace.application_uuid AS "application_uuid", $ApplicationExposedSpace.space_uuid AS "space_uuid"`,
+			sample:    exporttypes.ApplicationExposedSpace{},
+			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
+				return insertRows(ctx, tx, stmt, dump.ApplicationExposedSpace, nil)
 			},
 		})
 	}

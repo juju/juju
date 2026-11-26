@@ -106,6 +106,13 @@ func (s *linkLayerBaseSuite) addApplicationExposedEndpoint(c *tc.C, applicationU
 			VALUES (?, ?, ?)`, applicationUUID, endpointUUID, boundSpaceUUID)
 }
 
+// addApplicationExposedSpace inserts a record exposing all endpoints of an
+// application to the given space.
+func (s *linkLayerBaseSuite) addApplicationExposedSpace(c *tc.C, applicationUUID, spaceUUID string) {
+	s.query(c, `INSERT INTO application_exposed_space (application_uuid, space_uuid) VALUES (?, ?)`,
+		applicationUUID, spaceUUID)
+}
+
 // addCharm inserts a new charm record into the database and returns its UUID as a string.
 func (s *linkLayerBaseSuite) addCharm(c *tc.C) string {
 	charmUUID := uuid.MustNewUUID().String()

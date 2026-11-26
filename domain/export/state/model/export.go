@@ -209,6 +209,10 @@ FROM   "application" AS t`, v4_1_0.Application{}, nullableApplication{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationEndpoint statement: %w", err)
 	}
+	stmtApplicationExposedCidr, err := sqlair.Prepare(`SELECT &ApplicationExposedCidr.* FROM "application_exposed_cidr"`, v4_1_0.ApplicationExposedCidr{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing ApplicationExposedCidr statement: %w", err)
+	}
 	stmtApplicationExposedEndpointCidr, err := sqlair.Prepare(`SELECT &ApplicationExposedEndpointCidr.* FROM "application_exposed_endpoint_cidr"`, v4_1_0.ApplicationExposedEndpointCidr{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationExposedEndpointCidr statement: %w", err)
@@ -216,6 +220,10 @@ FROM   "application" AS t`, v4_1_0.Application{}, nullableApplication{})
 	stmtApplicationExposedEndpointSpace, err := sqlair.Prepare(`SELECT &ApplicationExposedEndpointSpace.* FROM "application_exposed_endpoint_space"`, v4_1_0.ApplicationExposedEndpointSpace{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationExposedEndpointSpace statement: %w", err)
+	}
+	stmtApplicationExposedSpace, err := sqlair.Prepare(`SELECT &ApplicationExposedSpace.* FROM "application_exposed_space"`, v4_1_0.ApplicationExposedSpace{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing ApplicationExposedSpace statement: %w", err)
 	}
 	stmtApplicationExtraEndpoint, err := sqlair.Prepare(`SELECT &ApplicationExtraEndpoint.* FROM "application_extra_endpoint"`, v4_1_0.ApplicationExtraEndpoint{})
 	if err != nil {
@@ -1278,11 +1286,17 @@ FROM   "unit_workload_status" AS t`, v4_1_0.UnitWorkloadStatus{}, nullableUnitWo
 		if err := tx.Query(ctx, stmtApplicationEndpoint).GetAll(&modelExport.ApplicationEndpoint); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApplicationEndpoint (table application_endpoint): %w", err)
 		}
+		if err := tx.Query(ctx, stmtApplicationExposedCidr).GetAll(&modelExport.ApplicationExposedCidr); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying ApplicationExposedCidr (table application_exposed_cidr): %w", err)
+		}
 		if err := tx.Query(ctx, stmtApplicationExposedEndpointCidr).GetAll(&modelExport.ApplicationExposedEndpointCidr); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApplicationExposedEndpointCidr (table application_exposed_endpoint_cidr): %w", err)
 		}
 		if err := tx.Query(ctx, stmtApplicationExposedEndpointSpace).GetAll(&modelExport.ApplicationExposedEndpointSpace); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApplicationExposedEndpointSpace (table application_exposed_endpoint_space): %w", err)
+		}
+		if err := tx.Query(ctx, stmtApplicationExposedSpace).GetAll(&modelExport.ApplicationExposedSpace); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying ApplicationExposedSpace (table application_exposed_space): %w", err)
 		}
 		if err := tx.Query(ctx, stmtApplicationExtraEndpoint).GetAll(&modelExport.ApplicationExtraEndpoint); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApplicationExtraEndpoint (table application_extra_endpoint): %w", err)

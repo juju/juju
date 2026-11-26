@@ -19,6 +19,25 @@ func TestGeneratorSuite(t *testing.T) {
 	tc.Run(t, &generatorSuite{})
 }
 
+// TestConstraintChangeRequiresDelta verifies that regeneration preserves a
+// delta for a constraint change even when the exported struct is unchanged.
+func (s *generatorSuite) TestConstraintChangeRequiresDelta(c *tc.C) {
+	_, filename, _, ok := runtime.Caller(0)
+	c.Assert(ok, tc.IsTrue)
+	path := filepath.Join(filepath.Dir(filename), "../../domain/export/types/v4_0_12/model.go")
+	structs, err := parseModelTypes(path)
+	c.Assert(err, tc.ErrorIsNil)
+	unchanged := classifyFields(structs, structs)
+	c.Check(slices.Contains(unchanged.Unchanged, "CharmManifestBase"), tc.IsTrue)
+
+	changed := classifyFields(structs, structs, "CharmManifestBase")
+	c.Check(slices.Contains(changed.Unchanged, "CharmManifestBase"), tc.IsFalse)
+	c.Check(changed.Changed, tc.DeepEquals, []changedField{{
+		Name: "CharmManifestBase", SrcType: "CharmManifestBase", DstType: "CharmManifestBase",
+		ConstraintChanged: true,
+	}})
+}
+
 func (s *generatorSuite) TestExportGeneratorDoesNotOwnImportTemplates(c *tc.C) {
 	_, filename, _, ok := runtime.Caller(0)
 	c.Assert(ok, tc.IsTrue)

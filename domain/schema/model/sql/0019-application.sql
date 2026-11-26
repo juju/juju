@@ -101,10 +101,41 @@ CREATE TABLE application_scale (
     REFERENCES application (uuid)
 );
 
+-- application_exposed_space records the spaces an application is exposed
+-- to on all of its endpoints. It is the application-wide default, in the
+-- same way that application.space_uuid is the default binding;
+-- application_exposed_endpoint_space records exposure on a single endpoint.
+CREATE TABLE application_exposed_space (
+    application_uuid TEXT NOT NULL,
+    space_uuid TEXT NOT NULL,
+    CONSTRAINT fk_application_exposed_space_application
+    FOREIGN KEY (application_uuid)
+    REFERENCES application (uuid),
+    CONSTRAINT fk_application_exposed_space_space
+    FOREIGN KEY (space_uuid)
+    REFERENCES space (uuid),
+    PRIMARY KEY (application_uuid, space_uuid)
+);
+
+CREATE INDEX idx_application_exposed_space
+ON application_exposed_space (space_uuid);
+
+-- application_exposed_cidr records the CIDRs an application is exposed to
+-- on all of its endpoints; application_exposed_endpoint_cidr records
+-- exposure on a single endpoint. There is no FK against the CIDR, because
+-- it's currently free-form.
+CREATE TABLE application_exposed_cidr (
+    application_uuid TEXT NOT NULL,
+    cidr TEXT NOT NULL,
+    CONSTRAINT fk_application_exposed_cidr_application
+    FOREIGN KEY (application_uuid)
+    REFERENCES application (uuid),
+    PRIMARY KEY (application_uuid, cidr)
+);
+
 CREATE TABLE application_exposed_endpoint_space (
     application_uuid TEXT NOT NULL,
-    -- NULL application_endpoint_uuid represents the wildcard endpoint.
-    application_endpoint_uuid TEXT,
+    application_endpoint_uuid TEXT NOT NULL,
     space_uuid TEXT NOT NULL,
     CONSTRAINT fk_application_exposed_endpoint_space_application
     FOREIGN KEY (application_uuid)
@@ -124,8 +155,7 @@ ON application_exposed_endpoint_space (space_uuid);
 -- There is no FK against the CIDR, because it's currently free-form.
 CREATE TABLE application_exposed_endpoint_cidr (
     application_uuid TEXT NOT NULL,
-    -- NULL application_endpoint_uuid represents the wildcard endpoint.
-    application_endpoint_uuid TEXT,
+    application_endpoint_uuid TEXT NOT NULL,
     cidr TEXT NOT NULL,
     CONSTRAINT fk_application_exposed_endpoint_cidr_application
     FOREIGN KEY (application_uuid)
@@ -136,6 +166,9 @@ CREATE TABLE application_exposed_endpoint_cidr (
     PRIMARY KEY (application_uuid, application_endpoint_uuid, cidr)
 );
 
+-- v_application_exposed_endpoint combines application-wide and per-endpoint
+-- exposure. Application-wide rows have a NULL application_endpoint_uuid,
+-- meaning all endpoints.
 CREATE VIEW v_application_exposed_endpoint (
     application_uuid,
     application_endpoint_uuid,
@@ -144,17 +177,31 @@ CREATE VIEW v_application_exposed_endpoint (
 ) AS
 SELECT
     aes.application_uuid,
-    aes.application_endpoint_uuid,
+    NULL AS application_endpoint_uuid,
     aes.space_uuid,
-    NULL AS n
-FROM application_exposed_endpoint_space AS aes
+    NULL AS cidr
+FROM application_exposed_space AS aes
 UNION
 SELECT
     aec.application_uuid,
-    aec.application_endpoint_uuid,
-    NULL AS n,
+    NULL AS application_endpoint_uuid,
+    NULL AS space_uuid,
     aec.cidr
-FROM application_exposed_endpoint_cidr AS aec;
+FROM application_exposed_cidr AS aec
+UNION
+SELECT
+    aees.application_uuid,
+    aees.application_endpoint_uuid,
+    aees.space_uuid,
+    NULL AS cidr
+FROM application_exposed_endpoint_space AS aees
+UNION
+SELECT
+    aeec.application_uuid,
+    aeec.application_endpoint_uuid,
+    NULL AS space_uuid,
+    aeec.cidr
+FROM application_exposed_endpoint_cidr AS aeec;
 
 CREATE TABLE application_config_hash (
     application_uuid TEXT NOT NULL PRIMARY KEY,
