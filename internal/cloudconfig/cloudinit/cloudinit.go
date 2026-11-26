@@ -389,6 +389,16 @@ func (cfg *cloudConfig) ManageEtcHosts(manage bool) {
 
 // AddRunTextFile is defined on the WrittenFilesConfig interface.
 func (cfg *cloudConfig) AddRunTextFile(filename, contents string, perm uint) {
+	if perm&0077 == 0 {
+		// A private text file may contain credentials, like the node
+		// configuration embedded in the recovery parameters. Keep its
+		// contents out of shell tracing without changing the caller's
+		// tracing state.
+		cfg.AddScripts("(", "set +x")
+		cfg.AddScripts(addFileCmds(filename, []byte(contents), perm, false)...)
+		cfg.AddScripts(")")
+		return
+	}
 	cfg.AddScripts(addFileCmds(filename, []byte(contents), perm, false)...)
 }
 

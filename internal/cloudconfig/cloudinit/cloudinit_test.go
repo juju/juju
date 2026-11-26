@@ -648,3 +648,27 @@ func (s *cloudInitSuite) TestPrivateInlineBinaryIsNotShellTraced(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.Mode().Perm(), tc.Equals, os.FileMode(0600))
 }
+
+func (s *cloudInitSuite) TestPrivateRunTextFileIsNotShellTraced(c *tc.C) {
+	cfg, err := cloudinit.New("ubuntu")
+	c.Assert(err, tc.ErrorIsNil)
+	filename := filepath.Join(c.MkDir(), "params")
+	const marker = "synthetic secret marker"
+	cfg.AddRunCmd("set -x")
+	cfg.AddRunTextFile(filename, marker, 0600)
+	cfg.AddRunCmd("echo tracing-restored")
+	script, err := cfg.RenderScript()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(strings.Contains(script, marker), tc.IsTrue)
+	output, err := exec.CommandContext(c.Context(), "/bin/bash", "-c", script).CombinedOutput()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(strings.Contains(string(output), marker), tc.IsFalse)
+	c.Check(strings.Contains(string(output), "+ echo tracing-restored"), tc.IsTrue)
+	contents, err := os.ReadFile(filename)
+	c.Assert(err, tc.ErrorIsNil)
+	// The text path renders through echo, which appends a newline.
+	c.Check(string(contents), tc.Equals, marker+"\n")
+	info, err := os.Stat(filename)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.Mode().Perm(), tc.Equals, os.FileMode(0600))
+}
