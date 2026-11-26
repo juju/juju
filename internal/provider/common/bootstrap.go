@@ -617,7 +617,12 @@ func ConfigureMachine(
 	ctx.Infof("Running machine configuration script...")
 	sshinitConfig.CleanupCommand = ft.CleanupCommand()
 	err = sshinit.RunConfigureScriptContext(ctx, script, sshinitConfig)
-	configureFinished = true
+	// The remote script's EXIT trap owns cleanup of the staged files
+	// whenever the setup wrapper ran. Only a failure that kept the
+	// wrapper from running leaves them behind for the deferred fallback
+	// below; ambiguous outcomes are reported as not fired, biasing
+	// towards that fallback.
+	configureFinished = sshinit.SetupTrapFired(err)
 	if err != nil {
 		if bootstrap.IsContextDone(ctx) {
 			return errors.Annotate(bootstrap.Cancelled(), "configuring machine")

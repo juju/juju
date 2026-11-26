@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils/v4/ssh"
 
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
+	"github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 )
 
@@ -105,4 +106,47 @@ cat > $tmpfile
 	cmd.Stdin = strings.NewReader(script)
 	cmd.Stderr = params.ProgressWriter
 	return runCommand(ctx, cmd)
+}
+
+// SetupTrapFired reports whether the remote setup wrapper is known to
+// have run to completion, so its EXIT trap has removed the staged files
+// and setup may have rotated the machine's SSH host keys. Callers can
+// then leave cleanup to the remote end instead of reconnecting.
+//
+// A false result means the wrapper is not known to have run, and the
+// caller must clean up as a fallback. Ambiguous outcomes return false
+// on purpose: a context cancelled after the command completed cannot be
+// told apart from one cancelled before it started, ssh(1) reports its
+// own failures through the remote exit status, and sudo exits 126 or
+// 127 without ever starting the wrapper. The fallback is idempotent,
+// while a skipped cleanup would leave staged files, including the
+// recovery archive, on the machine.
+func SetupTrapFired(err error) bool {
+	if err == nil {
+		return true
+	}
+	code, ok := remoteExitStatus(err)
+	if !ok {
+		return false
+	}
+	// ssh(1) exits 255 on its own failures (connection refused, host
+	// key mismatch), and sudo exits 126 or 127 when it cannot start the
+	// wrapper. A remote exit with one of those codes cannot be told
+	// apart from those failures, so treat it as "wrapper never ran".
+	return code != 255 && code != 126 && code != 127
+}
+
+// remoteExitStatus extracts the remote exit status reported by either
+// SSH client backend. The OpenSSH client wraps it in RcPassthroughError,
+// which also carries ssh(1)'s own exit status, while the go-crypto
+// client reports the remote exit through ExitStatus.
+func remoteExitStatus(err error) (int, bool) {
+	if rc, ok := errors.AsType[*utils.RcPassthroughError](err); ok {
+		return rc.Code, true
+	}
+	var status interface{ ExitStatus() int }
+	if errors.As(err, &status) {
+		return status.ExitStatus(), true
+	}
+	return 0, false
 }
