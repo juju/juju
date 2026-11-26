@@ -19,26 +19,88 @@ import (
 // Engineers implement this interface in deltas.go; the package will not
 // compile until every method has a receiver.
 type Deltas interface {
+	// AgentStream: struct shape changed in 4.1.0.
+	AgentStream(ctx context.Context, src []v4_0_12.AgentStream, model *v4_0_12.ModelExport) ([]v4_1_0.AgentStream, error)
 	// ApplicationAgent: struct shape changed in 4.1.0.
 	ApplicationAgent(ctx context.Context, src []v4_0_12.ApplicationAgent, model *v4_0_12.ModelExport) ([]v4_1_0.ApplicationAgent, error)
 	// ApplicationPlatform: struct shape changed in 4.1.0.
 	ApplicationPlatform(ctx context.Context, src []v4_0_12.ApplicationPlatform, model *v4_0_12.ModelExport) ([]v4_1_0.ApplicationPlatform, error)
 	// ApplicationScale: struct shape changed in 4.1.0.
 	ApplicationScale(ctx context.Context, src []v4_0_12.ApplicationScale, model *v4_0_12.ModelExport) ([]v4_1_0.ApplicationScale, error)
+	// Architecture: struct shape changed in 4.1.0.
+	Architecture(ctx context.Context, src []v4_0_12.Architecture, model *v4_0_12.ModelExport) ([]v4_1_0.Architecture, error)
+	// BlockCommandType: struct shape changed in 4.1.0.
+	BlockCommandType(ctx context.Context, src []v4_0_12.BlockCommandType, model *v4_0_12.ModelExport) ([]v4_1_0.BlockCommandType, error)
+	// BlockDeviceProvenance: struct shape changed in 4.1.0.
+	BlockDeviceProvenance(ctx context.Context, src []v4_0_12.BlockDeviceProvenance, model *v4_0_12.ModelExport) ([]v4_1_0.BlockDeviceProvenance, error)
+	// ChangeLogEditType: struct shape changed in 4.1.0.
+	ChangeLogEditType(ctx context.Context, src []v4_0_12.ChangeLogEditType, model *v4_0_12.ModelExport) ([]v4_1_0.ChangeLogEditType, error)
+	// ChangeLogNamespace: struct shape changed in 4.1.0.
+	ChangeLogNamespace(ctx context.Context, src []v4_0_12.ChangeLogNamespace, model *v4_0_12.ModelExport) ([]v4_1_0.ChangeLogNamespace, error)
 	// CharmConfig: struct shape changed in 4.1.0.
 	CharmConfig(ctx context.Context, src []v4_0_12.CharmConfig, model *v4_0_12.ModelExport) ([]v4_1_0.CharmConfig, error)
+	// CharmConfigType: struct shape changed in 4.1.0.
+	CharmConfigType(ctx context.Context, src []v4_0_12.CharmConfigType, model *v4_0_12.ModelExport) ([]v4_1_0.CharmConfigType, error)
+	// CharmProvenance: struct shape changed in 4.1.0.
+	CharmProvenance(ctx context.Context, src []v4_0_12.CharmProvenance, model *v4_0_12.ModelExport) ([]v4_1_0.CharmProvenance, error)
+	// CharmRelationRole: struct shape changed in 4.1.0.
+	CharmRelationRole(ctx context.Context, src []v4_0_12.CharmRelationRole, model *v4_0_12.ModelExport) ([]v4_1_0.CharmRelationRole, error)
+	// CharmRelationScope: struct shape changed in 4.1.0.
+	CharmRelationScope(ctx context.Context, src []v4_0_12.CharmRelationScope, model *v4_0_12.ModelExport) ([]v4_1_0.CharmRelationScope, error)
+	// CharmResourceKind: struct shape changed in 4.1.0.
+	CharmResourceKind(ctx context.Context, src []v4_0_12.CharmResourceKind, model *v4_0_12.ModelExport) ([]v4_1_0.CharmResourceKind, error)
+	// CharmRunAsKind: struct shape changed in 4.1.0.
+	CharmRunAsKind(ctx context.Context, src []v4_0_12.CharmRunAsKind, model *v4_0_12.ModelExport) ([]v4_1_0.CharmRunAsKind, error)
+	// CharmSource: struct shape changed in 4.1.0.
+	CharmSource(ctx context.Context, src []v4_0_12.CharmSource, model *v4_0_12.ModelExport) ([]v4_1_0.CharmSource, error)
+	// CharmStorageKind: struct shape changed in 4.1.0.
+	CharmStorageKind(ctx context.Context, src []v4_0_12.CharmStorageKind, model *v4_0_12.ModelExport) ([]v4_1_0.CharmStorageKind, error)
 	// Constraint: struct shape changed in 4.1.0.
 	Constraint(ctx context.Context, src []v4_0_12.Constraint, model *v4_0_12.ModelExport) ([]v4_1_0.Constraint, error)
+	// ContainerType: struct shape changed in 4.1.0.
+	ContainerType(ctx context.Context, src []v4_0_12.ContainerType, model *v4_0_12.ModelExport) ([]v4_1_0.ContainerType, error)
+	// HashKind: struct shape changed in 4.1.0.
+	HashKind(ctx context.Context, src []v4_0_12.HashKind, model *v4_0_12.ModelExport) ([]v4_1_0.HashKind, error)
+	// IpAddressConfigType: struct shape changed in 4.1.0.
+	IpAddressConfigType(ctx context.Context, src []v4_0_12.IpAddressConfigType, model *v4_0_12.ModelExport) ([]v4_1_0.IpAddressConfigType, error)
+	// IpAddressOrigin: struct shape changed in 4.1.0.
+	IpAddressOrigin(ctx context.Context, src []v4_0_12.IpAddressOrigin, model *v4_0_12.ModelExport) ([]v4_1_0.IpAddressOrigin, error)
+	// IpAddressScope: struct shape changed in 4.1.0.
+	IpAddressScope(ctx context.Context, src []v4_0_12.IpAddressScope, model *v4_0_12.ModelExport) ([]v4_1_0.IpAddressScope, error)
+	// IpAddressType: struct shape changed in 4.1.0.
+	IpAddressType(ctx context.Context, src []v4_0_12.IpAddressType, model *v4_0_12.ModelExport) ([]v4_1_0.IpAddressType, error)
+	// K8sPodStatusValue: struct shape changed in 4.1.0.
+	K8sPodStatusValue(ctx context.Context, src []v4_0_12.K8sPodStatusValue, model *v4_0_12.ModelExport) ([]v4_1_0.K8sPodStatusValue, error)
+	// Life: struct shape changed in 4.1.0.
+	Life(ctx context.Context, src []v4_0_12.Life, model *v4_0_12.ModelExport) ([]v4_1_0.Life, error)
+	// LinkLayerDeviceType: struct shape changed in 4.1.0.
+	LinkLayerDeviceType(ctx context.Context, src []v4_0_12.LinkLayerDeviceType, model *v4_0_12.ModelExport) ([]v4_1_0.LinkLayerDeviceType, error)
 	// Machine: struct shape changed in 4.1.0.
 	Machine(ctx context.Context, src []v4_0_12.Machine, model *v4_0_12.ModelExport) ([]v4_1_0.Machine, error)
+	// MachineCloudInstanceStatusValue: struct shape changed in 4.1.0.
+	MachineCloudInstanceStatusValue(ctx context.Context, src []v4_0_12.MachineCloudInstanceStatusValue, model *v4_0_12.ModelExport) ([]v4_1_0.MachineCloudInstanceStatusValue, error)
+	// MachinePlacementScope: struct shape changed in 4.1.0.
+	MachinePlacementScope(ctx context.Context, src []v4_0_12.MachinePlacementScope, model *v4_0_12.ModelExport) ([]v4_1_0.MachinePlacementScope, error)
 	// MachinePlatform: struct shape changed in 4.1.0.
 	MachinePlatform(ctx context.Context, src []v4_0_12.MachinePlatform, model *v4_0_12.ModelExport) ([]v4_1_0.MachinePlatform, error)
+	// MachineStatusValue: struct shape changed in 4.1.0.
+	MachineStatusValue(ctx context.Context, src []v4_0_12.MachineStatusValue, model *v4_0_12.ModelExport) ([]v4_1_0.MachineStatusValue, error)
 	// ModelLife: struct shape changed in 4.1.0.
 	ModelLife(ctx context.Context, src []v4_0_12.ModelLife, model *v4_0_12.ModelExport) ([]v4_1_0.ModelLife, error)
+	// NetworkAddressScope: struct shape changed in 4.1.0.
+	NetworkAddressScope(ctx context.Context, src []v4_0_12.NetworkAddressScope, model *v4_0_12.ModelExport) ([]v4_1_0.NetworkAddressScope, error)
 	// Offer: struct shape changed in 4.1.0.
 	Offer(ctx context.Context, src []v4_0_12.Offer, model *v4_0_12.ModelExport) ([]v4_1_0.Offer, error)
 	// Operation: struct shape changed in 4.1.0.
 	Operation(ctx context.Context, src []v4_0_12.Operation, model *v4_0_12.ModelExport) ([]v4_1_0.Operation, error)
+	// OperationTaskStatusValue: struct shape changed in 4.1.0.
+	OperationTaskStatusValue(ctx context.Context, src []v4_0_12.OperationTaskStatusValue, model *v4_0_12.ModelExport) ([]v4_1_0.OperationTaskStatusValue, error)
+	// Os: struct shape changed in 4.1.0.
+	Os(ctx context.Context, src []v4_0_12.Os, model *v4_0_12.ModelExport) ([]v4_1_0.Os, error)
+	// PasswordHashAlgorithm: struct shape changed in 4.1.0.
+	PasswordHashAlgorithm(ctx context.Context, src []v4_0_12.PasswordHashAlgorithm, model *v4_0_12.ModelExport) ([]v4_1_0.PasswordHashAlgorithm, error)
+	// Protocol: struct shape changed in 4.1.0.
+	Protocol(ctx context.Context, src []v4_0_12.Protocol, model *v4_0_12.ModelExport) ([]v4_1_0.Protocol, error)
 	// RelationApplicationSetting: struct shape changed in 4.1.0.
 	RelationApplicationSetting(ctx context.Context, src []v4_0_12.RelationApplicationSetting, model *v4_0_12.ModelExport) ([]v4_1_0.RelationApplicationSetting, error)
 	// RelationStatus: struct shape changed in 4.1.0.
@@ -49,12 +111,44 @@ type Deltas interface {
 	RelationUnitSetting(ctx context.Context, src []v4_0_12.RelationUnitSetting, model *v4_0_12.ModelExport) ([]v4_1_0.RelationUnitSetting, error)
 	// Removal: struct shape changed in 4.1.0.
 	Removal(ctx context.Context, src []v4_0_12.Removal, model *v4_0_12.ModelExport) ([]v4_1_0.Removal, error)
+	// ResolveMode: struct shape changed in 4.1.0.
+	ResolveMode(ctx context.Context, src []v4_0_12.ResolveMode, model *v4_0_12.ModelExport) ([]v4_1_0.ResolveMode, error)
+	// ResourceOriginType: struct shape changed in 4.1.0.
+	ResourceOriginType(ctx context.Context, src []v4_0_12.ResourceOriginType, model *v4_0_12.ModelExport) ([]v4_1_0.ResourceOriginType, error)
+	// ResourceRetrievedByType: struct shape changed in 4.1.0.
+	ResourceRetrievedByType(ctx context.Context, src []v4_0_12.ResourceRetrievedByType, model *v4_0_12.ModelExport) ([]v4_1_0.ResourceRetrievedByType, error)
+	// ResourceState: struct shape changed in 4.1.0.
+	ResourceState(ctx context.Context, src []v4_0_12.ResourceState, model *v4_0_12.ModelExport) ([]v4_1_0.ResourceState, error)
+	// SecretGrantScopeType: struct shape changed in 4.1.0.
+	SecretGrantScopeType(ctx context.Context, src []v4_0_12.SecretGrantScopeType, model *v4_0_12.ModelExport) ([]v4_1_0.SecretGrantScopeType, error)
+	// SecretGrantSubjectType: struct shape changed in 4.1.0.
+	SecretGrantSubjectType(ctx context.Context, src []v4_0_12.SecretGrantSubjectType, model *v4_0_12.ModelExport) ([]v4_1_0.SecretGrantSubjectType, error)
 	// SecretPermission: struct shape changed in 4.1.0.
 	SecretPermission(ctx context.Context, src []v4_0_12.SecretPermission, model *v4_0_12.ModelExport) ([]v4_1_0.SecretPermission, error)
+	// SecretRole: struct shape changed in 4.1.0.
+	SecretRole(ctx context.Context, src []v4_0_12.SecretRole, model *v4_0_12.ModelExport) ([]v4_1_0.SecretRole, error)
+	// SecretRotatePolicy: struct shape changed in 4.1.0.
+	SecretRotatePolicy(ctx context.Context, src []v4_0_12.SecretRotatePolicy, model *v4_0_12.ModelExport) ([]v4_1_0.SecretRotatePolicy, error)
+	// StorageFilesystemStatusValue: struct shape changed in 4.1.0.
+	StorageFilesystemStatusValue(ctx context.Context, src []v4_0_12.StorageFilesystemStatusValue, model *v4_0_12.ModelExport) ([]v4_1_0.StorageFilesystemStatusValue, error)
+	// StorageKind: struct shape changed in 4.1.0.
+	StorageKind(ctx context.Context, src []v4_0_12.StorageKind, model *v4_0_12.ModelExport) ([]v4_1_0.StorageKind, error)
+	// StorageProvisionScope: struct shape changed in 4.1.0.
+	StorageProvisionScope(ctx context.Context, src []v4_0_12.StorageProvisionScope, model *v4_0_12.ModelExport) ([]v4_1_0.StorageProvisionScope, error)
+	// StorageVolumeDeviceType: struct shape changed in 4.1.0.
+	StorageVolumeDeviceType(ctx context.Context, src []v4_0_12.StorageVolumeDeviceType, model *v4_0_12.ModelExport) ([]v4_1_0.StorageVolumeDeviceType, error)
+	// StorageVolumeStatusValue: struct shape changed in 4.1.0.
+	StorageVolumeStatusValue(ctx context.Context, src []v4_0_12.StorageVolumeStatusValue, model *v4_0_12.ModelExport) ([]v4_1_0.StorageVolumeStatusValue, error)
 	// Unit: struct shape changed in 4.1.0.
 	Unit(ctx context.Context, src []v4_0_12.Unit, model *v4_0_12.ModelExport) ([]v4_1_0.Unit, error)
+	// UnitAgentStatusValue: struct shape changed in 4.1.0.
+	UnitAgentStatusValue(ctx context.Context, src []v4_0_12.UnitAgentStatusValue, model *v4_0_12.ModelExport) ([]v4_1_0.UnitAgentStatusValue, error)
 	// UnitResource: struct shape changed in 4.1.0.
 	UnitResource(ctx context.Context, src []v4_0_12.UnitResource, model *v4_0_12.ModelExport) ([]v4_1_0.UnitResource, error)
+	// VirtualPortType: struct shape changed in 4.1.0.
+	VirtualPortType(ctx context.Context, src []v4_0_12.VirtualPortType, model *v4_0_12.ModelExport) ([]v4_1_0.VirtualPortType, error)
+	// WorkloadStatusValue: struct shape changed in 4.1.0.
+	WorkloadStatusValue(ctx context.Context, src []v4_0_12.WorkloadStatusValue, model *v4_0_12.ModelExport) ([]v4_1_0.WorkloadStatusValue, error)
 	// MachineReprovision: new table in 4.1.0; derive from *v4_0_12.ModelExport.
 	MachineReprovision(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.MachineReprovision, error)
 	// MachineVirtualSshHostKey: new table in 4.1.0; derive from *v4_0_12.ModelExport.
@@ -81,11 +175,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 		dst.AgentBinaryStore = make([]v4_1_0.AgentBinaryStore, len(src.AgentBinaryStore))
 		for i := range src.AgentBinaryStore {
 			dst.AgentBinaryStore[i] = v4_1_0.AgentBinaryStore(src.AgentBinaryStore[i])
-		}
-
-		dst.AgentStream = make([]v4_1_0.AgentStream, len(src.AgentStream))
-		for i := range src.AgentStream {
-			dst.AgentStream[i] = v4_1_0.AgentStream(src.AgentStream[i])
 		}
 
 		dst.AgentVersion = make([]v4_1_0.AgentVersion, len(src.AgentVersion))
@@ -233,11 +322,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.ApplicationWorkloadVersion[i] = v4_1_0.ApplicationWorkloadVersion(src.ApplicationWorkloadVersion[i])
 		}
 
-		dst.Architecture = make([]v4_1_0.Architecture, len(src.Architecture))
-		for i := range src.Architecture {
-			dst.Architecture[i] = v4_1_0.Architecture(src.Architecture[i])
-		}
-
 		dst.AvailabilityZone = make([]v4_1_0.AvailabilityZone, len(src.AvailabilityZone))
 		for i := range src.AvailabilityZone {
 			dst.AvailabilityZone[i] = v4_1_0.AvailabilityZone(src.AvailabilityZone[i])
@@ -253,11 +337,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.BlockCommand[i] = v4_1_0.BlockCommand(src.BlockCommand[i])
 		}
 
-		dst.BlockCommandType = make([]v4_1_0.BlockCommandType, len(src.BlockCommandType))
-		for i := range src.BlockCommandType {
-			dst.BlockCommandType[i] = v4_1_0.BlockCommandType(src.BlockCommandType[i])
-		}
-
 		dst.BlockDevice = make([]v4_1_0.BlockDevice, len(src.BlockDevice))
 		for i := range src.BlockDevice {
 			dst.BlockDevice[i] = v4_1_0.BlockDevice(src.BlockDevice[i])
@@ -268,24 +347,9 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.BlockDeviceLinkDevice[i] = v4_1_0.BlockDeviceLinkDevice(src.BlockDeviceLinkDevice[i])
 		}
 
-		dst.BlockDeviceProvenance = make([]v4_1_0.BlockDeviceProvenance, len(src.BlockDeviceProvenance))
-		for i := range src.BlockDeviceProvenance {
-			dst.BlockDeviceProvenance[i] = v4_1_0.BlockDeviceProvenance(src.BlockDeviceProvenance[i])
-		}
-
 		dst.ChangeLog = make([]v4_1_0.ChangeLog, len(src.ChangeLog))
 		for i := range src.ChangeLog {
 			dst.ChangeLog[i] = v4_1_0.ChangeLog(src.ChangeLog[i])
-		}
-
-		dst.ChangeLogEditType = make([]v4_1_0.ChangeLogEditType, len(src.ChangeLogEditType))
-		for i := range src.ChangeLogEditType {
-			dst.ChangeLogEditType[i] = v4_1_0.ChangeLogEditType(src.ChangeLogEditType[i])
-		}
-
-		dst.ChangeLogNamespace = make([]v4_1_0.ChangeLogNamespace, len(src.ChangeLogNamespace))
-		for i := range src.ChangeLogNamespace {
-			dst.ChangeLogNamespace[i] = v4_1_0.ChangeLogNamespace(src.ChangeLogNamespace[i])
 		}
 
 		dst.ChangeLogWitness = make([]v4_1_0.ChangeLogWitness, len(src.ChangeLogWitness))
@@ -306,11 +370,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 		dst.CharmCategory = make([]v4_1_0.CharmCategory, len(src.CharmCategory))
 		for i := range src.CharmCategory {
 			dst.CharmCategory[i] = v4_1_0.CharmCategory(src.CharmCategory[i])
-		}
-
-		dst.CharmConfigType = make([]v4_1_0.CharmConfigType, len(src.CharmConfigType))
-		for i := range src.CharmConfigType {
-			dst.CharmConfigType[i] = v4_1_0.CharmConfigType(src.CharmConfigType[i])
 		}
 
 		dst.CharmContainer = make([]v4_1_0.CharmContainer, len(src.CharmContainer))
@@ -353,24 +412,9 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.CharmMetadata[i] = v4_1_0.CharmMetadata(src.CharmMetadata[i])
 		}
 
-		dst.CharmProvenance = make([]v4_1_0.CharmProvenance, len(src.CharmProvenance))
-		for i := range src.CharmProvenance {
-			dst.CharmProvenance[i] = v4_1_0.CharmProvenance(src.CharmProvenance[i])
-		}
-
 		dst.CharmRelation = make([]v4_1_0.CharmRelation, len(src.CharmRelation))
 		for i := range src.CharmRelation {
 			dst.CharmRelation[i] = v4_1_0.CharmRelation(src.CharmRelation[i])
-		}
-
-		dst.CharmRelationRole = make([]v4_1_0.CharmRelationRole, len(src.CharmRelationRole))
-		for i := range src.CharmRelationRole {
-			dst.CharmRelationRole[i] = v4_1_0.CharmRelationRole(src.CharmRelationRole[i])
-		}
-
-		dst.CharmRelationScope = make([]v4_1_0.CharmRelationScope, len(src.CharmRelationScope))
-		for i := range src.CharmRelationScope {
-			dst.CharmRelationScope[i] = v4_1_0.CharmRelationScope(src.CharmRelationScope[i])
 		}
 
 		dst.CharmResource = make([]v4_1_0.CharmResource, len(src.CharmResource))
@@ -378,29 +422,9 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.CharmResource[i] = v4_1_0.CharmResource(src.CharmResource[i])
 		}
 
-		dst.CharmResourceKind = make([]v4_1_0.CharmResourceKind, len(src.CharmResourceKind))
-		for i := range src.CharmResourceKind {
-			dst.CharmResourceKind[i] = v4_1_0.CharmResourceKind(src.CharmResourceKind[i])
-		}
-
-		dst.CharmRunAsKind = make([]v4_1_0.CharmRunAsKind, len(src.CharmRunAsKind))
-		for i := range src.CharmRunAsKind {
-			dst.CharmRunAsKind[i] = v4_1_0.CharmRunAsKind(src.CharmRunAsKind[i])
-		}
-
-		dst.CharmSource = make([]v4_1_0.CharmSource, len(src.CharmSource))
-		for i := range src.CharmSource {
-			dst.CharmSource[i] = v4_1_0.CharmSource(src.CharmSource[i])
-		}
-
 		dst.CharmStorage = make([]v4_1_0.CharmStorage, len(src.CharmStorage))
 		for i := range src.CharmStorage {
 			dst.CharmStorage[i] = v4_1_0.CharmStorage(src.CharmStorage[i])
-		}
-
-		dst.CharmStorageKind = make([]v4_1_0.CharmStorageKind, len(src.CharmStorageKind))
-		for i := range src.CharmStorageKind {
-			dst.CharmStorageKind[i] = v4_1_0.CharmStorageKind(src.CharmStorageKind[i])
 		}
 
 		dst.CharmStorageProperty = make([]v4_1_0.CharmStorageProperty, len(src.CharmStorageProperty))
@@ -433,11 +457,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.ConstraintZone[i] = v4_1_0.ConstraintZone(src.ConstraintZone[i])
 		}
 
-		dst.ContainerType = make([]v4_1_0.ContainerType, len(src.ContainerType))
-		for i := range src.ContainerType {
-			dst.ContainerType[i] = v4_1_0.ContainerType(src.ContainerType[i])
-		}
-
 		dst.DeviceConstraint = make([]v4_1_0.DeviceConstraint, len(src.DeviceConstraint))
 		for i := range src.DeviceConstraint {
 			dst.DeviceConstraint[i] = v4_1_0.DeviceConstraint(src.DeviceConstraint[i])
@@ -451,11 +470,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 		dst.FqdnAddress = make([]v4_1_0.FqdnAddress, len(src.FqdnAddress))
 		for i := range src.FqdnAddress {
 			dst.FqdnAddress[i] = v4_1_0.FqdnAddress(src.FqdnAddress[i])
-		}
-
-		dst.HashKind = make([]v4_1_0.HashKind, len(src.HashKind))
-		for i := range src.HashKind {
-			dst.HashKind[i] = v4_1_0.HashKind(src.HashKind[i])
 		}
 
 		dst.HostnameAddress = make([]v4_1_0.HostnameAddress, len(src.HostnameAddress))
@@ -473,26 +487,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.IpAddress[i] = v4_1_0.IpAddress(src.IpAddress[i])
 		}
 
-		dst.IpAddressConfigType = make([]v4_1_0.IpAddressConfigType, len(src.IpAddressConfigType))
-		for i := range src.IpAddressConfigType {
-			dst.IpAddressConfigType[i] = v4_1_0.IpAddressConfigType(src.IpAddressConfigType[i])
-		}
-
-		dst.IpAddressOrigin = make([]v4_1_0.IpAddressOrigin, len(src.IpAddressOrigin))
-		for i := range src.IpAddressOrigin {
-			dst.IpAddressOrigin[i] = v4_1_0.IpAddressOrigin(src.IpAddressOrigin[i])
-		}
-
-		dst.IpAddressScope = make([]v4_1_0.IpAddressScope, len(src.IpAddressScope))
-		for i := range src.IpAddressScope {
-			dst.IpAddressScope[i] = v4_1_0.IpAddressScope(src.IpAddressScope[i])
-		}
-
-		dst.IpAddressType = make([]v4_1_0.IpAddressType, len(src.IpAddressType))
-		for i := range src.IpAddressType {
-			dst.IpAddressType[i] = v4_1_0.IpAddressType(src.IpAddressType[i])
-		}
-
 		dst.K8sPod = make([]v4_1_0.K8sPod, len(src.K8sPod))
 		for i := range src.K8sPod {
 			dst.K8sPod[i] = v4_1_0.K8sPod(src.K8sPod[i])
@@ -508,19 +502,9 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.K8sPodStatus[i] = v4_1_0.K8sPodStatus(src.K8sPodStatus[i])
 		}
 
-		dst.K8sPodStatusValue = make([]v4_1_0.K8sPodStatusValue, len(src.K8sPodStatusValue))
-		for i := range src.K8sPodStatusValue {
-			dst.K8sPodStatusValue[i] = v4_1_0.K8sPodStatusValue(src.K8sPodStatusValue[i])
-		}
-
 		dst.K8sService = make([]v4_1_0.K8sService, len(src.K8sService))
 		for i := range src.K8sService {
 			dst.K8sService[i] = v4_1_0.K8sService(src.K8sService[i])
-		}
-
-		dst.Life = make([]v4_1_0.Life, len(src.Life))
-		for i := range src.Life {
-			dst.Life[i] = v4_1_0.Life(src.Life[i])
 		}
 
 		dst.LinkLayerDevice = make([]v4_1_0.LinkLayerDevice, len(src.LinkLayerDevice))
@@ -548,11 +532,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.LinkLayerDeviceRoute[i] = v4_1_0.LinkLayerDeviceRoute(src.LinkLayerDeviceRoute[i])
 		}
 
-		dst.LinkLayerDeviceType = make([]v4_1_0.LinkLayerDeviceType, len(src.LinkLayerDeviceType))
-		for i := range src.LinkLayerDeviceType {
-			dst.LinkLayerDeviceType[i] = v4_1_0.LinkLayerDeviceType(src.LinkLayerDeviceType[i])
-		}
-
 		dst.MachineAgentPresence = make([]v4_1_0.MachineAgentPresence, len(src.MachineAgentPresence))
 		for i := range src.MachineAgentPresence {
 			dst.MachineAgentPresence[i] = v4_1_0.MachineAgentPresence(src.MachineAgentPresence[i])
@@ -571,11 +550,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 		dst.MachineCloudInstanceStatus = make([]v4_1_0.MachineCloudInstanceStatus, len(src.MachineCloudInstanceStatus))
 		for i := range src.MachineCloudInstanceStatus {
 			dst.MachineCloudInstanceStatus[i] = v4_1_0.MachineCloudInstanceStatus(src.MachineCloudInstanceStatus[i])
-		}
-
-		dst.MachineCloudInstanceStatusValue = make([]v4_1_0.MachineCloudInstanceStatusValue, len(src.MachineCloudInstanceStatusValue))
-		for i := range src.MachineCloudInstanceStatusValue {
-			dst.MachineCloudInstanceStatusValue[i] = v4_1_0.MachineCloudInstanceStatusValue(src.MachineCloudInstanceStatusValue[i])
 		}
 
 		dst.MachineConstraint = make([]v4_1_0.MachineConstraint, len(src.MachineConstraint))
@@ -613,11 +587,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.MachinePlacement[i] = v4_1_0.MachinePlacement(src.MachinePlacement[i])
 		}
 
-		dst.MachinePlacementScope = make([]v4_1_0.MachinePlacementScope, len(src.MachinePlacementScope))
-		for i := range src.MachinePlacementScope {
-			dst.MachinePlacementScope[i] = v4_1_0.MachinePlacementScope(src.MachinePlacementScope[i])
-		}
-
 		dst.MachineRequiresReboot = make([]v4_1_0.MachineRequiresReboot, len(src.MachineRequiresReboot))
 		for i := range src.MachineRequiresReboot {
 			dst.MachineRequiresReboot[i] = v4_1_0.MachineRequiresReboot(src.MachineRequiresReboot[i])
@@ -631,11 +600,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 		dst.MachineStatus = make([]v4_1_0.MachineStatus, len(src.MachineStatus))
 		for i := range src.MachineStatus {
 			dst.MachineStatus[i] = v4_1_0.MachineStatus(src.MachineStatus[i])
-		}
-
-		dst.MachineStatusValue = make([]v4_1_0.MachineStatusValue, len(src.MachineStatusValue))
-		for i := range src.MachineStatusValue {
-			dst.MachineStatusValue[i] = v4_1_0.MachineStatusValue(src.MachineStatusValue[i])
 		}
 
 		dst.MachineVolume = make([]v4_1_0.MachineVolume, len(src.MachineVolume))
@@ -686,11 +650,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 		dst.NetNodeHostnameAddress = make([]v4_1_0.NetNodeHostnameAddress, len(src.NetNodeHostnameAddress))
 		for i := range src.NetNodeHostnameAddress {
 			dst.NetNodeHostnameAddress[i] = v4_1_0.NetNodeHostnameAddress(src.NetNodeHostnameAddress[i])
-		}
-
-		dst.NetworkAddressScope = make([]v4_1_0.NetworkAddressScope, len(src.NetworkAddressScope))
-		for i := range src.NetworkAddressScope {
-			dst.NetworkAddressScope[i] = v4_1_0.NetworkAddressScope(src.NetworkAddressScope[i])
 		}
 
 		dst.ObjectStoreMetadata = make([]v4_1_0.ObjectStoreMetadata, len(src.ObjectStoreMetadata))
@@ -753,11 +712,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.OperationTaskStatus[i] = v4_1_0.OperationTaskStatus(src.OperationTaskStatus[i])
 		}
 
-		dst.OperationTaskStatusValue = make([]v4_1_0.OperationTaskStatusValue, len(src.OperationTaskStatusValue))
-		for i := range src.OperationTaskStatusValue {
-			dst.OperationTaskStatusValue[i] = v4_1_0.OperationTaskStatusValue(src.OperationTaskStatusValue[i])
-		}
-
 		dst.OperationUnitTask = make([]v4_1_0.OperationUnitTask, len(src.OperationUnitTask))
 		for i := range src.OperationUnitTask {
 			dst.OperationUnitTask[i] = v4_1_0.OperationUnitTask(src.OperationUnitTask[i])
@@ -768,16 +722,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.OperatorStatus[i] = v4_1_0.OperatorStatus(src.OperatorStatus[i])
 		}
 
-		dst.Os = make([]v4_1_0.Os, len(src.Os))
-		for i := range src.Os {
-			dst.Os[i] = v4_1_0.Os(src.Os[i])
-		}
-
-		dst.PasswordHashAlgorithm = make([]v4_1_0.PasswordHashAlgorithm, len(src.PasswordHashAlgorithm))
-		for i := range src.PasswordHashAlgorithm {
-			dst.PasswordHashAlgorithm[i] = v4_1_0.PasswordHashAlgorithm(src.PasswordHashAlgorithm[i])
-		}
-
 		dst.PendingApplicationResource = make([]v4_1_0.PendingApplicationResource, len(src.PendingApplicationResource))
 		for i := range src.PendingApplicationResource {
 			dst.PendingApplicationResource[i] = v4_1_0.PendingApplicationResource(src.PendingApplicationResource[i])
@@ -786,11 +730,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 		dst.PortRange = make([]v4_1_0.PortRange, len(src.PortRange))
 		for i := range src.PortRange {
 			dst.PortRange[i] = v4_1_0.PortRange(src.PortRange[i])
-		}
-
-		dst.Protocol = make([]v4_1_0.Protocol, len(src.Protocol))
-		for i := range src.Protocol {
-			dst.Protocol[i] = v4_1_0.Protocol(src.Protocol[i])
 		}
 
 		dst.ProviderIpAddress = make([]v4_1_0.ProviderIpAddress, len(src.ProviderIpAddress))
@@ -868,11 +807,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.RemovalType[i] = v4_1_0.RemovalType(src.RemovalType[i])
 		}
 
-		dst.ResolveMode = make([]v4_1_0.ResolveMode, len(src.ResolveMode))
-		for i := range src.ResolveMode {
-			dst.ResolveMode[i] = v4_1_0.ResolveMode(src.ResolveMode[i])
-		}
-
 		dst.Resource = make([]v4_1_0.Resource, len(src.Resource))
 		for i := range src.Resource {
 			dst.Resource[i] = v4_1_0.Resource(src.Resource[i])
@@ -893,24 +827,9 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.ResourceImageStore[i] = v4_1_0.ResourceImageStore(src.ResourceImageStore[i])
 		}
 
-		dst.ResourceOriginType = make([]v4_1_0.ResourceOriginType, len(src.ResourceOriginType))
-		for i := range src.ResourceOriginType {
-			dst.ResourceOriginType[i] = v4_1_0.ResourceOriginType(src.ResourceOriginType[i])
-		}
-
 		dst.ResourceRetrievedBy = make([]v4_1_0.ResourceRetrievedBy, len(src.ResourceRetrievedBy))
 		for i := range src.ResourceRetrievedBy {
 			dst.ResourceRetrievedBy[i] = v4_1_0.ResourceRetrievedBy(src.ResourceRetrievedBy[i])
-		}
-
-		dst.ResourceRetrievedByType = make([]v4_1_0.ResourceRetrievedByType, len(src.ResourceRetrievedByType))
-		for i := range src.ResourceRetrievedByType {
-			dst.ResourceRetrievedByType[i] = v4_1_0.ResourceRetrievedByType(src.ResourceRetrievedByType[i])
-		}
-
-		dst.ResourceState = make([]v4_1_0.ResourceState, len(src.ResourceState))
-		for i := range src.ResourceState {
-			dst.ResourceState[i] = v4_1_0.ResourceState(src.ResourceState[i])
 		}
 
 		dst.Schema = make([]v4_1_0.Schema, len(src.Schema))
@@ -936,16 +855,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 		dst.SecretDeletedValueRef = make([]v4_1_0.SecretDeletedValueRef, len(src.SecretDeletedValueRef))
 		for i := range src.SecretDeletedValueRef {
 			dst.SecretDeletedValueRef[i] = v4_1_0.SecretDeletedValueRef(src.SecretDeletedValueRef[i])
-		}
-
-		dst.SecretGrantScopeType = make([]v4_1_0.SecretGrantScopeType, len(src.SecretGrantScopeType))
-		for i := range src.SecretGrantScopeType {
-			dst.SecretGrantScopeType[i] = v4_1_0.SecretGrantScopeType(src.SecretGrantScopeType[i])
-		}
-
-		dst.SecretGrantSubjectType = make([]v4_1_0.SecretGrantSubjectType, len(src.SecretGrantSubjectType))
-		for i := range src.SecretGrantSubjectType {
-			dst.SecretGrantSubjectType[i] = v4_1_0.SecretGrantSubjectType(src.SecretGrantSubjectType[i])
 		}
 
 		dst.SecretMetadata = make([]v4_1_0.SecretMetadata, len(src.SecretMetadata))
@@ -986,16 +895,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 		dst.SecretRevisionObsolete = make([]v4_1_0.SecretRevisionObsolete, len(src.SecretRevisionObsolete))
 		for i := range src.SecretRevisionObsolete {
 			dst.SecretRevisionObsolete[i] = v4_1_0.SecretRevisionObsolete(src.SecretRevisionObsolete[i])
-		}
-
-		dst.SecretRole = make([]v4_1_0.SecretRole, len(src.SecretRole))
-		for i := range src.SecretRole {
-			dst.SecretRole[i] = v4_1_0.SecretRole(src.SecretRole[i])
-		}
-
-		dst.SecretRotatePolicy = make([]v4_1_0.SecretRotatePolicy, len(src.SecretRotatePolicy))
-		for i := range src.SecretRotatePolicy {
-			dst.SecretRotatePolicy[i] = v4_1_0.SecretRotatePolicy(src.SecretRotatePolicy[i])
 		}
 
 		dst.SecretRotation = make([]v4_1_0.SecretRotation, len(src.SecretRotation))
@@ -1048,11 +947,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.StorageFilesystemStatus[i] = v4_1_0.StorageFilesystemStatus(src.StorageFilesystemStatus[i])
 		}
 
-		dst.StorageFilesystemStatusValue = make([]v4_1_0.StorageFilesystemStatusValue, len(src.StorageFilesystemStatusValue))
-		for i := range src.StorageFilesystemStatusValue {
-			dst.StorageFilesystemStatusValue[i] = v4_1_0.StorageFilesystemStatusValue(src.StorageFilesystemStatusValue[i])
-		}
-
 		dst.StorageInstance = make([]v4_1_0.StorageInstance, len(src.StorageInstance))
 		for i := range src.StorageInstance {
 			dst.StorageInstance[i] = v4_1_0.StorageInstance(src.StorageInstance[i])
@@ -1068,11 +962,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.StorageInstanceVolume[i] = v4_1_0.StorageInstanceVolume(src.StorageInstanceVolume[i])
 		}
 
-		dst.StorageKind = make([]v4_1_0.StorageKind, len(src.StorageKind))
-		for i := range src.StorageKind {
-			dst.StorageKind[i] = v4_1_0.StorageKind(src.StorageKind[i])
-		}
-
 		dst.StoragePool = make([]v4_1_0.StoragePool, len(src.StoragePool))
 		for i := range src.StoragePool {
 			dst.StoragePool[i] = v4_1_0.StoragePool(src.StoragePool[i])
@@ -1086,11 +975,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 		dst.StoragePoolOrigin = make([]v4_1_0.StoragePoolOrigin, len(src.StoragePoolOrigin))
 		for i := range src.StoragePoolOrigin {
 			dst.StoragePoolOrigin[i] = v4_1_0.StoragePoolOrigin(src.StoragePoolOrigin[i])
-		}
-
-		dst.StorageProvisionScope = make([]v4_1_0.StorageProvisionScope, len(src.StorageProvisionScope))
-		for i := range src.StorageProvisionScope {
-			dst.StorageProvisionScope[i] = v4_1_0.StorageProvisionScope(src.StorageProvisionScope[i])
 		}
 
 		dst.StorageUnitOwner = make([]v4_1_0.StorageUnitOwner, len(src.StorageUnitOwner))
@@ -1118,19 +1002,9 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.StorageVolumeAttachmentPlanAttr[i] = v4_1_0.StorageVolumeAttachmentPlanAttr(src.StorageVolumeAttachmentPlanAttr[i])
 		}
 
-		dst.StorageVolumeDeviceType = make([]v4_1_0.StorageVolumeDeviceType, len(src.StorageVolumeDeviceType))
-		for i := range src.StorageVolumeDeviceType {
-			dst.StorageVolumeDeviceType[i] = v4_1_0.StorageVolumeDeviceType(src.StorageVolumeDeviceType[i])
-		}
-
 		dst.StorageVolumeStatus = make([]v4_1_0.StorageVolumeStatus, len(src.StorageVolumeStatus))
 		for i := range src.StorageVolumeStatus {
 			dst.StorageVolumeStatus[i] = v4_1_0.StorageVolumeStatus(src.StorageVolumeStatus[i])
-		}
-
-		dst.StorageVolumeStatusValue = make([]v4_1_0.StorageVolumeStatusValue, len(src.StorageVolumeStatusValue))
-		for i := range src.StorageVolumeStatusValue {
-			dst.StorageVolumeStatusValue[i] = v4_1_0.StorageVolumeStatusValue(src.StorageVolumeStatusValue[i])
 		}
 
 		dst.Subnet = make([]v4_1_0.Subnet, len(src.Subnet))
@@ -1146,11 +1020,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 		dst.UnitAgentStatus = make([]v4_1_0.UnitAgentStatus, len(src.UnitAgentStatus))
 		for i := range src.UnitAgentStatus {
 			dst.UnitAgentStatus[i] = v4_1_0.UnitAgentStatus(src.UnitAgentStatus[i])
-		}
-
-		dst.UnitAgentStatusValue = make([]v4_1_0.UnitAgentStatusValue, len(src.UnitAgentStatusValue))
-		for i := range src.UnitAgentStatusValue {
-			dst.UnitAgentStatusValue[i] = v4_1_0.UnitAgentStatusValue(src.UnitAgentStatusValue[i])
 		}
 
 		dst.UnitAgentVersion = make([]v4_1_0.UnitAgentVersion, len(src.UnitAgentVersion))
@@ -1198,14 +1067,8 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.UnitWorkloadVersion[i] = v4_1_0.UnitWorkloadVersion(src.UnitWorkloadVersion[i])
 		}
 
-		dst.VirtualPortType = make([]v4_1_0.VirtualPortType, len(src.VirtualPortType))
-		for i := range src.VirtualPortType {
-			dst.VirtualPortType[i] = v4_1_0.VirtualPortType(src.VirtualPortType[i])
-		}
-
-		dst.WorkloadStatusValue = make([]v4_1_0.WorkloadStatusValue, len(src.WorkloadStatusValue))
-		for i := range src.WorkloadStatusValue {
-			dst.WorkloadStatusValue[i] = v4_1_0.WorkloadStatusValue(src.WorkloadStatusValue[i])
+		if dst.AgentStream, err = d.AgentStream(ctx, src.AgentStream, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("AgentStream delta: %w", err)
 		}
 
 		if dst.ApplicationAgent, err = d.ApplicationAgent(ctx, src.ApplicationAgent, &src); err != nil {
@@ -1220,24 +1083,128 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			return v4_1_0.ModelExport{}, errors.Errorf("ApplicationScale delta: %w", err)
 		}
 
+		if dst.Architecture, err = d.Architecture(ctx, src.Architecture, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("Architecture delta: %w", err)
+		}
+
+		if dst.BlockCommandType, err = d.BlockCommandType(ctx, src.BlockCommandType, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("BlockCommandType delta: %w", err)
+		}
+
+		if dst.BlockDeviceProvenance, err = d.BlockDeviceProvenance(ctx, src.BlockDeviceProvenance, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("BlockDeviceProvenance delta: %w", err)
+		}
+
+		if dst.ChangeLogEditType, err = d.ChangeLogEditType(ctx, src.ChangeLogEditType, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("ChangeLogEditType delta: %w", err)
+		}
+
+		if dst.ChangeLogNamespace, err = d.ChangeLogNamespace(ctx, src.ChangeLogNamespace, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("ChangeLogNamespace delta: %w", err)
+		}
+
 		if dst.CharmConfig, err = d.CharmConfig(ctx, src.CharmConfig, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("CharmConfig delta: %w", err)
+		}
+
+		if dst.CharmConfigType, err = d.CharmConfigType(ctx, src.CharmConfigType, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("CharmConfigType delta: %w", err)
+		}
+
+		if dst.CharmProvenance, err = d.CharmProvenance(ctx, src.CharmProvenance, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("CharmProvenance delta: %w", err)
+		}
+
+		if dst.CharmRelationRole, err = d.CharmRelationRole(ctx, src.CharmRelationRole, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("CharmRelationRole delta: %w", err)
+		}
+
+		if dst.CharmRelationScope, err = d.CharmRelationScope(ctx, src.CharmRelationScope, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("CharmRelationScope delta: %w", err)
+		}
+
+		if dst.CharmResourceKind, err = d.CharmResourceKind(ctx, src.CharmResourceKind, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("CharmResourceKind delta: %w", err)
+		}
+
+		if dst.CharmRunAsKind, err = d.CharmRunAsKind(ctx, src.CharmRunAsKind, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("CharmRunAsKind delta: %w", err)
+		}
+
+		if dst.CharmSource, err = d.CharmSource(ctx, src.CharmSource, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("CharmSource delta: %w", err)
+		}
+
+		if dst.CharmStorageKind, err = d.CharmStorageKind(ctx, src.CharmStorageKind, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("CharmStorageKind delta: %w", err)
 		}
 
 		if dst.Constraint, err = d.Constraint(ctx, src.Constraint, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("Constraint delta: %w", err)
 		}
 
+		if dst.ContainerType, err = d.ContainerType(ctx, src.ContainerType, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("ContainerType delta: %w", err)
+		}
+
+		if dst.HashKind, err = d.HashKind(ctx, src.HashKind, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("HashKind delta: %w", err)
+		}
+
+		if dst.IpAddressConfigType, err = d.IpAddressConfigType(ctx, src.IpAddressConfigType, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("IpAddressConfigType delta: %w", err)
+		}
+
+		if dst.IpAddressOrigin, err = d.IpAddressOrigin(ctx, src.IpAddressOrigin, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("IpAddressOrigin delta: %w", err)
+		}
+
+		if dst.IpAddressScope, err = d.IpAddressScope(ctx, src.IpAddressScope, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("IpAddressScope delta: %w", err)
+		}
+
+		if dst.IpAddressType, err = d.IpAddressType(ctx, src.IpAddressType, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("IpAddressType delta: %w", err)
+		}
+
+		if dst.K8sPodStatusValue, err = d.K8sPodStatusValue(ctx, src.K8sPodStatusValue, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("K8sPodStatusValue delta: %w", err)
+		}
+
+		if dst.Life, err = d.Life(ctx, src.Life, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("Life delta: %w", err)
+		}
+
+		if dst.LinkLayerDeviceType, err = d.LinkLayerDeviceType(ctx, src.LinkLayerDeviceType, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("LinkLayerDeviceType delta: %w", err)
+		}
+
 		if dst.Machine, err = d.Machine(ctx, src.Machine, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("Machine delta: %w", err)
+		}
+
+		if dst.MachineCloudInstanceStatusValue, err = d.MachineCloudInstanceStatusValue(ctx, src.MachineCloudInstanceStatusValue, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("MachineCloudInstanceStatusValue delta: %w", err)
+		}
+
+		if dst.MachinePlacementScope, err = d.MachinePlacementScope(ctx, src.MachinePlacementScope, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("MachinePlacementScope delta: %w", err)
 		}
 
 		if dst.MachinePlatform, err = d.MachinePlatform(ctx, src.MachinePlatform, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("MachinePlatform delta: %w", err)
 		}
 
+		if dst.MachineStatusValue, err = d.MachineStatusValue(ctx, src.MachineStatusValue, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("MachineStatusValue delta: %w", err)
+		}
+
 		if dst.ModelLife, err = d.ModelLife(ctx, src.ModelLife, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("ModelLife delta: %w", err)
+		}
+
+		if dst.NetworkAddressScope, err = d.NetworkAddressScope(ctx, src.NetworkAddressScope, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("NetworkAddressScope delta: %w", err)
 		}
 
 		if dst.Offer, err = d.Offer(ctx, src.Offer, &src); err != nil {
@@ -1246,6 +1213,22 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 
 		if dst.Operation, err = d.Operation(ctx, src.Operation, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("Operation delta: %w", err)
+		}
+
+		if dst.OperationTaskStatusValue, err = d.OperationTaskStatusValue(ctx, src.OperationTaskStatusValue, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("OperationTaskStatusValue delta: %w", err)
+		}
+
+		if dst.Os, err = d.Os(ctx, src.Os, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("Os delta: %w", err)
+		}
+
+		if dst.PasswordHashAlgorithm, err = d.PasswordHashAlgorithm(ctx, src.PasswordHashAlgorithm, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("PasswordHashAlgorithm delta: %w", err)
+		}
+
+		if dst.Protocol, err = d.Protocol(ctx, src.Protocol, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("Protocol delta: %w", err)
 		}
 
 		if dst.RelationApplicationSetting, err = d.RelationApplicationSetting(ctx, src.RelationApplicationSetting, &src); err != nil {
@@ -1268,16 +1251,80 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			return v4_1_0.ModelExport{}, errors.Errorf("Removal delta: %w", err)
 		}
 
+		if dst.ResolveMode, err = d.ResolveMode(ctx, src.ResolveMode, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("ResolveMode delta: %w", err)
+		}
+
+		if dst.ResourceOriginType, err = d.ResourceOriginType(ctx, src.ResourceOriginType, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("ResourceOriginType delta: %w", err)
+		}
+
+		if dst.ResourceRetrievedByType, err = d.ResourceRetrievedByType(ctx, src.ResourceRetrievedByType, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("ResourceRetrievedByType delta: %w", err)
+		}
+
+		if dst.ResourceState, err = d.ResourceState(ctx, src.ResourceState, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("ResourceState delta: %w", err)
+		}
+
+		if dst.SecretGrantScopeType, err = d.SecretGrantScopeType(ctx, src.SecretGrantScopeType, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("SecretGrantScopeType delta: %w", err)
+		}
+
+		if dst.SecretGrantSubjectType, err = d.SecretGrantSubjectType(ctx, src.SecretGrantSubjectType, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("SecretGrantSubjectType delta: %w", err)
+		}
+
 		if dst.SecretPermission, err = d.SecretPermission(ctx, src.SecretPermission, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("SecretPermission delta: %w", err)
+		}
+
+		if dst.SecretRole, err = d.SecretRole(ctx, src.SecretRole, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("SecretRole delta: %w", err)
+		}
+
+		if dst.SecretRotatePolicy, err = d.SecretRotatePolicy(ctx, src.SecretRotatePolicy, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("SecretRotatePolicy delta: %w", err)
+		}
+
+		if dst.StorageFilesystemStatusValue, err = d.StorageFilesystemStatusValue(ctx, src.StorageFilesystemStatusValue, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("StorageFilesystemStatusValue delta: %w", err)
+		}
+
+		if dst.StorageKind, err = d.StorageKind(ctx, src.StorageKind, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("StorageKind delta: %w", err)
+		}
+
+		if dst.StorageProvisionScope, err = d.StorageProvisionScope(ctx, src.StorageProvisionScope, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("StorageProvisionScope delta: %w", err)
+		}
+
+		if dst.StorageVolumeDeviceType, err = d.StorageVolumeDeviceType(ctx, src.StorageVolumeDeviceType, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("StorageVolumeDeviceType delta: %w", err)
+		}
+
+		if dst.StorageVolumeStatusValue, err = d.StorageVolumeStatusValue(ctx, src.StorageVolumeStatusValue, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("StorageVolumeStatusValue delta: %w", err)
 		}
 
 		if dst.Unit, err = d.Unit(ctx, src.Unit, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("Unit delta: %w", err)
 		}
 
+		if dst.UnitAgentStatusValue, err = d.UnitAgentStatusValue(ctx, src.UnitAgentStatusValue, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("UnitAgentStatusValue delta: %w", err)
+		}
+
 		if dst.UnitResource, err = d.UnitResource(ctx, src.UnitResource, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("UnitResource delta: %w", err)
+		}
+
+		if dst.VirtualPortType, err = d.VirtualPortType(ctx, src.VirtualPortType, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("VirtualPortType delta: %w", err)
+		}
+
+		if dst.WorkloadStatusValue, err = d.WorkloadStatusValue(ctx, src.WorkloadStatusValue, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("WorkloadStatusValue delta: %w", err)
 		}
 
 		if dst.MachineReprovision, err = d.MachineReprovision(ctx, &src); err != nil {

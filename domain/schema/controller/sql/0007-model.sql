@@ -11,7 +11,7 @@ CREATE TABLE model_namespace (
 CREATE UNIQUE INDEX idx_namespace_model_uuid ON model_namespace (namespace, model_uuid);
 
 CREATE TABLE model_type (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     type TEXT NOT NULL
 );
 

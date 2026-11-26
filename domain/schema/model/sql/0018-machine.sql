@@ -58,7 +58,7 @@ CREATE TABLE machine_platform (
 -- placement that is deferred until the instance is started by the provider.
 -- Other scopes can be added i.e. scriptlets.
 CREATE TABLE machine_placement_scope (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     value TEXT NOT NULL
 );
 
@@ -201,7 +201,7 @@ CREATE TABLE machine_reprovision (
 );
 
 CREATE TABLE machine_status_value (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     status TEXT NOT NULL
 );
 
@@ -262,7 +262,7 @@ CREATE TABLE machine_lxd_profile (
 -- container_type represents the valid container types that can exist for an
 -- instance.
 CREATE TABLE container_type (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     value TEXT NOT NULL
 );
 

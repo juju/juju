@@ -1,5 +1,5 @@
 CREATE TABLE block_device_provenance (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     value TEXT NOT NULL
 );
 

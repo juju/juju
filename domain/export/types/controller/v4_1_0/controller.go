@@ -16,12 +16,12 @@ type AgentBinaryStore struct {
 }
 
 type Architecture struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
 type AuthType struct {
-	ID   *int64  `db:"id" json:"id" yaml:"id"`
+	ID   int64   `db:"id" json:"id" yaml:"id"`
 	Type *string `db:"type" json:"type" yaml:"type"`
 }
 
@@ -57,12 +57,12 @@ type ChangeLog struct {
 }
 
 type ChangeLogEditType struct {
-	ID       *int64  `db:"id" json:"id" yaml:"id"`
+	ID       int64   `db:"id" json:"id" yaml:"id"`
 	EditType *string `db:"edit_type" json:"edit_type" yaml:"edit_type"`
 }
 
 type ChangeLogNamespace struct {
-	ID          *int64  `db:"id" json:"id" yaml:"id"`
+	ID          int64   `db:"id" json:"id" yaml:"id"`
 	Namespace   *string `db:"namespace" json:"namespace" yaml:"namespace"`
 	Description *string `db:"description" json:"description" yaml:"description"`
 }
@@ -153,7 +153,7 @@ type CloudRegionDefaults struct {
 }
 
 type CloudType struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Type string `db:"type" json:"type" yaml:"type"`
 }
 
@@ -280,12 +280,12 @@ type LeasePin struct {
 }
 
 type LeaseType struct {
-	ID   *int64  `db:"id" json:"id" yaml:"id"`
+	ID   int64   `db:"id" json:"id" yaml:"id"`
 	Type *string `db:"type" json:"type" yaml:"type"`
 }
 
 type Life struct {
-	ID    *int64 `db:"id" json:"id" yaml:"id"`
+	ID    int64  `db:"id" json:"id" yaml:"id"`
 	Value string `db:"value" json:"value" yaml:"value"`
 }
 
@@ -434,7 +434,7 @@ type ModelSecretBackend struct {
 }
 
 type ModelType struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Type string `db:"type" json:"type" yaml:"type"`
 }
 
@@ -471,7 +471,7 @@ type ObjectStoreDrainInfo struct {
 }
 
 type ObjectStoreDrainPhaseType struct {
-	ID   *int64  `db:"id" json:"id" yaml:"id"`
+	ID   int64   `db:"id" json:"id" yaml:"id"`
 	Type *string `db:"type" json:"type" yaml:"type"`
 }
 
@@ -493,7 +493,7 @@ type ObjectStorePlacement struct {
 }
 
 type PasswordHashAlgorithm struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
@@ -506,18 +506,18 @@ type Permission struct {
 }
 
 type PermissionAccessType struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Type string `db:"type" json:"type" yaml:"type"`
 }
 
 type PermissionObjectAccess struct {
-	ID           *int64 `db:"id" json:"id" yaml:"id"`
-	AccessTypeID int64  `db:"access_type_id" json:"access_type_id" yaml:"access_type_id"`
-	ObjectTypeID int64  `db:"object_type_id" json:"object_type_id" yaml:"object_type_id"`
+	ID           int64 `db:"id" json:"id" yaml:"id"`
+	AccessTypeID int64 `db:"access_type_id" json:"access_type_id" yaml:"access_type_id"`
+	ObjectTypeID int64 `db:"object_type_id" json:"object_type_id" yaml:"object_type_id"`
 }
 
 type PermissionObjectType struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Type string `db:"type" json:"type" yaml:"type"`
 }
 
@@ -560,18 +560,18 @@ type SecretBackendRotation struct {
 }
 
 type SecretBackendType struct {
-	ID          *int64  `db:"id" json:"id" yaml:"id"`
+	ID          int64   `db:"id" json:"id" yaml:"id"`
 	Type        string  `db:"type" json:"type" yaml:"type"`
 	Description *string `db:"description" json:"description" yaml:"description"`
 }
 
 type SshFingerprintHashAlgorithm struct {
-	ID        *int64 `db:"id" json:"id" yaml:"id"`
+	ID        int64  `db:"id" json:"id" yaml:"id"`
 	Algorithm string `db:"algorithm" json:"algorithm" yaml:"algorithm"`
 }
 
 type SshKeyAlgorithmType struct {
-	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Type string `db:"type" json:"type" yaml:"type"`
 }
 
@@ -590,7 +590,7 @@ type UpgradeInfoControllerNode struct {
 }
 
 type UpgradeStateType struct {
-	ID   *int64  `db:"id" json:"id" yaml:"id"`
+	ID   int64   `db:"id" json:"id" yaml:"id"`
 	Type *string `db:"type" json:"type" yaml:"type"`
 }
 

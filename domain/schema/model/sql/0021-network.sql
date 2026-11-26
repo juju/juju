@@ -3,7 +3,7 @@ CREATE TABLE net_node (
 );
 
 CREATE TABLE link_layer_device_type (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL
 );
 
@@ -21,7 +21,7 @@ INSERT INTO link_layer_device_type VALUES
 (7, 'veth');
 
 CREATE TABLE virtual_port_type (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL
 );
 
@@ -126,7 +126,7 @@ CREATE TABLE link_layer_device_route (
 -- an address, either a hostname resolvable by dns lookup,
 -- or IPv4 or IPv6 address.
 CREATE TABLE ip_address_type (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL
 );
 
@@ -140,7 +140,7 @@ INSERT INTO ip_address_type VALUES
 -- ip_address_origin represents the authoritative source of
 -- an ip address.
 CREATE TABLE ip_address_origin (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL
 );
 
@@ -157,7 +157,7 @@ INSERT INTO ip_address_origin VALUES
 -- specific to the cloud or cloud subnet a node belongs to,
 -- or to the node itself for containers.
 CREATE TABLE ip_address_scope (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL
 );
 
@@ -174,7 +174,7 @@ INSERT INTO ip_address_scope VALUES
 -- ip_address_config_type defines valid network
 -- link configuration types.
 CREATE TABLE ip_address_config_type (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL
 );
 
@@ -262,7 +262,7 @@ CREATE TABLE provider_ip_address (
 -- specific to the cloud or cloud subnet a node belongs to,
 -- or to the node itself for containers.
 CREATE TABLE network_address_scope (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL
 );
 
