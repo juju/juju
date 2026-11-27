@@ -1,8 +1,9 @@
 <!--
-The PR title should match: <type>(optional <scope>): <description>.
+The PR title uses the commit message format: <type>(optional <scope>): <description>.
+Title and description guidance: https://github.com/juju/juju/blob/main/AGENTS.md#pull-requests
 
 Please also ensure all commits in this PR comply with our conventional commits specification:
-https://github.com/juju/juju/blob/main/.github/instructions/agent-commit.instructions.md
+https://github.com/juju/juju/blob/main/AGENTS.md#commit-messages
 -->
 
 <!-- Why this change is needed and what it does. -->
@@ -84,8 +85,8 @@ $ juju debug-log -m dst40:moveme2
 
 <!-- Link to all relevant specification, documentation, bug, issue or JIRA card. -->
 
-<!-- Replace #19267 with an issue reference or link, otherwise remove this line. -->
+<!-- Replace "Fixes #19267." with an issue reference or link, otherwise with None. -->
 **Issue:** Fixes #19267.
 
-<!-- Place JIRA number in both places below. -->
+<!-- Place JIRA number in both places below, otherwise replace the link with None. -->
 **Jira card:** [JUJU-](https://warthogs.atlassian.net/browse/JUJU-)

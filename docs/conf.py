@@ -252,8 +252,8 @@ redirects = {
     "contributor/unsorted/lifecycles/": "https://pkg.go.dev/github.com/juju/juju/core/life",
     # The CVE process lives in the repo-root SECURITY.md.
     "contributor/reference/cve/": "https://github.com/juju/juju/security",
-    # The commit-format guidance was folded into the agent-commit instructions.
-    "contributor/reference/conventional-commits/": "https://github.com/juju/juju/blob/HEAD/.github/instructions/agent-commit.instructions.md",
+    # The commit-format guidance lives in the repo-root AGENTS.md.
+    "contributor/reference/conventional-commits/": "https://github.com/juju/juju/blob/HEAD/AGENTS.md#commit-messages",
     # The forward-merge mechanics were folded into CONTRIBUTING.md.
     "contributor/howto/merge-forward/": "https://github.com/juju/juju/blob/HEAD/CONTRIBUTING.md",
     # The test howtos were retired: the unit-test conventions live in the
