@@ -16,16 +16,14 @@
 //   - The machine agent (NewMachineAgentCommand, in machine.go). It runs the
 //     manifolds from the machine package: K8sManifolds when the agent runs
 //     as the controller container in a Kubernetes deployment, and
-//     IAASManifolds otherwise. On controllers it also starts an engine for
-//     every model, running the manifolds from the model package:
-//     IAASManifolds for a model on machines, and CAASManifolds (the
-//     Kubernetes counterpart) for a model on Kubernetes.
+//     IAASManifolds otherwise.
 //   - The modeloperator agent (NewModelCommand, in model.go), which runs the
 //     manifolds from the modeloperator package: the workers of the
 //     modeloperator pod in a Kubernetes deployment.
-//   - The safe-mode and db-repl variants of the machine agent
-//     (NewSafeModeAgentCommand and NewDBReplAgentCommand), which run the
-//     manifolds from the safemode and dbrepl packages.
+//
+// The controller commands -- bootstrap/bootstrap-state, init, controller
+// configuration, the controller application, safe-mode and the DB REPL --
+// belong to the jujud binary, not to jujuagentd.
 //
 // See github.com/juju/juju/cmd/jujuagentd for the binary that registers
 // these commands. The unit agent for machine deployments is defined in

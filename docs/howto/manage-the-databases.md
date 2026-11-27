@@ -29,7 +29,7 @@ where <n> is 0 for a freshly bootstrapped controller, and one of the controller 
 2. Start the REPL:
 
    ```text
-   juju_db_repl
+   sudo snap run jujud.db-repl
    ```
 
    The REPL starts in the global `controller` database by default. You should see a prompt like:

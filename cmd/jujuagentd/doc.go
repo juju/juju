@@ -13,9 +13,11 @@
 //     the agent package);
 //   - model, which spawns the modeloperator agent that runs in a Kubernetes
 //     deployment (NewModelCommand in the agent package);
-//   - safe-mode and db-repl, which spawn variants of the machine agent with
-//     their own sets of workers;
-//   - bootstrap-state and check-connection.
+//   - check-connection, which is shared with the jujud controller binary.
+//
+// The controller commands -- bootstrap/bootstrap-state, init, controller
+// configuration, the controller application, safe-mode and db-repl --
+// belong to the jujud binary, not to jujuagentd.
 //
 // When invoked through a symlink named for a hook tool, the binary instead
 // forwards the invocation over RPC to the unit agent.

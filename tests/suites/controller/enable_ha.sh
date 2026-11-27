@@ -48,11 +48,22 @@ check_controller_usable() {
 	done
 }
 
+# run_enable_ha exercises controller HA scale-out, scale-in and failover.
+#
+# KNOWN FAILURE (JUJU-9740): HA scale-out for the snap-based standalone
+# controller is Phase 2 and is not implemented. This test is deliberately
+# left failing rather than skipped: the failure is the signal that the gap
+# still exists, and all-green CI must not imply that HA works. Do not
+# weaken the assertions to make it pass; once JUJU-9740 lands the test must
+# pass unmodified.
 run_enable_ha() {
 	local base_unit unit
 	local -a controller_units remaining_units
 
 	echo
+	echo "==> KNOWN FAILURE (JUJU-9740): HA scale-out for the snap-based"
+	echo "    standalone controller is not implemented. This test is"
+	echo "    expected to fail until Phase 2 lands."
 
 	file="${TEST_DIR}/enable_ha.log"
 
@@ -70,6 +81,10 @@ run_enable_ha() {
 	wait_for "juju-qa-action" "$(idle_condition "juju-qa-action")"
 	check_controller_usable
 
+	# The scale-out below is expected to fail until JUJU-9740 lands. The
+	# failure is the intended signal that HA is not implemented, not a
+	# flaky test.
+	echo "==> Scaling the controller to 3 units (expected to fail: JUJU-9740)"
 	# Discover the current unit ordinals rather than assuming the bootstrap
 	# unit is still controller/0. The suite reuses this controller model and
 	# unit sequence numbers are not reused after scale-in.
