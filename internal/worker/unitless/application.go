@@ -260,8 +260,7 @@ func (r *applicationRunner) handleEvent(ctx context.Context, eventName string) e
 	return r.applyIntents(ctx, intents)
 }
 
-// applyIntents acts on the intents collected while handling an event.
-// Unknown intent types are logged and skipped.
+// applyIntents applies the given intents, logging and skipping unknown types.
 func (r *applicationRunner) applyIntents(ctx context.Context, intents []scriptlet.Intent) error {
 	for _, intent := range intents {
 		switch intent.Type {
@@ -276,7 +275,7 @@ func (r *applicationRunner) applyIntents(ctx context.Context, intents []scriptle
 	return nil
 }
 
-// applySetStatusIntent applies a set-status intent to the application.
+// applySetStatusIntent applies the given set-status intent.
 func (r *applicationRunner) applySetStatusIntent(ctx context.Context, intent scriptlet.Intent) error {
 	statusName, _ := intent.Args["status"].(string)
 	message, _ := intent.Args["message"].(string)

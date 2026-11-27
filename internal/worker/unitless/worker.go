@@ -26,8 +26,7 @@ type Config struct {
 	// schedule scriptlets and dispatch events.
 	ScriptletService ScriptletService
 
-	// StatusService is used by the worker to set the status
-	// of scriptlet applications.
+	// StatusService sets the status of unitless applications.
 	StatusService ApplicationStatusService
 
 	// NewExecutor is a factory for creating scriptlet execution environments.

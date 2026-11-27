@@ -26,8 +26,7 @@ type ManifoldConfig struct {
 	// services.
 	GetScriptletService func(dependency.Getter, string) (ScriptletService, error)
 
-	// GetApplicationStatusService extracts the application status service
-	// from model domain services.
+	// GetApplicationStatusService extracts the application status service.
 	GetApplicationStatusService func(dependency.Getter, string) (ApplicationStatusService, error)
 
 	// NewWorker creates the unitless worker.
@@ -115,8 +114,7 @@ func GetScriptletService(getter dependency.Getter, name string) (ScriptletServic
 	return domainServices.Unitless(), nil
 }
 
-// GetApplicationStatusService extracts the application status service
-// from model domain services.
+// GetApplicationStatusService extracts the application status service.
 func GetApplicationStatusService(getter dependency.Getter, name string) (ApplicationStatusService, error) {
 	var domainServices services.ModelDomainServices
 	if err := getter.Get(name, &domainServices); err != nil {
