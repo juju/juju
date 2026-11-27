@@ -16,6 +16,7 @@ import (
 	"text/template"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v4"
@@ -28,7 +29,10 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/controllerruntimeconfig"
+	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
+	jujunames "github.com/juju/juju/juju/names"
+	"github.com/juju/juju/juju/osenv"
 )
 
 var logger = internallogger.GetLogger("juju.cloudconfig")
@@ -513,6 +517,10 @@ func (w *userdataConfig) configureSnapBootstrap() error {
 		return errors.Annotate(err, "marshalling bootstrap params")
 	}
 
+	if w.icfg.Bootstrap.RecoveryMode {
+		return w.configureRecoveryBootstrap(string(bootstrapParams))
+	}
+
 	logSinkBurst, logSinkRefill, err := controllerruntimeconfig.ParseLogSinkRateLimits(w.icfg.AgentEnvironment)
 	if err != nil {
 		return errors.Annotate(err, "parsing log-sink rate limits")
@@ -654,6 +662,46 @@ snap run %[6]s.bootstrap-state --timeout %[7]s`,
 	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting snap controller"))
 	w.conf.AddRunCmd(fmt.Sprintf("snap start %s --enable", bootstrap.ControllerSnapPackageName))
 
+	return nil
+}
+
+// configureRecoveryBootstrap prepares a replacement controller allocated
+// from a recovery archive. It writes the archived bootstrap params and the
+// recovery marker, then runs recover-state from the host agent tools
+// instead of initialising the snap controller: state import is a later
+// recovery stage, and the machine agent's dependency engine waits for it
+// while the marker exists.
+func (w *userdataConfig) configureRecoveryBootstrap(bootstrapParams string) error {
+	bootstrapParamsFile := path.Join(w.icfg.DataDir, FileNameBootstrapParams)
+	w.conf.AddRunTextFile(bootstrapParamsFile, bootstrapParams, 0600)
+
+	loggingOption := "--show-log"
+	if loggo.GetLogger("").LogLevel() == loggo.DEBUG {
+		// If the bootstrap command was requested with --debug, then the root
+		// logger will be set to DEBUG. If it is, then we use --debug here too.
+		loggingOption = "--debug"
+	}
+	featureFlagsEnv := ""
+	if featureFlags := featureflag.AsEnvironmentValue(); featureFlags != "" {
+		featureFlagsEnv = fmt.Sprintf("%s=%s", osenv.JujuFeatureFlagEnvKey, featureFlags)
+	}
+	agentStartOptions := AgentStartOptions{
+		ToolPath:        w.icfg.JujuTools() + "/" + jujunames.JujuAgentd,
+		DataDir:         shquote(w.icfg.DataDir),
+		LoggingOption:   loggingOption,
+		Timeout:         w.icfg.Bootstrap.Timeout,
+		FeatureFlagsEnv: featureFlagsEnv,
+		RecoveryMode:    true,
+		// The archived machine identity only applies to recovery:
+		// bootstrap-state defines no --machine-id flag.
+		MachineID: w.icfg.MachineId,
+	}
+	// The marker must exist before jujuagentd machine starts so its
+	// dependency engine waits for the recovery import.
+	w.conf.AddRunCmd(RecoveryMarkerCommand(
+		shquote(path.Join(w.icfg.DataDir, agent.RecoveryParamsFile))))
+	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Installing Juju machine agent"))
+	w.conf.AddScripts(AgentStartCommand(agentStartOptions))
 	return nil
 }
 func (w *userdataConfig) addLocalControllerCharmsUpload() error {

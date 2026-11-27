@@ -78,7 +78,7 @@ func (s *argsSpec) check(c tc.LikeC, output string) {
 	}
 
 	if s.withProxy {
-		expect("-o ProxyCommand juju ssh " +
+		expect("-o ProxyCommand juju ssh --direct " +
 			"--model=controller " +
 			"--proxy=false " +
 			"--no-host-key-checks " +
@@ -201,6 +201,22 @@ func (s *SSHMachineSuite) SetUpTest(c *tc.C) {
 
 	client, _ := ssh.NewOpenSSHClient()
 	s.PatchValue(&ssh.DefaultClient, client)
+}
+
+func (s *SSHMachineSuite) TestProxyCommandViaContainerHost(c *tc.C) {
+	machine := sshMachine{modelName: "controller"}
+	target := &resolvedTarget{
+		user: "ubuntu",
+		host: "252.66.6.42",
+		via:  &resolvedTarget{user: "ubuntu", host: "10.0.0.1"},
+	}
+	var options ssh.Options
+	c.Assert(machine.setProxyCommand(&options, []*resolvedTarget{target}), tc.ErrorIsNil)
+
+	output, err := ssh.Command(target.userHost(), nil, &options).CombinedOutput()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(output), tc.Contains, `-o ProxyCommand juju ssh --direct --model=controller `+
+		`--proxy=true --no-host-key-checks --pty=false ubuntu@10.0.0.1 -q "nc %h %p"`)
 }
 
 func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForHostMachineTarget(c *tc.C) {

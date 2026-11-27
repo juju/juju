@@ -233,6 +233,23 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *tc.C) {
 	expectedArgs.check(c, cmdtesting.Stdout(ctx))
 }
 
+func (s *SSHSuite) TestSSHCommandExplicitProxyFalse(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	ssh, app, status := s.setupModel(ctrl, true, false, nil, nil, "0")
+	sshCmd := NewSSHCommandForTest(app, ssh, status, validAddresses("0.public"), nil,
+		baseTestingRetryStrategy, baseTestingRetryStrategy)
+
+	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), "--direct", "--proxy=false", "0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
+	expectedArgs := argsSpec{
+		hostKeyChecking: "yes",
+		knownHosts:      "0",
+		args:            "ubuntu@0.public",
+	}
+	expectedArgs.check(c, cmdtesting.Stdout(ctx))
+}
+
 func (s *SSHSuite) TestSSHCommandModelConfigProxySSHAddressMatch(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

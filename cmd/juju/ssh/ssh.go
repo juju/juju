@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	jujussh "github.com/juju/juju/internal/network/ssh"
-	"github.com/juju/juju/rpc/params"
 )
 
 var usageSSHSummary = `
@@ -58,9 +57,10 @@ controller machine to be open. Use the ` + "`--direct`" + ` option for Juju 3 co
 and connect directly to the target. Note that new behaviour does not support connecting
 to nested containers running on machines as the legacy behaviour did.
 
-If using the` + "`--direct`" + `flag you can also use the ` + "`--proxy`" + ` flag
-to proxy the connection through the controller machine's OpenSSH server running on
-port 22 (by default).
+Use ` + "`--direct --proxy`" + ` to route the connection through the controller
+machine's OpenSSH server (port 22 by default). In direct mode on machine clouds,
+if ` + "`--proxy`" + ` is omitted, Juju uses the model's ` + "`proxy-ssh`" + ` setting.
+Use ` + "`--direct --proxy=false`" + ` to connect without this proxy.
 
 The SSH host keys of the target are verified. The ` + "`--no-host-key-checks`" + ` option
 can be used to disable these checks. Use of this option is not recommended as
@@ -249,6 +249,9 @@ func (c *sshCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
 		return errors.Errorf("no target name specified")
 	}
+	if c.proxy.b != nil && *c.proxy.b && !c.direct {
+		return errors.New("--proxy requires --direct")
+	}
 	if c.modelType, err = c.ModelType(context.TODO()); err != nil {
 		return err
 	}
@@ -303,7 +306,6 @@ type sshProvider interface {
 	setLeaderAPI(ctx context.Context, leaderAPI LeaderAPI)
 	setHostChecker(checker jujussh.ReachableChecker)
 	resolveTarget(context.Context, string) (*resolvedTarget, error)
-	maybePopulateTargetViaField(context.Context, *resolvedTarget, func(context.Context, *client.StatusArgs) (*params.FullStatus, error)) error
 	maybeResolveLeaderUnit(context.Context, string) (string, error)
 	ssh(ctx Context, enablePty bool, target *resolvedTarget) error
 	copy(Context) error
@@ -333,16 +335,6 @@ func (c *sshCommand) Run(ctx *cmd.Context) error {
 	target, err := c.provider.resolveTarget(ctx, c.provider.getTarget())
 	if err != nil {
 		return err
-	}
-
-	if c.proxy {
-		// If we are trying to connect to a container on a FAN address,
-		// we need to route the traffic via the machine that hosts it.
-		// This is required as the controller is unable to route fan
-		// traffic across subnets.
-		if err = c.provider.maybePopulateTargetViaField(ctx, target, c.statusClient.Status); err != nil {
-			return errors.Trace(err)
-		}
 	}
 
 	var pty bool

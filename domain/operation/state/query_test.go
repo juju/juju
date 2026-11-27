@@ -1607,3 +1607,235 @@ func (s *querySuite) TestGetOperationsInOrder(c *tc.C) {
 	c.Check(result.Truncated, tc.IsFalse)
 	c.Check(slices.IsSorted(operationIds), tc.IsTrue)
 }
+
+// flagOperation describes an operation, with a single task, in the fixture
+// used to exercise every combination of the GetOperations filters.
+type flagOperation struct {
+	// name is stored as the operation summary so that results can be
+	// identified.
+	name string
+	// action is the charm action key, empty for an operation without one.
+	action  string
+	unit    coreunit.Name
+	machine coremachine.Name
+	status  corestatus.Status
+}
+
+// flagOperations is the fixture for the GetOperations filter flag tests. Each
+// filter used by the tests excludes some operations and includes others, so
+// that every combination of filters selects a different set of operations.
+var flagOperations = []flagOperation{
+	{name: "op1", action: "flag-action-a", unit: "flagapp1/0", status: corestatus.Running},
+	{name: "op2", action: "flag-action-a", unit: "flagapp1/1", status: corestatus.Completed},
+	{name: "op3", action: "flag-action-b", unit: "flagapp2/0", status: corestatus.Running},
+	{name: "op4", action: "flag-action-b", machine: "flag-m0", status: corestatus.Completed},
+	{name: "op5", machine: "flag-m1", status: corestatus.Running},
+	{name: "op6", unit: "flagapp2/1", status: corestatus.Completed},
+	{name: "op7", action: "flag-action-a", machine: "flag-m1", status: corestatus.Running},
+}
+
+// flagFilters selects which of the GetOperations filters are applied in the
+// flag tests. The values of each filter are fixed, see queryArgs.
+type flagFilters struct {
+	actions      bool
+	status       bool
+	applications bool
+	machines     bool
+	units        bool
+}
+
+// queryArgs returns the query arguments for the selected filters. A filter
+// that is not selected is left empty.
+func (f flagFilters) queryArgs() operation.QueryArgs {
+	var args operation.QueryArgs
+	if f.actions {
+		args.ActionNames = []string{"flag-action-a"}
+	}
+	if f.status {
+		args.Status = []corestatus.Status{corestatus.Running}
+	}
+	if f.applications {
+		args.Applications = []string{"flagapp1"}
+	}
+	if f.machines {
+		args.Machines = []coremachine.Name{"flag-m1"}
+	}
+	if f.units {
+		args.Units = []coreunit.Name{"flagapp2/0"}
+	}
+	return args
+}
+
+// matches reports whether the operation is expected to be returned when the
+// selected filters are applied. The action and status filters must both match
+// when selected. The receiver filters (applications, machines and units) are
+// alternatives: an operation matching any of the selected ones is returned.
+func (f flagFilters) matches(op flagOperation) bool {
+	if f.actions && op.action != "flag-action-a" {
+		return false
+	}
+	if f.status && op.status != corestatus.Running {
+		return false
+	}
+	if !f.applications && !f.machines && !f.units {
+		return true
+	}
+	return (f.applications && op.unit.Application() == "flagapp1") ||
+		(f.machines && op.machine == "flag-m1") ||
+		(f.units && op.unit == "flagapp2/0")
+}
+
+// addFlagOperations adds the flagOperations fixture to the database.
+func (s *querySuite) addFlagOperations(c *tc.C) {
+	charmUUID := s.addCharm(c)
+	machines := make(map[coremachine.Name]string)
+	for _, op := range flagOperations {
+		opUUID := s.addOperation(c)
+		s.query(c, `UPDATE operation SET summary = ? WHERE uuid = ?`, op.name, opUUID)
+		if op.action != "" {
+			s.addOperationAction(c, opUUID, charmUUID, op.action)
+		}
+		taskUUID := s.addOperationTaskWithID(c, opUUID, "flag-task-"+op.name, op.status.String())
+		if op.unit != "" {
+			s.addOperationUnitTask(c, taskUUID, s.addUnitWithName(c, charmUUID, op.unit.String()))
+		}
+		if op.machine != "" {
+			machineUUID, ok := machines[op.machine]
+			if !ok {
+				machineUUID = s.addMachine(c, op.machine.String())
+				machines[op.machine] = machineUUID
+			}
+			s.addOperationMachineTask(c, taskUUID, machineUUID)
+		}
+	}
+}
+
+// getFlagOperationNames returns the names of the fixture operations returned
+// for the filters.
+func (s *querySuite) getFlagOperationNames(c *tc.C, args operation.QueryArgs) []string {
+	result, err := s.state.GetOperations(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Truncated, tc.IsFalse)
+
+	names := make([]string, 0, len(result.Operations))
+	for _, op := range result.Operations {
+		names = append(names, op.Summary)
+	}
+	return names
+}
+
+// TestGetOperationsFilterFlags tests which operations are returned for fixed
+// combinations of filters. Each filter is exercised both when it is applied
+// (its flag is true) and when it is absent (its flag is false).
+func (s *querySuite) TestGetOperationsFilterFlags(c *tc.C) {
+	s.addFlagOperations(c)
+
+	tests := []struct {
+		name    string
+		filters flagFilters
+		expect  []string
+	}{{
+		name:   "no filters",
+		expect: []string{"op1", "op2", "op3", "op4", "op5", "op6", "op7"},
+	}, {
+		name:    "actions",
+		filters: flagFilters{actions: true},
+		expect:  []string{"op1", "op2", "op7"},
+	}, {
+		name:    "status",
+		filters: flagFilters{status: true},
+		expect:  []string{"op1", "op3", "op5", "op7"},
+	}, {
+		name:    "applications",
+		filters: flagFilters{applications: true},
+		expect:  []string{"op1", "op2"},
+	}, {
+		name:    "machines",
+		filters: flagFilters{machines: true},
+		expect:  []string{"op5", "op7"},
+	}, {
+		name:    "units",
+		filters: flagFilters{units: true},
+		expect:  []string{"op3"},
+	}, {
+		name:    "applications or machines",
+		filters: flagFilters{applications: true, machines: true},
+		expect:  []string{"op1", "op2", "op5", "op7"},
+	}, {
+		name:    "applications or units",
+		filters: flagFilters{applications: true, units: true},
+		expect:  []string{"op1", "op2", "op3"},
+	}, {
+		name:    "machines or units",
+		filters: flagFilters{machines: true, units: true},
+		expect:  []string{"op3", "op5", "op7"},
+	}, {
+		name:    "applications or machines or units",
+		filters: flagFilters{applications: true, machines: true, units: true},
+		expect:  []string{"op1", "op2", "op3", "op5", "op7"},
+	}, {
+		name:    "actions and status",
+		filters: flagFilters{actions: true, status: true},
+		expect:  []string{"op1", "op7"},
+	}, {
+		name:    "actions and applications",
+		filters: flagFilters{actions: true, applications: true},
+		expect:  []string{"op1", "op2"},
+	}, {
+		name:    "actions and machines",
+		filters: flagFilters{actions: true, machines: true},
+		expect:  []string{"op7"},
+	}, {
+		name:    "actions and units, which share no operation",
+		filters: flagFilters{actions: true, units: true},
+		expect:  []string{},
+	}, {
+		name:    "status and units",
+		filters: flagFilters{status: true, units: true},
+		expect:  []string{"op3"},
+	}, {
+		name:    "status and applications or machines",
+		filters: flagFilters{status: true, applications: true, machines: true},
+		expect:  []string{"op1", "op5", "op7"},
+	}, {
+		name: "every filter",
+		filters: flagFilters{
+			actions: true, status: true, applications: true, machines: true, units: true,
+		},
+		expect: []string{"op1", "op7"},
+	}}
+
+	for _, test := range tests {
+		c.Check(s.getFlagOperationNames(c, test.filters.queryArgs()), tc.SameContents, test.expect,
+			tc.Commentf("filters: %s", test.name))
+	}
+}
+
+// TestGetOperationsFilterFlagCombinations tests every combination of the five
+// filters, so that each flag is exercised as both true and false with every
+// state of the other flags.
+func (s *querySuite) TestGetOperationsFilterFlagCombinations(c *tc.C) {
+	s.addFlagOperations(c)
+
+	for mask := range 1 << 5 {
+		filters := flagFilters{
+			actions:      mask&1 != 0,
+			status:       mask&2 != 0,
+			applications: mask&4 != 0,
+			machines:     mask&8 != 0,
+			units:        mask&16 != 0,
+		}
+		var expect []string
+		for _, op := range flagOperations {
+			if filters.matches(op) {
+				expect = append(expect, op.name)
+			}
+		}
+		if expect == nil {
+			expect = []string{}
+		}
+
+		c.Check(s.getFlagOperationNames(c, filters.queryArgs()), tc.SameContents, expect,
+			tc.Commentf("filters: %+v", filters))
+	}
+}
