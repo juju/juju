@@ -816,9 +816,8 @@ func ensureScaleWithFsAttachments(
 	if err != nil {
 		return err
 	}
-	if startOrdinal == 0 {
-		return app.Scale(ctx, scaleTarget)
-	}
+	// Apply the intended ordinal as well as the replica count, so a drifted
+	// provider range can converge even when the intended range starts at zero.
 	return app.ScaleRange(ctx, scaleTarget, startOrdinal)
 }
 

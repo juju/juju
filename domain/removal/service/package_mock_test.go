@@ -404,6 +404,7 @@ type MockModelDBStateMockRecorder struct {
 	unitExistsExpects                                       []*gomock.Call2_2[context.Context, string, bool, error]
 	unitNamesInScopeExpects                                 []*gomock.Call2_2[context.Context, string, []string, error]
 	unitScheduleRemovalExpects                              []*gomock.Call5_2[context.Context, string, string, bool, time.Time, string, error]
+	unitScheduleRemovalCascadeExpects                       []*gomock.Call6_2[context.Context, string, string, bool, time.Time, []internal.UnitRemovalJob, string, error]
 	volumeAttachmentPlanScheduleRemovalExpects              []*gomock.Call5_1[context.Context, string, string, bool, time.Time, error]
 	volumeAttachmentScheduleRemovalExpects                  []*gomock.Call5_1[context.Context, string, string, bool, time.Time, error]
 	volumeScheduleRemovalExpects                            []*gomock.Call5_1[context.Context, string, string, bool, time.Time, error]
@@ -2544,6 +2545,24 @@ func (mr *MockModelDBStateMockRecorder) UnitScheduleRemoval(ctx, removalUUID, un
 
 // MockModelDBStateUnitScheduleRemovalCall is the typed call wrapper for UnitScheduleRemoval.
 type MockModelDBStateUnitScheduleRemovalCall = gomock.Call5_2[context.Context, string, string, bool, time.Time, string, error]
+
+// UnitScheduleRemovalCascade mocks base method.
+func (m *MockModelDBState) UnitScheduleRemovalCascade(ctx context.Context, removalUUID, unitUUID string, force bool, when time.Time, jobs []internal.UnitRemovalJob) (string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch6_2(&m.recorder.unitScheduleRemovalCascadeExpects, m.ctrl, m, "UnitScheduleRemovalCascade", ctx, removalUUID, unitUUID, force, when, jobs)
+}
+
+// UnitScheduleRemovalCascade indicates an expected call of UnitScheduleRemovalCascade.
+func (mr *MockModelDBStateMockRecorder) UnitScheduleRemovalCascade(ctx, removalUUID, unitUUID, force, when, jobs any) *MockModelDBStateUnitScheduleRemovalCascadeCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall6_2[context.Context, string, string, bool, time.Time, []internal.UnitRemovalJob, string, error](mr.mock.ctrl.T, mr.mock, "UnitScheduleRemovalCascade", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(removalUUID), gomock.EnsureMatcher(unitUUID), gomock.EnsureMatcher(force), gomock.EnsureMatcher(when), gomock.EnsureMatcher(jobs))
+	mr.unitScheduleRemovalCascadeExpects = append(mr.unitScheduleRemovalCascadeExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelDBStateUnitScheduleRemovalCascadeCall is the typed call wrapper for UnitScheduleRemovalCascade.
+type MockModelDBStateUnitScheduleRemovalCascadeCall = gomock.Call6_2[context.Context, string, string, bool, time.Time, []internal.UnitRemovalJob, string, error]
 
 // VolumeAttachmentPlanScheduleRemoval mocks base method.
 func (m *MockModelDBState) VolumeAttachmentPlanScheduleRemoval(ctx context.Context, removalUUID, vaUUID string, force bool, when time.Time) error {

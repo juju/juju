@@ -518,6 +518,86 @@ func (s *OpsSuite) TestEnsureScaleReservesBeforeStartingPods(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "try again")
 }
 
+func (s *OpsSuite) TestEnsureScaleRepairsOrdinalOnlyDrift(c *tc.C) {
+	for _, test := range []struct {
+		unitName      unit.Name
+		podName       string
+		startOrdinal  int
+		providerStart int
+	}{
+		{unitName: "test/0", podName: "test-0", startOrdinal: 0, providerStart: 4},
+		{unitName: "test/6", podName: "test-6", startOrdinal: 6, providerStart: 5},
+	} {
+		ctrl := gomock.NewController(c)
+		defer ctrl.Finish()
+		appID := tc.Must(c, application.NewUUID)
+		app := caasmocks.NewMockApplication(ctrl)
+		facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+		applicationService := mocks.NewMockApplicationService(ctrl)
+		units := map[unit.Name]life.Value{test.unitName: life.Alive}
+		// The allocated unit remains authoritative. Correcting provider drift
+		// does not remove it or allocate another unit with an earlier ordinal.
+		gomock.InOrder(
+			applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appID).Return(units, nil),
+			applicationService.EXPECT().ReserveCAASUnits(gomock.Any(), "test", test.startOrdinal, 1).Return(nil),
+			app.EXPECT().State().Return(caas.ApplicationState{DesiredReplicas: 1, StartOrdinal: test.providerStart}, nil),
+			facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(provisionertypes.FilesystemProvisioningInfo{}, nil),
+			app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), appID.String()[:6]).Return(nil),
+			app.EXPECT().ScaleRange(gomock.Any(), 1, test.startOrdinal).Return(nil),
+			applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appID).Return(units, nil),
+			applicationService.EXPECT().ReserveCAASUnits(gomock.Any(), "test", test.startOrdinal, 1).Return(nil),
+			app.EXPECT().State().Return(caas.ApplicationState{
+				DesiredReplicas: 1, StartOrdinal: test.startOrdinal, Replicas: []string{test.podName},
+			}, nil),
+			applicationService.EXPECT().GetAllUnitK8sPodIDsForApplication(gomock.Any(), appID).
+				Return(map[unit.Name]string{test.unitName: test.podName}, nil),
+		)
+		err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appID, app,
+			life.Alive, facade, applicationService, nil, s.logger)
+		c.Assert(err, tc.ErrorMatches, "try again")
+		err = caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appID, app,
+			life.Alive, facade, applicationService, nil, s.logger)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+}
+
+func (s *OpsSuite) TestEnsureScalePreservesHighWaterAtZeroAndScaleUp(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	appID := tc.Must(c, application.NewUUID)
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+	units := map[unit.Name]life.Value{"test/6": life.Alive}
+	gomock.InOrder(
+		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appID).Return(map[unit.Name]life.Value{}, nil),
+		applicationService.EXPECT().GetApplicationUnitSequence(gomock.Any(), "test").Return(uint64(5), true, nil),
+		applicationService.EXPECT().ReserveCAASUnits(gomock.Any(), "test", 6, 0).Return(nil),
+		app.EXPECT().State().Return(caas.ApplicationState{DesiredReplicas: 0, StartOrdinal: 5}, nil),
+		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(provisionertypes.FilesystemProvisioningInfo{}, nil),
+		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), appID.String()[:6]).Return(nil),
+		app.EXPECT().ScaleRange(gomock.Any(), 0, 6).Return(nil),
+		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appID).Return(units, nil),
+		applicationService.EXPECT().ReserveCAASUnits(gomock.Any(), "test", 6, 1).Return(nil),
+		app.EXPECT().State().Return(caas.ApplicationState{DesiredReplicas: 0, StartOrdinal: 6}, nil),
+		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(provisionertypes.FilesystemProvisioningInfo{}, nil),
+		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), appID.String()[:6]).Return(nil),
+		app.EXPECT().ScaleRange(gomock.Any(), 1, 6).Return(nil),
+		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appID).Return(units, nil),
+		applicationService.EXPECT().ReserveCAASUnits(gomock.Any(), "test", 6, 1).Return(nil),
+		app.EXPECT().State().Return(caas.ApplicationState{DesiredReplicas: 1, StartOrdinal: 6, Replicas: []string{"test-6"}}, nil),
+		applicationService.EXPECT().GetAllUnitK8sPodIDsForApplication(gomock.Any(), appID).Return(map[unit.Name]string{"test/6": "test-6"}, nil),
+	)
+	for range 2 {
+		err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appID, app,
+			life.Alive, facade, applicationService, nil, s.logger)
+		c.Assert(err, tc.ErrorMatches, "try again")
+	}
+	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appID, app,
+		life.Alive, facade, applicationService, nil, s.logger)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *OpsSuite) TestEnsureScaleDoesNotStartPodsWhenReservationFails(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

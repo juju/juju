@@ -540,6 +540,88 @@ WHERE r.uuid = $entityUUID.uuid
 	return scheduledRemovalUUID, errors.Capture(err)
 }
 
+// UnitScheduleRemovalCascade ensures the unit job and its supplied cascade jobs
+// in one transaction. Matching jobs are reused, with deadlines only brought
+// forward. An existing unit job does not imply its dependants were scheduled.
+// The persisted UUID of the qualified unit job is returned.
+func (st *State) UnitScheduleRemovalCascade(
+	ctx context.Context, removalUUID, unitUUID string, force bool,
+	when time.Time, jobs []internal.UnitRemovalJob,
+) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	records := make([]removalJob, 0, len(jobs)+1)
+	for _, job := range jobs {
+		records = append(records, removalJob{
+			UUID:          job.UUID,
+			RemovalTypeID: uint64(job.RemovalType),
+			EntityUUID:    job.EntityUUID,
+			Force:         job.Force,
+			ScheduledFor:  job.ScheduledFor,
+		})
+	}
+	records = append(records, removalJob{
+		UUID:          removalUUID,
+		RemovalTypeID: uint64(removal.UnitJob),
+		EntityUUID:    unitUUID,
+		Force:         force,
+		ScheduledFor:  when,
+	})
+
+	insertStmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removalJob.*)", removalJob{})
+	if err != nil {
+		return "", errors.Errorf("preparing unit cascade removal: %w", err)
+	}
+	getExistingStmt, err := st.Prepare(`
+SELECT r.uuid AS &entityUUID.uuid
+FROM removal AS r
+WHERE r.removal_type_id = $removalJob.removal_type_id
+  AND r.entity_uuid = $removalJob.entity_uuid
+  AND r.force = $removalJob.force
+LIMIT 1
+`, removalJob{}, entityUUID{})
+	if err != nil {
+		return "", errors.Errorf("preparing existing unit cascade removal query: %w", err)
+	}
+	updateDeadlineStmt, err := st.Prepare(`
+UPDATE removal AS r
+SET scheduled_for = $removalJob.scheduled_for
+WHERE r.uuid = $entityUUID.uuid
+  AND r.scheduled_for > $removalJob.scheduled_for
+`, removalJob{}, entityUUID{})
+	if err != nil {
+		return "", errors.Errorf("preparing unit cascade removal deadline update: %w", err)
+	}
+
+	var scheduledUUID string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		for _, record := range records {
+			var existing entityUUID
+			err := tx.Query(ctx, getExistingStmt, record).Get(&existing)
+			if err == nil {
+				if err := tx.Query(ctx, updateDeadlineStmt, record, existing).Run(); err != nil {
+					return errors.Errorf("updating unit cascade removal deadline: %w", err)
+				}
+			} else if errors.Is(err, sqlair.ErrNoRows) {
+				if err := tx.Query(ctx, insertStmt, record).Run(); err != nil {
+					return errors.Errorf("scheduling unit cascade removal: %w", err)
+				}
+				existing.UUID = record.UUID
+			} else {
+				return errors.Errorf("getting existing unit cascade removal: %w", err)
+			}
+			// The qualified unit job is last, so this assignment remains
+			// correct if the transaction is retried after a partial attempt.
+			scheduledUUID = existing.UUID
+		}
+		return nil
+	})
+	return scheduledUUID, errors.Capture(err)
+}
+
 // GetUnitLife returns the life of the unit with the input UUID.
 func (st *State) GetUnitLife(ctx context.Context, uUUID string) (life.Life, error) {
 	db, err := st.DB(ctx)

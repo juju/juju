@@ -3,6 +3,27 @@
 
 package internal
 
+import (
+	"time"
+
+	"github.com/juju/juju/domain/removal"
+)
+
+// UnitRemovalJob is a job supplied by the service as part of a unit's removal
+// cascade. The state layer ensures these jobs together with the unit job.
+type UnitRemovalJob struct {
+	// UUID identifies the proposed removal job.
+	UUID string
+	// RemovalType identifies the entity's removal workflow.
+	RemovalType removal.JobType
+	// EntityUUID identifies the entity to remove.
+	EntityUUID string
+	// Force qualifies the removal job.
+	Force bool
+	// ScheduledFor is the earliest time the job should execute.
+	ScheduledFor time.Time
+}
+
 // CascadedStorageInstanceLifeChildren contains the filesystem or volume
 // indentifiers for a single storage instance that were ensured to be "dying".
 type CascadedStorageInstanceLifeChildren struct {
