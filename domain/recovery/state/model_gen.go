@@ -675,7 +675,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_metadata",
 			deleteSQL: `DELETE FROM "charm_metadata" AS t`,
-			insertSQL: `INSERT INTO "charm_metadata" ("charm_uuid", "name", "description", "summary", "subordinate", "min_juju_version", "run_as_id", "assumes") SELECT $M.charm_uuid AS "charm_uuid", $M.name AS "name", $M.description AS "description", $M.summary AS "summary", $M.subordinate AS "subordinate", $M.min_juju_version AS "min_juju_version", $M.run_as_id AS "run_as_id", $M.assumes AS "assumes"`,
+			insertSQL: `INSERT INTO "charm_metadata" ("charm_uuid", "name", "description", "summary", "subordinate", "unitless", "min_juju_version", "run_as_id", "assumes") SELECT $M.charm_uuid AS "charm_uuid", $M.name AS "name", $M.description AS "description", $M.summary AS "summary", $M.subordinate AS "subordinate", $M.unitless AS "unitless", $M.min_juju_version AS "min_juju_version", $M.run_as_id AS "run_as_id", $M.assumes AS "assumes"`,
 			sample:    sqlair.M{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
 				return insertRows(ctx, tx, stmt, dump.CharmMetadata, func(row exporttypes.CharmMetadata) any {
@@ -685,6 +685,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 						"description":      row.Description,
 						"summary":          row.Summary,
 						"subordinate":      row.Subordinate,
+						"unitless":         row.Unitless,
 						"min_juju_version": row.MinJujuVersion,
 						"run_as_id":        row.RunAsID,
 						"assumes":          nullableBinaryValue(row.Assumes),

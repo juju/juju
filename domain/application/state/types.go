@@ -397,6 +397,7 @@ type charmMetadata struct {
 	Summary        string `db:"summary"`
 	Description    string `db:"description"`
 	Subordinate    bool   `db:"subordinate"`
+	Unitless       bool   `db:"unitless"`
 	MinJujuVersion string `db:"min_juju_version"`
 	Assumes        []byte `db:"assumes"`
 	RunAs          string `db:"run_as"`
@@ -409,6 +410,7 @@ type setCharmMetadata struct {
 	Summary        string `db:"summary"`
 	Description    string `db:"description"`
 	Subordinate    bool   `db:"subordinate"`
+	Unitless       bool   `db:"unitless"`
 	MinJujuVersion string `db:"min_juju_version"`
 	Assumes        []byte `db:"assumes"`
 	RunAsID        int    `db:"run_as_id"`

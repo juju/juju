@@ -197,6 +197,7 @@ func convertCharmMeta(meta *charm.Meta) *params.CharmMeta {
 		Summary:        meta.Summary,
 		Description:    meta.Description,
 		Subordinate:    meta.Subordinate,
+		Unitless:       meta.Unitless,
 		Provides:       convertCharmRelationMap(meta.Provides),
 		Requires:       convertCharmRelationMap(meta.Requires),
 		Peers:          convertCharmRelationMap(meta.Peers),

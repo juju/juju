@@ -1,7 +1,4 @@
 type: charm
-name: unitless
-summary: Unitless charm
-description: Example of a unitless charm used for integration tests
 base: ubuntu@24.04
 platforms:
   amd64:
@@ -11,10 +8,9 @@ parts:
     plugin: dump
     source: .
     prime:
+      - metadata.yaml
       - manifest.yaml
       - scriptlets
-assumes:
-  - unitless
 config:
   options:
     token:

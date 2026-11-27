@@ -28,14 +28,14 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// unitlessAssumesTree returns an assumes expression tree that asserts the
-// unitless feature, as a unitless-only charm does.
-func unitlessAssumesTree() *charmassumes.ExpressionTree {
+// virtualCharmAssumesTree returns an assumes expression tree that asserts the
+// virtual-charm feature.
+func virtualCharmAssumesTree() *charmassumes.ExpressionTree {
 	return &charmassumes.ExpressionTree{
 		Expression: charmassumes.CompositeExpression{
 			ExprType: charmassumes.AllOfExpression,
 			SubExpressions: []charmassumes.Expression{
-				charmassumes.FeatureExpression{Name: "unitless"},
+				charmassumes.FeatureExpression{Name: "virtual-charm"},
 			},
 		},
 	}
@@ -318,13 +318,14 @@ func (s *deployRepositorySuite) TestModelTypeMismatchConsistent(c *tc.C) {
 
 func (s *deployRepositorySuite) newUnitlessCharmValidator(c *tc.C, ctrl *gomock.Controller) (deployFromRepositoryValidator, *MockCharm) {
 	fs := coreassumes.FeatureSet{}
-	fs.Add(coreassumes.UnitlessFeature())
+	fs.Add(coreassumes.VirtualCharmFeature())
 	s.applicationService.EXPECT().GetSupportedFeatures(gomock.Any()).Return(fs, nil).AnyTimes()
 
 	ch := NewMockCharm(ctrl)
 	ch.EXPECT().Meta().Return(&charm.Meta{
-		Name:    "unitless",
-		Assumes: unitlessAssumesTree(),
+		Name:     "unitless",
+		Unitless: true,
+		Assumes:  virtualCharmAssumesTree(),
 	}).MinTimes(1)
 
 	return deployFromRepositoryValidator{
@@ -349,6 +350,34 @@ func (s *deployRepositorySuite) TestResolvedCharmValidationUnitlessCharm(c *tc.C
 	})
 	c.Check(errs, tc.HasLen, 0)
 	c.Check(dt.numUnits, tc.Equals, 0)
+}
+
+func (s *deployRepositorySuite) TestResolvedCharmValidationFeatureCheckDoesNotRequireUnitless(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	fs := coreassumes.FeatureSet{}
+	fs.Add(coreassumes.VirtualCharmFeature())
+	s.applicationService.EXPECT().GetSupportedFeatures(gomock.Any()).Return(fs, nil)
+	ch := NewMockCharm(ctrl)
+	ch.EXPECT().Meta().Return(&charm.Meta{
+		Name:    "ordinary",
+		Assumes: virtualCharmAssumesTree(),
+	}).MinTimes(1)
+	ch.EXPECT().Manifest().Return(&charm.Manifest{Bases: []charm.Base{{Architectures: []string{"amd64"}}}})
+	v := deployFromRepositoryValidator{
+		modelInfo:          coremodel.ModelInfo{Type: coremodel.IAAS, Name: "model"},
+		applicationService: s.applicationService,
+		logger:             loggertesting.WrapCheckLog(c),
+	}
+
+	numUnits := 3
+	dt, errs := v.resolvedCharmValidation(c.Context(), ch, params.DeployFromRepositoryArg{
+		CharmName: "ordinary",
+		NumUnits:  &numUnits,
+	})
+	c.Check(errs, tc.HasLen, 0)
+	c.Check(dt.numUnits, tc.Equals, 3)
 }
 
 func (s *deployRepositorySuite) TestResolvedCharmValidationUnitlessCharmNoNumUnits(c *tc.C) {

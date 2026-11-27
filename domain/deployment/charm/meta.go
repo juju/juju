@@ -277,6 +277,9 @@ type Meta struct {
 	Containers map[string]Container    `json:"containers,omitempty" yaml:"containers,omitempty"`
 	Assumes    *assumes.ExpressionTree `json:"assumes,omitempty" yaml:"assumes,omitempty"`
 	CharmUser  RunAs                   `json:"charm-user,omitempty" yaml:"charm-user,omitempty"`
+	// Unitless requires the charm to run in a unitless environment. It defaults
+	// to false and is independent of the virtual-charm assumes feature.
+	Unitless bool `json:"unitless,omitempty"`
 }
 
 // IsSidecar reports whether the charm is a Kubernetes (sidecar) charm, i.e. it
@@ -294,7 +297,8 @@ func (m Meta) IsSidecar() bool {
 // cannot be classified with certainty (charm metadata has no positive machine
 // charm marker), so it yields an advisory warning instead; subordinate charms
 // declare no containers but are machine charms by nature and are never
-// flagged. Both returns are empty when the placement is consistent.
+// flagged. Unitless charms run on the controller and need no containers.
+// Both returns are empty when the placement is consistent.
 // The following errors may be returned:
 //   - [coreerrors.NotSupported] when a Kubernetes charm is deployed to a
 //     machine model.
@@ -304,7 +308,7 @@ func (m Meta) ModelMismatch(isK8s bool, modelName string) (string, error) {
 		return "", internalerrors.Errorf(
 			"%q is a Kubernetes charm (it declares containers) but %q is a machine model; its workload will not run",
 			m.Name, modelName).Add(coreerrors.NotSupported)
-	case isK8s && !m.IsSidecar() && !m.Subordinate:
+	case isK8s && !m.IsSidecar() && !m.Subordinate && !m.Unitless:
 		return fmt.Sprintf(
 			"%q declares no containers but %q is a Kubernetes model; it has no workload to run there",
 			m.Name, modelName), nil
@@ -538,6 +542,13 @@ func (meta *Meta) UnmarshalYAML(f func(any) error) error {
 		return err
 	}
 
+	// schema.Bool also accepts strings, but unitless must be a YAML boolean.
+	if value, exists := raw["unitless"]; exists {
+		if _, ok := value.(bool); !ok {
+			return internalerrors.Errorf("metadata: unitless: expected bool, got %#v", value)
+		}
+	}
+
 	v, err := charmSchema.Coerce(raw, nil)
 	if err != nil {
 		return internalerrors.New("metadata: " + err.Error())
@@ -585,6 +596,7 @@ func parseMeta(m map[string]any) (*Meta, error) {
 	if subordinate := m["subordinate"]; subordinate != nil {
 		meta.Subordinate = subordinate.(bool)
 	}
+	meta.Unitless = m["unitless"].(bool)
 	meta.Storage = parseStorage(m["storage"])
 	meta.Devices = parseDevices(m["devices"])
 	meta.MinJujuVersion, err = parseMinJujuVersion(m["min-juju-version"])
@@ -630,6 +642,7 @@ func (m Meta) MarshalYAML() (any, error) {
 		Categories     []string                         `yaml:"categories,omitempty"`
 		Tags           []string                         `yaml:"tags,omitempty"`
 		Subordinate    bool                             `yaml:"subordinate,omitempty"`
+		Unitless       bool                             `yaml:"unitless,omitempty"`
 		Storage        map[string]Storage               `yaml:"storage,omitempty"`
 		Devices        map[string]Device                `yaml:"devices,omitempty"`
 		Terms          []string                         `yaml:"terms,omitempty"`
@@ -648,6 +661,7 @@ func (m Meta) MarshalYAML() (any, error) {
 		Categories:     m.Categories,
 		Tags:           m.Tags,
 		Subordinate:    m.Subordinate,
+		Unitless:       m.Unitless,
 		Storage:        m.Storage,
 		Devices:        m.Devices,
 		Terms:          m.Terms,
@@ -1282,6 +1296,7 @@ var charmSchema = schema.FieldMap(
 		"revision":         schema.Int(), // Obsolete
 		"format":           schema.Int(), // Obsolete
 		"subordinate":      schema.Bool(),
+		"unitless":         schema.Bool(),
 		"categories":       schema.List(schema.String()),
 		"tags":             schema.List(schema.String()),
 		"storage":          schema.StringMap(storageSchema),
@@ -1301,6 +1316,7 @@ var charmSchema = schema.FieldMap(
 		"revision":         schema.Omit,
 		"format":           schema.Omit,
 		"subordinate":      schema.Omit,
+		"unitless":         false,
 		"categories":       schema.Omit,
 		"tags":             schema.Omit,
 		"storage":          schema.Omit,
@@ -1334,7 +1350,7 @@ func ensureUnambiguousFormat(raw map[any]any) error {
 	for _, key := range keys {
 		detected := FormatUnknown
 		switch key {
-		case "containers", "assumes", "charm-user":
+		case "containers", "assumes", "charm-user", "unitless":
 			detected = FormatV2
 		case "series", "deployment", "min-juju-version":
 			detected = FormatV1
