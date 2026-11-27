@@ -9,9 +9,11 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	stdtesting "testing"
 	"time"
@@ -831,6 +833,180 @@ postruncmd:
 	c.Assert(err, tc.ErrorIsNil)
 	err = udata.Configure()
 	c.Assert(err, tc.ErrorMatches, `invalid postruncmd: .* got list containing float64`)
+}
+
+// TestPostruncmdDoesNotMaskSetupFailure runs the machine setup commands
+// generated for a controller in a Bash harness with errexit enabled, the
+// way the synchronous renderer runs them. State initialisation is
+// replaced by a stand-in that records its execution and exits with a
+// chosen status, and agent startup records its execution. This verifies
+// that a failed recover-state or bootstrap-state keeps failing the setup
+// script when postruncmd is configured, and that the post-commands keep
+// their permissive shell semantics.
+func (s *cloudinitSuite) TestPostruncmdDoesNotMaskSetupFailure(c *tc.C) {
+	for i, test := range []struct {
+		about       string
+		recovery    bool
+		stateExit   int
+		posts       []string
+		wantExit    int
+		wantMarkers []string
+		absent      []string
+	}{
+		{
+			about:       "recover-state failure is not masked by postruncmd",
+			recovery:    true,
+			stateExit:   42,
+			posts:       []string{`echo post1 >> "$MARKERS"`},
+			wantExit:    42,
+			wantMarkers: []string{"state"},
+			absent:      []string{"started", "post1"},
+		}, {
+			about:       "bootstrap-state failure is not masked by postruncmd",
+			stateExit:   42,
+			posts:       []string{`echo post1 >> "$MARKERS"`},
+			wantExit:    42,
+			wantMarkers: []string{"state"},
+			absent:      []string{"started", "post1"},
+		}, {
+			about:       "state failure is not masked by an empty postruncmd",
+			recovery:    true,
+			stateExit:   42,
+			posts:       []string{},
+			wantExit:    42,
+			wantMarkers: []string{"state"},
+			absent:      []string{"started"},
+		}, {
+			about:     "failing post-commands do not stop the remaining ones",
+			stateExit: 0,
+			posts: []string{
+				`echo post1 >> "$MARKERS"; (exit 17)`,
+				`echo post2 >> "$MARKERS"`,
+			},
+			wantExit:    0,
+			wantMarkers: []string{"state", "started", "post1", "post2"},
+		}, {
+			about:     "status of the last post-command is returned",
+			stateExit: 0,
+			posts: []string{
+				`echo post1 >> "$MARKERS"`,
+				`echo post2 >> "$MARKERS"; (exit 17)`,
+			},
+			wantExit:    17,
+			wantMarkers: []string{"state", "started", "post1", "post2"},
+		},
+	} {
+		c.Logf("test %d: %s", i, test.about)
+
+		envConfig, err := minimalModelConfig(c).Apply(map[string]any{
+			config.CloudInitUserDataKey: cloudInitUserDataWithPosts(test.posts),
+		})
+		c.Assert(err, tc.ErrorIsNil)
+		instConfig := makeBootstrapConfig(jammy, 0).maybeSetModelConfig(envConfig)
+
+		stateCmd := "jujuagentd bootstrap-state"
+		if test.recovery {
+			stateCmd = "jujuagentd recover-state"
+			archivePath := filepath.Join(c.MkDir(), "archive.tar.gz")
+			c.Assert(os.WriteFile(archivePath, []byte("archive bytes"), 0600), tc.ErrorIsNil)
+			instConfig.Bootstrap.RecoveryMode = true
+			instConfig.Bootstrap.RecoveryArchivePath = archivePath
+			instConfig.Bootstrap.RecoveryArchiveSHA256 = strings.Repeat("a", 64)
+		}
+
+		exitCode, markers := runSetupWithStandIns(
+			c, instConfig, envConfig, stateCmd, test.stateExit, test.posts)
+		c.Check(exitCode, tc.Equals, test.wantExit, tc.Commentf("markers: %v", markers))
+		for _, want := range test.wantMarkers {
+			c.Check(slices.Contains(markers, want), tc.IsTrue,
+				tc.Commentf("markers: %v", markers))
+		}
+		for _, absent := range test.absent {
+			c.Check(slices.Contains(markers, absent), tc.IsFalse,
+				tc.Commentf("markers: %v", markers))
+		}
+	}
+}
+
+// cloudInitUserDataWithPosts returns a cloudinit-userdata document holding
+// the given postruncmd entries, or an explicit empty list when there are
+// none.
+func cloudInitUserDataWithPosts(posts []string) string {
+	if len(posts) == 0 {
+		return "postruncmd: []\n"
+	}
+	var b strings.Builder
+	b.WriteString("postruncmd:\n")
+	for _, post := range posts {
+		b.WriteString("  - '" + strings.ReplaceAll(post, "'", "''") + "'\n")
+	}
+	return b.String()
+}
+
+// runSetupWithStandIns renders the machine setup commands for instConfig
+// and executes them in a Bash harness with errexit enabled. The state
+// command is replaced by a stand-in that records to a marker file and
+// exits with stateExit, and the agent startup progress command by a
+// marker. Any other setup command becomes a no-op; the shell flag
+// switches and the given post-commands run unchanged, in their generated
+// order. It returns the harness exit status and the recorded markers.
+func runSetupWithStandIns(
+	c *tc.C,
+	instConfig *testInstanceConfig,
+	envConfig *config.Config,
+	stateCmd string,
+	stateExit int,
+	posts []string,
+) (int, []string) {
+	rendered := instConfig.render()
+	c.Assert(instancecfg.FinishInstanceConfig(&rendered, envConfig), tc.ErrorIsNil)
+	cloudcfg, err := cloudinit.New(rendered.Base.OS)
+	c.Assert(err, tc.ErrorIsNil)
+	udata, err := cloudconfig.NewUserdataConfig(&rendered, cloudcfg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(udata.ConfigureJuju(), tc.ErrorIsNil)
+
+	markersPath := filepath.Join(c.MkDir(), "markers")
+	lines := []string{"set -e", fmt.Sprintf("MARKERS=%q", markersPath)}
+	keepPost := make(map[string]bool, len(posts))
+	for _, post := range posts {
+		keepPost[post] = true
+	}
+	stateCmds := 0
+	for _, cmd := range cloudcfg.RunCmds() {
+		switch {
+		case strings.Contains(cmd, stateCmd):
+			stateCmds++
+			lines = append(lines,
+				fmt.Sprintf(`echo state >> "$MARKERS"; (exit %d)`, stateExit))
+		case strings.Contains(cmd, "Starting Juju machine agent"):
+			lines = append(lines, `echo started >> "$MARKERS"`)
+		case cmd == "set -xe" || cmd == "set +xe" || keepPost[cmd]:
+			lines = append(lines, cmd)
+		default:
+			lines = append(lines, ":")
+		}
+	}
+	// The harness is meaningless without the command it replaces.
+	c.Assert(stateCmds >= 1, tc.IsTrue,
+		tc.Commentf("%q not found in generated commands", stateCmd))
+
+	output, err := exec.CommandContext(
+		c.Context(), "/bin/bash", "-c", strings.Join(lines, "\n"),
+	).CombinedOutput()
+	exitCode := 0
+	if err != nil {
+		exitErr, ok := err.(*exec.ExitError)
+		c.Assert(ok, tc.IsTrue,
+			tc.Commentf("running setup harness: %s\n%s", err, output))
+		exitCode = exitErr.ExitCode()
+	}
+	data, err := os.ReadFile(markersPath)
+	if err != nil {
+		c.Check(os.IsNotExist(err), tc.IsTrue)
+		return exitCode, nil
+	}
+	return exitCode, strings.Fields(string(data))
 }
 
 func (s *cloudinitSuite) TestCloudInitConfigureRecoveryBootstrapWithArchive(c *tc.C) {

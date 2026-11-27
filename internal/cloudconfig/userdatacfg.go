@@ -272,12 +272,12 @@ func (w *userdataConfig) ConfigureJuju() error {
 	}
 
 	// To keep postruncmd at the end of any runcmd's that juju adds,
-	// this block must stay at the top.
+	// this block must stay at the top. The `set +xe` switch reverting the
+	// flags set after preruncmd (LP: #1978454) is appended with the user
+	// commands: only they run with tracing and exit-on-error disabled.
+	// Switching any earlier would mask a failed Juju setup command, such
+	// as state initialisation, behind a later successful one.
 	if postruncmds, ok := w.icfg.CloudInitUserData["postruncmd"].([]any); ok {
-
-		// revert the `set -xe` shell flag which was set after preruncmd
-		// LP: #1978454
-		w.conf.AddRunCmd("set +xe")
 		cmds := make([]string, len(postruncmds))
 		for i, v := range postruncmds {
 			cmd, err := runCmdToString(v)
@@ -286,7 +286,9 @@ func (w *userdataConfig) ConfigureJuju() error {
 			}
 			cmds[i] = cmd
 		}
-		defer w.conf.AddScripts(cmds...)
+		if len(cmds) > 0 {
+			defer w.conf.AddScripts(append([]string{"set +xe"}, cmds...)...)
+		}
 	}
 
 	// Initialise progress reporting. We need to do separately for runcmd
