@@ -33,11 +33,11 @@ import (
 type applicationRunnerSuite struct {
 	coretesting.BaseSuite
 
-	service       *MockScriptletService
-	statusService *MockApplicationStatusService
-	application   domainunitless.ScriptletApplication
-	logger        *recordingLogger
-	config        applicationRunnerConfig
+	scriptletService *MockScriptletService
+	statusService    *MockApplicationStatusService
+	application      domainunitless.ScriptletApplication
+	logger           *recordingLogger
+	config           applicationRunnerConfig
 }
 
 func TestApplicationRunnerSuite(t *testing.T) {
@@ -89,7 +89,7 @@ func (s *applicationRunnerSuite) TestStartupApplicationRemovedBeforeInitialNotif
 
 	lifeWatch := s.expectLifeWatcher(c, false)
 	var lookupErr error
-	s.service.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).DoAndReturn(
+	s.scriptletService.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).DoAndReturn(
 		func(context.Context, coreapplication.UUID) (domainunitless.ScriptletApplication, error) {
 			return domainunitless.ScriptletApplication{}, lookupErr
 		},
@@ -111,7 +111,7 @@ func (s *applicationRunnerSuite) TestStartupApplicationDyingBeforeInitialNotific
 
 	lifeWatch := s.expectLifeWatcher(c, false)
 	application := s.application
-	s.service.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).DoAndReturn(
+	s.scriptletService.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).DoAndReturn(
 		func(context.Context, coreapplication.UUID) (domainunitless.ScriptletApplication, error) {
 			return application, nil
 		},
@@ -132,13 +132,13 @@ func (s *applicationRunnerSuite) TestStartupApplicationRefreshedBeforeInitialNot
 
 	lifeWatch := s.expectLifeWatcher(c, false)
 	application := s.application
-	s.service.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).DoAndReturn(
+	s.scriptletService.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).DoAndReturn(
 		func(context.Context, coreapplication.UUID) (domainunitless.ScriptletApplication, error) {
 			return application, nil
 		},
 	)
 	eventWatcher := watchertest.NewMockStringsWatcher(make(chan []string))
-	s.service.EXPECT().WatchApplicationEvents(gomock.Any(), s.application.UUID).Return(eventWatcher, nil)
+	s.scriptletService.EXPECT().WatchApplicationEvents(gomock.Any(), s.application.UUID).Return(eventWatcher, nil)
 	executorConfigs := make(chan ExecutorConfig, 1)
 	s.config.NewExecutor = func(_ context.Context, config ExecutorConfig) (Executor, error) {
 		executorConfigs <- config
@@ -166,7 +166,7 @@ func (s *applicationRunnerSuite) TestStartupLifeWatcherError(c *tc.C) {
 	defer ctrl.Finish()
 
 	boom := errors.New("boom")
-	s.service.EXPECT().WatchScriptletApplication(gomock.Any(), s.application.UUID).Return(nil, boom)
+	s.scriptletService.EXPECT().WatchScriptletApplication(gomock.Any(), s.application.UUID).Return(nil, boom)
 	runner := s.startRunner(c)
 	defer workertest.DirtyKill(c, runner)
 	err := runner.Wait()
@@ -207,7 +207,7 @@ func (s *applicationRunnerSuite) TestStartupGetApplicationError(c *tc.C) {
 
 	lifeWatch := s.expectLifeWatcher(c, true)
 	boom := errors.New("boom")
-	s.service.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).Return(
+	s.scriptletService.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).Return(
 		domainunitless.ScriptletApplication{}, boom,
 	)
 	runner := s.startRunner(c)
@@ -224,8 +224,8 @@ func (s *applicationRunnerSuite) TestStartupEventWatcherError(c *tc.C) {
 
 	lifeWatch := s.expectLifeWatcher(c, true)
 	boom := errors.New("boom")
-	s.service.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).Return(s.application, nil)
-	s.service.EXPECT().WatchApplicationEvents(gomock.Any(), s.application.UUID).Return(nil, boom)
+	s.scriptletService.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).Return(s.application, nil)
+	s.scriptletService.EXPECT().WatchApplicationEvents(gomock.Any(), s.application.UUID).Return(nil, boom)
 	runner := s.startRunner(c)
 	defer workertest.DirtyKill(c, runner)
 	err := runner.Wait()
@@ -274,7 +274,7 @@ func (s *applicationRunnerSuite) TestLifeNotificationApplicationNotFound(c *tc.C
 	defer ctrl.Finish()
 
 	fixture := s.expectRunningApplication(c)
-	s.service.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).Return(
+	s.scriptletService.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).Return(
 		domainunitless.ScriptletApplication{}, errors.Errorf("application removed: %w", applicationerrors.ApplicationNotFound),
 	)
 	runner := s.startRunner(c)
@@ -307,14 +307,14 @@ func (s *applicationRunnerSuite) TestLifeNotificationApplicationStillAlive(c *tc
 
 	fixture := s.expectRunningApplication(c)
 	queried := make(chan struct{}, 1)
-	s.service.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).DoAndReturn(
+	s.scriptletService.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).DoAndReturn(
 		func(context.Context, coreapplication.UUID) (domainunitless.ScriptletApplication, error) {
 			queried <- struct{}{}
 			return s.application, nil
 		},
 	)
 	event := domainunitless.Event{Name: "config_changed"}
-	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, event.Name).Return(event, nil)
+	s.scriptletService.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, event.Name).Return(event, nil)
 	runner := s.startRunner(c)
 	defer workertest.CleanKill(c, runner)
 	waitFor(c, fixture.executorConfigs)
@@ -334,7 +334,7 @@ func (s *applicationRunnerSuite) TestLifeNotificationGetApplicationError(c *tc.C
 
 	fixture := s.expectRunningApplication(c)
 	boom := errors.New("boom")
-	s.service.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).Return(
+	s.scriptletService.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).Return(
 		domainunitless.ScriptletApplication{}, boom,
 	)
 	runner := s.startRunner(c)
@@ -355,7 +355,7 @@ func (s *applicationRunnerSuite) TestRefreshEventWatcherError(c *tc.C) {
 	fixture := s.expectRunningApplication(c)
 	s.expectRefresh(c)
 	boom := errors.New("boom")
-	s.service.EXPECT().WatchApplicationEvents(gomock.Any(), s.application.UUID).Return(nil, boom)
+	s.scriptletService.EXPECT().WatchApplicationEvents(gomock.Any(), s.application.UUID).Return(nil, boom)
 	runner := s.startRunner(c)
 	defer workertest.DirtyKill(c, runner)
 	waitFor(c, fixture.executorConfigs)
@@ -374,7 +374,7 @@ func (s *applicationRunnerSuite) TestRefreshExecutorError(c *tc.C) {
 	fixture := s.expectRunningApplication(c)
 	refreshedApplication := s.expectRefresh(c)
 	eventWatcher := watchertest.NewMockStringsWatcher(make(chan []string))
-	s.service.EXPECT().WatchApplicationEvents(gomock.Any(), s.application.UUID).Return(eventWatcher, nil)
+	s.scriptletService.EXPECT().WatchApplicationEvents(gomock.Any(), s.application.UUID).Return(eventWatcher, nil)
 	boom := errors.New("boom")
 	s.config.NewExecutor = func(_ context.Context, config ExecutorConfig) (Executor, error) {
 		if config.Scriptlet.CharmUUID == refreshedApplication.CharmUUID {
@@ -470,8 +470,8 @@ func (s *applicationRunnerSuite) TestDispatchesEventsInOrderAndLogsIntents(c *tc
 	second := domainunitless.Event{Name: "update_status"}
 
 	gomock.InOrder(
-		s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, first.Name).Return(first, nil),
-		s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, second.Name).Return(second, nil),
+		s.scriptletService.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, first.Name).Return(first, nil),
+		s.scriptletService.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, second.Name).Return(second, nil),
 	)
 	runner := s.startRunner(c)
 	defer workertest.CleanKill(c, runner)
@@ -503,7 +503,7 @@ func (s *applicationRunnerSuite) TestIgnoresEmptyEventsAndBatches(c *tc.C) {
 
 	fixture := s.expectRunningApplication(c)
 	event := domainunitless.Event{Name: "config_changed"}
-	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, event.Name).Return(event, nil)
+	s.scriptletService.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, event.Name).Return(event, nil)
 	runner := s.startRunner(c)
 	defer workertest.CleanKill(c, runner)
 	waitFor(c, fixture.executorConfigs)
@@ -524,7 +524,7 @@ func (s *applicationRunnerSuite) TestEventApplicationNotFound(c *tc.C) {
 	defer ctrl.Finish()
 
 	fixture := s.expectRunningApplication(c)
-	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, domainunitless.EventConfigChanged).Return(
+	s.scriptletService.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, domainunitless.EventConfigChanged).Return(
 		domainunitless.Event{}, errors.Errorf("application removed: %w", applicationerrors.ApplicationNotFound),
 	)
 	runner := s.startRunner(c)
@@ -545,7 +545,7 @@ func (s *applicationRunnerSuite) TestEventLookupErrorStopsBatch(c *tc.C) {
 
 	fixture := s.expectRunningApplication(c)
 	boom := errors.New("boom")
-	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, domainunitless.EventConfigChanged).Return(
+	s.scriptletService.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, domainunitless.EventConfigChanged).Return(
 		domainunitless.Event{}, boom,
 	)
 
@@ -568,7 +568,7 @@ func (s *applicationRunnerSuite) TestEventLookupCanceledWithoutShutdown(c *tc.C)
 	defer ctrl.Finish()
 
 	fixture := s.expectRunningApplication(c)
-	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, domainunitless.EventConfigChanged).Return(
+	s.scriptletService.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, domainunitless.EventConfigChanged).Return(
 		domainunitless.Event{}, context.Canceled,
 	)
 	runner := s.startRunner(c)
@@ -605,7 +605,7 @@ def on_config_changed(event):
 	}
 
 	event := domainunitless.Event{Name: "config_changed"}
-	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, event.Name).Return(event, nil)
+	s.scriptletService.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, event.Name).Return(event, nil)
 	runner := s.startRunner(c)
 	defer workertest.CleanKill(c, runner)
 
@@ -647,7 +647,7 @@ def on_config_changed(event):
 	// be unified so that the event payload is populated with the
 	// application's current config.
 	event := domainunitless.Event{Name: "config_changed"}
-	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, event.Name).Return(event, nil)
+	s.scriptletService.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, event.Name).Return(event, nil)
 	runner := s.startRunner(c)
 	defer workertest.CleanKill(c, runner)
 
@@ -669,14 +669,14 @@ func (s *applicationRunnerSuite) TestExecutorErrorContinuesAndSetsBlockedStatus(
 
 	fixture := s.expectRunningApplication(c)
 	statuses := s.expectStatusSets()
-	fixture.executor.err = errors.New("boom")
+	fixture.executor.err = errors.New("oh no")
 	fixture.executor.intents = []scriptlet.Intent{{Type: scriptlet.IntentSetStatus}}
 
 	first := domainunitless.Event{Name: "config_changed"}
 	second := domainunitless.Event{Name: "update_status"}
 	gomock.InOrder(
-		s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, first.Name).Return(first, nil),
-		s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, second.Name).Return(second, nil),
+		s.scriptletService.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, first.Name).Return(first, nil),
+		s.scriptletService.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, second.Name).Return(second, nil),
 	)
 	runner := s.startRunner(c)
 	defer workertest.CleanKill(c, runner)
@@ -692,7 +692,7 @@ func (s *applicationRunnerSuite) TestExecutorErrorContinuesAndSetsBlockedStatus(
 	for range 2 {
 		info := waitFor(c, statuses)
 		c.Check(info.Status, tc.Equals, corestatus.Blocked)
-		c.Check(info.Message, tc.Equals, "boom")
+		c.Check(info.Message, tc.Equals, "oh no")
 	}
 
 	s.logger.waitFor(c, `executing scriptlet event "update_status"`)
@@ -712,7 +712,7 @@ func (s *applicationRunnerSuite) TestUnexpectedCancellationSetsBlockedStatus(c *
 	fixture.executor.err = context.Canceled
 
 	event := domainunitless.Event{Name: "config_changed"}
-	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, event.Name).Return(event, nil)
+	s.scriptletService.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, event.Name).Return(event, nil)
 	runner := s.startRunner(c)
 	defer workertest.CleanKill(c, runner)
 
@@ -732,13 +732,13 @@ func (s *applicationRunnerSuite) TestExecutorErrorStatusSetFailureStopsRunner(c 
 	defer ctrl.Finish()
 
 	fixture := s.expectRunningApplication(c)
-	fixture.executor.err = errors.New("boom")
-	statusErr := errors.New("status boom")
+	fixture.executor.err = errors.New("oh no")
+	statusErr := errors.New("status oh no")
 	s.statusService.EXPECT().SetApplicationStatusByUUID(gomock.Any(), s.application.UUID, gomock.Any()).
 		Return(statusErr)
 
 	event := domainunitless.Event{Name: "config_changed"}
-	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, event.Name).Return(event, nil)
+	s.scriptletService.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, event.Name).Return(event, nil)
 	runner := s.startRunner(c)
 	defer workertest.DirtyKill(c, runner)
 
@@ -747,7 +747,7 @@ func (s *applicationRunnerSuite) TestExecutorErrorStatusSetFailureStopsRunner(c 
 	fixture.eventChanges <- []string{event.Name.String()}
 	err := runner.Wait()
 	c.Assert(err, tc.ErrorIs, statusErr)
-	c.Check(err, tc.ErrorMatches, `handling scriptlet event "config_changed" for application .*: setting blocked status: status boom`)
+	c.Check(err, tc.ErrorMatches, `handling scriptlet event "config_changed" for application .*: setting blocked status: status oh no`)
 	fixture.assertWatchersStopped(c)
 }
 
@@ -763,7 +763,7 @@ func (s *applicationRunnerSuite) TestUnknownIntentTypeIgnored(c *tc.C) {
 	statuses := s.expectStatusSets()
 
 	event := domainunitless.Event{Name: "config_changed"}
-	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, event.Name).Return(event, nil)
+	s.scriptletService.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, event.Name).Return(event, nil)
 	runner := s.startRunner(c)
 	defer workertest.CleanKill(c, runner)
 
@@ -789,12 +789,12 @@ func (s *applicationRunnerSuite) TestSetStatusIntentFailureStopsRunner(c *tc.C) 
 	fixture.executor.intents = []scriptlet.Intent{
 		{Type: scriptlet.IntentSetStatus, Args: map[string]any{"status": "invalid"}},
 	}
-	statusErr := errors.New("status boom")
+	statusErr := errors.New("status oh no")
 	s.statusService.EXPECT().SetApplicationStatusByUUID(gomock.Any(), s.application.UUID, gomock.Any()).
 		Return(statusErr)
 
 	event := domainunitless.Event{Name: "config_changed"}
-	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, event.Name).Return(event, nil)
+	s.scriptletService.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, event.Name).Return(event, nil)
 	runner := s.startRunner(c)
 	defer workertest.DirtyKill(c, runner)
 
@@ -803,7 +803,7 @@ func (s *applicationRunnerSuite) TestSetStatusIntentFailureStopsRunner(c *tc.C) 
 	fixture.eventChanges <- []string{event.Name.String()}
 	err := runner.Wait()
 	c.Assert(err, tc.ErrorIs, statusErr)
-	c.Check(err, tc.ErrorMatches, `handling scriptlet event "config_changed" for application .*: applying intent "set-status": status boom`)
+	c.Check(err, tc.ErrorMatches, `handling scriptlet event "config_changed" for application .*: applying intent "set-status": status oh no`)
 	fixture.assertWatchersStopped(c)
 }
 
@@ -825,7 +825,7 @@ func (s *applicationRunnerSuite) TestShutdownDuringLifeWatcherConstruction(c *tc
 	lifeWatcher := watchertest.NewMockNotifyWatcher(make(chan struct{}))
 	defer workertest.CleanKill(c, lifeWatcher)
 	contexts := make(chan context.Context, 1)
-	s.service.EXPECT().WatchScriptletApplication(gomock.Any(), s.application.UUID).DoAndReturn(
+	s.scriptletService.EXPECT().WatchScriptletApplication(gomock.Any(), s.application.UUID).DoAndReturn(
 		func(ctx context.Context, _ coreapplication.UUID) (watcher.NotifyWatcher, error) {
 			contexts <- ctx
 			<-ctx.Done()
@@ -849,7 +849,7 @@ func (s *applicationRunnerSuite) TestShutdownCancelsApplicationLookup(c *tc.C) {
 
 	lifeWatch := s.expectLifeWatcher(c, true)
 	contexts := make(chan context.Context, 1)
-	s.service.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).DoAndReturn(
+	s.scriptletService.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).DoAndReturn(
 		func(ctx context.Context, _ coreapplication.UUID) (domainunitless.ScriptletApplication, error) {
 			contexts <- ctx
 			<-ctx.Done()
@@ -872,13 +872,13 @@ func (s *applicationRunnerSuite) TestShutdownDuringEventWatcherConstruction(c *t
 	defer ctrl.Finish()
 
 	lifeWatch := s.expectLifeWatcher(c, true)
-	s.service.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).Return(s.application, nil)
+	s.scriptletService.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).Return(s.application, nil)
 
 	eventWatcher := watchertest.NewMockStringsWatcher(make(chan []string))
 	defer workertest.CleanKill(c, eventWatcher)
 
 	contexts := make(chan context.Context, 1)
-	s.service.EXPECT().WatchApplicationEvents(gomock.Any(), s.application.UUID).DoAndReturn(
+	s.scriptletService.EXPECT().WatchApplicationEvents(gomock.Any(), s.application.UUID).DoAndReturn(
 		func(ctx context.Context, _ coreapplication.UUID) (watcher.StringsWatcher, error) {
 			contexts <- ctx
 			<-ctx.Done()
@@ -923,7 +923,7 @@ func (s *applicationRunnerSuite) TestShutdownCancelsEventLookup(c *tc.C) {
 
 	fixture := s.expectRunningApplication(c)
 	contexts := make(chan context.Context, 1)
-	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, domainunitless.EventConfigChanged).DoAndReturn(
+	s.scriptletService.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, domainunitless.EventConfigChanged).DoAndReturn(
 		func(ctx context.Context, _ coreapplication.UUID, _ domainunitless.EventType) (domainunitless.Event, error) {
 			contexts <- ctx
 			<-ctx.Done()
@@ -957,7 +957,7 @@ func (s *applicationRunnerSuite) TestShutdownCancelsEventExecutionAndStopsBatch(
 			return nil, ctx.Err()
 		}), nil
 	}
-	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, domainunitless.EventConfigChanged).Return(
+	s.scriptletService.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, domainunitless.EventConfigChanged).Return(
 		domainunitless.Event{Name: "config_changed"}, nil,
 	)
 	runner := s.startRunner(c)
@@ -975,9 +975,9 @@ func (s *applicationRunnerSuite) TestShutdownCancelsEventExecutionAndStopsBatch(
 func (s *applicationRunnerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.service = NewMockScriptletService(ctrl)
+	s.scriptletService = NewMockScriptletService(ctrl)
 	c.Cleanup(func() {
-		s.service = nil
+		s.scriptletService = nil
 	})
 
 	s.statusService = NewMockApplicationStatusService(ctrl)
@@ -998,7 +998,7 @@ func (s *applicationRunnerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.logger = newRecordingLogger()
 	s.config = applicationRunnerConfig{
 		ApplicationUUID:  s.application.UUID,
-		ScriptletService: s.service,
+		ScriptletService: s.scriptletService,
 		StatusService:    s.statusService,
 		NewExecutor: func(context.Context, ExecutorConfig) (Executor, error) {
 			return nil, errors.New("unexpected executor creation")
@@ -1015,7 +1015,7 @@ func (s *applicationRunnerSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *applicationRunnerSuite) assertStartupStops(c *tc.C, application domainunitless.ScriptletApplication, err error) {
 	lifeWatch := s.expectLifeWatcher(c, true)
 
-	s.service.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).Return(application, err)
+	s.scriptletService.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).Return(application, err)
 
 	runner := s.startRunner(c)
 	defer workertest.CleanKill(c, runner)
@@ -1030,7 +1030,7 @@ func (s *applicationRunnerSuite) assertLifeTransitionStops(c *tc.C, l life.Value
 	application := s.application
 	application.Life = l
 
-	s.service.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).Return(application, nil)
+	s.scriptletService.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).Return(application, nil)
 	runner := s.startRunner(c)
 	defer workertest.CleanKill(c, runner)
 	waitFor(c, fixture.executorConfigs)
@@ -1044,12 +1044,12 @@ func (s *applicationRunnerSuite) assertLifeTransitionStops(c *tc.C, l life.Value
 func (s *applicationRunnerSuite) expectRunningApplication(c *tc.C) *applicationRunnerFixture {
 	lifeWatch := s.expectLifeWatcher(c, true)
 
-	s.service.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).Return(s.application, nil)
+	s.scriptletService.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).Return(s.application, nil)
 
 	eventChanges := make(chan []string, 1)
 	eventWatcher := watchertest.NewMockStringsWatcher(eventChanges)
 
-	s.service.EXPECT().WatchApplicationEvents(gomock.Any(), s.application.UUID).Return(eventWatcher, nil)
+	s.scriptletService.EXPECT().WatchApplicationEvents(gomock.Any(), s.application.UUID).Return(eventWatcher, nil)
 
 	fixture := &applicationRunnerFixture{
 		lifeWatch:       lifeWatch,
@@ -1070,7 +1070,7 @@ func (s *applicationRunnerSuite) expectRunningApplication(c *tc.C) *applicationR
 func (s *applicationRunnerSuite) expectRefresh(c *tc.C) domainunitless.ScriptletApplication {
 	application := s.application
 	application.CharmUUID = tc.Must(c, corecharm.NewID)
-	s.service.EXPECT().GetScriptletApplication(gomock.Any(), application.UUID).Return(application, nil)
+	s.scriptletService.EXPECT().GetScriptletApplication(gomock.Any(), application.UUID).Return(application, nil)
 	return application
 }
 
@@ -1084,7 +1084,7 @@ func (s *applicationRunnerSuite) expectLifeWatcher(c *tc.C, initial bool) *appli
 		MockNotifyWatcher: watchertest.NewMockNotifyWatcher(changes),
 		changesCalled:     make(chan struct{}),
 	}
-	s.service.EXPECT().WatchScriptletApplication(gomock.Any(), s.application.UUID).Return(lifeWatcher, nil)
+	s.scriptletService.EXPECT().WatchScriptletApplication(gomock.Any(), s.application.UUID).Return(lifeWatcher, nil)
 	return &applicationLifeWatch{
 		changes:       changes,
 		watcher:       lifeWatcher,

@@ -53,7 +53,7 @@ func (s *manifoldSuite) TestValidate(c *tc.C) {
 }
 
 func (s *manifoldSuite) TestStart(c *tc.C) {
-	service := &stubScriptletService{}
+	scriptletService := &stubScriptletService{}
 	statusService := &stubApplicationStatusService{}
 	logger := loggertesting.WrapCheckLog(c)
 	expectWorker := &stubWorker{}
@@ -63,14 +63,14 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 		DomainServicesName: "domain-services",
 		GetScriptletService: func(_ dependency.Getter, name string) (ScriptletService, error) {
 			c.Check(name, tc.Equals, "domain-services")
-			return service, nil
+			return scriptletService, nil
 		},
 		GetApplicationStatusService: func(_ dependency.Getter, name string) (ApplicationStatusService, error) {
 			c.Check(name, tc.Equals, "domain-services")
 			return statusService, nil
 		},
 		NewWorker: func(config Config) (worker.Worker, error) {
-			c.Check(config.ScriptletService, tc.Equals, service)
+			c.Check(config.ScriptletService, tc.Equals, scriptletService)
 			c.Check(config.StatusService, tc.Equals, statusService)
 			c.Check(config.NewExecutor, tc.NotNil)
 			c.Check(config.Clock, tc.Equals, expectClock)
