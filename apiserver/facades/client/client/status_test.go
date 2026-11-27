@@ -660,23 +660,39 @@ func (s *statusUnitTestSuite) TestApplicationFilterIndependentOfAlphabeticUnitOr
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
+	otherMachine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobHostUnits},
+	})
 	s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: applicationA,
 		Machine:     machine,
 	})
-	s.Factory.MakeUnit(c, &factory.UnitParams{
+	unitBOnSameMachine := s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: applicationB,
 		Machine:     machine,
 	})
+	err := unitBOnSameMachine.SetStatus(status.StatusInfo{Status: status.Active})
+	c.Assert(err, jc.ErrorIsNil)
+	unitBOnOtherMachine := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: applicationB,
+		Machine:     otherMachine,
+	})
+	err = unitBOnOtherMachine.SetStatus(status.StatusInfo{Status: status.Active})
+	c.Assert(err, jc.ErrorIsNil)
 
 	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	for i := 0; i < 20; i++ {
 		c.Logf("run %d", i)
-		status, err := client.Status(&apiclient.StatusArgs{
+		fullStatus, err := client.Status(&apiclient.StatusArgs{
 			Patterns: []string{applicationA.Name()},
 		})
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(status.Applications, gc.HasLen, 2)
+		c.Assert(fullStatus.Applications, gc.HasLen, 2)
+		appBStatus := fullStatus.Applications[applicationB.Name()]
+		c.Check(appBStatus.Status.Status, gc.Equals, status.Active.String())
+		c.Assert(appBStatus.Units, gc.HasLen, 1)
+		_, ok := appBStatus.Units[unitBOnSameMachine.Name()]
+		c.Check(ok, jc.IsTrue)
 	}
 }
 
