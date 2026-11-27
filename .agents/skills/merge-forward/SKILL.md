@@ -169,7 +169,8 @@ For each conflicted file:
    git diff "$MERGE_BASE" upstream/TARGET -- FILE
    ```
 
-4. Apply a resolution that preserves both changes where possible.
+4. Apply a resolution that preserves both changes where possible. Check [Known
+   conflicts](#known-conflicts) section before applying a resolution.
 5. If the changes are genuinely incompatible, keep both sides of the
    hunk (a union) rather than dropping one side. Never silently take only
    the TARGET side: development happens on prior versions too. Mark the
@@ -468,3 +469,34 @@ instead.
   reviewers auto-assigned by GitHub are removed first
 - The workflow deletes a pair's `merge/*` branches once all their PRs
   are merged or closed, or when no PR exists
+
+## Known conflicts
+
+Some conflict areas have a prescribed resolution, or a known limit on how
+well a merge can be verified locally. Resolve them according to the
+subsections below rather than the union default.
+
+### Conflicts between 4.1 and main
+
+- `jujuagentd` was split into two: on 4.1 it is a single binary running
+  both the controller and the machine agent role; on main `jujud` is the
+  controller application (delivered and run as a snap) and `jujuagentd`
+  is the machine agent only. A conflict in this area means the 4.1
+  change touches the controller role: it must be re-homed into `jujud`
+  on main, not merged or union-merged into the main-side files.
+- Commands that belong to the controller role moved from `jujuagentd`
+  to `jujud` on main: `recover-state`, `safemode` and `dbrepl` now live
+  in `cmd/jujud/agent/`. Port 4.1-side changes to these commands into
+  their `jujud` counterparts and keep the old `cmd/jujuagentd/agent/`
+  files deleted or unchanged. Recovery (`recover-state`) is especially
+  problematic: the bootstrap process itself changed on main —
+  controller setup runs through `jujud init` and the snap bootstrap
+  flow — so recovery changes on 4.1 must be re-homed to the new
+  bootstrap flow, not applied to the files they were written against.
+- A conflict that might be affected by that bootstrap change — the
+  binary split, snap confinement, recovery or anything else in the
+  controller startup path — cannot be fully verified on the merge
+  branch: unit tests do not exercise the snap flow. Mark such a
+  resolution as low confidence in the PR description and name the
+  affected area, so reviewers know the change needs the manual
+  bootstrap and recovery QA on a real controller.
