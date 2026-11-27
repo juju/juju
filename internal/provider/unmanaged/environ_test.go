@@ -293,6 +293,7 @@ func (s *controllerInstancesSuite) TestControllerInstancesInternal(c *tc.C) {
 func fakeSSHScript(root, log, setupScript, mode string) string {
 	return fmt.Sprintf(`#!/bin/bash --norc
 set -euo pipefail
+export root=%q log=%q setupScript=%q mode=%q
 args=()
 found=0
 for arg in "$@"; do
@@ -306,82 +307,76 @@ for arg in "$@"; do
 done
 [[ $found == 1 ]]
 if [[ "${args[0]}" == sudo ]]; then
-	cat > %q
-	echo setup >> %q
-	encoded="${args[-1]#*echo }"
-	encoded="${encoded%% | base64 -d*}"
-	encoded="$(printf '%%s' "$encoded" | tr -d "'")"
-	wrapper="$(printf '%%s' "$encoded" | base64 -d)"
-	cleanupLine="$(printf '%%s\n' "$wrapper" | sed -n 's/^[[:space:]]*if ! \(rm -rf -- .*\); then$/\1/p')"
-	runCleanup() {
-		if [[ -n "$cleanupLine" ]]; then
-			echo cleanup >> %q
-			if [[ %q == fail-cleanup ]]; then
-				echo 'cannot remove staging' >&2
-			else
-				eval "$cleanupLine"
-			fi
-		fi
-		echo setup-end >> %q
-		if [[ %q == fail-cleanup ]]; then
-			echo 'cleaning up staged files failed' >&2
-			return 1
-		fi
-		return 0
+	echo setup >> "$log"
+	trap 'echo setup-end >> "$log"' EXIT
+	runSetup() {
+		set -euo pipefail
+		unset -f cat
+		while IFS= read -r line; do
+			case "$line" in
+			"install -D -m 600 /dev/null "*archive.tar.gz.partial*) echo install >> "$log" ;;
+			"cat "*archive.tar.gz.partial*) echo copy >> "$log" ;;
+			recovery_sha256=*) echo checksum >> "$log" ;;
+			*"recovery archive checksum mismatch"*) ;;
+			"mv -f "*archive.tar.gz.partial*) echo publish >> "$log" ;;
+			"install -D -m 600 /dev/null "*"/recovery/params'"*) eval "$line"; continue ;;
+			"echo 'archive-path:"*)
+				paramsCommand="$line"
+				while [[ "$line" != *"/recovery/params'" ]]; do
+					IFS= read -r line
+					paramsCommand+=$'\n'"$line"
+				done
+				eval "$paramsCommand"
+				echo params >> "$log"
+				continue
+				;;
+			*"jujuagentd recover-state"*) echo recover >> "$log"; continue ;;
+			*) continue ;;
+			esac
+			line="${line//\/tmp\/juju-/$root\/juju-}"
+			eval "$line"
+		done < "$setupScript"
 	}
-	trap runCleanup EXIT
-	configFailed=0
-	while IFS= read -r line; do
-		case "$line" in
-		"install -D -m 600 /dev/null "*archive.tar.gz.partial*) echo install >> %q ;;
-		"cat "*archive.tar.gz.partial*) echo copy >> %q ;;
-		recovery_sha256=*) echo checksum >> %q ;;
-		*"recovery archive checksum mismatch"*) ;;
-		"mv -f "*archive.tar.gz.partial*) echo publish >> %q ;;
-		"install -D -m 600 /dev/null "*"/recovery/params'"*) eval "$line"; continue ;;
-		"echo 'archive-path:"*)
-			paramsCommand="$line"
-			while [[ "$line" != *"/recovery/params'" ]]; do
-				IFS= read -r line
-				paramsCommand+=$'\n'"$line"
-			done
-			eval "$paramsCommand"
-			echo params >> %q
-			continue
-			;;
-		*"jujuagentd recover-state"*) echo recover >> %q; continue ;;
-		*) continue ;;
-		esac
-		line="${line//\/tmp\/juju-/%s\/juju-}"
-		if eval "$line"; then
-			:
+	# Give the real wrapper a script that executes just the archive steps.
+	cat() {
+		command cat > "$setupScript"
+		echo runSetup
+	}
+	rm() {
+		if [[ $1 == -rf && $3 == /tmp/juju-* ]]; then
+			echo cleanup >> "$log"
+			if [[ $mode == fail-cleanup ]]; then
+				echo 'cannot remove staging' >&2
+				return 1
+			fi
+			command rm -rf -- "$root/${3##*/}"
 		else
-			configFailed=$?
-			break
+			command rm "$@"
 		fi
-	done < %q
-	exit "$configFailed"
+	}
+	export -f runSetup cat rm
+	"${args[@]:1}"
+	exit
 fi
 command="${args[*]}"
-command="${command//\/tmp\/juju-/%s\/juju-}"
+command="${command//\/tmp\/juju-/$root\/juju-}"
 case "${args[0]}" in
-	mkdir) echo mkdir >> %q ;;
-	umask) echo stream >> %q ;;
-	rm) echo cleanup >> %q ;;
+	mkdir) echo mkdir >> "$log" ;;
+	umask) echo stream >> "$log" ;;
+	rm) echo cleanup >> "$log" ;;
 	*) echo "unexpected command: $command" >&2; exit 1 ;;
 esac
-if [[ "${args[0]}" == rm && %q == fail-cleanup ]]; then
+if [[ "${args[0]}" == rm && $mode == fail-cleanup ]]; then
 	echo 'cannot remove staging' >&2
 	exit 1
 fi
 eval "$command"
-if [[ "${args[0]}" == umask && %q == corrupt ]]; then
+if [[ "${args[0]}" == umask && $mode == corrupt ]]; then
 	staged="${args[6]//\'/}"
-	staged="${staged/\/tmp\/juju-/%s\/juju-}"
+	staged="${staged/\/tmp\/juju-/$root\/juju-}"
 	echo CORRUPT >> "$staged"
 fi
-`, setupScript, log, log, mode, log, mode, log, log, log, log, log, log,
-		root, setupScript, root, log, log, log, mode, mode, root)
+`, root, log, setupScript, mode)
 }
 
 // readInvocationLog returns the tags logged by the fake ssh executable,
@@ -504,16 +499,19 @@ func (s *environSuite) assertBootstrapRecoveryArchive(c *tc.C, mode string) {
 		c.Check(os.IsNotExist(statErr), tc.IsTrue)
 		return
 	}
+	wantLog := []string{"mkdir", "stream", "setup", "install", "copy", "checksum", "publish", "params", "recover", "cleanup", "setup-end"}
 	if mode == "fail-cleanup" {
-		c.Check(err, tc.ErrorMatches, "subprocess encountered error code 1")
+		c.Assert(err, tc.NotNil)
+		c.Check(err.Error(), tc.Contains, "subprocess encountered error code 1")
+		c.Check(err.Error(), tc.Contains, "cleaning up staged files: removing staged files: cannot remove staging")
+		wantLog = append(wantLog, "cleanup")
 		stderr, ok := ctx.GetStderr().(*bytes.Buffer)
 		c.Assert(ok, tc.IsTrue)
 		c.Check(strings.Contains(stderr.String(), "cleaning up staged files failed"), tc.IsTrue)
 	} else {
 		c.Assert(err, tc.ErrorIsNil)
 	}
-	c.Check(readInvocationLog(c, logPath), tc.DeepEquals,
-		[]string{"mkdir", "stream", "setup", "install", "copy", "checksum", "publish", "params", "recover", "cleanup", "setup-end"})
+	c.Check(readInvocationLog(c, logPath), tc.DeepEquals, wantLog)
 	installed, err := os.ReadFile(destination)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(installed, tc.DeepEquals, payload)

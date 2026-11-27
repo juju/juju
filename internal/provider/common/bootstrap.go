@@ -576,9 +576,9 @@ func ConfigureMachine(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	configureFinished := false
+	stagingCleaned := false
 	defer func() {
-		if configureFinished {
+		if stagingCleaned {
 			// Cleanup ran in the remote script's EXIT trap. Reconnecting
 			// here would fail because setup may have rotated the host keys.
 			return
@@ -623,13 +623,7 @@ func ConfigureMachine(
 	) + configScript
 	ctx.Infof("Running machine configuration script...")
 	sshinitConfig.CleanupCommand = ft.CleanupCommand()
-	err = sshinit.RunConfigureScriptContext(ctx, script, sshinitConfig)
-	// The remote script's EXIT trap owns cleanup of the staged files
-	// whenever the setup wrapper ran. Only a failure that kept the
-	// wrapper from running leaves them behind for the deferred fallback
-	// below; ambiguous outcomes are reported as not fired, biasing
-	// towards that fallback.
-	configureFinished = sshinit.SetupTrapFired(err)
+	stagingCleaned, err = sshinit.RunConfigureScriptContext(ctx, script, sshinitConfig)
 	if err != nil {
 		if bootstrap.IsContextDone(ctx) {
 			return errors.Annotate(bootstrap.Cancelled(), "configuring machine")

@@ -6,16 +6,13 @@ package sshinit
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"strings"
 
-	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/ssh"
 
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
-	"github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 )
 
@@ -48,105 +45,65 @@ type ConfigureParams struct {
 // SSH, and executes the provided script which is expected
 // to have been returned by cloudinit ConfigureScript.
 func RunConfigureScript(script string, params ConfigureParams) error {
-	return RunConfigureScriptContext(context.Background(), script, params)
+	_, err := RunConfigureScriptContext(context.Background(), script, params)
+	return err
 }
 
-// RunConfigureScriptContext runs the configuration script synchronously. The
-// context is checked before and after the command; an already running command
-// is not interrupted because the SSH library cannot safely force-close both
-// backends.
-func RunConfigureScriptContext(ctx context.Context, script string, params ConfigureParams) error {
+// RunConfigureScriptContext runs the configuration script synchronously. It
+// reports whether the remote shell confirmed that CleanupCommand succeeded,
+// even if configuration failed. The context is checked before and after the
+// SSH command because an in-flight command cannot be interrupted safely.
+func RunConfigureScriptContext(ctx context.Context, script string, params ConfigureParams) (stagingCleaned bool, err error) {
 	logger.Tracef(ctx, "running %d byte configuration script on %s", len(script), params.Host)
 
-	cleanupTrap := `trap "rm -f $tmpfile" EXIT`
+	const cleanupAck = "juju: staged files removed"
+	var cleanupStaging string
 	if params.CleanupCommand != "" {
-		cleanupTrap = fmt.Sprintf(`cleanup() {
-	local status=$?
-	rm -f "$tmpfile"
-	if ! %s; then
+		cleanupStaging = fmt.Sprintf(`
+	if ( %s ) >/dev/null; then
+		echo '%s'
+	else
 		echo "cleaning up staged files failed" >&2
-		if [ "$status" -eq 0 ]; then
-			status=1
-		fi
-	fi
-	return "$status"
-}
-trap cleanup EXIT`, params.CleanupCommand)
+		cleanupStatus=1
+	fi`, params.CleanupCommand, cleanupAck)
 	}
-	encoded := base64.StdEncoding.EncodeToString([]byte(`
-set -e
-tmpfile=$(mktemp)
-` + cleanupTrap + `
-cat > $tmpfile
-/bin/bash $tmpfile
-`))
 
+	// Bash parses the entire brace group before cat consumes the remaining
+	// SSH input. This streams even a large setup script straight to disk.
+	wrapper := `set -e
+tmpfile=
+cleanup() {
+	local status=$?
+	local cleanupStatus=0
+	if [ -n "$tmpfile" ]; then
+		rm -f -- "$tmpfile" || cleanupStatus=1
+	fi` + cleanupStaging + `
+	if [ "$status" -ne 0 ]; then
+		exit "$status"
+	fi
+	exit "$cleanupStatus"
+}
+trap cleanup EXIT
+tmpfile=$(mktemp)
+{
+	cat > "$tmpfile"
+	/bin/bash "$tmpfile" >/dev/null
+	exit
+}
+`
 	client := params.Client
 	if client == nil {
 		client = ssh.DefaultClient
 	}
-
-	// bash will read a byte at a time when consuming commands
-	// from stdin. We avoid sending the entire script -- which
-	// will be very large when uploading tools -- directly to
-	// bash for this reason. Instead, run cat which will write
-	// the script to disk, and then execute it from there.
-	cmd := client.Command(params.Host, []string{
-		"sudo", "/bin/bash", "-c",
-		// The outer bash interprets the $(...), and executes
-		// the decoded script in the nested bash. This avoids
-		// linebreaks in the commandline, which the go.crypto-
-		// based client has trouble with.
-		fmt.Sprintf(
-			`/bin/bash -c "$(echo %s | base64 -d)"`,
-			utils.ShQuote(encoded),
-		),
-	}, params.SSHOptions)
-
-	cmd.Stdin = strings.NewReader(script)
+	cmd := client.Command(params.Host, []string{"sudo", "/bin/bash", "-s"}, params.SSHOptions)
+	cmd.Stdin = io.MultiReader(strings.NewReader(wrapper), strings.NewReader(script))
 	cmd.Stderr = params.ProgressWriter
-	return runCommand(ctx, cmd)
-}
-
-// SetupTrapFired reports whether the remote setup wrapper is known to
-// have run to completion, so its EXIT trap has removed the staged files
-// and setup may have rotated the machine's SSH host keys. Callers can
-// then leave cleanup to the remote end instead of reconnecting.
-//
-// A false result means the wrapper is not known to have run, and the
-// caller must clean up as a fallback. Ambiguous outcomes return false
-// on purpose: a context cancelled after the command completed cannot be
-// told apart from one cancelled before it started, ssh(1) reports its
-// own failures through the remote exit status, and sudo exits 126 or
-// 127 without ever starting the wrapper. The fallback is idempotent,
-// while a skipped cleanup would leave staged files, including the
-// recovery archive, on the machine.
-func SetupTrapFired(err error) bool {
-	if err == nil {
-		return true
+	// Only the trap writes to stdout. Setup continues to report progress
+	// on stderr, and its exit status is independent of this acknowledgement.
+	var ack strings.Builder
+	if params.CleanupCommand != "" {
+		cmd.Stdout = &ack
 	}
-	code, ok := remoteExitStatus(err)
-	if !ok {
-		return false
-	}
-	// ssh(1) exits 255 on its own failures (connection refused, host
-	// key mismatch), and sudo exits 126 or 127 when it cannot start the
-	// wrapper. A remote exit with one of those codes cannot be told
-	// apart from those failures, so treat it as "wrapper never ran".
-	return code != 255 && code != 126 && code != 127
-}
-
-// remoteExitStatus extracts the remote exit status reported by either
-// SSH client backend. The OpenSSH client wraps it in RcPassthroughError,
-// which also carries ssh(1)'s own exit status, while the go-crypto
-// client reports the remote exit through ExitStatus.
-func remoteExitStatus(err error) (int, bool) {
-	if rc, ok := errors.AsType[*utils.RcPassthroughError](err); ok {
-		return rc.Code, true
-	}
-	var status interface{ ExitStatus() int }
-	if errors.As(err, &status) {
-		return status.ExitStatus(), true
-	}
-	return 0, false
+	err = runCommand(ctx, cmd)
+	return ack.String() == cleanupAck+"\n", err
 }

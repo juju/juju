@@ -828,7 +828,7 @@ func (s *BootstrapSuite) TestConfigureMachineSkipsSetupWhenCancelled(c *tc.C) {
 // remote failure is preserved and no fallback cleanup reconnects.
 func (s *BootstrapSuite) TestConfigureMachineTrapCleansUpOnRemoteFailure(c *tc.C) {
 	root, logPath, err := s.runConfigureWithFakeSSH(c, "remote-fail")
-	c.Check(err, tc.ErrorMatches, "subprocess encountered error code 7")
+	c.Check(err, tc.ErrorMatches, "subprocess encountered error code 1")
 	c.Check(readSSHLog(c, logPath), tc.DeepEquals,
 		[]string{"mkdir", "stream", "setup", "trap-cleanup", "setup-end"})
 	c.Check(stagedFiles(c, root), tc.HasLen, 0)
@@ -853,6 +853,22 @@ func (s *BootstrapSuite) TestConfigureMachineFallsBackToCleanupWhenSetupNeverRun
 	c.Check(err, tc.ErrorMatches, "subprocess encountered error code 255")
 	c.Check(readSSHLog(c, logPath), tc.DeepEquals,
 		[]string{"mkdir", "stream", "cleanup"})
+	c.Check(stagedFiles(c, root), tc.HasLen, 0)
+}
+
+// sudo can return the same status as the setup script before it starts bash.
+func (s *BootstrapSuite) TestConfigureMachineFallsBackWhenSudoFails(c *tc.C) {
+	root, logPath, err := s.runConfigureWithFakeSSH(c, "sudo-fail")
+	c.Check(err, tc.ErrorMatches, "subprocess encountered error code 1")
+	c.Check(readSSHLog(c, logPath), tc.DeepEquals, []string{"mkdir", "stream", "cleanup"})
+	c.Check(stagedFiles(c, root), tc.HasLen, 0)
+}
+
+func (s *BootstrapSuite) TestConfigureMachineFallsBackWithoutAcknowledgement(c *tc.C) {
+	root, logPath, err := s.runConfigureWithFakeSSH(c, "lost-ack")
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(readSSHLog(c, logPath), tc.DeepEquals,
+		[]string{"mkdir", "stream", "setup", "trap-cleanup", "setup-end", "cleanup"})
 	c.Check(stagedFiles(c, root), tc.HasLen, 0)
 }
 
@@ -1014,16 +1030,9 @@ func (s *BootstrapSuite) newConfigureFixture(c *tc.C, mode string) configureFixt
 	return configureFixture{icfg: icfg, root: remoteRoot, logPath: logPath}
 }
 
-// fakeSetupSSHScript runs the staged-file commands against a local root
-// and emulates the setup wrapper's EXIT trap without executing the
-// machine setup itself. Each invocation appends one tag to log:
-// mkdir and stream for staging, setup, trap-cleanup and setup-end for
-// the configure run, and cleanup for a fallback cleanup connection.
-//
-// Modes: "" completes setup, "remote-fail" exits 7 from the wrapper
-// after its trap ran, "conn-fail" exits 255 as ssh(1) does when it
-// cannot connect, and "conn-fail-rm" additionally fails the fallback
-// cleanup command.
+// fakeSetupSSHScript runs the staging commands and the real setup wrapper
+// against a local root. It substitutes a harmless script for machine setup
+// and records local and fallback cleanup separately.
 func fakeSetupSSHScript(root, log, mode string) string {
 	return fmt.Sprintf(`#!/bin/bash --norc
 set -euo pipefail
@@ -1046,25 +1055,32 @@ if [[ "${args[0]}" == sudo ]]; then
 		echo 'ssh: connect to host 10.0.0.1 port 22: Connection refused' >&2
 		exit 255
 	fi
-	echo setup >> %[3]q
-	encoded="${args[-1]#*echo }"
-	encoded="${encoded%%%% | base64 -d*}"
-	encoded="$(printf '%%s' "$encoded" | tr -d "'")"
-	wrapper="$(printf '%%s' "$encoded" | base64 -d)"
-	cleanupLine="$(printf '%%s\n' "$wrapper" | sed -n 's/^[[:space:]]*if ! \(rm -rf -- .*\); then$/\1/p')"
-	cleanupLine="${cleanupLine//\/tmp\//%[1]s/}"
-	runCleanup() {
-		echo trap-cleanup >> %[3]q
-		if [[ -n "$cleanupLine" ]]; then
-			eval "$cleanupLine"
-		fi
-		echo setup-end >> %[3]q
-	}
-	trap runCleanup EXIT
-	if [[ %[2]q == remote-fail ]]; then
-		exit 7
+	if [[ %[2]q == sudo-fail ]]; then
+		exit 1
 	fi
-	exit 0
+	echo setup >> %[3]q
+	trap 'echo setup-end >> %[3]q' EXIT
+	# The wrapper uses cat to spool the configuration script.
+	cat() {
+		command cat >/dev/null
+		if [[ %[2]q == remote-fail ]]; then
+			echo 'exit 1'
+		fi
+	}
+	rm() {
+		if [[ $1 == -rf && $3 == /tmp/juju-* ]]; then
+			echo trap-cleanup >> %[3]q
+			command rm -rf -- "%[1]s/${3##*/}"
+		else
+			command rm "$@"
+		fi
+	}
+	export -f cat rm
+	if [[ %[2]q == lost-ack ]]; then
+		exec 1>/dev/null
+	fi
+	"${args[@]:1}"
+	exit
 fi
 case "${args[0]}" in
 	mkdir) echo mkdir >> %[3]q ;;

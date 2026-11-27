@@ -113,7 +113,7 @@ func (s *sshInitSuite) TestTransferErrorIncludesDiagnostics(c *tc.C) {
 func (s *sshInitSuite) TestConfigurationPreservesRemoteExitStatus(c *tc.C) {
 	const host = "ubuntu@10.0.0.1"
 	client := s.fakeSSH(c, c.MkDir(), host, "fail-setup")
-	err := sshinit.RunConfigureScriptContext(c.Context(), "exit 7", sshinit.ConfigureParams{
+	err := sshinit.RunConfigureScript("exit 7", sshinit.ConfigureParams{
 		Client: client, Host: host,
 	})
 	c.Assert(utils.IsRcPassthroughError(err), tc.IsTrue)
