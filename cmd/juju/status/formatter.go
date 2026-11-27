@@ -4,6 +4,7 @@
 package status
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"slices"
@@ -107,6 +108,12 @@ func (sf *statusFormatter) Format() (formattedStatus, error) {
 		out.Relations[i] = sf.formatRelation(rel)
 		i++
 	}
+	slices.SortStableFunc(out.Relations, func(a, b relationStatus) int {
+		if n := cmp.Compare(a.Provider, b.Provider); n != 0 {
+			return n
+		}
+		return cmp.Compare(a.Requirer, b.Requirer)
+	})
 	if sf.storage != nil {
 		out.Storage = sf.storage
 	}
