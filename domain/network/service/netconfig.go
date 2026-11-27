@@ -5,10 +5,12 @@ package service
 
 import (
 	"context"
+	"slices"
 
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/machine"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
@@ -62,11 +64,46 @@ func (s *Service) SetMachineNetConfig(ctx context.Context, mUUID machine.UUID, n
 		return errors.Errorf("checking machine %q unmanaged status: %w", mUUID, err)
 	}
 
+	nics = s.withoutFanAddresses(ctx, mUUID, nics)
+
 	if err := s.st.SetMachineNetConfig(ctx, nodeUUID, nics, addMissingSubnets); err != nil {
 		return errors.Errorf("setting net config for machine %q: %w", mUUID, err)
 	}
 
 	return nil
+}
+
+// withoutFanAddresses returns the input devices without their fan addresses.
+// Fan networking is not supported, so there is no such address scope to store,
+// but machines migrated from 3.6 keep their fan devices and report them.
+// Rejecting the whole update would stop the machine's other addresses from
+// being recorded. This matches the model import, which skips fan addresses.
+// The input is not modified.
+func (s *Service) withoutFanAddresses(
+	ctx context.Context, mUUID machine.UUID, nics []network.NetInterface,
+) []network.NetInterface {
+	result := make([]network.NetInterface, len(nics))
+	for i, nic := range nics {
+		result[i] = nic
+		if !slices.ContainsFunc(nic.Addrs, isFanAddress) {
+			continue
+		}
+
+		result[i].Addrs = make([]network.NetAddr, 0, len(nic.Addrs))
+		for _, addr := range nic.Addrs {
+			if isFanAddress(addr) {
+				s.logger.Debugf(ctx, "ignoring fan address %q on device %q for machine %q",
+					addr.AddressValue, nic.Name, mUUID)
+				continue
+			}
+			result[i].Addrs = append(result[i].Addrs, addr)
+		}
+	}
+	return result
+}
+
+func isFanAddress(addr network.NetAddr) bool {
+	return addr.Scope == corenetwork.ScopeFanLocal
 }
 
 // GetAllDevicesByMachineNames retrieves all network devices grouped by machine

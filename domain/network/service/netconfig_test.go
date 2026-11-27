@@ -143,6 +143,56 @@ func (s *netConfigSuite) TestSetMachineNetConfig(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// TestSetMachineNetConfigIgnoresFanAddresses checks that fan addresses, which
+// machines migrated from 3.6 still report, are dropped instead of failing the
+// whole update. The devices and their other addresses are kept.
+func (s *netConfigSuite) TestSetMachineNetConfigIgnoresFanAddresses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ctx := c.Context()
+
+	nUUID := "set-node-uuid"
+	mUUID, err := machine.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	ethAddr := network.NetAddr{
+		InterfaceName: "eth0",
+		AddressValue:  "10.0.0.5/16",
+		AddressType:   corenetwork.IPv4Address,
+		ConfigType:    corenetwork.ConfigDHCP,
+		Origin:        corenetwork.OriginMachine,
+		Scope:         corenetwork.ScopeCloudLocal,
+	}
+	fanAddr := network.NetAddr{
+		InterfaceName: "fan-252",
+		AddressValue:  "252.0.5.1/8",
+		AddressType:   corenetwork.IPv4Address,
+		ConfigType:    corenetwork.ConfigStatic,
+		Origin:        corenetwork.OriginMachine,
+		Scope:         corenetwork.ScopeFanLocal,
+	}
+
+	nics := []network.NetInterface{
+		{Name: "eth0", Addrs: []network.NetAddr{ethAddr}},
+		{Name: "fan-252", Addrs: []network.NetAddr{fanAddr}},
+	}
+	expected := []network.NetInterface{
+		{Name: "eth0", Addrs: []network.NetAddr{ethAddr}},
+		{Name: "fan-252", Addrs: []network.NetAddr{}},
+	}
+
+	exp := s.st.EXPECT()
+	exp.GetMachineNetNodeUUID(gomock.Any(), mUUID.String()).Return(nUUID, nil)
+	exp.IsMachineUnmanaged(gomock.Any(), mUUID.String()).Return(false, nil)
+	exp.SetMachineNetConfig(gomock.Any(), nUUID, expected, false).Return(nil)
+
+	err = s.service(c).SetMachineNetConfig(ctx, mUUID, nics)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The caller's devices are left as they were.
+	c.Check(nics[1].Addrs, tc.DeepEquals, []network.NetAddr{fanAddr})
+}
+
 func (s *netConfigSuite) TestSetMachineNetConfigUnmanagedAddsMissingSubnets(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
