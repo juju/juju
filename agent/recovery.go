@@ -10,10 +10,11 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// RecoveryParamsFile is the path, relative to the agent data directory, of the
-// marker written when a replacement controller has been allocated in recovery
-// mode. Its presence tells jujuagentd not to start the dependency engine until
-// the recovery import completes.
+// RecoveryParamsFile is the path, relative to the controller's common data
+// directory, of the marker written when a replacement controller has been
+// allocated in recovery mode. Its presence tells the controller application
+// (jujud) not to start the dependency engine until the recovery import
+// completes.
 const RecoveryParamsFile = "recovery/params"
 
 // IsRecovery reports whether dataDir holds a recovery parameters marker.

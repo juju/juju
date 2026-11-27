@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/agent"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/cmd"
 	runtimeconf "github.com/juju/juju/internal/controllerruntimeconfig"
@@ -126,6 +127,23 @@ func (c *initCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "copying bootstrap-params")
 	}
 	_, _ = fmt.Fprintf(ctx.Stdout, "Wrote %s\n", bootstrapDst)
+
+	// Stage the recovery params marker when the staged dir carries one.
+	// Recovery allocations stage an empty recovery/params file alongside
+	// the bootstrap params; fresh bootstraps do not, and its absence is
+	// normal. While the marker exists the controller application refuses
+	// to start its dependency engine.
+	recoverySrc := filepath.Join(c.stagedDir, agent.RecoveryParamsFile)
+	recoveryDst := filepath.Join(snapCommon, agent.RecoveryParamsFile)
+	_, statErr := os.Stat(recoverySrc)
+	if statErr == nil {
+		if err := copyStagedFile(recoverySrc, recoveryDst, 0o600, 0o755); err != nil {
+			return errors.Annotate(err, "copying recovery params")
+		}
+		_, _ = fmt.Fprintf(ctx.Stdout, "Wrote %s\n", recoveryDst)
+	} else if !os.IsNotExist(statErr) {
+		return errors.Annotatef(statErr, "accessing staged recovery params")
+	}
 
 	return nil
 }

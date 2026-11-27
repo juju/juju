@@ -1,0 +1,5 @@
+#!/bin/sh
+# Run recover-state under an AppArmor-safe cwd. Bootstrap "snap run" via
+# sudo inherits /home/ubuntu which strict confinement cannot getcwd.
+cd "${SNAP_COMMON:-/}" || cd /
+exec "$SNAP/bin/jujud" recover-state --data-dir "$SNAP_DATA" "$@"

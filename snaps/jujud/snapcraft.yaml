@@ -57,6 +57,15 @@ apps:
       # dqlite may listen (TLS proxy) and the API address picker probes interfaces.
       - network-bind
 
+  recover-state:
+    # Wrapper cds to $SNAP_COMMON before exec (see wrappers/jujud-recover-state).
+    command: wrappers/jujud-recover-state
+    environment:
+      JUJU_BOOTSTRAP_PARAMS_PATH: "$SNAP_COMMON/bootstrap-params"
+    plugs:
+      - network
+      - network-bind
+
   init:
     # Wrapper cds to $SNAP_COMMON before exec (see wrappers/jujud-init).
     command: wrappers/jujud-init
