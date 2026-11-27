@@ -263,6 +263,13 @@ type Flag struct {
 	Description string `db:"description" json:"description" yaml:"description"`
 }
 
+type K8sControllerService struct {
+	ControllerUUID string `db:"controller_uuid" json:"controller_uuid" yaml:"controller_uuid"`
+	ServiceType    string `db:"service_type" json:"service_type" yaml:"service_type"`
+	ExternalName   string `db:"external_name" json:"external_name" yaml:"external_name"`
+	ExternalIps    string `db:"external_ips" json:"external_ips" yaml:"external_ips"`
+}
+
 type Lease struct {
 	UUID        string     `db:"uuid" json:"uuid" yaml:"uuid"`
 	LeaseTypeID int64      `db:"lease_type_id" json:"lease_type_id" yaml:"lease_type_id"`
@@ -673,6 +680,7 @@ type ControllerExport struct {
 	ExternalControllerAddress                   []ExternalControllerAddress                   `json:"external_controller_address" yaml:"external_controller_address"`
 	ExternalModel                               []ExternalModel                               `json:"external_model" yaml:"external_model"`
 	Flag                                        []Flag                                        `json:"flag" yaml:"flag"`
+	K8sControllerService                        []K8sControllerService                        `json:"k8s_controller_service" yaml:"k8s_controller_service"`
 	Lease                                       []Lease                                       `json:"lease" yaml:"lease"`
 	LeasePin                                    []LeasePin                                    `json:"lease_pin" yaml:"lease_pin"`
 	LeaseType                                   []LeaseType                                   `json:"lease_type" yaml:"lease_type"`

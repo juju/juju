@@ -20,6 +20,7 @@ type (
 	Controller              = ctrlv4_1_0.Controller
 	ControllerConfig        = ctrlv4_1_0.ControllerConfig
 	ControllerSshServerPort = ctrlv4_1_0.ControllerSshServerPort
+	K8sControllerService    = ctrlv4_1_0.K8sControllerService
 	Model                   = ctrlv4_1_0.Model
 	ModelType               = ctrlv4_1_0.ModelType
 )

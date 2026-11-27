@@ -363,6 +363,9 @@ func (s *recoverySuite) TestRunPassesKubernetesArchiveInfoToProvisioner(c *tc.C)
 	c.Check(got.ControllerName, tc.Equals, "source-ctrl")
 	c.Check(got.CloudName, tc.Equals, "myk8s")
 	c.Check(got.CloudType, tc.Equals, "kubernetes")
+	c.Check(got.ControllerServiceType, tc.Equals, "external")
+	c.Check(got.ControllerExternalName, tc.Equals, "controller.example.com")
+	c.Check(got.ControllerExternalIPs, tc.DeepEquals, []string{"1.2.3.4", "5.6.7.8"})
 }
 
 // TestRecoveryConfigs checks that the replacement controller and
@@ -796,6 +799,9 @@ func (s *recoverySuite) TestProvisionRecoveryKubernetes(c *tc.C) {
 	c.Check(broker.podConfig.Bootstrap.StateInitializationParams.RecoveryMode, tc.IsTrue)
 	c.Check(broker.podConfig.JujuVersion, tc.Equals, info.AgentVersion)
 	c.Check(broker.podConfig.Bootstrap.ControllerCloudCredentialName, tc.Equals, "k8s-cred")
+	c.Check(broker.podConfig.Bootstrap.ControllerServiceType, tc.Equals, info.ControllerServiceType)
+	c.Check(broker.podConfig.Bootstrap.ControllerExternalName, tc.Equals, info.ControllerExternalName)
+	c.Check(broker.podConfig.Bootstrap.ControllerExternalIPs, tc.DeepEquals, info.ControllerExternalIPs)
 	c.Check(broker.podConfig.Bootstrap.Timeout, tc.Equals, recoveryAllocationTimeout)
 }
 
@@ -858,17 +864,20 @@ func validKubernetesArchiveInfo(
 	storagePools map[string]internalstorage.Attrs,
 ) *recovery.ArchiveInfo {
 	return &recovery.ArchiveInfo{
-		ControllerUUID:        "c0ffee00-1111-2222-3333-444455556666",
-		ControllerName:        "source-ctrl",
-		ControllerModelUUID:   "c0ffee00-aaaa-2222-3333-444455556666",
-		CACert:                coretesting.CACert,
-		CAPrivateKey:          coretesting.CAKey,
-		AgentVersion:          version.Current,
-		CloudName:             "myk8s",
-		CloudType:             jujucloud.CloudTypeKubernetes,
-		ModelConstraints:      constraints.MustParse("mem=2048"),
-		ControllerConstraints: constraints.MustParse("arch=arm64"),
-		StoragePools:          storagePools,
+		ControllerUUID:         "c0ffee00-1111-2222-3333-444455556666",
+		ControllerName:         "source-ctrl",
+		ControllerModelUUID:    "c0ffee00-aaaa-2222-3333-444455556666",
+		CACert:                 coretesting.CACert,
+		CAPrivateKey:           coretesting.CAKey,
+		AgentVersion:           version.Current,
+		CloudName:              "myk8s",
+		CloudType:              jujucloud.CloudTypeKubernetes,
+		ModelConstraints:       constraints.MustParse("mem=2048"),
+		ControllerConstraints:  constraints.MustParse("arch=arm64"),
+		StoragePools:           storagePools,
+		ControllerServiceType:  "external",
+		ControllerExternalName: "controller.example.com",
+		ControllerExternalIPs:  []string{"1.2.3.4", "5.6.7.8"},
 	}
 }
 
@@ -1046,6 +1055,15 @@ func recoveryArchiveForControllerModel(
 		`"ControllerMachineID":"0",` +
 		`"ControllerMachineInstanceID":"inst-10101010"` +
 		`}` + "\n"
+	serviceDump := ""
+	if cloudType == jujucloud.CloudTypeKubernetes {
+		serviceDump = `  k8s_controller_service:
+  - controller_uuid: ` + controllerUUID + `
+    service_type: external
+    external_name: controller.example.com
+    external_ips: 1.2.3.4,5.6.7.8
+`
+	}
 	controllerDump := `version: 4.1.0
 payload:
   controller:
@@ -1053,7 +1071,7 @@ payload:
     model_uuid: ` + controllerModelUUID + `
     ca_cert: source-ca-cert
     ca_private_key: source-ca-key
-  cloud:
+` + serviceDump + `  cloud:
   - uuid: cloud-source
     name: ` + cloudName + `
     cloud_type_id: 1

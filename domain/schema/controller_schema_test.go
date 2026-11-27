@@ -130,6 +130,9 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 		"controller",
 		"controller_config",
 
+		// Kubernetes controller service bootstrap configuration
+		"k8s_controller_service",
+
 		// Password hash algorithm for controller nodes
 		"password_hash_algorithm",
 

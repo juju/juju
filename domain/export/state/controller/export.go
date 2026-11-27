@@ -200,6 +200,10 @@ FROM   "flag" AS t`, v4_1_0.Flag{}, nullableFlag{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Flag statement: %w", err)
 	}
+	stmtK8sControllerService, err := sqlair.Prepare(`SELECT &K8sControllerService.* FROM "k8s_controller_service"`, v4_1_0.K8sControllerService{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing K8sControllerService statement: %w", err)
+	}
 	stmtLease, err := sqlair.Prepare(`SELECT &Lease.*,
        t."start" IS NULL AS &nullableLease.start_is_null,
        t."expiry" IS NULL AS &nullableLease.expiry_is_null
@@ -581,6 +585,9 @@ FROM   "upgrade_info_controller_node" AS t`, v4_1_0.UpgradeInfoControllerNode{},
 			if nulls.ValueIsNull {
 				controllerExport.Flag[i].Value = nil
 			}
+		}
+		if err := tx.Query(ctx, stmtK8sControllerService).GetAll(&controllerExport.K8sControllerService); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying K8sControllerService (table k8s_controller_service): %w", err)
 		}
 		var nullableLeaseRows []nullableLease
 		if err := tx.Query(ctx, stmtLease).GetAll(&controllerExport.Lease, &nullableLeaseRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {

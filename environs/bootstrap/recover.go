@@ -157,6 +157,13 @@ type K8sRecoveryParams struct {
 	// allocate the replacement.
 	CloudCredentialName string
 
+	// ControllerServiceType, ControllerExternalName and ControllerExternalIPs
+	// are the archived controller Service bootstrap configuration. Empty
+	// values mean the cloud default service spec.
+	ControllerServiceType  string
+	ControllerExternalName string
+	ControllerExternalIPs  []string
+
 	// DialOpts carries the timeout for the replacement deployment.
 	DialOpts environs.BootstrapDialOpts
 }
@@ -188,12 +195,15 @@ func (p K8sRecoveryParams) Validate() error {
 // configuration view the shared Kubernetes finalisation helpers consume.
 func (p K8sRecoveryParams) bootstrapParams() BootstrapParams {
 	return BootstrapParams{
-		AllocationParams:    p.AllocationParams,
-		AgentVersion:        &p.AgentVersion,
-		CAPrivateKey:        p.CAPrivateKey,
-		AdminSecret:         p.AdminSecret,
-		CloudCredentialName: p.CloudCredentialName,
-		DialOpts:            p.DialOpts,
+		AllocationParams:       p.AllocationParams,
+		AgentVersion:           &p.AgentVersion,
+		CAPrivateKey:           p.CAPrivateKey,
+		AdminSecret:            p.AdminSecret,
+		CloudCredentialName:    p.CloudCredentialName,
+		ControllerServiceType:  p.ControllerServiceType,
+		ControllerExternalName: p.ControllerExternalName,
+		ControllerExternalIPs:  append([]string(nil), p.ControllerExternalIPs...),
+		DialOpts:               p.DialOpts,
 	}
 }
 

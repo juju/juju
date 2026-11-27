@@ -282,7 +282,16 @@ func (b *AgentBootstrap) prepareFreshState(
 		modelconfigbootstrap.SetModelConfig(
 			controllerModelUUID, stateParams.ControllerModelConfig.AllAttrs(), controllerModelDefaults),
 	}
-	if !isK8s {
+	if isK8s {
+		databaseBootstrapOptions = append(databaseBootstrapOptions,
+			controllerbootstrap.InsertInitialControllerService(
+				controllerUUID.String(),
+				stateParams.ControllerServiceType,
+				stateParams.ControllerExternalName,
+				stateParams.ControllerExternalIPs,
+			),
+		)
+	} else {
 		databaseBootstrapOptions = append(databaseBootstrapOptions,
 			cloudimagemetadatabootstrap.AddCustomImageMetadata(
 				b.clock, stateParams.ControllerModelConfig.ImageStream(), stateParams.CustomImageMetadata),

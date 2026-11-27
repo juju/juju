@@ -31,6 +31,13 @@ import (
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
+const (
+	testControllerServiceType  = "external"
+	testControllerExternalName = "controller.example.com"
+)
+
+var testControllerExternalIPs = []string{"1.2.3.4", "5.6.7.8"}
+
 type freshStateSuite struct {
 	schematesting.ControllerModelSuite
 }
@@ -97,6 +104,26 @@ func (s *freshStateSuite) assertFreshState(c *tc.C, cloudType string, modelType 
 		c.Check(gotControllerUUID, tc.Equals, jujutesting.ControllerTag.Id())
 		c.Check(gotType, tc.Equals, modelType.String())
 		c.Check(isController, tc.IsTrue)
+
+		switch modelType {
+		case coremodel.CAAS:
+			var gotControllerUUID, gotType, gotName, gotIPs string
+			err = s.DB().QueryRow(`
+SELECT controller_uuid, service_type, external_name, external_ips
+FROM k8s_controller_service`).Scan(
+				&gotControllerUUID, &gotType, &gotName, &gotIPs,
+			)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(gotControllerUUID, tc.Equals, jujutesting.ControllerTag.Id())
+			c.Check(gotType, tc.Equals, testControllerServiceType)
+			c.Check(gotName, tc.Equals, testControllerExternalName)
+			c.Check(gotIPs, tc.Equals, "1.2.3.4,5.6.7.8")
+		default:
+			var count int
+			err = s.DB().QueryRow("SELECT COUNT(*) FROM k8s_controller_service").Scan(&count)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(count, tc.Equals, 0)
+		}
 		return nil
 	}
 
@@ -180,18 +207,24 @@ func (s *freshStateSuite) newBootstrap(c *tc.C, cloudType string) (*AgentBootstr
 	cfg.SetPassword("agent-before")
 	hostKey, err := pkissh.NewMarshalledED25519()
 	c.Assert(err, tc.ErrorIsNil)
+	stateParams := instancecfg.StateInitializationParams{
+		ControllerConfig: jujutesting.FakeControllerConfig(),
+		ControllerModelConfig: jujutesting.CustomModelConfig(c, jujutesting.Attrs{
+			"name": "controller", "uuid": modelUUID.String(), "type": cloudType,
+			"agent-version": jujuversion.Current.String(),
+		}),
+		ControllerCloud:  cloud.Cloud{Name: "test-cloud", Type: cloudType, AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType}},
+		SSHServerHostKey: string(hostKey),
+	}
+	if cloudType == cloud.CloudTypeKubernetes {
+		stateParams.ControllerServiceType = testControllerServiceType
+		stateParams.ControllerExternalName = testControllerExternalName
+		stateParams.ControllerExternalIPs = append([]string(nil), testControllerExternalIPs...)
+	}
 	b, err := NewAgentBootstrap(AgentBootstrapArgs{
 		AdminUser: names.NewLocalUserTag("admin"), AgentConfig: cfg,
-		BootstrapEnviron: stubBootstrapEnviron{},
-		StateInitialisationParams: instancecfg.StateInitializationParams{
-			ControllerConfig: jujutesting.FakeControllerConfig(),
-			ControllerModelConfig: jujutesting.CustomModelConfig(c, jujutesting.Attrs{
-				"name": "controller", "uuid": modelUUID.String(), "type": cloudType,
-				"agent-version": jujuversion.Current.String(),
-			}),
-			ControllerCloud:  cloud.Cloud{Name: "test-cloud", Type: cloudType, AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType}},
-			SSHServerHostKey: string(hostKey),
-		},
+		BootstrapEnviron:          stubBootstrapEnviron{},
+		StateInitialisationParams: stateParams,
 		BootstrapDqlite: func(context.Context, database.BootstrapNodeManager, string, coremodel.UUID, corelogger.Logger, ...database.BootstrapOpt) error {
 			c.Fatal("unexpected database initialisation")
 			return nil

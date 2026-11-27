@@ -296,7 +296,10 @@ func k8sRecoveryParamsFromArchive(info *recovery.ArchiveInfo) (bootstrap.K8sReco
 			StoragePools:            cloneStoragePools(info.StoragePools),
 			SupportedBootstrapBases: base.ControllerBases(),
 		},
-		AgentVersion: info.AgentVersion,
+		AgentVersion:           info.AgentVersion,
+		ControllerServiceType:  info.ControllerServiceType,
+		ControllerExternalName: info.ControllerExternalName,
+		ControllerExternalIPs:  append([]string(nil), info.ControllerExternalIPs...),
 	}, nil
 }
 
