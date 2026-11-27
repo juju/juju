@@ -156,9 +156,9 @@ func (s *ProviderService) ReloadSpaces(ctx context.Context) error {
 	if err != nil {
 		return errors.Capture(err)
 	}
-	// TODO(nvinuesa): Here, the alpha space is scaffolding, it should be
-	// replaced with the model's default space.
-	return errors.Capture(s.saveProviderSubnets(ctx, subnets, network.AlphaSpaceId))
+	// An empty space UUID preserves existing space assignments. New subnets
+	// default to the alpha space in state.
+	return errors.Capture(s.saveProviderSubnets(ctx, subnets, ""))
 }
 
 // SaveProviderSubnets loads subnets into state.
@@ -205,7 +205,7 @@ func (s *ProviderService) upsertProviderSubnets(ctx context.Context, subnetsToUp
 		}
 
 	}
-	if err := s.st.UpsertSubnets(ctx, subnetsToUpsert); err != nil && !errors.Is(err, coreerrors.AlreadyExists) {
+	if err := s.st.UpsertSubnets(ctx, subnetsToUpsert); err != nil {
 		return errors.Capture(err)
 	}
 	return nil

@@ -98,8 +98,11 @@ type SubnetState interface {
 	UpdateSubnet(ctx context.Context, uuid string, spaceID network.SpaceUUID) error
 	// DeleteSubnet deletes the subnet identified by the passed uuid.
 	DeleteSubnet(ctx context.Context, uuid string) error
-	// UpsertSubnets updates or adds each one of the provided subnets in one
-	// transaction.
+	// UpsertSubnets reconciles and adds subnets in one transaction. Existing
+	// subnets are matched by provider ID or CIDR and provider network.
+	// SubnetInfo.ID is used for inserts; use UpdateSubnet for direct UUID-based
+	// space updates. An empty SpaceID preserves an existing subnet's space and
+	// defaults a new subnet to the alpha space.
 	UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo) error
 	// AllSubnetsQuery returns the SQL query that finds all subnet UUIDs from the
 	// subnet table, needed for the subnets watcher.
