@@ -132,6 +132,53 @@ def on_config_changed(event):
 	})
 }
 
+// TestHandleYieldsFreshCollectorsPerEvent asserts that each event gets
+// independently minted collectors, so state recorded while handling one
+// event does not leak into the next.
+func (s *starformSuite) TestHandleYieldsFreshCollectorsPerEvent(c *tc.C) {
+	executor, err := NewStarformExecutor(c.Context(), ExecutorConfig{
+		Scriptlet: domainunitless.ScriptletApplication{
+			Sources: []domainunitless.ScriptSource{{
+				LoadPath: "hooks.star",
+				Source: `
+def init():
+    juju.observe("config_changed", on_config_changed)
+    juju.observe("update_status", on_update_status)
+
+def on_config_changed(event):
+    juju.set_status("active", message="updated")
+
+def on_update_status(event):
+    pass
+`,
+			}},
+		},
+		MaxAllocs:   defaultMaxAllocs,
+		MaxSteps:    defaultMaxSteps,
+		MaxDuration: defaultMaxDuration,
+		Logger:      NewStarformLogAdapter(newRecordingLogger()),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	first, err := executor.Handle(c.Context(), domainunitless.Event{Name: "config_changed"})
+	c.Assert(err, tc.ErrorIsNil)
+	second, err := executor.Handle(c.Context(), domainunitless.Event{Name: "update_status"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The status set while handling the first event reaches its own
+	// collectors, and the second event's collectors start from zero.
+	c.Check(scriptlet.IntentCollector[*scriptlet.StatusCollector](first), tc.DeepEquals, &scriptlet.StatusCollector{
+		Status:  "active",
+		Message: "updated",
+	})
+	c.Check(scriptlet.IntentCollector[*scriptlet.StatusCollector](second), tc.DeepEquals, &scriptlet.StatusCollector{})
+	// Minting the second event's collectors left the first's untouched.
+	c.Check(scriptlet.IntentCollector[*scriptlet.StatusCollector](first), tc.DeepEquals, &scriptlet.StatusCollector{
+		Status:  "active",
+		Message: "updated",
+	})
+}
+
 func (s *starformSuite) TestHandleScriptErrorDiscardsCollectors(c *tc.C) {
 	executor, err := NewStarformExecutor(c.Context(), ExecutorConfig{
 		Scriptlet: domainunitless.ScriptletApplication{

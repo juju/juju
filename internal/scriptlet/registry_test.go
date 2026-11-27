@@ -86,17 +86,27 @@ func (s *scriptletSuite) TestIntentCollectorDuplicatePanics(c *tc.C) {
 		tc.PanicMatches, `intent collector already registered \*scriptlet\.testCollector`)
 }
 
+// TestIntentCollectorsFreezes asserts that the first IntentCollectors
+// call freezes the registry against further collector registration
+// through either registration method.
+func (s *scriptletSuite) TestIntentCollectorsFreezes(c *tc.C) {
+	registry := &EnvRegistry{}
+	registry.IntentCollectors()
+
+	c.Check(func() {
+		registry.AddIntentCollector(testCollector{})
+	}, tc.PanicMatches, ".*frozen.*")
+	c.Check(func() {
+		registry.AddIntentCollectorFunc(func() any { return &testCollector{} })
+	}, tc.PanicMatches, ".*frozen.*")
+}
+
 func (s *scriptletSuite) TestRegistryAddIntentCollectorPanics(c *tc.C) {
 	registry := &EnvRegistry{}
 	c.Check(func() { registry.AddIntentCollector(&StatusCollector{}) },
 		tc.PanicMatches, ".*must be a struct.*")
 	c.Check(func() { registry.AddIntentCollector(StatusCollector{Status: "active"}) },
 		tc.PanicMatches, ".*must have zero value.*")
-
-	registry.AddIntentCollector(StatusCollector{})
-	registry.IntentCollectors()
-	c.Check(func() { registry.AddIntentCollector(StatusCollector{}) },
-		tc.PanicMatches, ".*frozen.*")
 }
 
 type testCollector struct {

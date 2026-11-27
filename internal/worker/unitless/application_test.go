@@ -664,6 +664,69 @@ def on_config_changed(event):
 	fixture.assertWatchersStopped(c)
 }
 
+// TestScriptletWithoutSetStatusAppliesNoIntent asserts that an event whose
+// scriptlet runs successfully without calling set-status sets no status
+// and logs no intent.
+func (s *applicationRunnerSuite) TestScriptletWithoutSetStatusAppliesNoIntent(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Drive the real Starform executor so the empty collector is produced
+	// by the set-status builtin environment, not stubbed by a fake executor.
+	s.application.Sources = []domainunitless.ScriptSource{{
+		LoadPath: "hooks.star",
+		Source: `
+def init():
+    juju.observe("config_changed", on_config_changed)
+    juju.observe("update_status", on_update_status)
+
+def on_config_changed(event):
+    pass
+
+def on_update_status(event):
+    juju.set_status("active", message="updated")
+`,
+	}}
+	fixture := s.expectRunningApplication(c)
+	// Exactly one status set is expected, from the update_status event; a
+	// second call fails the mock at the end of the test.
+	statuses := make(chan corestatus.StatusInfo, 1)
+	s.statusService.EXPECT().SetApplicationStatusByUUID(gomock.Any(), s.application.UUID, gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ coreapplication.UUID, info corestatus.StatusInfo) error {
+			statuses <- info
+			return nil
+		}).
+		Times(1)
+	s.config.NewExecutor = func(ctx context.Context, config ExecutorConfig) (Executor, error) {
+		fixture.executorConfigs <- config
+		return NewStarformExecutor(ctx, config)
+	}
+
+	noStatus := domainunitless.Event{Name: "config_changed"}
+	withStatus := domainunitless.Event{Name: "update_status"}
+	gomock.InOrder(
+		s.scriptletService.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, noStatus.Name).Return(noStatus, nil),
+		s.scriptletService.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, withStatus.Name).Return(withStatus, nil),
+	)
+	runner := s.startRunner(c)
+	defer workertest.CleanKill(c, runner)
+
+	waitFor(c, fixture.executorConfigs)
+
+	// Both events are handled in dispatch order, so waiting for the
+	// status of the second proves the first was already applied.
+	fixture.eventChanges <- []string{noStatus.Name.String(), withStatus.Name.String()}
+	info := waitFor(c, statuses)
+	c.Check(info.Status, tc.Equals, corestatus.Active)
+	c.Check(info.Message, tc.Equals, "updated")
+
+	workertest.CleanKill(c, runner)
+	fixture.assertWatchersStopped(c)
+	// Only the update_status event logged an intent and set the status;
+	// the config_changed event skipped both.
+	c.Check(strings.Count(s.logMessages(), "intent: set-status"), tc.Equals, 1)
+}
+
 func (s *applicationRunnerSuite) TestExecutorErrorContinuesAndSetsBlockedStatus(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()

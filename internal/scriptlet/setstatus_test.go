@@ -46,6 +46,28 @@ def on_config_changed(event):
 	})
 }
 
+// TestSetStatusMessageOptional asserts that the message kwarg may be
+// omitted, leaving the collected message empty.
+func (s *scriptletSuite) TestSetStatusMessageOptional(c *tc.C) {
+	collectors := newTestEnv().IntentCollectors()
+	ft := formtest.From(c)
+	ft.SetApp(app())
+	ft.SetEvent(&starform.EventObject{
+		Name:  "config_changed",
+		State: collectors,
+	})
+
+	ft.RunString(`
+def init():
+    juju.observe("config_changed", on_config_changed)
+
+def on_config_changed(event):
+    juju.set_status("active")
+`)
+
+	c.Check(IntentCollector[*StatusCollector](collectors).Status, tc.Equals, "active")
+}
+
 func (s *scriptletSuite) TestSetStatusUnobservedEventHasNoIntent(c *tc.C) {
 	collectors := newTestEnv().IntentCollectors()
 	ft := formtest.From(c)
