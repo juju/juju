@@ -325,7 +325,7 @@ See more: {ref}`command-juju-find-offers`
 ### Consume an offer
 
 ```{ibnote}
-See also: {ref}`Consuming an offer <consuming-an-offer>`
+See also: {ref}`Consuming an offer <consuming-an-offer>`, {ref}`SAAS application names <saas-application-names>`
 ```
 
 To consume an offer, run the `consume` command followed by the offer URL. This creates a SAAS application for the offer in your model. For example:
@@ -347,7 +347,7 @@ If the offer is on another controller, put the controller name and a colon in fr
 juju consume prod:admin/default.hosted-mysql
 ```
 
-To check which offers the consuming model has consumed, run `juju status`. In the SAAS section, match the offering controller (`Store`) and offer URL to the local name (`SAAS`).
+To check which offers the consuming model has consumed, run `juju status`. In the SAAS section, match the offering controller (`Store`) and offer URL to the local name (`SAAS`). Use that name to {ref}`inspect the SAAS application <view-a-saas-application>`.
 
 ```text
 juju status
@@ -374,7 +374,7 @@ To integrate an application in your model with an offer, run the `integrate` com
 juju integrate mediawiki admin/default.hosted-mysql
 ```
 
-Given an offer URL, `integrate` first consumes the offer and then adds the relation. If the relation then fails, the SAAS application stays in your model: integrate with it again, or remove it.
+Given an offer URL, `integrate` first consumes the offer and then adds the relation. If the relation then fails, the SAAS application stays in your model: integrate with it again, or {ref}`remove it <remove-a-saas-application>`.
 
 If you consumed the offer under another name, integrate with that name, not with the offer URL:
 

@@ -60,7 +60,7 @@ Clouds provide the compute resources for your infrastructure, and Juju needs cre
 
 ## Models and applications
 
-Within a controller, deployments are organized into models -- logical containers for applications, infrastructure, and their supporting components. Each model draws resources from a single cloud. Models contain applications deployed from charms or bundles and composed of units. Applications connect to each other through relations, and offers enable cross-model relations. Applications are configured through configuration, secrets, actions, and scripts, and charms may require resources.
+Within a controller, deployments are organized into models -- logical containers for applications, infrastructure, and their supporting components. Each model draws resources from a single cloud. Models contain applications deployed from charms or bundles and composed of units. Applications connect to each other through relations, and offers, consumed in other models as SAAS applications, enable cross-model relations. Applications are configured through configuration, secrets, actions, and scripts, and charms may require resources.
 
 - {ref}`model`
 - {ref}`charm`
@@ -69,6 +69,7 @@ Within a controller, deployments are organized into models -- logical containers
 - {ref}`unit`
 - {ref}`relation`
 - {ref}`offer`
+- {ref}`saas-application`
 - {ref}`configuration`
 - {ref}`charm-resource`
 - {ref}`secret`

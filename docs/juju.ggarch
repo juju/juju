@@ -72,6 +72,18 @@ model "Juju" {
       offer_saas     [type: entity, label: "SAAS application"]
       offer_consumer [type: entity, label: "Application"]
     }
+    // SAAS application: one offer consumed in two models. Each consuming
+    // model holds one SAAS application for the offer, and every application
+    // there that integrates with the offer does so through it.
+    saas_consuming_model_1 [type: entity, label: "Consuming model", abstracts: "model", padding: compact] {
+      saas_one       [type: entity, label: "SAAS application"]
+      saas_one_app_1 [type: entity, label: "Application"]
+      saas_one_app_2 [type: entity, label: "Application"]
+    }
+    saas_consuming_model_2 [type: entity, label: "Another consuming model", abstracts: "model", padding: compact] {
+      saas_two     [type: entity, label: "SAAS application"]
+      saas_two_app [type: entity, label: "Application"]
+    }
     // Removing an offer: the actor, and the controllers of the two models
     // (they can be one). The person glyph says the admin is a user.
     offer_admin          [type: person,        label: "Offering\nmodel's admin"]
@@ -130,6 +142,11 @@ model "Juju" {
     offer_ctrl_consuming -> offer_ctrl_offering [type: stream]
     offer_consumer_user  -> client               [type: api]
     client               -> offer_ctrl_consuming [type: api]
+    offer                 -> saas_one       [type: control, label: "consumed as"]
+    offer                 -> saas_two       [type: control, label: "consumed as"]
+    saas_one              -> saas_one_app_1 [type: control, label: "integrated with"]
+    saas_one              -> saas_one_app_2 [type: control, label: "integrated with"]
+    saas_two              -> saas_two_app   [type: control, label: "integrated with"]
 
     // The insight
     user         -> juju              [type: api,     label: "declares intent to"]
@@ -365,6 +382,28 @@ diagram "Offer across models" from "Juju" {
 }
 
 sequence "Offer removal" from "Juju" { select { behaviour: "remove-offer" } }
+
+diagram "SAAS application across models" from "Juju" {
+  select {
+    nodes: offer_offering_model offer saas_consuming_model_1 saas_consuming_model_2
+    edges: type control
+    sizing: natural
+    routing: orthogonal
+  }
+  positions {
+    offer align-centre offer_offering_model
+    offer align-middle offer_offering_model
+    saas_one align-middle saas_consuming_model_1
+    saas_two align-middle saas_consuming_model_2
+    fan [saas_consuming_model_1 saas_consuming_model_2] right-of offer_offering_model gap: 90
+    saas_consuming_model_2 below saas_consuming_model_1 gap: 30
+    saas_consuming_model_2 align-centre saas_consuming_model_1
+    fan [saas_one_app_1 saas_one_app_2] right-of saas_one gap: 150
+    saas_two_app right-of saas_two gap: 150
+    saas_two_app align-middle saas_two
+  }
+  emphasize { focus [saas_one saas_two] }
+}
 
 sequence "Consuming an offer" from "Juju" { select { behaviour: "consume" } }
 
