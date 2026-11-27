@@ -39,8 +39,7 @@ type ModelState interface {
 	// application.
 	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
-	// GetApplicationNameByUUID returns the name of the application with the
-	// given UUID.
+	// GetApplicationNameByUUID returns the given application's name.
 	GetApplicationNameByUUID(ctx context.Context, applicationID string) (string, error)
 
 	// GetApplicationUUIDAndNameByUnitName returns the application UUID and name
@@ -315,10 +314,8 @@ func (s *Service) SetApplicationStatus(
 	return nil
 }
 
-// SetApplicationStatusByUUID validates and sets the status of the application
-// with the given UUID, overwriting any current status data. It returns an
-// error satisfying [applicationerrors.ApplicationNotFound] if the
-// application doesn't exist.
+// SetApplicationStatusByUUID sets the given application's status, overwriting
+// current data. Returns [applicationerrors.ApplicationNotFound] if absent.
 func (s *Service) SetApplicationStatusByUUID(
 	ctx context.Context,
 	applicationUUID coreapplication.UUID,

@@ -10,10 +10,9 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 )
 
-// ApplicationStatusService sets the status of scriptlet applications.
+// ApplicationStatusService sets the status of unitless applications.
 type ApplicationStatusService interface {
-	// SetApplicationStatusByUUID sets the status of the application with the
-	// given UUID, overwriting any current status data.
+	// SetApplicationStatusByUUID sets the given application's status.
 	SetApplicationStatusByUUID(
 		ctx context.Context,
 		applicationUUID coreapplication.UUID,

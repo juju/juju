@@ -191,9 +191,8 @@ func (st *ModelState) GetApplicationUUIDByName(ctx context.Context, name string)
 	return id, nil
 }
 
-// GetApplicationNameByUUID returns the name of the application with the
-// given UUID. If no application is found, an error satisfying
-// [applicationerrors.ApplicationNotFound] is returned.
+// GetApplicationNameByUUID returns the given application's name, or
+// [applicationerrors.ApplicationNotFound] if none is found.
 func (st *ModelState) GetApplicationNameByUUID(
 	ctx context.Context,
 	applicationID string,
