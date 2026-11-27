@@ -24,23 +24,21 @@ import (
 )
 
 const listCommandDoc = `
-List information about applications' endpoints that have been shared and who is connected.
+List offers in the selected model. The optional name matches any offer name
+containing that text. To inspect one exact offer, use ` + "`juju show-offer`" + `.
 
-The default tabular output shows each user connected (relating to) the offer, and the
-relation id of the relation.
+The default table shows one row per connection, with its user, relation ID
+and status. An offer without connections has a dash in the User column.
+In ` + "`--format summary`" + `, each endpoint has a row. Connected shows joined
+connections over total connections for the offer, not for the endpoint.
+YAML and JSON also include the consuming model UUID for each connection.
 
-The summary output shows one row per offer, with a count of active/total relations.
+To check which offers a user is connected to, read the User column in
+the default table. To check an offer's grants, use ` + "`--format yaml`" + `.
 
-The YAML output shows additional information about the source of connections, including
-the source model UUID.
+Further reading:
 
-The output can be filtered by:
- - interface: the interface name of the endpoint
- - application: the name of the offered application
- - connected user: the name of a user who has a relation to the offer
- - allowed consumer: the name of a user allowed to consume the offer
- - active only: only show offers which are in use (are related to)
-
+- https://canonical.com/juju/docs/juju-cli/latest/reference/offer/
 `
 
 const listCommandExamples = `
@@ -48,7 +46,7 @@ const listCommandExamples = `
     juju offers -m model
     juju offers --interface db2
     juju offers --application mysql
-    juju offers --connected-user fred
+    juju offers --format summary
     juju offers --allowed-consumer mary
     juju offers hosted-mysql
     juju offers hosted-mysql --active-only
@@ -108,7 +106,7 @@ func (c *listCommand) Info() *cmd.Info {
 		Name:     "offers",
 		Args:     "[<offer-name>]",
 		Aliases:  []string{"list-offers"},
-		Purpose:  "Lists shared endpoints.",
+		Purpose:  "List offers in a model and their connections.",
 		Doc:      listCommandDoc,
 		Examples: listCommandExamples,
 		SeeAlso: []string{
@@ -123,9 +121,9 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.applicationName, "application", "", "Return results matching the application")
 	f.StringVar(&c.interfaceName, "interface", "", "Return results matching the interface name")
-	f.StringVar(&c.consumerName, "allowed-consumer", "", "Return results where the user is allowed to consume the offer")
-	f.StringVar(&c.connectedUserName, "connected-user", "", "Return results where the user has a connection to the offer")
-	f.BoolVar(&c.activeOnly, "active-only", false, "Only return results where the offer is in use")
+	f.StringVar(&c.consumerName, "allowed-consumer", "", "Match offers on which the user has a consume or admin grant")
+	f.StringVar(&c.connectedUserName, "connected-user", "", "Not applied by a Juju 4.1 controller; see the User column")
+	f.BoolVar(&c.activeOnly, "active-only", false, "Show only offers with at least one connection, even if none are joined")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
