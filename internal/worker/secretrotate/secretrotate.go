@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/worker/secrettriggerschedule"
 )
 
 // logger is here to stop the desire of creating a package level logger.
@@ -25,7 +26,8 @@ var _ logger = struct{}{}
 
 // Logger represents the methods used by the worker to log information.
 type Logger interface {
-	Debugf(string, ...interface{})
+	Infof(string, ...any)
+	Debugf(string, ...any)
 }
 
 // SecretManagerFacade instances provide a watcher for secret rotation changes.
@@ -83,11 +85,13 @@ func New(config Config) (worker.Worker, error) {
 type secretRotateInfo struct {
 	URI        *secrets.URI
 	rotateTime time.Time
-	whenFunc   func(rotateTime time.Time) time.Duration
 }
 
 func (s secretRotateInfo) GoString() string {
-	return fmt.Sprintf("%s rotation: in %v at %s", s.URI.ID, s.whenFunc(s.rotateTime), s.rotateTime.Format(time.RFC3339))
+	return fmt.Sprintf(
+		"%s rotation: at %s",
+		s.URI.ID, s.rotateTime.Format(time.RFC3339),
+	)
 }
 
 // Worker fires events when secrets should be rotated.
@@ -112,6 +116,9 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop() (err error) {
+	defer func() {
+		secrettriggerschedule.Stop(w.timer)
+	}()
 	changes, err := w.config.SecretManagerFacade.WatchSecretsRotationChanges(w.config.SecretOwners...)
 	if err != nil {
 		return errors.Trace(err)
@@ -140,19 +147,28 @@ func (w *Worker) loop() (err error) {
 
 func (w *Worker) rotate(now time.Time) {
 	w.config.Logger.Debugf("processing secret rotation for %q at %s", w.config.SecretOwners, now)
+	// The active timer has fired and is no longer armed until
+	// computeNextRotateTime schedules the next deadline.
+	w.nextTrigger = time.Time{}
 
 	var toRotate []string
 	for id, info := range w.secrets {
-		w.config.Logger.Debugf("checking %s: rotate at %s... time diff %s", id, info.rotateTime, info.rotateTime.Sub(now))
-		// A one minute granularity is acceptable for secret rotation.
-		if info.rotateTime.Truncate(time.Minute).Before(now) {
-			w.config.Logger.Debugf("rotating %s", info.URI.String())
-			toRotate = append(toRotate, info.URI.String())
-			// Once secret has been queued for rotation, delete it here since
-			// it will re-appear via the watcher after the rotation is actually
-			// performed and the last rotated time is updated.
-			delete(w.secrets, id)
+		w.config.Logger.Debugf(
+			"checking %s: rotate at %s... time diff %s",
+			id, info.rotateTime, info.rotateTime.Sub(now),
+		)
+		if info.rotateTime.After(now) {
+			continue
 		}
+		w.config.Logger.Infof(
+			"firing secret rotation for %s at %s (scheduled %s)",
+			info.URI.String(), now, info.rotateTime,
+		)
+		toRotate = append(toRotate, info.URI.String())
+		// Once secret has been queued for rotation, delete it here since
+		// it will re-appear via the watcher after the rotation is actually
+		// performed and the last rotated time is updated.
+		delete(w.secrets, id)
 	}
 
 	if len(toRotate) > 0 {
@@ -181,7 +197,6 @@ func (w *Worker) handleSecretRotateChanges(changes []watcher.SecretTriggerChange
 		w.secrets[ch.URI.ID] = secretRotateInfo{
 			URI:        ch.URI,
 			rotateTime: ch.NextTriggerTime,
-			whenFunc:   func(rotateTime time.Time) time.Duration { return rotateTime.Sub(w.config.Clock.Now()) },
 		}
 	}
 	w.computeNextRotateTime()
@@ -190,49 +205,17 @@ func (w *Worker) handleSecretRotateChanges(changes []watcher.SecretTriggerChange
 func (w *Worker) computeNextRotateTime() {
 	w.config.Logger.Debugf("computing next rotated time for secrets %#v", w.secrets)
 
-	if len(w.secrets) == 0 {
-		w.timer = nil
-		return
-	}
-
-	// Find the minimum (next) rotateTime from all the secrets.
-	var soonestRotateTime time.Time
-	for _, info := range w.secrets {
-		if !soonestRotateTime.IsZero() && info.rotateTime.After(soonestRotateTime) {
-			continue
-		}
-		soonestRotateTime = info.rotateTime
-	}
-	// There's no need to start or reset the timer if there's no changes to make.
-	if soonestRotateTime.IsZero() || w.nextTrigger == soonestRotateTime {
-		return
-	}
-
-	// Account for the worker not running when a secret
-	// should have been rotated.
-	now := w.config.Clock.Now()
-	if soonestRotateTime.Before(now) {
-		soonestRotateTime = now
-	}
-
-	nextDuration := soonestRotateTime.Sub(now)
-	w.config.Logger.Debugf("next secret for %q will rotate in %v at %s", w.config.SecretOwners, nextDuration, soonestRotateTime)
-
-	w.nextTrigger = soonestRotateTime
-	if w.timer == nil {
-		w.timer = w.config.Clock.NewTimer(nextDuration)
-	} else {
-		// See the docs on Timer.Reset() that says it isn't safe to call
-		// on a non-stopped channel, and if it is stopped, you need to check
-		// if the channel needs to be drained anyway. It isn't safe to drain
-		// unconditionally in case another goroutine has already noticed,
-		// but make an attempt.
-		if !w.timer.Stop() {
-			select {
-			case <-w.timer.Chan():
-			default:
-			}
-		}
-		w.timer.Reset(nextDuration)
+	soonest := secrettriggerschedule.SoonestTime(w.secrets, func(info secretRotateInfo) time.Time {
+		return info.rotateTime
+	})
+	var changed bool
+	w.timer, w.nextTrigger, changed = secrettriggerschedule.ScheduleTimer(
+		w.config.Clock, w.timer, w.nextTrigger, soonest,
+	)
+	if changed && w.timer != nil {
+		w.config.Logger.Debugf(
+			"next secret for %q will rotate in %v at %s",
+			w.config.SecretOwners, w.nextTrigger.Sub(w.config.Clock.Now()), w.nextTrigger,
+		)
 	}
 }
