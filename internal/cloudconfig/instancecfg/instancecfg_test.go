@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
@@ -34,6 +35,24 @@ func (*instancecfgSuite) TestIsController(c *tc.C) {
 	c.Assert(cfg.IsController(), tc.IsFalse)
 	cfg.Jobs = []model.MachineJob{model.JobManageModel}
 	c.Assert(cfg.IsController(), tc.IsTrue)
+}
+
+func (*instancecfgSuite) TestStateInitializationParamsControllerModelQualifier(c *tc.C) {
+	for _, qualifier := range []model.Qualifier{"", "prod7@jaas"} {
+		params := instancecfg.StateInitializationParams{
+			AgentVersion:             semversion.MustParse("4.1.0"),
+			ControllerModelConfig:    testing.ModelConfig(c),
+			ControllerCloud:          cloud.Cloud{Name: "dummy", Type: "dummy"},
+			ControllerModelQualifier: qualifier,
+		}
+		data, err := params.Marshal()
+		c.Assert(err, tc.ErrorIsNil)
+
+		var unmarshalled instancecfg.StateInitializationParams
+		err = unmarshalled.Unmarshal(data)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(unmarshalled.ControllerModelQualifier, tc.Equals, qualifier)
+	}
 }
 
 func (*instancecfgSuite) TestInstanceTagsController(c *tc.C) {

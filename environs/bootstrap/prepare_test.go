@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -215,4 +216,57 @@ func (s *PrepareSuite) TestOpenControllerMissingConfig(c *tc.C) {
 	_, err := bootstrap.OpenController(false, envtesting.BootstrapTestContext(c), environs.OpenParams{})
 	c.Check(err, tc.ErrorIs, errors.NotValid)
 	c.Check(err, tc.ErrorMatches, "nil model configuration not valid")
+}
+
+func (s *PrepareSuite) TestPrepareControllerModelDefaultQualifier(c *tc.C) {
+	controllerStore := s.prepareWithQualifier(c, "")
+
+	modelName, err := controllerStore.CurrentModel("ctrl")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(modelName, tc.Equals, "admin/controller")
+	_, err = controllerStore.ModelByName("ctrl", "admin/controller")
+	c.Check(err, tc.ErrorIsNil)
+}
+
+func (s *PrepareSuite) TestPrepareControllerModelQualifier(c *tc.C) {
+	controllerStore := s.prepareWithQualifier(c, "ctrl@jaas")
+
+	modelName, err := controllerStore.CurrentModel("ctrl")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(modelName, tc.Equals, "ctrl@jaas/controller")
+
+	details, err := controllerStore.ModelByName("ctrl", "ctrl@jaas/controller")
+	c.Assert(err, tc.ErrorIsNil)
+	bootstrapCfg, err := controllerStore.BootstrapConfigForController("ctrl")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(details.ModelUUID, tc.Equals, bootstrapCfg.ControllerModelUUID)
+
+	_, err = controllerStore.ModelByName("ctrl", "admin/controller")
+	c.Check(err, tc.ErrorIs, errors.NotFound)
+
+	// The admin account is unaffected by the controller model qualifier.
+	account, err := controllerStore.AccountDetails("ctrl")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(account.User, tc.Equals, "admin")
+}
+
+func (s *PrepareSuite) prepareWithQualifier(c *tc.C, qualifier model.Qualifier) *jujuclient.MemStore {
+	cfg, err := config.New(config.NoDefaults, testing.FakeConfig().Merge(testing.Attrs{
+		"name": "controller",
+	}).Delete("admin-secret"))
+	c.Assert(err, tc.ErrorIsNil)
+	controllerStore := jujuclient.NewMemStore()
+	_, err = bootstrap.PrepareController(false, envtesting.BootstrapTestContext(c), controllerStore, bootstrap.PrepareParams{
+		ControllerConfig: controller.Config{
+			controller.ControllerUUIDKey: testing.ControllerTag.Id(),
+			controller.CACertKey:         testing.CACert,
+		},
+		ControllerName:           "ctrl",
+		ModelConfig:              cfg.AllAttrs(),
+		Cloud:                    testing.FakeCloudSpec(),
+		AdminSecret:              "admin-secret",
+		ControllerModelQualifier: qualifier,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return controllerStore
 }

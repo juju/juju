@@ -21,6 +21,7 @@ import (
 	"github.com/juju/utils/v4/keyvalues"
 	jujusshtools "github.com/juju/utils/v4/ssh"
 
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
 	jujucloud "github.com/juju/juju/cloud"
@@ -36,6 +37,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	corestorage "github.com/juju/juju/core/storage"
@@ -64,6 +66,10 @@ import (
 // provisionalProviders is the names of providers that are hidden behind
 // feature flags.
 var provisionalProviders = map[string]string{}
+
+// jaasQualifierDomain is the domain appended to the controller name to form
+// the controller model qualifier when --controller-qualifier is specified.
+const jaasQualifierDomain = "jaas"
 
 var usageBootstrapSummary = `
 Initializes a cloud environment.`[1:]
@@ -167,6 +173,12 @@ in the controller model.
 
 Authorized keys can be set by using --config authorized-keys and or
 --config authorized-keys-path.
+
+If ` + "`--controller-qualifier`" + ` is used, the controller model is qualified as
+'<controller name>@jaas' instead of 'admin', e.g. 'prod7@jaas/controller'.
+This allows the controller model to be exposed through JAAS. The qualifier
+cannot be changed after bootstrap. It requires the controller to be
+configured for JAAS with --config login-token-refresh-url=<url>.
 `
 
 var usageBootstrapConfigTxt = `
@@ -245,6 +257,11 @@ type bootstrapCommand struct {
 	ControllerCharmPath       string
 	ControllerCharmChannelStr string
 	ControllerCharmChannel    charm.Channel
+
+	// ControllerQualifier, when true, qualifies the controller model with
+	// "<controller-name>@jaas" rather than the admin user, so it can be
+	// exposed through JAAS.
+	ControllerQualifier bool
 
 	// Force is used to allow a bootstrap to be run on unsupported series.
 	Force bool
@@ -375,6 +392,8 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.ControllerCharmChannelStr, "controller-charm-channel",
 		fmt.Sprintf("%d.%d/stable", jujuversion.Current.Major, jujuversion.Current.Minor),
 		"The Charmhub channel to download the controller charm from (if not using a local charm)")
+	f.BoolVar(&c.ControllerQualifier, "controller-qualifier", false,
+		"Qualify the controller model as '<controller name>@jaas' so it can be exposed through JAAS")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -649,6 +668,11 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		c.setControllerName(defaultControllerName(cloud.Name, region.Name))
 	}
 
+	controllerModelQualifier, err := c.controllerModelQualifier()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// set a Region so it's config can be found below.
 	if c.Region == "" {
 		c.Region = region.Name
@@ -671,6 +695,15 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	if bootstrapCfg.controller.ControllerName() != "" {
 		return errors.NewNotValid(nil, "controller name cannot be set via config, please use cmd args")
+	}
+
+	// The controller model qualifier is only meaningful for controllers
+	// managed by JAAS, which must be configured to trust its login tokens.
+	if c.ControllerQualifier && bootstrapCfg.controller.LoginTokenRefreshURL() == "" {
+		return errors.NewNotValid(nil, fmt.Sprintf(
+			"--controller-qualifier requires %q to be set via --config",
+			controller.LoginTokenRefreshURL,
+		))
 	}
 
 	// Read existing current controller so we can clean up on error.
@@ -779,8 +812,9 @@ to create a new model to deploy %sworkloads.
 			CACertificates:   cloud.CACertificates,
 			SkipTLSVerify:    cloud.SkipTLSVerify,
 		},
-		CredentialName: credentials.name,
-		AdminSecret:    bootstrapCfg.bootstrap.AdminSecret,
+		CredentialName:           credentials.name,
+		AdminSecret:              bootstrapCfg.bootstrap.AdminSecret,
+		ControllerModelQualifier: controllerModelQualifier,
 	}
 	environ, err := bootstrapPrepareController(
 		isCAASController, bootstrapCtx, store, bootstrapPrepareParams,
@@ -850,6 +884,7 @@ to create a new model to deploy %sworkloads.
 		StoragePools:                  bootstrapCfg.storagePools,
 		ControllerCharmPath:           c.ControllerCharmPath,
 		ControllerCharmChannel:        c.ControllerCharmChannel,
+		ControllerModelQualifier:      controllerModelQualifier,
 		DialOpts: environs.BootstrapDialOpts{
 			IdentityFiles:  bootstrapSSHKeyFiles,
 			Timeout:        bootstrapCfg.bootstrap.BootstrapTimeout,
@@ -1006,7 +1041,13 @@ See %s.`[1:], "`juju kill-controller`")
 		return errors.Trace(err)
 	}
 
-	if err = c.SetModelIdentifier(modelcmd.JoinModelName(c.controllerName, bootstrap.ControllerModelName), false); err != nil {
+	controllerModelName := bootstrap.ControllerModelName
+	if controllerModelQualifier != "" {
+		controllerModelName = jujuclient.QualifyModelName(
+			controllerModelQualifier.String(), bootstrap.ControllerModelName,
+		)
+	}
+	if err = c.SetModelIdentifier(modelcmd.JoinModelName(c.controllerName, controllerModelName), false); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1020,6 +1061,22 @@ See %s.`[1:], "`juju kill-controller`")
 		c.controllerName,
 		common.TryAPI,
 	)
+}
+
+// controllerModelQualifier returns the qualifier to use for the controller
+// model. It is empty unless --controller-qualifier was specified, in which
+// case it is "<controller-name>@jaas".
+func (c *bootstrapCommand) controllerModelQualifier() (coremodel.Qualifier, error) {
+	if !c.ControllerQualifier {
+		return "", nil
+	}
+	qualifier := coremodel.Qualifier(c.controllerName + "@" + jaasQualifierDomain)
+	if err := qualifier.Validate(); err != nil {
+		return "", errors.NotValidf(
+			"controller name %q for use with --controller-qualifier", c.controllerName,
+		)
+	}
+	return qualifier, nil
 }
 
 func (c *bootstrapCommand) controllerDataRefresher(

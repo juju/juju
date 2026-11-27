@@ -76,6 +76,9 @@ func (s *upgradeControllerSuite) upgradeControllerCommand(c *tc.C, isCAAS bool) 
 		modelType = model.CAAS
 	}
 
+	s.store.EXPECT().BootstrapConfigForController("c-1").AnyTimes().Return(
+		nil, errors.NotFoundf("bootstrap config for controller c-1"),
+	)
 	s.store.EXPECT().ModelByName("c-1", "admin/controller").AnyTimes().Return(&jujuclient.ModelDetails{
 		ModelUUID: coretesting.ModelTag.Id(),
 		ModelType: modelType,
@@ -84,6 +87,96 @@ func (s *upgradeControllerSuite) upgradeControllerCommand(c *tc.C, isCAAS bool) 
 	return ctrl, newUpgradeControllerCommandForTest(s.store,
 		s.modelConfigAPI, s.modelUpgrader,
 	)
+}
+
+// TestControllerModelFromStoreByUUID ensures that the controller model is
+// found by its UUID, regardless of its qualifier.
+func (s *upgradeControllerSuite) TestControllerModelFromStoreByUUID(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	store := mocks.NewMockClientStore(ctrl)
+
+	controllerModelUUID := coretesting.ModelTag.Id()
+	store.EXPECT().BootstrapConfigForController("c-1").Return(&jujuclient.BootstrapConfig{
+		ControllerModelUUID: controllerModelUUID,
+	}, nil)
+	store.EXPECT().AllModels("c-1").Return(map[string]jujuclient.ModelDetails{
+		"admin/default": {
+			ModelUUID: "11111111-1111-4111-8111-111111111111",
+			ModelType: model.IAAS,
+		},
+		"prod7@jaas/controller": {
+			ModelUUID: controllerModelUUID,
+			ModelType: model.IAAS,
+		},
+	}, nil)
+
+	name, details, err := controllerModelFromStore(store, "c-1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(name, tc.Equals, "prod7@jaas/controller")
+	c.Check(details, tc.DeepEquals, &jujuclient.ModelDetails{
+		ModelUUID: controllerModelUUID,
+		ModelType: model.IAAS,
+	})
+}
+
+// TestControllerModelFromStoreNoBootstrapConfig ensures that the admin
+// qualified controller model is used when there is no bootstrap config, e.g.
+// for a registered controller.
+func (s *upgradeControllerSuite) TestControllerModelFromStoreNoBootstrapConfig(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	store := mocks.NewMockClientStore(ctrl)
+
+	expected := &jujuclient.ModelDetails{
+		ModelUUID: coretesting.ModelTag.Id(),
+		ModelType: model.IAAS,
+	}
+	store.EXPECT().BootstrapConfigForController("c-1").Return(
+		nil, errors.NotFoundf("bootstrap config for controller c-1"),
+	)
+	store.EXPECT().ModelByName("c-1", "admin/controller").Return(expected, nil)
+
+	name, details, err := controllerModelFromStore(store, "c-1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(name, tc.Equals, "admin/controller")
+	c.Check(details, tc.Equals, expected)
+}
+
+// TestControllerModelFromStoreUUIDNotCached ensures that the admin qualified
+// controller model is used when the controller model UUID is not cached.
+func (s *upgradeControllerSuite) TestControllerModelFromStoreUUIDNotCached(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	store := mocks.NewMockClientStore(ctrl)
+
+	expected := &jujuclient.ModelDetails{
+		ModelUUID: coretesting.ModelTag.Id(),
+		ModelType: model.IAAS,
+	}
+	store.EXPECT().BootstrapConfigForController("c-1").Return(&jujuclient.BootstrapConfig{
+		ControllerModelUUID: coretesting.ModelTag.Id(),
+	}, nil)
+	store.EXPECT().AllModels("c-1").Return(nil, errors.NotFoundf("models"))
+	store.EXPECT().ModelByName("c-1", "admin/controller").Return(expected, nil)
+
+	name, details, err := controllerModelFromStore(store, "c-1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(name, tc.Equals, "admin/controller")
+	c.Check(details, tc.Equals, expected)
+}
+
+// TestControllerModelFromStoreBootstrapConfigError ensures that unexpected
+// errors reading the bootstrap config are returned.
+func (s *upgradeControllerSuite) TestControllerModelFromStoreBootstrapConfigError(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	store := mocks.NewMockClientStore(ctrl)
+
+	store.EXPECT().BootstrapConfigForController("c-1").Return(nil, errors.New("boom"))
+
+	_, _, err := controllerModelFromStore(store, "c-1")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
 func (s *upgradeControllerSuite) TestUpgradeModelFailedCAASWithBuildAgent(c *tc.C) {

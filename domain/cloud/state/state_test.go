@@ -346,9 +346,11 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *tc.C) {
 			modelUUID,
 			coremodel.IAAS,
 			model.GlobalModelCreationArgs{
-				Cloud:         testCloud.Name,
-				Name:          coremodel.ControllerModelName,
-				Qualifier:     "admin",
+				Cloud: testCloud.Name,
+				Name:  coremodel.ControllerModelName,
+				// The controller model is identified by the controller
+				// table, not by its qualifier.
+				Qualifier:     "prod7@jaas",
 				AdminUsers:    []user.UUID{user.UUID(s.adminUUID.String())},
 				SecretBackend: juju.BackendName,
 			},
@@ -361,6 +363,17 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *tc.C) {
 		return activator(ctx, preparer{}, tx, modelUUID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
+
+	// The model is not yet the controller model, so no cloud is the
+	// controller cloud.
+	clouds, err = st.ListClouds(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(clouds, tc.HasLen, 2)
+	for _, cloud := range clouds {
+		c.Check(cloud.IsControllerCloud, tc.IsFalse)
+	}
+
+	s.SeedControllerTable(c, modelUUID)
 
 	clouds, err = st.ListClouds(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
