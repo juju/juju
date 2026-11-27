@@ -396,6 +396,17 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"operation_task_status_value",
 		"operation_unit_task",
 		"operation_parameter",
+
+		// Generation
+		"committed_generation",
+		"committed_generation_application",
+		"committed_generation_charm",
+		"committed_generation_config",
+		"committed_generation_resource",
+		"generation",
+		"generation_tracking_mode",
+		"generation_application",
+		"generation_unit",
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
@@ -797,6 +808,18 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_relation_network_egress_delete",
 		"trg_log_relation_network_egress_insert",
 		"trg_log_relation_network_egress_update",
+
+		"trg_log_generation_delete",
+		"trg_log_generation_insert",
+		"trg_log_generation_update",
+
+		"trg_log_generation_application_delete",
+		"trg_log_generation_application_insert",
+		"trg_log_generation_application_update",
+
+		"trg_log_generation_unit_delete",
+		"trg_log_generation_unit_insert",
+		"trg_log_generation_unit_update",
 	)
 
 	// These are additional triggers that are not change log triggers, but
@@ -804,6 +827,16 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 	additional := set.NewStrings(
 		"trg_model_immutable_delete",
 		"trg_model_immutable_update",
+		"trg_committed_generation_immutable_delete",
+		"trg_committed_generation_immutable_update",
+		"trg_committed_generation_application_immutable_delete",
+		"trg_committed_generation_application_immutable_update",
+		"trg_committed_generation_config_immutable_delete",
+		"trg_committed_generation_config_immutable_update",
+		"trg_committed_generation_charm_immutable_delete",
+		"trg_committed_generation_charm_immutable_update",
+		"trg_committed_generation_resource_immutable_delete",
+		"trg_committed_generation_resource_immutable_update",
 		"trg_application_controller_immutable_update",
 
 		"trg_secret_permission_guard_update",

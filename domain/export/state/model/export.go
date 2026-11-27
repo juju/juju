@@ -443,6 +443,26 @@ FROM   "charm_storage" AS t`, v4_1_0.CharmStorage{}, nullableCharmStorage{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmTerm statement: %w", err)
 	}
+	stmtCommittedGeneration, err := sqlair.Prepare(`SELECT &CommittedGeneration.* FROM "committed_generation"`, v4_1_0.CommittedGeneration{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing CommittedGeneration statement: %w", err)
+	}
+	stmtCommittedGenerationApplication, err := sqlair.Prepare(`SELECT &CommittedGenerationApplication.* FROM "committed_generation_application"`, v4_1_0.CommittedGenerationApplication{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing CommittedGenerationApplication statement: %w", err)
+	}
+	stmtCommittedGenerationCharm, err := sqlair.Prepare(`SELECT &CommittedGenerationCharm.* FROM "committed_generation_charm"`, v4_1_0.CommittedGenerationCharm{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing CommittedGenerationCharm statement: %w", err)
+	}
+	stmtCommittedGenerationConfig, err := sqlair.Prepare(`SELECT &CommittedGenerationConfig.* FROM "committed_generation_config"`, v4_1_0.CommittedGenerationConfig{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing CommittedGenerationConfig statement: %w", err)
+	}
+	stmtCommittedGenerationResource, err := sqlair.Prepare(`SELECT &CommittedGenerationResource.* FROM "committed_generation_resource"`, v4_1_0.CommittedGenerationResource{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing CommittedGenerationResource statement: %w", err)
+	}
 	stmtConstraint, err := sqlair.Prepare(`SELECT &Constraint.* FROM "constraint"`, v4_1_0.Constraint{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Constraint statement: %w", err)
@@ -474,6 +494,22 @@ FROM   "charm_storage" AS t`, v4_1_0.CharmStorage{}, nullableCharmStorage{})
 	stmtFqdnAddress, err := sqlair.Prepare(`SELECT &FqdnAddress.* FROM "fqdn_address"`, v4_1_0.FqdnAddress{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing FqdnAddress statement: %w", err)
+	}
+	stmtGeneration, err := sqlair.Prepare(`SELECT &Generation.* FROM "generation"`, v4_1_0.Generation{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing Generation statement: %w", err)
+	}
+	stmtGenerationApplication, err := sqlair.Prepare(`SELECT &GenerationApplication.* FROM "generation_application"`, v4_1_0.GenerationApplication{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing GenerationApplication statement: %w", err)
+	}
+	stmtGenerationTrackingMode, err := sqlair.Prepare(`SELECT &GenerationTrackingMode.* FROM "generation_tracking_mode"`, v4_1_0.GenerationTrackingMode{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing GenerationTrackingMode statement: %w", err)
+	}
+	stmtGenerationUnit, err := sqlair.Prepare(`SELECT &GenerationUnit.* FROM "generation_unit"`, v4_1_0.GenerationUnit{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing GenerationUnit statement: %w", err)
 	}
 	stmtHashKind, err := sqlair.Prepare(`SELECT &HashKind.* FROM "hash_kind"`, v4_1_0.HashKind{})
 	if err != nil {
@@ -1498,6 +1534,21 @@ FROM   "unit_workload_status" AS t`, v4_1_0.UnitWorkloadStatus{}, nullableUnitWo
 		if err := tx.Query(ctx, stmtCharmTerm).GetAll(&modelExport.CharmTerm); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying CharmTerm (table charm_term): %w", err)
 		}
+		if err := tx.Query(ctx, stmtCommittedGeneration).GetAll(&modelExport.CommittedGeneration); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying CommittedGeneration (table committed_generation): %w", err)
+		}
+		if err := tx.Query(ctx, stmtCommittedGenerationApplication).GetAll(&modelExport.CommittedGenerationApplication); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying CommittedGenerationApplication (table committed_generation_application): %w", err)
+		}
+		if err := tx.Query(ctx, stmtCommittedGenerationCharm).GetAll(&modelExport.CommittedGenerationCharm); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying CommittedGenerationCharm (table committed_generation_charm): %w", err)
+		}
+		if err := tx.Query(ctx, stmtCommittedGenerationConfig).GetAll(&modelExport.CommittedGenerationConfig); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying CommittedGenerationConfig (table committed_generation_config): %w", err)
+		}
+		if err := tx.Query(ctx, stmtCommittedGenerationResource).GetAll(&modelExport.CommittedGenerationResource); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying CommittedGenerationResource (table committed_generation_resource): %w", err)
+		}
 		if err := tx.Query(ctx, stmtConstraint).GetAll(&modelExport.Constraint); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying Constraint (table constraint): %w", err)
 		}
@@ -1521,6 +1572,18 @@ FROM   "unit_workload_status" AS t`, v4_1_0.UnitWorkloadStatus{}, nullableUnitWo
 		}
 		if err := tx.Query(ctx, stmtFqdnAddress).GetAll(&modelExport.FqdnAddress); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying FqdnAddress (table fqdn_address): %w", err)
+		}
+		if err := tx.Query(ctx, stmtGeneration).GetAll(&modelExport.Generation); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying Generation (table generation): %w", err)
+		}
+		if err := tx.Query(ctx, stmtGenerationApplication).GetAll(&modelExport.GenerationApplication); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying GenerationApplication (table generation_application): %w", err)
+		}
+		if err := tx.Query(ctx, stmtGenerationTrackingMode).GetAll(&modelExport.GenerationTrackingMode); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying GenerationTrackingMode (table generation_tracking_mode): %w", err)
+		}
+		if err := tx.Query(ctx, stmtGenerationUnit).GetAll(&modelExport.GenerationUnit); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying GenerationUnit (table generation_unit): %w", err)
 		}
 		if err := tx.Query(ctx, stmtHashKind).GetAll(&modelExport.HashKind); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying HashKind (table hash_kind): %w", err)
