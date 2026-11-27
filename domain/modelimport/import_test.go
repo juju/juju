@@ -529,6 +529,7 @@ func (s *importSuite) TestImportLegacyCharmContainerMount(c *tc.C) {
 	s.bootstrapModel(c)
 
 	latestPayload, err := s.transformLegacy(c, v4_0_12.ModelExport{
+		Model:      []v4_0_12.Model{{UUID: s.ModelUUID(), Type: coremodel.IAAS.String()}},
 		ModelAgent: []v4_0_12.ModelAgent{{ModelUUID: s.ModelUUID()}},
 		Charm: []v4_0_12.Charm{{
 			UUID: "charm-uuid", Revision: 1, ReferenceName: "foo",
@@ -578,6 +579,7 @@ func (s *importSuite) TestImportLegacyCharmManifestBase(c *tc.C) {
 		{CharmUUID: "charm-uuid", ArrayIndex: 1, NestedArrayIndex: 0, Risk: "stable"},
 	}
 	payload, err := s.transformLegacy(c, v4_0_12.ModelExport{
+		Model:             []v4_0_12.Model{{UUID: s.ModelUUID(), Type: coremodel.IAAS.String()}},
 		ModelAgent:        []v4_0_12.ModelAgent{{ModelUUID: s.ModelUUID()}},
 		Charm:             []v4_0_12.Charm{{UUID: "charm-uuid", Revision: 1, ReferenceName: "foo"}},
 		CharmManifestBase: bases,

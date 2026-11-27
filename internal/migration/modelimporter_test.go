@@ -67,6 +67,7 @@ func (s *modelImporterSuite) TestImportModel(c *tc.C) {
 	importer := migration.NewModelImporter(scope, s.ModelDomainServicesGetter(c), nil, "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
 
 	payload := &latest.ModelExport{
+		Model:       []v4_1_0.Model{{UUID: modelUUID.String(), Type: coremodel.IAAS.String()}},
 		AgentStream: []v4_1_0.AgentStream{{ID: new(int64(1)), Name: "proposed"}},
 		AgentVersion: []v4_1_0.AgentVersion{{
 			StreamID: 1, TargetVersion: jujuversion.Current.String(),
@@ -148,6 +149,7 @@ func (s *modelImporterSuite) TestImportModelNoSecretBackendRewriteRows(c *tc.C) 
 
 	passwordHash := "some-hash"
 	payload := &latest.ModelExport{
+		Model: []v4_1_0.Model{{UUID: modelUUID.String(), Type: coremodel.IAAS.String()}},
 		ModelAgent: []v4_1_0.ModelAgent{
 			{ModelUUID: modelUUID.String(), PasswordHash: &passwordHash},
 		},
@@ -231,6 +233,7 @@ func (s *modelImporterSuite) TestImportModelSecretBackendRewrite(c *tc.C) {
 	passwordHash := "some-hash"
 
 	payload := &latest.ModelExport{
+		Model: []v4_1_0.Model{{UUID: modelUUID.String(), Type: coremodel.IAAS.String()}},
 		ModelAgent: []v4_1_0.ModelAgent{
 			{ModelUUID: modelUUID.String(), PasswordHash: &passwordHash},
 		},
@@ -323,6 +326,7 @@ func (s *modelImporterSuite) TestImportModelSecretBackendRewriteMissingRef(c *tc
 	passwordHash := "some-hash"
 
 	payload := &latest.ModelExport{
+		Model: []v4_1_0.Model{{UUID: modelUUID.String(), Type: coremodel.IAAS.String()}},
 		ModelAgent: []v4_1_0.ModelAgent{
 			{ModelUUID: modelUUID.String(), PasswordHash: &passwordHash},
 		},
@@ -391,6 +395,7 @@ func (s *modelImporterSuite) TestImportModelSecretBackendRewriteMissingBackend(c
 	passwordHash := "some-hash"
 
 	payload := &latest.ModelExport{
+		Model: []v4_1_0.Model{{UUID: modelUUID.String(), Type: coremodel.IAAS.String()}},
 		ModelAgent: []v4_1_0.ModelAgent{
 			{ModelUUID: modelUUID.String(), PasswordHash: &passwordHash},
 		},

@@ -110,7 +110,7 @@ func (s *modelSuite) TestRemoveModelRetrySchedulesRemovalJobs(c *tc.C) {
 
 	mExp.UnitExists(gomock.Any(), unitUUID).Return(true, nil).Times(2)
 	mExp.EnsureUnitNotAliveCascade(gomock.Any(), unitUUID, true).Return(removalinternal.CascadedUnitLives{}, nil).Times(2)
-	mExp.UnitScheduleRemovalCascade(gomock.Any(), gomock.Any(), unitUUID, false, when.UTC(), gomock.Nil()).Return("removal-job", nil).Times(2)
+	mExp.UnitScheduleRemovalCascade(gomock.Any(), gomock.Any(), unitUUID, false, when.UTC(), gomock.Len(0)).Return("removal-job", nil).Times(2)
 
 	mExp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "some-machine-id", false, when.UTC()).Return(nil).Times(2)
 
@@ -166,8 +166,8 @@ func (s *modelSuite) TestRemoveModelRetryWithForceSchedulesRemovalJobs(c *tc.C) 
 
 	mExp.UnitExists(gomock.Any(), unitUUID).Return(true, nil).Times(2)
 	mExp.EnsureUnitNotAliveCascade(gomock.Any(), unitUUID, true).Return(removalinternal.CascadedUnitLives{}, nil).Times(2)
-	mExp.UnitScheduleRemovalCascade(gomock.Any(), gomock.Any(), unitUUID, false, when.UTC(), gomock.Nil()).Return("removal-job", nil)
-	mExp.UnitScheduleRemovalCascade(gomock.Any(), gomock.Any(), unitUUID, true, when.UTC(), gomock.Nil()).Return("removal-job", nil)
+	mExp.UnitScheduleRemovalCascade(gomock.Any(), gomock.Any(), unitUUID, false, when.UTC(), gomock.Len(0)).Return("removal-job", nil)
+	mExp.UnitScheduleRemovalCascade(gomock.Any(), gomock.Any(), unitUUID, true, when.UTC(), gomock.Len(0)).Return("removal-job", nil)
 
 	mExp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "some-machine-id", false, when.UTC()).Return(nil)
 	mExp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "some-machine-id", true, when.UTC()).Return(nil)
