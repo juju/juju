@@ -294,6 +294,26 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 	if err != nil {
 		return errors.Errorf("preparing CharmTerm insert statement: %w", err)
 	}
+	stmtCommittedGeneration, err := sqlair.Prepare(`INSERT INTO "committed_generation" (*) VALUES ($CommittedGeneration.*)`, v4_1_0.CommittedGeneration{})
+	if err != nil {
+		return errors.Errorf("preparing CommittedGeneration insert statement: %w", err)
+	}
+	stmtCommittedGenerationApplication, err := sqlair.Prepare(`INSERT INTO "committed_generation_application" (*) VALUES ($CommittedGenerationApplication.*)`, v4_1_0.CommittedGenerationApplication{})
+	if err != nil {
+		return errors.Errorf("preparing CommittedGenerationApplication insert statement: %w", err)
+	}
+	stmtCommittedGenerationCharm, err := sqlair.Prepare(`INSERT INTO "committed_generation_charm" (*) VALUES ($CommittedGenerationCharm.*)`, v4_1_0.CommittedGenerationCharm{})
+	if err != nil {
+		return errors.Errorf("preparing CommittedGenerationCharm insert statement: %w", err)
+	}
+	stmtCommittedGenerationConfig, err := sqlair.Prepare(`INSERT INTO "committed_generation_config" (*) VALUES ($CommittedGenerationConfig.*)`, v4_1_0.CommittedGenerationConfig{})
+	if err != nil {
+		return errors.Errorf("preparing CommittedGenerationConfig insert statement: %w", err)
+	}
+	stmtCommittedGenerationResource, err := sqlair.Prepare(`INSERT INTO "committed_generation_resource" (*) VALUES ($CommittedGenerationResource.*)`, v4_1_0.CommittedGenerationResource{})
+	if err != nil {
+		return errors.Errorf("preparing CommittedGenerationResource insert statement: %w", err)
+	}
 	stmtConstraint, err := sqlair.Prepare(`INSERT INTO "constraint" (*) VALUES ($Constraint.*)`, v4_1_0.Constraint{})
 	if err != nil {
 		return errors.Errorf("preparing Constraint insert statement: %w", err)
@@ -325,6 +345,22 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 	stmtFqdnAddress, err := sqlair.Prepare(`INSERT INTO "fqdn_address" (*) VALUES ($FqdnAddress.*)`, v4_1_0.FqdnAddress{})
 	if err != nil {
 		return errors.Errorf("preparing FqdnAddress insert statement: %w", err)
+	}
+	stmtGeneration, err := sqlair.Prepare(`INSERT INTO "generation" (*) VALUES ($Generation.*)`, v4_1_0.Generation{})
+	if err != nil {
+		return errors.Errorf("preparing Generation insert statement: %w", err)
+	}
+	stmtGenerationApplication, err := sqlair.Prepare(`INSERT INTO "generation_application" (*) VALUES ($GenerationApplication.*)`, v4_1_0.GenerationApplication{})
+	if err != nil {
+		return errors.Errorf("preparing GenerationApplication insert statement: %w", err)
+	}
+	stmtGenerationTrackingMode, err := sqlair.Prepare(`INSERT INTO "generation_tracking_mode" (*) VALUES ($GenerationTrackingMode.*) ON CONFLICT DO NOTHING`, v4_1_0.GenerationTrackingMode{})
+	if err != nil {
+		return errors.Errorf("preparing GenerationTrackingMode insert statement: %w", err)
+	}
+	stmtGenerationUnit, err := sqlair.Prepare(`INSERT INTO "generation_unit" (*) VALUES ($GenerationUnit.*)`, v4_1_0.GenerationUnit{})
+	if err != nil {
+		return errors.Errorf("preparing GenerationUnit insert statement: %w", err)
 	}
 	stmtHashKind, err := sqlair.Prepare(`INSERT INTO "hash_kind" (*) VALUES ($HashKind.*) ON CONFLICT DO NOTHING`, v4_1_0.HashKind{})
 	if err != nil {
@@ -1310,6 +1346,31 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 				return errors.Errorf("inserting CharmTerm (table charm_term): %w", err)
 			}
 		}
+		if len(p.CommittedGeneration) > 0 {
+			if err := tx.Query(ctx, stmtCommittedGeneration, p.CommittedGeneration).Run(); err != nil {
+				return errors.Errorf("inserting CommittedGeneration (table committed_generation): %w", err)
+			}
+		}
+		if len(p.CommittedGenerationApplication) > 0 {
+			if err := tx.Query(ctx, stmtCommittedGenerationApplication, p.CommittedGenerationApplication).Run(); err != nil {
+				return errors.Errorf("inserting CommittedGenerationApplication (table committed_generation_application): %w", err)
+			}
+		}
+		if len(p.CommittedGenerationCharm) > 0 {
+			if err := tx.Query(ctx, stmtCommittedGenerationCharm, p.CommittedGenerationCharm).Run(); err != nil {
+				return errors.Errorf("inserting CommittedGenerationCharm (table committed_generation_charm): %w", err)
+			}
+		}
+		if len(p.CommittedGenerationConfig) > 0 {
+			if err := tx.Query(ctx, stmtCommittedGenerationConfig, p.CommittedGenerationConfig).Run(); err != nil {
+				return errors.Errorf("inserting CommittedGenerationConfig (table committed_generation_config): %w", err)
+			}
+		}
+		if len(p.CommittedGenerationResource) > 0 {
+			if err := tx.Query(ctx, stmtCommittedGenerationResource, p.CommittedGenerationResource).Run(); err != nil {
+				return errors.Errorf("inserting CommittedGenerationResource (table committed_generation_resource): %w", err)
+			}
+		}
 		if len(p.Constraint) > 0 {
 			if err := tx.Query(ctx, stmtConstraint, p.Constraint).Run(); err != nil {
 				return errors.Errorf("inserting Constraint (table constraint): %w", err)
@@ -1348,6 +1409,26 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 		if len(p.FqdnAddress) > 0 {
 			if err := tx.Query(ctx, stmtFqdnAddress, p.FqdnAddress).Run(); err != nil {
 				return errors.Errorf("inserting FqdnAddress (table fqdn_address): %w", err)
+			}
+		}
+		if len(p.Generation) > 0 {
+			if err := tx.Query(ctx, stmtGeneration, p.Generation).Run(); err != nil {
+				return errors.Errorf("inserting Generation (table generation): %w", err)
+			}
+		}
+		if len(p.GenerationApplication) > 0 {
+			if err := tx.Query(ctx, stmtGenerationApplication, p.GenerationApplication).Run(); err != nil {
+				return errors.Errorf("inserting GenerationApplication (table generation_application): %w", err)
+			}
+		}
+		if len(p.GenerationTrackingMode) > 0 {
+			if err := tx.Query(ctx, stmtGenerationTrackingMode, p.GenerationTrackingMode).Run(); err != nil {
+				return errors.Errorf("inserting GenerationTrackingMode (table generation_tracking_mode): %w", err)
+			}
+		}
+		if len(p.GenerationUnit) > 0 {
+			if err := tx.Query(ctx, stmtGenerationUnit, p.GenerationUnit).Run(); err != nil {
+				return errors.Errorf("inserting GenerationUnit (table generation_unit): %w", err)
 			}
 		}
 		if len(p.HashKind) > 0 {

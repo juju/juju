@@ -853,6 +853,61 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			},
 		})
 	}
+	if dump.Present["committed_generation"] {
+		tables = append(tables, replayTable{
+			name:      "committed_generation",
+			deleteSQL: `DELETE FROM "committed_generation" AS t`,
+			insertSQL: `INSERT INTO "committed_generation" ("generation_uuid", "generation_id", "name", "created_by_uuid", "created_at", "committed_by_uuid", "committed_at") SELECT $CommittedGeneration.generation_uuid AS "generation_uuid", $CommittedGeneration.generation_id AS "generation_id", $CommittedGeneration.name AS "name", $CommittedGeneration.created_by_uuid AS "created_by_uuid", $CommittedGeneration.created_at AS "created_at", $CommittedGeneration.committed_by_uuid AS "committed_by_uuid", $CommittedGeneration.committed_at AS "committed_at"`,
+			sample:    exporttypes.CommittedGeneration{},
+			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
+				return insertRows(ctx, tx, stmt, dump.CommittedGeneration, nil)
+			},
+		})
+	}
+	if dump.Present["committed_generation_application"] {
+		tables = append(tables, replayTable{
+			name:      "committed_generation_application",
+			deleteSQL: `DELETE FROM "committed_generation_application" AS t`,
+			insertSQL: `INSERT INTO "committed_generation_application" ("generation_uuid", "application_uuid", "application_name") SELECT $CommittedGenerationApplication.generation_uuid AS "generation_uuid", $CommittedGenerationApplication.application_uuid AS "application_uuid", $CommittedGenerationApplication.application_name AS "application_name"`,
+			sample:    exporttypes.CommittedGenerationApplication{},
+			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
+				return insertRows(ctx, tx, stmt, dump.CommittedGenerationApplication, nil)
+			},
+		})
+	}
+	if dump.Present["committed_generation_charm"] {
+		tables = append(tables, replayTable{
+			name:      "committed_generation_charm",
+			deleteSQL: `DELETE FROM "committed_generation_charm" AS t`,
+			insertSQL: `INSERT INTO "committed_generation_charm" ("generation_uuid", "application_uuid", "previous_source_id", "previous_reference_name", "previous_revision", "source_id", "reference_name", "revision") SELECT $CommittedGenerationCharm.generation_uuid AS "generation_uuid", $CommittedGenerationCharm.application_uuid AS "application_uuid", $CommittedGenerationCharm.previous_source_id AS "previous_source_id", $CommittedGenerationCharm.previous_reference_name AS "previous_reference_name", $CommittedGenerationCharm.previous_revision AS "previous_revision", $CommittedGenerationCharm.source_id AS "source_id", $CommittedGenerationCharm.reference_name AS "reference_name", $CommittedGenerationCharm.revision AS "revision"`,
+			sample:    exporttypes.CommittedGenerationCharm{},
+			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
+				return insertRows(ctx, tx, stmt, dump.CommittedGenerationCharm, nil)
+			},
+		})
+	}
+	if dump.Present["committed_generation_config"] {
+		tables = append(tables, replayTable{
+			name:      "committed_generation_config",
+			deleteSQL: `DELETE FROM "committed_generation_config" AS t`,
+			insertSQL: `INSERT INTO "committed_generation_config" ("generation_uuid", "application_uuid", "key", "previous_type_id", "previous_value", "type_id", "value") SELECT $CommittedGenerationConfig.generation_uuid AS "generation_uuid", $CommittedGenerationConfig.application_uuid AS "application_uuid", $CommittedGenerationConfig.key AS "key", $CommittedGenerationConfig.previous_type_id AS "previous_type_id", $CommittedGenerationConfig.previous_value AS "previous_value", $CommittedGenerationConfig.type_id AS "type_id", $CommittedGenerationConfig.value AS "value"`,
+			sample:    exporttypes.CommittedGenerationConfig{},
+			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
+				return insertRows(ctx, tx, stmt, dump.CommittedGenerationConfig, nil)
+			},
+		})
+	}
+	if dump.Present["committed_generation_resource"] {
+		tables = append(tables, replayTable{
+			name:      "committed_generation_resource",
+			deleteSQL: `DELETE FROM "committed_generation_resource" AS t`,
+			insertSQL: `INSERT INTO "committed_generation_resource" ("generation_uuid", "application_uuid", "charm_resource_name", "previous_origin_type_id", "previous_revision", "previous_sha384", "previous_size", "origin_type_id", "revision", "sha384", "size") SELECT $CommittedGenerationResource.generation_uuid AS "generation_uuid", $CommittedGenerationResource.application_uuid AS "application_uuid", $CommittedGenerationResource.charm_resource_name AS "charm_resource_name", $CommittedGenerationResource.previous_origin_type_id AS "previous_origin_type_id", $CommittedGenerationResource.previous_revision AS "previous_revision", $CommittedGenerationResource.previous_sha384 AS "previous_sha384", $CommittedGenerationResource.previous_size AS "previous_size", $CommittedGenerationResource.origin_type_id AS "origin_type_id", $CommittedGenerationResource.revision AS "revision", $CommittedGenerationResource.sha384 AS "sha384", $CommittedGenerationResource.size AS "size"`,
+			sample:    exporttypes.CommittedGenerationResource{},
+			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
+				return insertRows(ctx, tx, stmt, dump.CommittedGenerationResource, nil)
+			},
+		})
+	}
 	if dump.Present["constraint"] {
 		tables = append(tables, replayTable{
 			name:      "constraint",
@@ -938,6 +993,50 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			sample:    exporttypes.FqdnAddress{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
 				return insertRows(ctx, tx, stmt, dump.FqdnAddress, nil)
+			},
+		})
+	}
+	if dump.Present["generation"] {
+		tables = append(tables, replayTable{
+			name:      "generation",
+			deleteSQL: `DELETE FROM "generation" AS t`,
+			insertSQL: `INSERT INTO "generation" ("uuid", "generation_id", "name", "created_by_uuid", "created_at") SELECT $Generation.uuid AS "uuid", $Generation.generation_id AS "generation_id", $Generation.name AS "name", $Generation.created_by_uuid AS "created_by_uuid", $Generation.created_at AS "created_at"`,
+			sample:    exporttypes.Generation{},
+			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
+				return insertRows(ctx, tx, stmt, dump.Generation, nil)
+			},
+		})
+	}
+	if dump.Present["generation_application"] {
+		tables = append(tables, replayTable{
+			name:      "generation_application",
+			deleteSQL: `DELETE FROM "generation_application" AS t`,
+			insertSQL: `INSERT INTO "generation_application" ("generation_uuid", "application_uuid", "tracking_mode_id") SELECT $GenerationApplication.generation_uuid AS "generation_uuid", $GenerationApplication.application_uuid AS "application_uuid", $GenerationApplication.tracking_mode_id AS "tracking_mode_id"`,
+			sample:    exporttypes.GenerationApplication{},
+			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
+				return insertRows(ctx, tx, stmt, dump.GenerationApplication, nil)
+			},
+		})
+	}
+	if dump.Present["generation_tracking_mode"] {
+		tables = append(tables, replayTable{
+			name:      "generation_tracking_mode",
+			deleteSQL: `DELETE FROM "generation_tracking_mode" AS t`,
+			insertSQL: `INSERT INTO "generation_tracking_mode" ("id", "name") SELECT $GenerationTrackingMode.id AS "id", $GenerationTrackingMode.name AS "name"`,
+			sample:    exporttypes.GenerationTrackingMode{},
+			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
+				return insertRows(ctx, tx, stmt, dump.GenerationTrackingMode, nil)
+			},
+		})
+	}
+	if dump.Present["generation_unit"] {
+		tables = append(tables, replayTable{
+			name:      "generation_unit",
+			deleteSQL: `DELETE FROM "generation_unit" AS t`,
+			insertSQL: `INSERT INTO "generation_unit" ("generation_uuid", "application_uuid", "unit_uuid") SELECT $GenerationUnit.generation_uuid AS "generation_uuid", $GenerationUnit.application_uuid AS "application_uuid", $GenerationUnit.unit_uuid AS "unit_uuid"`,
+			sample:    exporttypes.GenerationUnit{},
+			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
+				return insertRows(ctx, tx, stmt, dump.GenerationUnit, nil)
 			},
 		})
 	}

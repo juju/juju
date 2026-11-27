@@ -453,6 +453,36 @@ func decodeModelDump(dump *dump) (*recovery.ModelDump, error) {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
 			out.CharmTerm = decoded
+		case "committed_generation":
+			decoded, err := decodeRows[exporttypes.CommittedGeneration](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.CommittedGeneration = decoded
+		case "committed_generation_application":
+			decoded, err := decodeRows[exporttypes.CommittedGenerationApplication](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.CommittedGenerationApplication = decoded
+		case "committed_generation_charm":
+			decoded, err := decodeRows[exporttypes.CommittedGenerationCharm](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.CommittedGenerationCharm = decoded
+		case "committed_generation_config":
+			decoded, err := decodeRows[exporttypes.CommittedGenerationConfig](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.CommittedGenerationConfig = decoded
+		case "committed_generation_resource":
+			decoded, err := decodeRows[exporttypes.CommittedGenerationResource](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.CommittedGenerationResource = decoded
 		case "constraint":
 			decoded, err := decodeRows[exporttypes.Constraint](rows)
 			if err != nil {
@@ -501,6 +531,30 @@ func decodeModelDump(dump *dump) (*recovery.ModelDump, error) {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
 			out.FqdnAddress = decoded
+		case "generation":
+			decoded, err := decodeRows[exporttypes.Generation](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.Generation = decoded
+		case "generation_application":
+			decoded, err := decodeRows[exporttypes.GenerationApplication](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.GenerationApplication = decoded
+		case "generation_tracking_mode":
+			decoded, err := decodeRows[exporttypes.GenerationTrackingMode](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.GenerationTrackingMode = decoded
+		case "generation_unit":
+			decoded, err := decodeRows[exporttypes.GenerationUnit](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.GenerationUnit = decoded
 		case "hash_kind":
 			decoded, err := decodeRows[exporttypes.HashKind](rows)
 			if err != nil {

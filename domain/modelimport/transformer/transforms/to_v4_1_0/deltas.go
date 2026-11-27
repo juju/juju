@@ -525,3 +525,67 @@ func (d deltas) Unit(_ context.Context, src []v4_0_12.Unit, _ *v4_0_12.ModelExpo
 func (d deltas) CharmScriptlet(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.CharmScriptlet, error) {
 	return nil, nil
 }
+
+// GenerationTrackingMode synthesises the static lookup table introduced
+// by the generation feature, which did not exist in 4.0.12. The table is
+// schema-owned data, so it is produced unconditionally.
+func (d deltas) GenerationTrackingMode(_ context.Context, _ *v4_0_12.ModelExport) ([]v4_1_0.GenerationTrackingMode, error) {
+	unit, application := int64(0), int64(1)
+	return []v4_1_0.GenerationTrackingMode{
+		{ID: &unit, Name: "unit"},
+		{ID: &application, Name: "application"},
+	}, nil
+}
+
+// Generation returns no rows for 4.0.12 payloads. The generation feature
+// did not exist in 4.0.12, so there is no data to transform.
+func (d deltas) Generation(_ context.Context, _ *v4_0_12.ModelExport) ([]v4_1_0.Generation, error) {
+	return nil, nil
+}
+
+// GenerationApplication returns no rows for 4.0.12 payloads. The
+// generation feature did not exist in 4.0.12, so there is no data to
+// transform.
+func (d deltas) GenerationApplication(_ context.Context, _ *v4_0_12.ModelExport) ([]v4_1_0.GenerationApplication, error) {
+	return nil, nil
+}
+
+// GenerationUnit returns no rows for 4.0.12 payloads. The generation
+// feature did not exist in 4.0.12, so there is no data to transform.
+func (d deltas) GenerationUnit(_ context.Context, _ *v4_0_12.ModelExport) ([]v4_1_0.GenerationUnit, error) {
+	return nil, nil
+}
+
+// CommittedGeneration returns no rows for 4.0.12 payloads. The generation
+// feature did not exist in 4.0.12, so there is no data to transform.
+func (d deltas) CommittedGeneration(_ context.Context, _ *v4_0_12.ModelExport) ([]v4_1_0.CommittedGeneration, error) {
+	return nil, nil
+}
+
+// CommittedGenerationApplication returns no rows for 4.0.12 payloads. The
+// generation feature did not exist in 4.0.12, so there is no data to
+// transform.
+func (d deltas) CommittedGenerationApplication(_ context.Context, _ *v4_0_12.ModelExport) ([]v4_1_0.CommittedGenerationApplication, error) {
+	return nil, nil
+}
+
+// CommittedGenerationCharm returns no rows for 4.0.12 payloads. The
+// generation feature did not exist in 4.0.12, so there is no data to
+// transform.
+func (d deltas) CommittedGenerationCharm(_ context.Context, _ *v4_0_12.ModelExport) ([]v4_1_0.CommittedGenerationCharm, error) {
+	return nil, nil
+}
+
+// CommittedGenerationConfig returns no rows for 4.0.12 payloads. The
+// generation feature did not exist in 4.0.12, so there is no data to
+// transform.
+func (d deltas) CommittedGenerationConfig(_ context.Context, _ *v4_0_12.ModelExport) ([]v4_1_0.CommittedGenerationConfig, error) {
+	return nil, nil
+}
+
+// CommittedGenerationResource returns no rows for 4.0.12 payloads. The
+// generation feature did not exist in 4.0.12, so there is no data to
+// transform.
+func (d deltas) CommittedGenerationResource(_ context.Context, _ *v4_0_12.ModelExport) ([]v4_1_0.CommittedGenerationResource, error) {
+	return nil, nil
+}

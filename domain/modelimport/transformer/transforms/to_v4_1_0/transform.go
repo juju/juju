@@ -57,6 +57,24 @@ type Deltas interface {
 	UnitResource(ctx context.Context, src []v4_0_12.UnitResource, model *v4_0_12.ModelExport) ([]v4_1_0.UnitResource, error)
 	// CharmScriptlet: new table in 4.1.0; derive from *v4_0_12.ModelExport.
 	CharmScriptlet(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.CharmScriptlet, error)
+	// CommittedGeneration: new table in 4.1.0; derive from *v4_0_12.ModelExport.
+	CommittedGeneration(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.CommittedGeneration, error)
+	// CommittedGenerationApplication: new table in 4.1.0; derive from *v4_0_12.ModelExport.
+	CommittedGenerationApplication(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.CommittedGenerationApplication, error)
+	// CommittedGenerationCharm: new table in 4.1.0; derive from *v4_0_12.ModelExport.
+	CommittedGenerationCharm(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.CommittedGenerationCharm, error)
+	// CommittedGenerationConfig: new table in 4.1.0; derive from *v4_0_12.ModelExport.
+	CommittedGenerationConfig(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.CommittedGenerationConfig, error)
+	// CommittedGenerationResource: new table in 4.1.0; derive from *v4_0_12.ModelExport.
+	CommittedGenerationResource(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.CommittedGenerationResource, error)
+	// Generation: new table in 4.1.0; derive from *v4_0_12.ModelExport.
+	Generation(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.Generation, error)
+	// GenerationApplication: new table in 4.1.0; derive from *v4_0_12.ModelExport.
+	GenerationApplication(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.GenerationApplication, error)
+	// GenerationTrackingMode: new table in 4.1.0; derive from *v4_0_12.ModelExport.
+	GenerationTrackingMode(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.GenerationTrackingMode, error)
+	// GenerationUnit: new table in 4.1.0; derive from *v4_0_12.ModelExport.
+	GenerationUnit(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.GenerationUnit, error)
 	// MachineReprovision: new table in 4.1.0; derive from *v4_0_12.ModelExport.
 	MachineReprovision(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.MachineReprovision, error)
 	// MachineVirtualSshHostKey: new table in 4.1.0; derive from *v4_0_12.ModelExport.
@@ -1284,6 +1302,42 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 
 		if dst.CharmScriptlet, err = d.CharmScriptlet(ctx, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("CharmScriptlet delta: %w", err)
+		}
+
+		if dst.CommittedGeneration, err = d.CommittedGeneration(ctx, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("CommittedGeneration delta: %w", err)
+		}
+
+		if dst.CommittedGenerationApplication, err = d.CommittedGenerationApplication(ctx, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("CommittedGenerationApplication delta: %w", err)
+		}
+
+		if dst.CommittedGenerationCharm, err = d.CommittedGenerationCharm(ctx, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("CommittedGenerationCharm delta: %w", err)
+		}
+
+		if dst.CommittedGenerationConfig, err = d.CommittedGenerationConfig(ctx, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("CommittedGenerationConfig delta: %w", err)
+		}
+
+		if dst.CommittedGenerationResource, err = d.CommittedGenerationResource(ctx, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("CommittedGenerationResource delta: %w", err)
+		}
+
+		if dst.Generation, err = d.Generation(ctx, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("Generation delta: %w", err)
+		}
+
+		if dst.GenerationApplication, err = d.GenerationApplication(ctx, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("GenerationApplication delta: %w", err)
+		}
+
+		if dst.GenerationTrackingMode, err = d.GenerationTrackingMode(ctx, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("GenerationTrackingMode delta: %w", err)
+		}
+
+		if dst.GenerationUnit, err = d.GenerationUnit(ctx, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("GenerationUnit delta: %w", err)
 		}
 
 		if dst.MachineReprovision, err = d.MachineReprovision(ctx, &src); err != nil {

@@ -507,6 +507,57 @@ type CharmTerm struct {
 	Value      string `db:"value" json:"value" yaml:"value"`
 }
 
+type CommittedGeneration struct {
+	GenerationUUID  string    `db:"generation_uuid" json:"generation_uuid" yaml:"generation_uuid"`
+	GenerationID    int64     `db:"generation_id" json:"generation_id" yaml:"generation_id"`
+	Name            string    `db:"name" json:"name" yaml:"name"`
+	CreatedByUUID   string    `db:"created_by_uuid" json:"created_by_uuid" yaml:"created_by_uuid"`
+	CreatedAt       time.Time `db:"created_at" json:"created_at" yaml:"created_at"`
+	CommittedByUUID string    `db:"committed_by_uuid" json:"committed_by_uuid" yaml:"committed_by_uuid"`
+	CommittedAt     time.Time `db:"committed_at" json:"committed_at" yaml:"committed_at"`
+}
+
+type CommittedGenerationApplication struct {
+	GenerationUUID  string `db:"generation_uuid" json:"generation_uuid" yaml:"generation_uuid"`
+	ApplicationUUID string `db:"application_uuid" json:"application_uuid" yaml:"application_uuid"`
+	ApplicationName string `db:"application_name" json:"application_name" yaml:"application_name"`
+}
+
+type CommittedGenerationCharm struct {
+	GenerationUUID        string `db:"generation_uuid" json:"generation_uuid" yaml:"generation_uuid"`
+	ApplicationUUID       string `db:"application_uuid" json:"application_uuid" yaml:"application_uuid"`
+	PreviousSourceID      int64  `db:"previous_source_id" json:"previous_source_id" yaml:"previous_source_id"`
+	PreviousReferenceName string `db:"previous_reference_name" json:"previous_reference_name" yaml:"previous_reference_name"`
+	PreviousRevision      int64  `db:"previous_revision" json:"previous_revision" yaml:"previous_revision"`
+	SourceID              int64  `db:"source_id" json:"source_id" yaml:"source_id"`
+	ReferenceName         string `db:"reference_name" json:"reference_name" yaml:"reference_name"`
+	Revision              int64  `db:"revision" json:"revision" yaml:"revision"`
+}
+
+type CommittedGenerationConfig struct {
+	GenerationUUID  string  `db:"generation_uuid" json:"generation_uuid" yaml:"generation_uuid"`
+	ApplicationUUID string  `db:"application_uuid" json:"application_uuid" yaml:"application_uuid"`
+	Key             string  `db:"key" json:"key" yaml:"key"`
+	PreviousTypeID  *int64  `db:"previous_type_id" json:"previous_type_id" yaml:"previous_type_id"`
+	PreviousValue   *string `db:"previous_value" json:"previous_value" yaml:"previous_value"`
+	TypeID          int64   `db:"type_id" json:"type_id" yaml:"type_id"`
+	Value           *string `db:"value" json:"value" yaml:"value"`
+}
+
+type CommittedGenerationResource struct {
+	GenerationUUID       string  `db:"generation_uuid" json:"generation_uuid" yaml:"generation_uuid"`
+	ApplicationUUID      string  `db:"application_uuid" json:"application_uuid" yaml:"application_uuid"`
+	CharmResourceName    string  `db:"charm_resource_name" json:"charm_resource_name" yaml:"charm_resource_name"`
+	PreviousOriginTypeID *int64  `db:"previous_origin_type_id" json:"previous_origin_type_id" yaml:"previous_origin_type_id"`
+	PreviousRevision     *int64  `db:"previous_revision" json:"previous_revision" yaml:"previous_revision"`
+	PreviousSha384       *string `db:"previous_sha384" json:"previous_sha384" yaml:"previous_sha384"`
+	PreviousSize         *int64  `db:"previous_size" json:"previous_size" yaml:"previous_size"`
+	OriginTypeID         int64   `db:"origin_type_id" json:"origin_type_id" yaml:"origin_type_id"`
+	Revision             *int64  `db:"revision" json:"revision" yaml:"revision"`
+	Sha384               *string `db:"sha384" json:"sha384" yaml:"sha384"`
+	Size                 *int64  `db:"size" json:"size" yaml:"size"`
+}
+
 type Constraint struct {
 	UUID             string  `db:"uuid" json:"uuid" yaml:"uuid"`
 	Arch             *string `db:"arch" json:"arch" yaml:"arch"`
@@ -563,6 +614,31 @@ type FqdnAddress struct {
 	UUID    string `db:"uuid" json:"uuid" yaml:"uuid"`
 	Address string `db:"address" json:"address" yaml:"address"`
 	ScopeID int64  `db:"scope_id" json:"scope_id" yaml:"scope_id"`
+}
+
+type Generation struct {
+	UUID          string    `db:"uuid" json:"uuid" yaml:"uuid"`
+	GenerationID  int64     `db:"generation_id" json:"generation_id" yaml:"generation_id"`
+	Name          string    `db:"name" json:"name" yaml:"name"`
+	CreatedByUUID string    `db:"created_by_uuid" json:"created_by_uuid" yaml:"created_by_uuid"`
+	CreatedAt     time.Time `db:"created_at" json:"created_at" yaml:"created_at"`
+}
+
+type GenerationApplication struct {
+	GenerationUUID  string `db:"generation_uuid" json:"generation_uuid" yaml:"generation_uuid"`
+	ApplicationUUID string `db:"application_uuid" json:"application_uuid" yaml:"application_uuid"`
+	TrackingModeID  int64  `db:"tracking_mode_id" json:"tracking_mode_id" yaml:"tracking_mode_id"`
+}
+
+type GenerationTrackingMode struct {
+	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	Name string `db:"name" json:"name" yaml:"name"`
+}
+
+type GenerationUnit struct {
+	GenerationUUID  string `db:"generation_uuid" json:"generation_uuid" yaml:"generation_uuid"`
+	ApplicationUUID string `db:"application_uuid" json:"application_uuid" yaml:"application_uuid"`
+	UnitUUID        string `db:"unit_uuid" json:"unit_uuid" yaml:"unit_uuid"`
 }
 
 type HashKind struct {
@@ -1719,6 +1795,11 @@ type ModelExport struct {
 	CharmStorageProperty                     []CharmStorageProperty                     `json:"charm_storage_property" yaml:"charm_storage_property"`
 	CharmTag                                 []CharmTag                                 `json:"charm_tag" yaml:"charm_tag"`
 	CharmTerm                                []CharmTerm                                `json:"charm_term" yaml:"charm_term"`
+	CommittedGeneration                      []CommittedGeneration                      `json:"committed_generation" yaml:"committed_generation"`
+	CommittedGenerationApplication           []CommittedGenerationApplication           `json:"committed_generation_application" yaml:"committed_generation_application"`
+	CommittedGenerationCharm                 []CommittedGenerationCharm                 `json:"committed_generation_charm" yaml:"committed_generation_charm"`
+	CommittedGenerationConfig                []CommittedGenerationConfig                `json:"committed_generation_config" yaml:"committed_generation_config"`
+	CommittedGenerationResource              []CommittedGenerationResource              `json:"committed_generation_resource" yaml:"committed_generation_resource"`
 	Constraint                               []Constraint                               `json:"constraint" yaml:"constraint"`
 	ConstraintSpace                          []ConstraintSpace                          `json:"constraint_space" yaml:"constraint_space"`
 	ConstraintTag                            []ConstraintTag                            `json:"constraint_tag" yaml:"constraint_tag"`
@@ -1727,6 +1808,10 @@ type ModelExport struct {
 	DeviceConstraint                         []DeviceConstraint                         `json:"device_constraint" yaml:"device_constraint"`
 	DeviceConstraintAttribute                []DeviceConstraintAttribute                `json:"device_constraint_attribute" yaml:"device_constraint_attribute"`
 	FqdnAddress                              []FqdnAddress                              `json:"fqdn_address" yaml:"fqdn_address"`
+	Generation                               []Generation                               `json:"generation" yaml:"generation"`
+	GenerationApplication                    []GenerationApplication                    `json:"generation_application" yaml:"generation_application"`
+	GenerationTrackingMode                   []GenerationTrackingMode                   `json:"generation_tracking_mode" yaml:"generation_tracking_mode"`
+	GenerationUnit                           []GenerationUnit                           `json:"generation_unit" yaml:"generation_unit"`
 	HashKind                                 []HashKind                                 `json:"hash_kind" yaml:"hash_kind"`
 	HostnameAddress                          []HostnameAddress                          `json:"hostname_address" yaml:"hostname_address"`
 	InstanceTag                              []InstanceTag                              `json:"instance_tag" yaml:"instance_tag"`

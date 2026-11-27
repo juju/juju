@@ -29,6 +29,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/crossmodelrelation-triggers.gen.go -package=triggers -tables=application_remote_offerer,application_remote_consumer,relation_network_ingress,relation_network_egress
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/offer-triggers.gen.go -package=triggers -tables=offer
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/status-triggers.gen.go -package=triggers -tables=application_status
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/generation-triggers.gen.go -package=triggers -tables=generation,generation_application,generation_unit
 
 //go:embed model/sql/*.sql
 var modelSchemaDir embed.FS
@@ -124,6 +125,9 @@ const (
 	tableK8sService
 	tableLinkLayerDevice
 	tableSpace
+	tableGeneration
+	tableGenerationApplication
+	tableGenerationUnit
 )
 
 // modelPostPatchFilesByVersion is used to categorise the post patch files
@@ -216,11 +220,21 @@ func ModelDDLForVersion(version semversion.Number) *schema.Schema {
 		triggers.ChangeLogTriggersForRelationNetworkIngress("relation_uuid", tableRelationNetworkIngress),
 		triggers.ChangeLogTriggersForRelationNetworkEgress("relation_uuid", tableRelationNetworkEgress),
 		triggers.ChangeLogTriggersForModelMigrating("model_uuid", tableModelMigrating),
+		triggers.ChangeLogTriggersForGeneration("uuid", tableGeneration),
+		triggers.ChangeLogTriggersForGenerationApplication("application_uuid", tableGenerationApplication),
+		triggers.ChangeLogTriggersForGenerationUnit("unit_uuid", tableGenerationUnit),
 	)
 
 	// Generic triggers.
 	patches = append(patches,
 		triggersForImmutableTable("model", "", "model table is immutable, only insertions are allowed"),
+
+		// Committed generation history is immutable
+		triggersForImmutableTable("committed_generation", "", "committed_generation table is immutable, only insertions are allowed"),
+		triggersForImmutableTable("committed_generation_application", "", "committed_generation_application table is immutable, only insertions are allowed"),
+		triggersForImmutableTable("committed_generation_config", "", "committed_generation_config table is immutable, only insertions are allowed"),
+		triggersForImmutableTable("committed_generation_charm", "", "committed_generation_charm table is immutable, only insertions are allowed"),
+		triggersForImmutableTable("committed_generation_resource", "", "committed_generation_resource table is immutable, only insertions are allowed"),
 
 		// The charm is unmodifiable.
 		// There is a lot of assumptions in the code that the charm is immutable
