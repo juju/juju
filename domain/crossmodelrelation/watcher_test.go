@@ -1095,7 +1095,7 @@ func (s *watcherSuite) TestWatchRelationEgressNetworks(c *tc.C) {
 	// Deleting an egress network falls back to unit addresses (converted to
 	// CIDRs).
 	harness.AddTest(c, func(c *tc.C) {
-		s.deleteEgressNetwork(c, db, remoteRelationUUID, "192.0.2.0/24")
+		s.deleteEgressNetworks(c, db, remoteRelationUUID, "192.0.2.0/24")
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.StringSliceAssert("198.51.100.1/32"))
 	})
@@ -1124,8 +1124,7 @@ func (s *watcherSuite) TestWatchRelationEgressNetworks(c *tc.C) {
 
 	// Deleting the last egress network falls back to unit addresses.
 	harness.AddTest(c, func(c *tc.C) {
-		s.deleteEgressNetwork(c, db, remoteRelationUUID, "198.51.100.0/24")
-		s.deleteEgressNetwork(c, db, remoteRelationUUID, "203.0.113.0/24")
+		s.deleteEgressNetworks(c, db, remoteRelationUUID, "198.51.100.0/24", "203.0.113.0/24")
 	}, func(w watchertest.WatcherC[[]string]) {
 		// Falls back to unit address CIDR.
 		w.Check(watchertest.StringSliceAssert("198.51.100.1/32"))
@@ -1171,12 +1170,16 @@ ON CONFLICT (relation_uuid, cidr) DO NOTHING`, relationUUID.String(), cidr)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *watcherSuite) deleteEgressNetwork(c *tc.C, db database.TxnRunner, relationUUID corerelation.UUID, cidr string) {
+func (s *watcherSuite) deleteEgressNetworks(c *tc.C, db database.TxnRunner, relationUUID corerelation.UUID, cidrs ...string) {
 	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
+		for _, cidr := range cidrs {
+			if _, err := tx.ExecContext(ctx, `
 DELETE FROM relation_network_egress
-WHERE relation_uuid = ? AND cidr = ?`, relationUUID.String(), cidr)
-		return err
+WHERE relation_uuid = ? AND cidr = ?`, relationUUID.String(), cidr); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
 }
