@@ -32,66 +32,32 @@ func NewControllerState(
 	}
 }
 
-// GetAllAgentStoreBinariesForStream returns all agent binaries that are
-// available in the controller store for a given stream. If no agent binaries
-// exist for the stream, an empty slice is returned.
-func (s *ControllerState) GetAllAgentStoreBinariesForStream(
-	ctx context.Context, stream agentbinary.Stream,
-) ([]agentbinary.AgentBinary, error) {
+// GetAllAgentStoreBinaries returns all binaries in the controller store.
+// The store does not record their streams.
+func (s *ControllerState) GetAllAgentStoreBinaries(
+	ctx context.Context,
+) ([]internal.AgentStoreBinary, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	streamInput := agentStream{StreamID: int(stream)}
-
-	q := `
-SELECT &agentStoreBinary.*
-FROM (
-    SELECT abs.version,
-           abs.architecture_id,
-           $agentStream.stream_id AS stream_id
-    FROM   agent_binary_store abs
-)
-`
-
-	stmt, err := s.Prepare(q, streamInput, agentStoreBinary{})
+	stmt, err := prepareAgentStoreBinaries(s.StateBase)
 	if err != nil {
-		return nil, errors.Errorf(
-			"preparing get all agent binaries for stream query: %w", err,
-		)
+		return nil, errors.Capture(err)
 	}
 
-	dbVals := []agentStoreBinary{}
+	var dbVals []agentStoreBinary
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, streamInput).GetAll(&dbVals)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		}
+		var err error
+		dbVals, err = getAgentStoreBinaries(ctx, tx, stmt)
 		return err
 	})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	retVal := make([]agentbinary.AgentBinary, 0, len(dbVals))
-	for _, dbVal := range dbVals {
-		version, err := semversion.Parse(dbVal.Version)
-		if err != nil {
-			return nil, errors.Errorf(
-				"parsing agent binary version %q: %w",
-				dbVal.Version, err,
-			)
-		}
-
-		retVal = append(retVal, agentbinary.AgentBinary{
-			Version:      version,
-			Architecture: agentbinary.Architecture(dbVal.ArchitectureID),
-			Stream:       agentbinary.Stream(dbVal.StreamID),
-		})
-	}
-
-	return retVal, nil
+	return decodeAgentStoreBinaries(dbVals)
 }
 
 // GetControllerNodes returns the current version and architecture of nodes

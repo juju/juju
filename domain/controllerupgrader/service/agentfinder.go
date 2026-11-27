@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/agentbinary"
 	domainagentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
+	"github.com/juju/juju/domain/controllerupgrader/internal"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
@@ -21,12 +22,9 @@ import (
 // AgentFinderControllerState defines the interface for interacting with the
 // controller state.
 type AgentFinderControllerState interface {
-	// GetAllAgentStoreBinariesForStream returns all agent binaries that are
-	// available in the controller store for a given stream. If no agent
-	// binaries exist for the stream, an empty slice is returned.
-	GetAllAgentStoreBinariesForStream(
-		ctx context.Context, stream agentbinary.Stream,
-	) ([]agentbinary.AgentBinary, error)
+	// GetAllAgentStoreBinaries returns all binaries in the controller store,
+	// which does not record stream membership.
+	GetAllAgentStoreBinaries(ctx context.Context) ([]internal.AgentStoreBinary, error)
 
 	// GetControllerTargetVersion returns the target controller version in use by the
 	// cluster.
@@ -36,9 +34,8 @@ type AgentFinderControllerState interface {
 // AgentFinderControllerModelState defines the interface for interacting with the
 // underlying model that hosts the current controller(s).
 type AgentFinderControllerModelState interface {
-	// GetAllAgentStoreBinariesForStream returns all agent binaries that are
-	// available in the controller store for a given stream. If no agent
-	// binaries exist for the stream, an empty slice is returned.
+	// GetAllAgentStoreBinariesForStream returns model store binaries when the
+	// requested stream matches the model's target stream.
 	GetAllAgentStoreBinariesForStream(
 		context.Context, agentbinary.Stream,
 	) ([]agentbinary.AgentBinary, error)
@@ -330,25 +327,18 @@ func (a *StreamAgentBinaryFinder) HasBinariesForVersionStreamAndArchitectures(
 		return true, nil
 	}
 
-	controllerBinaries, err := a.ctrlSt.GetAllAgentStoreBinariesForStream(
-		ctx, stream,
-	)
+	controllerBinaries, err := a.ctrlSt.GetAllAgentStoreBinaries(ctx)
 	if err != nil {
 		return false, errors.Errorf(
-			"getting available agent binaries in controller for stream %q: %w",
-			stream, err,
+			"getting available agent binaries in controller store: %w", err,
 		)
 	}
 
-	// Filter out all agent binaries which are not for the version we care
-	// about.
-	controllerBinaries = slices.DeleteFunc(
-		controllerBinaries, agentbinary.AgentBinaryNotMatchingVersion(version),
-	)
-	foundArchs = slices.AppendSeq(
-		foundArchs,
-		agentbinary.AgentBinaryArchitectures(controllerBinaries),
-	)
+	for _, binary := range controllerBinaries {
+		if binary.Version.Compare(version) == 0 {
+			foundArchs = append(foundArchs, binary.Architecture)
+		}
+	}
 	architectures = agentbinary.ArchitectureNotIn(architectures, foundArchs)
 	if len(architectures) == 0 {
 		// Found all the architectures in model state and controller state.
@@ -393,14 +383,6 @@ func (a *StreamAgentBinaryFinder) GetHighestPatchVersionAvailable(
 	return a.GetHighestPatchVersionAvailableForStream(ctx, stream)
 }
 
-func removeNonPatchVersions(
-	v semversion.Number,
-) func(agentbinary.AgentBinary) bool {
-	return func(a agentbinary.AgentBinary) bool {
-		return a.Version.Major != v.Major || a.Version.Minor != v.Minor
-	}
-}
-
 // GetHighestPatchVersionAvailableForStream returns the highest patch version of the current
 // controller given a stream.
 func (a *StreamAgentBinaryFinder) GetHighestPatchVersionAvailableForStream(
@@ -420,17 +402,12 @@ func (a *StreamAgentBinaryFinder) GetHighestPatchVersionAvailableForStream(
 		)
 	}
 
-	storeBinaries, err := a.ctrlSt.GetAllAgentStoreBinariesForStream(ctx, stream)
+	storeBinaries, err := a.ctrlSt.GetAllAgentStoreBinaries(ctx)
 	if err != nil {
 		return semversion.Zero, errors.Errorf(
-			"getting all controller agent store binaries for stream %q: %w",
-			stream.String(), err,
+			"getting all controller agent store binaries: %w", err,
 		)
 	}
-	storeBinaries = slices.DeleteFunc(
-		storeBinaries, removeNonPatchVersions(ctrlVersion),
-	)
-
 	ssBinaries, err := a.getSimpleStreamsPatchVersions(ctx, ctrlVersion, stream)
 	if err != nil {
 		return semversion.Zero, errors.Errorf(
@@ -439,18 +416,18 @@ func (a *StreamAgentBinaryFinder) GetHighestPatchVersionAvailableForStream(
 		)
 	}
 
-	slices.SortFunc(storeBinaries, agentbinary.AgentBinaryCompareOnVersion)
-	storeBinaries = slices.CompactFunc(
-		storeBinaries, agentbinary.AgentBinaryCompactOnVersion,
-	)
 	slices.SortFunc(ssBinaries, agentbinary.AgentBinaryCompareOnVersion)
 	ssBinaries = slices.CompactFunc(
 		ssBinaries, agentbinary.AgentBinaryCompactOnVersion,
 	)
 
-	var highestStoreBinary agentbinary.AgentBinary
-	if len(storeBinaries) != 0 {
-		highestStoreBinary = slices.MaxFunc(storeBinaries, agentbinary.AgentBinaryHighestVersion)
+	var highestStoreVersion semversion.Number
+	for _, binary := range storeBinaries {
+		if binary.Version.Major == ctrlVersion.Major &&
+			binary.Version.Minor == ctrlVersion.Minor &&
+			binary.Version.Compare(highestStoreVersion) > 0 {
+			highestStoreVersion = binary.Version
+		}
 	}
 
 	var highestSSBinary agentbinary.AgentBinary
@@ -459,8 +436,8 @@ func (a *StreamAgentBinaryFinder) GetHighestPatchVersionAvailableForStream(
 	}
 
 	recVersion := highestSSBinary.Version
-	if highestStoreBinary.Version.Compare(highestSSBinary.Version) > 0 {
-		recVersion = highestStoreBinary.Version
+	if highestStoreVersion.Compare(highestSSBinary.Version) > 0 {
+		recVersion = highestStoreVersion
 	}
 
 	if recVersion == semversion.Zero {

@@ -14,3 +14,9 @@ type ControllerNode struct {
 	Version      semversion.Number
 	Architecture agentbinary.Architecture
 }
+
+// AgentStoreBinary describes a binary stored without stream information.
+type AgentStoreBinary struct {
+	Version      semversion.Number
+	Architecture agentbinary.Architecture
+}
