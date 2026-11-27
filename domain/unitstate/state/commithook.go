@@ -168,6 +168,12 @@ LIMIT  1
 		return errors.Errorf("secret already exists")
 	}
 
+	// Assert ownership of any reservation for this secret ID, consuming a
+	// matching reservation in this transaction.
+	if err := st.checkSecretReservationOwnership(ctx, tx, arg); err != nil {
+		return errors.Errorf("checking secret reservation ownership: %w", err)
+	}
+
 	// 2. Insert into secret table (just the ID).
 	insertSecretStmt, err := st.Prepare(
 		"INSERT INTO secret (id) VALUES ($createSecretID.id)", createSecretID{})
@@ -258,6 +264,81 @@ LIMIT  1
 	}
 
 	return nil
+}
+
+// checkSecretReservationOwnership asserts that a secret being created does
+// not claim another unit's reserved secret ID, consuming any matching
+// reservation in the same transaction.
+func (st *State) checkSecretReservationOwnership(ctx context.Context, tx *sqlair.TX, arg internal.CreateSecretArg) error {
+	selectStmt, err := st.Prepare(`
+SELECT &reservationUnit.*
+FROM   secret_reservation
+WHERE  secret_id = $createSecretID.id`, reservationUnit{}, createSecretID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var reservation reservationUnit
+	err = tx.Query(ctx, selectStmt, createSecretID{ID: arg.SecretID}).Get(&reservation)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		// No reservation exists for this ID: there is no claim to assert,
+		// so creation proceeds.
+		return nil
+	} else if err != nil {
+		return errors.Capture(err)
+	}
+
+	switch arg.OwnerKind {
+	case domainsecret.UnitCharmSecretOwner:
+		if reservation.UnitUUID != arg.OwnerUUID {
+			return errors.New("secret is reserved by another unit").
+				Add(unitstateerrors.SecretReservationNotOwned)
+		}
+	case domainsecret.ApplicationCharmSecretOwner:
+		appUUID, err := st.secretReservationUnitApplication(ctx, tx, reservation.UnitUUID)
+		if err != nil {
+			return errors.Errorf("resolving reservation owner application: %w", err)
+		}
+		if appUUID != arg.OwnerUUID {
+			return errors.New("secret is reserved by a unit of another application").
+				Add(unitstateerrors.SecretReservationNotOwned)
+		}
+	default:
+		return errors.Errorf("unexpected secret owner kind %q", arg.OwnerKind)
+	}
+
+	// Consume the reservation in the same transaction: the reserved ID is
+	// exchanged for the secret being created and cannot be claimed again.
+	deleteStmt, err := st.Prepare(`
+DELETE FROM secret_reservation
+WHERE  secret_id = $createSecretID.id`, createSecretID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return errors.Capture(tx.Query(ctx, deleteStmt, createSecretID{ID: arg.SecretID}).Run())
+}
+
+// secretReservationUnitApplication returns the application UUID of the unit
+// holding a secret reservation. If the unit no longer exists, ownership
+// cannot be established and the not-owned error is returned.
+func (st *State) secretReservationUnitApplication(ctx context.Context, tx *sqlair.TX, unitUUID string) (string, error) {
+	stmt, err := st.Prepare(`
+SELECT &unitApplicationUUID.*
+FROM   unit
+WHERE  uuid = $entityUUID.uuid`, unitApplicationUUID{}, entityUUID{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var row unitApplicationUUID
+	err = tx.Query(ctx, stmt, entityUUID{UUID: unitUUID}).Get(&row)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", errors.Errorf("unit %q holding the reservation not found", unitUUID).
+			Add(unitstateerrors.SecretReservationNotOwned)
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
+	return row.ApplicationUUID, nil
 }
 
 // ensureNewLabel verifies if a secret label exists for the specified owner kind, UUID, and label combination.

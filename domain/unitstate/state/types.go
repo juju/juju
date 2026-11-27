@@ -55,6 +55,16 @@ type createSecretID struct {
 	ID string `db:"id"`
 }
 
+// reservationUnit holds the UUID of the unit that reserved a secret ID.
+type reservationUnit struct {
+	UnitUUID string `db:"unit_uuid"`
+}
+
+// unitApplicationUUID holds the application UUID of a unit.
+type unitApplicationUUID struct {
+	ApplicationUUID string `db:"application_uuid"`
+}
+
 // secretIDs is a sqlair slice type for batch IN queries on secret_id.
 type secretIDs []string
 

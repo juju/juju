@@ -19,6 +19,7 @@ import (
 	coreunittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment/charm"
+	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -28,6 +29,7 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/unitstate"
+	unitstateerrors "github.com/juju/juju/domain/unitstate/errors"
 	"github.com/juju/juju/domain/unitstate/internal"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -2239,6 +2241,189 @@ func (s *commitHookSuite) TestCreateSecretsApplicationOwned(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(roleID, tc.Equals, int(secret.RoleManage))
+}
+
+// addUnitForApplication inserts a unit belonging to the given application,
+// with the minimal supporting rows (net_node), returning the unit UUID.
+func (s *commitHookSuite) addUnitForApplication(c *tc.C, name, appUUID string) string {
+	unitUUID := tc.Must(c, coreunit.NewUUID).String()
+	s.query(c, "INSERT INTO net_node (uuid) VALUES (?)", unitUUID)
+	s.query(c, `
+INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid)
+VALUES (?, ?, ?, ?, ?, ?)`,
+		unitUUID, name, life.Alive, appUUID, s.fakeCharmUUID1, unitUUID)
+	return unitUUID
+}
+
+// addSecretReservation records a reservation for a secret ID held by a unit.
+func (s *commitHookSuite) addSecretReservation(c *tc.C, secretID, unitUUID string) {
+	s.query(c, `
+INSERT INTO secret_reservation (secret_id, unit_uuid, created_at)
+VALUES (?, ?, DATETIME('now', 'utc'))`, secretID, unitUUID)
+}
+
+func (s *commitHookSuite) TestCreateSecretsConsumesMatchingReservation(c *tc.C) {
+	ctx := c.Context()
+	secretID := "create-test-reserved"
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	s.addSecretReservation(c, secretID, s.unitUUID)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  secretID,
+			Version:   1,
+			OwnerKind: secret.UnitCharmSecretOwner,
+			OwnerUUID: s.unitUUID,
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Data:         coresecrets.SecretData{"key": "val"},
+				Checksum:     "checksum",
+			},
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+	c.Check(s.countRows(c, "SELECT count(*) FROM secret WHERE id = ?", secretID), tc.Equals, 1)
+	c.Check(s.countRows(c, "SELECT count(*) FROM secret_reservation WHERE secret_id = ?", secretID), tc.Equals, 0)
+}
+
+func (s *commitHookSuite) TestCreateSecretsForeignReservationRefused(c *tc.C) {
+	ctx := c.Context()
+	secretID := "create-test-stolen"
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	// The reservation is held by a different unit; a unit-owned create
+	// may only claim its own reservation.
+	otherUnit := s.addUnitForApplication(c, s.fakeApplicationName1+"/1", s.fakeApplicationUUID1)
+	s.addSecretReservation(c, secretID, otherUnit)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  secretID,
+			Version:   1,
+			OwnerKind: secret.UnitCharmSecretOwner,
+			OwnerUUID: s.unitUUID,
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Data:         coresecrets.SecretData{"key": "val"},
+				Checksum:     "checksum",
+			},
+		}},
+	}
+
+	err := s.state.CommitHookChanges(ctx, arg)
+	c.Assert(err, tc.ErrorIs, unitstateerrors.SecretReservationNotOwned)
+
+	// The transaction rolled back: no secret, and the reservation still
+	// belongs to its original holder.
+	c.Check(s.countRows(c, "SELECT count(*) FROM secret WHERE id = ?", secretID), tc.Equals, 0)
+	c.Check(s.countRows(c, "SELECT count(*) FROM secret_reservation WHERE secret_id = ?", secretID), tc.Equals, 1)
+}
+
+func (s *commitHookSuite) TestCreateSecretsWithoutReservationProceeds(c *tc.C) {
+	ctx := c.Context()
+	secretID := "create-test-unreserved"
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	// No reservation exists for this ID: creation proceeds as before.
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  secretID,
+			Version:   1,
+			OwnerKind: secret.UnitCharmSecretOwner,
+			OwnerUUID: s.unitUUID,
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Data:         coresecrets.SecretData{"key": "val"},
+				Checksum:     "checksum",
+			},
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+	c.Check(s.countRows(c, "SELECT count(*) FROM secret WHERE id = ?", secretID), tc.Equals, 1)
+	c.Check(s.countRows(c, "SELECT count(*) FROM secret_reservation WHERE secret_id = ?", secretID), tc.Equals, 0)
+}
+
+func (s *commitHookSuite) TestCreateSecretsApplicationOwnedClaimsOwnUnitReservation(c *tc.C) {
+	ctx := c.Context()
+	secretID := "create-test-app-claim"
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	// The reservation is held by a unit of the owning application: an
+	// application-owned create may claim it.
+	siblingUnit := s.addUnitForApplication(c, s.fakeApplicationName1+"/1", s.fakeApplicationUUID1)
+	s.addSecretReservation(c, secretID, siblingUnit)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  secretID,
+			Version:   1,
+			OwnerKind: secret.ApplicationCharmSecretOwner,
+			OwnerUUID: s.fakeApplicationUUID1,
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Data:         coresecrets.SecretData{"key": "val"},
+				Checksum:     "checksum",
+			},
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+	c.Check(s.countRows(c, "SELECT count(*) FROM secret WHERE id = ?", secretID), tc.Equals, 1)
+	c.Check(s.countRows(c, "SELECT count(*) FROM secret_reservation WHERE secret_id = ?", secretID), tc.Equals, 0)
+}
+
+func (s *commitHookSuite) TestCreateSecretsApplicationOwnedForeignReservationRefused(c *tc.C) {
+	ctx := c.Context()
+	secretID := "create-test-app-stolen"
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	// The reservation is held by a unit of another application: an
+	// application-owned create may not claim it.
+	otherAppUnit := s.addUnitForApplication(c, s.fakeApplicationName2+"/0", s.fakeApplicationUUID2)
+	s.addSecretReservation(c, secretID, otherAppUnit)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  secretID,
+			Version:   1,
+			OwnerKind: secret.ApplicationCharmSecretOwner,
+			OwnerUUID: s.fakeApplicationUUID1,
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Data:         coresecrets.SecretData{"key": "val"},
+				Checksum:     "checksum",
+			},
+		}},
+	}
+
+	err := s.state.CommitHookChanges(ctx, arg)
+	c.Assert(err, tc.ErrorIs, unitstateerrors.SecretReservationNotOwned)
+
+	c.Check(s.countRows(c, "SELECT count(*) FROM secret WHERE id = ?", secretID), tc.Equals, 0)
+	c.Check(s.countRows(c, "SELECT count(*) FROM secret_reservation WHERE secret_id = ?", secretID), tc.Equals, 1)
 }
 
 func (s *commitHookSuite) TestCreateSecretsWithRotatePolicy(c *tc.C) {
