@@ -76,17 +76,32 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	}
 
 	for _, machine := range model.Machines() {
-		passwordHash := machine.PasswordHash()
-		if passwordHash == "" {
-			continue
+		if err := i.importMachinePasswordHash(ctx, machine); err != nil {
+			return err
 		}
+	}
 
+	return nil
+}
+
+// importMachinePasswordHash sets the password hash for the machine and for
+// every container hosted on it. Containers are nested under their host in
+// the description, so they are not returned by model.Machines().
+func (i *importOperation) importMachinePasswordHash(ctx context.Context, machine description.Machine) error {
+	if passwordHash := machine.PasswordHash(); passwordHash != "" {
 		machineName := machine.Id()
-
 		if err := i.service.SetMachinePasswordHash(ctx, coremachine.Name(machineName), agentpassword.PasswordHash(passwordHash)); err != nil {
 			return errors.Errorf("setting password hash for machine %q: %w", machineName, err)
 		}
 	}
 
+	// The description builds each container as a new child of its host, both
+	// in AddContainer and when it reads the YAML, so this recursion follows a
+	// tree and always ends.
+	for _, container := range machine.Containers() {
+		if err := i.importMachinePasswordHash(ctx, container); err != nil {
+			return err
+		}
+	}
 	return nil
 }
