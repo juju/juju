@@ -9,6 +9,7 @@ import (
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/export/types/latest"
 	"github.com/juju/juju/domain/export/types/v4_1_0"
 	"github.com/juju/juju/domain/modelimport"
@@ -27,14 +28,37 @@ func (s *validateSuite) TestValidatePayload(c *tc.C) {
 	passwordHash := "hash"
 	err := modelimport.ValidatePayload(latest.ModelExport{
 		ModelAgent: []v4_1_0.ModelAgent{{PasswordHash: &passwordHash}},
+		Model:      []v4_1_0.Model{{Type: coremodel.IAAS.String()}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *validateSuite) TestValidatePayloadMissingModelAgent(c *tc.C) {
-	err := modelimport.ValidatePayload(latest.ModelExport{})
+	err := modelimport.ValidatePayload(latest.ModelExport{
+		Model: []v4_1_0.Model{{Type: coremodel.IAAS.String()}},
+	})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, "model export payload has 0 model_agent rows, expected 1.*")
+}
+
+func (s *validateSuite) TestValidatePayloadMissingModel(c *tc.C) {
+	err := modelimport.ValidatePayload(latest.ModelExport{
+		ModelAgent: []v4_1_0.ModelAgent{{}},
+	})
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, "model export payload has 0 model rows, expected 1.*")
+}
+
+func (s *validateSuite) TestValidatePayloadMultipleModels(c *tc.C) {
+	err := modelimport.ValidatePayload(latest.ModelExport{
+		ModelAgent: []v4_1_0.ModelAgent{{}},
+		Model: []v4_1_0.Model{
+			{UUID: "machine-model", Type: coremodel.IAAS.String()},
+			{UUID: "kubernetes-model", Type: coremodel.CAAS.String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, "model export payload has 2 model rows, expected 1.*")
 }
 
 // TestValidatePayloadAllowsEmptyModelAgentPassword asserts that a payload
@@ -43,6 +67,7 @@ func (s *validateSuite) TestValidatePayloadMissingModelAgent(c *tc.C) {
 func (s *validateSuite) TestValidatePayloadAllowsEmptyModelAgentPassword(c *tc.C) {
 	err := modelimport.ValidatePayload(latest.ModelExport{
 		ModelAgent: []v4_1_0.ModelAgent{{}},
+		Model:      []v4_1_0.Model{{Type: coremodel.IAAS.String()}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -51,6 +76,7 @@ func (s *validateSuite) TestValidatePayloadRejectsUnmaterialisedScale(c *tc.C) {
 	scale := int64(2)
 	err := modelimport.ValidatePayload(latest.ModelExport{
 		ModelAgent:       []v4_1_0.ModelAgent{{}},
+		Model:            []v4_1_0.Model{{Type: coremodel.CAAS.String()}},
 		Application:      []v4_1_0.Application{{UUID: "app", Name: "foo"}},
 		ApplicationScale: []v4_1_0.ApplicationScale{{ApplicationUUID: "app", Scale: &scale}},
 		Unit:             []v4_1_0.Unit{{ApplicationUUID: "app", Name: "foo/0", LifeID: 0}},
@@ -59,10 +85,50 @@ func (s *validateSuite) TestValidatePayloadRejectsUnmaterialisedScale(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, "imported application .* scale request is not materialised.*")
 }
 
+func (s *validateSuite) TestValidatePayloadLegacyScaleByModelType(c *tc.C) {
+	for _, modelType := range []string{coremodel.IAAS.String(), coremodel.CAAS.String()} {
+		scale := int64(0)
+		payload := latest.ModelExport{
+			ModelAgent:       []v4_1_0.ModelAgent{{}},
+			Model:            []v4_1_0.Model{{Type: modelType}},
+			Application:      []v4_1_0.Application{{UUID: "app", Name: "foo"}},
+			ApplicationScale: []v4_1_0.ApplicationScale{{ApplicationUUID: "app", Scale: &scale}},
+			Unit: []v4_1_0.Unit{
+				{ApplicationUUID: "app", Name: "foo/0", LifeID: 0},
+				{ApplicationUUID: "app", Name: "foo/1", LifeID: 0},
+			},
+		}
+		err := modelimport.ValidatePayload(payload)
+		if modelType == coremodel.IAAS.String() {
+			c.Assert(err, tc.ErrorIsNil)
+		} else {
+			c.Assert(err, tc.ErrorIs, coreerrors.NotValid, tc.Commentf("model type %q", modelType))
+			c.Check(err, tc.ErrorMatches, "imported application .* scale request is not materialised.*")
+		}
+	}
+}
+
+func (s *validateSuite) TestValidatePayloadLegacyScaleWithoutApplication(c *tc.C) {
+	for _, modelType := range []string{coremodel.IAAS.String(), coremodel.CAAS.String()} {
+		err := modelimport.ValidatePayload(latest.ModelExport{
+			ModelAgent:       []v4_1_0.ModelAgent{{}},
+			Model:            []v4_1_0.Model{{Type: modelType}},
+			ApplicationScale: []v4_1_0.ApplicationScale{{ApplicationUUID: "missing"}},
+		})
+		if modelType == coremodel.IAAS.String() {
+			c.Assert(err, tc.ErrorIsNil)
+		} else {
+			c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+			c.Check(err, tc.ErrorMatches, `imported scale has no application "missing".*`)
+		}
+	}
+}
+
 func (s *validateSuite) TestValidatePayloadCountsOnlyAliveUnits(c *tc.C) {
 	scale := int64(1)
 	err := modelimport.ValidatePayload(latest.ModelExport{
 		ModelAgent:       []v4_1_0.ModelAgent{{}},
+		Model:            []v4_1_0.Model{{Type: coremodel.CAAS.String()}},
 		Application:      []v4_1_0.Application{{UUID: "app", Name: "foo"}},
 		ApplicationScale: []v4_1_0.ApplicationScale{{ApplicationUUID: "app", Scale: &scale}},
 		Unit: []v4_1_0.Unit{
@@ -177,6 +243,7 @@ func (s *validateSuite) TestValidatePayloadRejectsSparseLegacyScale(c *tc.C) {
 	scale := int64(2)
 	err := modelimport.ValidatePayload(latest.ModelExport{
 		ModelAgent:       []v4_1_0.ModelAgent{{}},
+		Model:            []v4_1_0.Model{{Type: coremodel.CAAS.String()}},
 		Application:      []v4_1_0.Application{{UUID: "app", Name: "foo"}},
 		ApplicationScale: []v4_1_0.ApplicationScale{{ApplicationUUID: "app", Scale: &scale}},
 		Unit: []v4_1_0.Unit{

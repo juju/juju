@@ -51,6 +51,7 @@ func (s *importSuite) TestImporterPerformsModelDBImport(c *tc.C) {
 	passwordHash := "hash"
 	passwordHashAlgorithmID := int64(0)
 	payload := &latest.ModelExport{
+		Model: []v4_1_0.Model{{UUID: s.ModelUUID(), Type: coremodel.IAAS.String()}},
 		ModelAgent: []v4_1_0.ModelAgent{{
 			ModelUUID:               s.ModelUUID(),
 			PasswordHashAlgorithmID: &passwordHashAlgorithmID,
@@ -81,6 +82,7 @@ VALUES (1, '4.1.5', '4.1.5')`)
 	c.Assert(err, tc.ErrorIsNil)
 
 	payload := &latest.ModelExport{
+		Model:      []v4_1_0.Model{{UUID: s.ModelUUID(), Type: coremodel.IAAS.String()}},
 		ModelAgent: []v4_1_0.ModelAgent{{ModelUUID: s.ModelUUID()}},
 		AgentVersion: []v4_1_0.AgentVersion{{
 			StreamID: 1, TargetVersion: "4.1.5", LatestVersion: "4.1.6",
@@ -120,6 +122,7 @@ func (s *importSuite) TestImportRestoresPendingUnitsAndSequence(c *tc.C) {
 	scaling := false
 	passwordHash := "hash"
 	payload := &latest.ModelExport{
+		Model: []v4_1_0.Model{{UUID: s.ModelUUID(), Type: coremodel.CAAS.String()}},
 		ModelAgent: []v4_1_0.ModelAgent{{
 			ModelUUID: s.ModelUUID(), PasswordHash: &passwordHash,
 		}},
@@ -233,6 +236,7 @@ func (s *importSuite) TestImportRejectsMissingUnitBeforeWriting(c *tc.C) {
 
 	scale := int64(1)
 	payload := &latest.ModelExport{
+		Model:       []v4_1_0.Model{{UUID: s.ModelUUID(), Type: coremodel.CAAS.String()}},
 		ModelAgent:  []v4_1_0.ModelAgent{{ModelUUID: s.ModelUUID()}},
 		Application: []v4_1_0.Application{{UUID: "application-uuid", Name: "foo"}},
 		ApplicationScale: []v4_1_0.ApplicationScale{{
@@ -289,6 +293,7 @@ func (s *importSuite) TestImportAtZeroRetainsNextOrdinal(c *tc.C) {
 	scaling := false
 	passwordHash := "hash"
 	payload := &latest.ModelExport{
+		Model: []v4_1_0.Model{{UUID: s.ModelUUID(), Type: coremodel.CAAS.String()}},
 		ModelAgent: []v4_1_0.ModelAgent{{
 			ModelUUID: s.ModelUUID(), PasswordHash: &passwordHash,
 		}},
@@ -333,7 +338,9 @@ func (s *importSuite) TestImportNilPayload(c *tc.C) {
 func (s *importSuite) TestImportRejectsMissingModelAgent(c *tc.C) {
 	s.bootstrapModel(c)
 
-	err := modelimport.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), &latest.ModelExport{})
+	err := modelimport.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), &latest.ModelExport{
+		Model: []v4_1_0.Model{{UUID: s.ModelUUID(), Type: coremodel.IAAS.String()}},
+	})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -342,6 +349,7 @@ func (s *importSuite) TestImportRejectsMultipleModelAgents(c *tc.C) {
 
 	passwordHash := "hash"
 	payload := &latest.ModelExport{
+		Model: []v4_1_0.Model{{UUID: s.ModelUUID(), Type: coremodel.IAAS.String()}},
 		ModelAgent: []v4_1_0.ModelAgent{
 			{ModelUUID: s.ModelUUID(), PasswordHash: &passwordHash},
 			{ModelUUID: s.ModelUUID(), PasswordHash: &passwordHash},
@@ -372,6 +380,7 @@ func (s *importSuite) TestImportSanitizesCharmBlobResidency(c *tc.C) {
 	passwordHash := "hash"
 
 	payload := &latest.ModelExport{
+		Model: []v4_1_0.Model{{UUID: s.ModelUUID(), Type: coremodel.IAAS.String()}},
 		ModelAgent: []v4_1_0.ModelAgent{{
 			ModelUUID:    s.ModelUUID(),
 			PasswordHash: &passwordHash,
@@ -445,6 +454,7 @@ func (s *importSuite) TestImportLegacyRemovalForce(c *tc.C) {
 	scheduled := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
 
 	legacy := v4_0_12.ModelExport{
+		Model:      []v4_0_12.Model{{UUID: s.ModelUUID(), Type: coremodel.IAAS.String()}},
 		ModelAgent: []v4_0_12.ModelAgent{{ModelUUID: s.ModelUUID()}},
 		Removal: []v4_0_12.Removal{
 			{UUID: "r-false", RemovalTypeID: 0, EntityUUID: "e1", Force: 0, ScheduledFor: scheduled},
@@ -627,6 +637,7 @@ func (s *importSuite) TestImportTransformsLegacyTextIDs(c *tc.C) {
 	s.bootstrapModel(c)
 
 	legacy := v4_0_12.ModelExport{
+		Model: []v4_0_12.Model{{UUID: s.ModelUUID(), Type: coremodel.IAAS.String()}},
 		Charm: []v4_0_12.Charm{{
 			UUID: charmUUID, SourceID: 1, Revision: 1, ReferenceName: "test-charm",
 			CreateTime: time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC),

@@ -12,6 +12,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/export/types/latest"
+	"github.com/juju/juju/domain/export/types/v4_1_0"
 	domainlife "github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/sequence"
 	"github.com/juju/juju/internal/errors"
@@ -24,6 +25,24 @@ func ValidatePayload(payload latest.ModelExport) error {
 		return errors.Errorf(
 			"model export payload has %d model_agent rows, expected 1: %w",
 			len(payload.ModelAgent), coreerrors.NotValid)
+	}
+	if len(payload.Model) != 1 {
+		return errors.Errorf(
+			"model export payload has %d model rows, expected 1: %w",
+			len(payload.Model), coreerrors.NotValid)
+	}
+	model := payload.Model[0]
+	if err := validateLegacyApplicationScales(payload, model); err != nil {
+		return errors.Capture(err)
+	}
+	return validateK8sUnitRanges(payload, model)
+}
+
+func validateLegacyApplicationScales(payload latest.ModelExport, model v4_1_0.Model) error {
+	// Legacy imports into 4.0 created scale rows for machine applications.
+	// Those rows do not represent scaling intent for machine models.
+	if model.Type == coremodel.IAAS.String() {
+		return nil
 	}
 	appNames := make(map[string]string, len(payload.Application))
 	for _, app := range payload.Application {
@@ -45,10 +64,13 @@ func ValidatePayload(payload latest.ModelExport) error {
 				name, *scale.Scale, aliveUnits[scale.ApplicationUUID], coreerrors.NotValid)
 		}
 	}
-	return validateK8sUnitRanges(payload)
+	return nil
 }
 
-func validateK8sUnitRanges(payload latest.ModelExport) error {
+func validateK8sUnitRanges(payload latest.ModelExport, model v4_1_0.Model) error {
+	if model.Type != coremodel.CAAS.String() {
+		return nil
+	}
 	appNames := k8sApplicationsForValidation(payload)
 	alive, highWater, err := collectK8sUnitOrdinals(payload, appNames)
 	if err != nil {
@@ -66,13 +88,6 @@ func validateK8sUnitRanges(payload latest.ModelExport) error {
 }
 
 func k8sApplicationsForValidation(payload latest.ModelExport) map[string]string {
-	// Model rows identify Kubernetes payloads even when no legacy scale rows or
-	// registered pods exist. Legacy scale rows also identify partial payloads.
-	k8sModel := len(payload.Model) > 0 && payload.Model[0].Type == coremodel.CAAS.String()
-	legacyApps := make(map[string]bool, len(payload.ApplicationScale))
-	for _, scale := range payload.ApplicationScale {
-		legacyApps[scale.ApplicationUUID] = true
-	}
 	syntheticCharms := make(map[string]bool)
 	for _, charm := range payload.Charm {
 		syntheticCharms[charm.UUID] = charm.SourceID == 2
@@ -80,9 +95,6 @@ func k8sApplicationsForValidation(payload latest.ModelExport) map[string]string 
 	appNames := make(map[string]string)
 	for _, app := range payload.Application {
 		if app.LifeID != int64(domainlife.Alive) || syntheticCharms[app.CharmUUID] {
-			continue
-		}
-		if !k8sModel && (len(payload.Model) > 0 || !legacyApps[app.UUID]) {
 			continue
 		}
 		appNames[app.UUID] = app.Name

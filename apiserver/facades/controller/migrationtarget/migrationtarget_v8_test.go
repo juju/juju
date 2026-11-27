@@ -138,6 +138,7 @@ func (s *v8Suite) validPayload() v4_0_12.ModelExport {
 	passwordHash := "hash"
 	passwordHashAlgorithmID := int64(0)
 	return v4_0_12.ModelExport{
+		Model: []v4_0_12.Model{{UUID: s.modelUUID, Type: model.IAAS.String()}},
 		AgentStream: []v4_0_12.AgentStream{{
 			ID: new(int64(0)), Name: "released",
 		}},
