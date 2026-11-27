@@ -26,7 +26,7 @@ var usageConsumeDetails = (`
 The model selected with ` + "`-m`" + ` is the consuming model. Consuming an offer
 does not create a relation. To create one, use ` + "`juju integrate`" + `.
 
-Give the offer URL without an endpoint:
+The path to the remote offer is formatted as follows:
 
     [<controller name>:][<model qualifier>/]<model name>.<offer name>
 
