@@ -192,6 +192,15 @@ WHERE  relation_uuid = $entityUUID.uuid`, entityUUID{})
 		return errors.Errorf("preparing remote relation macaroon deletion: %w", err)
 	}
 
+	deleteSecretRemoteUnitConsumerStmt, err := st.Prepare(`
+DELETE FROM secret_remote_unit_consumer
+WHERE  offer_connection_uuid IN (
+    SELECT uuid FROM offer_connection WHERE remote_relation_uuid = $entityUUID.uuid
+)`, entityUUID{})
+	if err != nil {
+		return errors.Errorf("preparing secret remote unit consumer deletion: %w", err)
+	}
+
 	deleteRemoteConsumerStmt, err := st.Prepare(`
 DELETE FROM application_remote_consumer
 WHERE  offer_connection_uuid IN (
@@ -231,6 +240,11 @@ WHERE  application_uuid = $entityUUID.uuid
 		err = tx.Query(ctx, deleteRemoteOffererRelationMacaroonStmt, remoteRelationUUID).Run()
 		if err != nil {
 			return errors.Errorf("running remote relation macaroon deletion: %w", err)
+		}
+
+		err = tx.Query(ctx, deleteSecretRemoteUnitConsumerStmt, remoteRelationUUID).Run()
+		if err != nil {
+			return errors.Errorf("running secret remote unit consumer deletion: %w", err)
 		}
 
 		err = tx.Query(ctx, deleteRemoteConsumerStmt, remoteRelationUUID).Run()
