@@ -445,7 +445,15 @@ func (im *ImportRemoteEntities) Execute(src RemoteEntitiesInput, runner Transact
 		return nil
 	}
 	ops := make([]txn.Op, len(remoteEntities))
-	for i, entity := range remoteEntities {
+
+	// Resolve applicationoffer-tagged entities first, so we know which
+	// offer UUIDs already have a distinct entity. An application-tagged
+	// entity is only rewritten to its offer's tag when no such entity
+	// exists (for legacy application), otherwise it's the app's own
+	// consumption token and keeps its id.
+	resolvedIDs := make(map[string]string, len(remoteEntities))
+	offerIDsPresent := set.NewStrings()
+	for _, entity := range remoteEntities {
 		var (
 			id  string
 			ok  bool
@@ -455,8 +463,17 @@ func (im *ImportRemoteEntities) Execute(src RemoteEntitiesInput, runner Transact
 		if err != nil {
 			return errors.Trace(err)
 		}
+		if ok {
+			resolvedIDs[entity.ID()] = id
+			offerIDsPresent.Add(id)
+		}
+	}
+
+	for i, entity := range remoteEntities {
+		id, ok := resolvedIDs[entity.ID()]
 		if !ok {
-			id, err = im.legacyAppToOffer(entity.ID(), src.OfferUUIDForApp)
+			var err error
+			id, err = im.legacyAppToOffer(entity.ID(), src.OfferUUIDForApp, offerIDsPresent)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -515,7 +532,11 @@ func (im *ImportRemoteEntities) maybeConvertApplicationOffer(
 	return names.NewApplicationOfferTag(uuid).String(), true, nil
 }
 
-func (im *ImportRemoteEntities) legacyAppToOffer(id string, offerUUIDForApp func(string) (string, error)) (string, error) {
+func (im *ImportRemoteEntities) legacyAppToOffer(
+	id string,
+	offerUUIDForApp func(string) (string, error),
+	offerIDsPresent set.Strings,
+) (string, error) {
 	tag, err := names.ParseTag(id)
 	if err != nil || tag.Kind() != names.ApplicationTagKind || strings.HasPrefix(tag.Id(), "remote-") {
 		return id, err
@@ -524,8 +545,17 @@ func (im *ImportRemoteEntities) legacyAppToOffer(id string, offerUUIDForApp func
 	if errors.Is(err, errors.NotFound) {
 		return id, nil
 	}
-
-	return names.NewApplicationOfferTag(offerUUID).String(), err
+	if err != nil {
+		return id, err
+	}
+	offerID := names.NewApplicationOfferTag(offerUUID).String()
+	// A distinct offer entity already exists for this app's offer, so this
+	// application-tagged entity is the app's own consumption token, not a
+	// legacy offer token. Keep its own id.
+	if offerIDsPresent.Contains(offerID) {
+		return id, nil
+	}
+	return offerID, nil
 }
 
 type applicationOffersStateShim struct {
