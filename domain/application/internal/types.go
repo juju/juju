@@ -110,6 +110,6 @@ type AddCAASUnitArg struct {
 
 // ScaleCAASUnitArg pairs a new unit with the name its scale plan requires.
 type ScaleCAASUnitArg struct {
-	ExpectedName string
 	AddCAASUnitArg
+	ExpectedName string
 }
