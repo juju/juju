@@ -4,48 +4,48 @@
 package scriptlet
 
 import (
+	"fmt"
+	"reflect"
+
 	"github.com/canonical/starform/starform"
 	"github.com/canonical/starlark/starlark"
-
-	"github.com/juju/juju/internal/errors"
 )
 
-// IntentType identifies a type of Intent.
-type IntentType string
-
-// Intent is a declared action resulting from scriptlet execution.
-type Intent struct {
-	// Type identifies the type of intent.
-	Type IntentType
-
-	// Args are arguments to pass to service methods that
-	// are called according to the intent type.
-	Args map[string]any
+// IntentCollectors holds the intent collectors for one event.
+type IntentCollectors struct {
+	collectorByType map[reflect.Type]any
 }
 
-// IntentCollector accumulates intents during one scriptlet event.
-type IntentCollector struct {
-	intents []Intent
-}
-
-// Intents returns all collected intents.
-func (c *IntentCollector) Intents() []Intent {
-	return c.intents
-}
-
-func (c *IntentCollector) append(thread *starlark.Thread, intent Intent) error {
-	appender := starlark.NewSafeAppender(thread, &c.intents)
-	if err := appender.Append(intent); err != nil {
-		return errors.Errorf("appending intent %q: %w", intent.Type, err)
+// add registers the given collector, panicking on duplicates.
+func (ic *IntentCollectors) add(collector any) {
+	if ic.collectorByType == nil {
+		ic.collectorByType = make(map[reflect.Type]any)
 	}
-	return nil
+	key := reflect.TypeOf(collector)
+	if _, ok := ic.collectorByType[key]; ok {
+		panic(fmt.Sprintf("intent collector already registered %v", key))
+	}
+	ic.collectorByType[key] = collector
 }
 
-func intentCollectorForThread(thread *starlark.Thread) (*IntentCollector, error) {
-	event := starform.Event(thread)
-	collector, ok := event.State.(*IntentCollector)
-	if !ok || collector == nil {
-		return nil, starform.ErrUnavailable
+// IntentCollector returns the collector for T from the given collectors.
+// It panics if none is registered.
+func IntentCollector[T any](collectors *IntentCollectors) T {
+	var zero T
+	intentCollector, ok := collectors.collectorByType[reflect.TypeFor[T]()]
+	if !ok {
+		panic(fmt.Sprintf("internal error: intent collector %T not registered", zero))
 	}
-	return collector, nil
+	return intentCollector.(T)
+}
+
+// intentCollectorForThread returns the T collector of the given thread's
+// event state, or starform.ErrUnavailable without an observed event.
+func intentCollectorForThread[T any](thread *starlark.Thread) (T, error) {
+	collectors, ok := starform.Event(thread).State.(*IntentCollectors)
+	if !ok || collectors == nil {
+		var zero T
+		return zero, starform.ErrUnavailable
+	}
+	return IntentCollector[T](collectors), nil
 }

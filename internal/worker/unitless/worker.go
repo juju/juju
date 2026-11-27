@@ -26,6 +26,9 @@ type Config struct {
 	// schedule scriptlets and dispatch events.
 	ScriptletService ScriptletService
 
+	// StatusService sets the status of unitless applications.
+	StatusService ApplicationStatusService
+
 	// NewExecutor is a factory for creating scriptlet execution environments.
 	NewExecutor ExecutorFactory
 
@@ -52,6 +55,9 @@ type Config struct {
 func (cfg Config) Validate() error {
 	if cfg.ScriptletService == nil {
 		return internalerrors.New("nil ScriptletService not valid").Add(coreerrors.NotValid)
+	}
+	if cfg.StatusService == nil {
+		return internalerrors.New("nil StatusService not valid").Add(coreerrors.NotValid)
 	}
 	if cfg.NewExecutor == nil {
 		return internalerrors.New("nil NewExecutor not valid").Add(coreerrors.NotValid)
@@ -153,10 +159,12 @@ func (w *scriptletWorker) handleApplicationChanges(ctx context.Context, applicat
 			return newApplicationRunner(applicationRunnerConfig{
 				ApplicationUUID:  coreapplication.UUID(applicationUUID),
 				ScriptletService: w.config.ScriptletService,
+				StatusService:    w.config.StatusService,
 				NewExecutor:      w.config.NewExecutor,
 				MaxAllocs:        w.config.MaxAllocs,
 				MaxSteps:         w.config.MaxSteps,
 				MaxDuration:      w.config.MaxDuration,
+				Clock:            w.config.Clock,
 				Logger:           w.config.Logger,
 			})
 		})

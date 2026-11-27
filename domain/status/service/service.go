@@ -39,6 +39,9 @@ type ModelState interface {
 	// application.
 	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
+	// GetApplicationNameByUUID returns the given application's name.
+	GetApplicationNameByUUID(ctx context.Context, applicationID string) (string, error)
+
 	// GetApplicationUUIDAndNameByUnitName returns the application UUID and name
 	// for the named unit.
 	GetApplicationUUIDAndNameByUnitName(ctx context.Context, name coreunit.Name) (coreapplication.UUID, string, error)
@@ -301,6 +304,42 @@ func (s *Service) SetApplicationStatus(
 	}
 
 	if err := s.modelState.SetApplicationStatus(ctx, applicationID, encodedStatus); err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := s.statusHistory.RecordStatus(ctx, status.ApplicationNamespace.WithID(applicationName), statusInfo); err != nil {
+		s.logger.Warningf(ctx, "recording setting application status history: %v", err)
+	}
+
+	return nil
+}
+
+// SetApplicationStatusByUUID sets the given application's status, overwriting
+// current data. Returns [applicationerrors.ApplicationNotFound] if absent.
+func (s *Service) SetApplicationStatusByUUID(
+	ctx context.Context,
+	applicationUUID coreapplication.UUID,
+	statusInfo corestatus.StatusInfo,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := applicationUUID.Validate(); err != nil {
+		return errors.Errorf("validating application UUID %q: %w", applicationUUID, err)
+	}
+
+	// This will also verify that the status is valid.
+	encodedStatus, err := encodeWorkloadStatus(statusInfo)
+	if err != nil {
+		return errors.Errorf("encoding workload status: %w", err)
+	}
+
+	applicationName, err := s.modelState.GetApplicationNameByUUID(ctx, applicationUUID.String())
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := s.modelState.SetApplicationStatus(ctx, applicationUUID, encodedStatus); err != nil {
 		return errors.Capture(err)
 	}
 

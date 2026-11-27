@@ -29,7 +29,8 @@ import (
 type refreshSuite struct {
 	coretesting.BaseSuite
 
-	service            *MockScriptletService
+	scriptletService   *MockScriptletService
+	statusService      *MockApplicationStatusService
 	application        domainunitless.ScriptletApplication
 	appChanges         chan []string
 	appWatcher         *watchertest.MockStringsWatcher
@@ -49,7 +50,9 @@ func TestRefreshSuite(t *testing.T) {
 func (s *refreshSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.service = NewMockScriptletService(gomock.NewController(c))
+	ctrl := gomock.NewController(c)
+	s.scriptletService = NewMockScriptletService(ctrl)
+	s.statusService = NewMockApplicationStatusService(ctrl)
 	s.application = domainunitless.ScriptletApplication{
 		UUID:      tc.Must(c, coreapplication.NewUUID),
 		CharmUUID: tc.Must(c, corecharm.NewID),
@@ -61,12 +64,12 @@ func (s *refreshSuite) SetUpTest(c *tc.C) {
 	}
 	s.appChanges = make(chan []string)
 	s.appWatcher = watchertest.NewMockStringsWatcher(s.appChanges)
-	s.service.EXPECT().WatchScriptletApplications(gomock.Any()).Return(s.appWatcher, nil)
+	s.scriptletService.EXPECT().WatchScriptletApplications(gomock.Any()).Return(s.appWatcher, nil)
 	s.applicationChanges = make(chan struct{}, 1)
 	s.applicationChanges <- struct{}{}
 	s.applicationWatcher = watchertest.NewMockNotifyWatcher(s.applicationChanges)
-	s.service.EXPECT().WatchScriptletApplication(gomock.Any(), s.application.UUID).Return(s.applicationWatcher, nil)
-	s.service.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).Return(s.application, nil)
+	s.scriptletService.EXPECT().WatchScriptletApplication(gomock.Any(), s.application.UUID).Return(s.applicationWatcher, nil)
+	s.scriptletService.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).Return(s.application, nil)
 	s.eventWatchers = nil
 	s.expectEventWatcher()
 	s.executorConfigs = make(chan ExecutorConfig, 1)
@@ -132,7 +135,7 @@ func (s *refreshSuite) TestScriptletCharmToNormal(c *tc.C) {
 	s.assertRefreshed(c, s.application)
 	runner, err := w.runner.Worker(s.application.UUID.String(), c.Context().Done())
 	c.Assert(err, tc.ErrorIsNil)
-	s.service.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).Return(
+	s.scriptletService.EXPECT().GetScriptletApplication(gomock.Any(), s.application.UUID).Return(
 		domainunitless.ScriptletApplication{},
 		errors.Errorf("charm no longer has scriptlets: %w", applicationerrors.ApplicationNotFound),
 	)
@@ -151,17 +154,18 @@ func (s *refreshSuite) TestScriptletCharmToNormal(c *tc.C) {
 func (s *refreshSuite) startWorker(c *tc.C) *scriptletWorker {
 	log := loggertesting.WrapCheckLog(c)
 	w, err := NewWorker(Config{
-		ScriptletService: s.service,
+		ScriptletService: s.scriptletService,
+		StatusService:    s.statusService,
 		NewExecutor: func(ctx context.Context, config ExecutorConfig) (Executor, error) {
 			select {
 			case s.executorConfigs <- config:
 			case <-ctx.Done():
 				return nil, ctx.Err()
 			}
-			return applicationExecutorFunc(func(ctx context.Context, event domainunitless.Event) ([]scriptlet.Intent, error) {
+			return applicationExecutorFunc(func(ctx context.Context, event domainunitless.Event) (*scriptlet.IntentCollectors, error) {
 				select {
 				case s.handled <- refreshedEvent{charmUUID: config.Scriptlet.CharmUUID, event: event}:
-					return nil, nil
+					return globalEnv().IntentCollectors(), nil
 				case <-ctx.Done():
 					return nil, ctx.Err()
 				}
@@ -190,7 +194,7 @@ func (s *refreshSuite) assertRefreshed(c *tc.C, application domainunitless.Scrip
 }
 
 func (s *refreshSuite) expectRefresh(application domainunitless.ScriptletApplication) {
-	s.service.EXPECT().GetScriptletApplication(gomock.Any(), application.UUID).Return(application, nil)
+	s.scriptletService.EXPECT().GetScriptletApplication(gomock.Any(), application.UUID).Return(application, nil)
 	s.expectEventWatcher()
 }
 
@@ -199,8 +203,8 @@ func (s *refreshSuite) expectEventWatcher() {
 	eventChanges <- []string{domainunitless.EventConfigChanged.String()}
 	eventWatcher := watchertest.NewMockStringsWatcher(eventChanges)
 	s.eventWatchers = append(s.eventWatchers, eventWatcher)
-	s.service.EXPECT().WatchApplicationEvents(gomock.Any(), s.application.UUID).Return(eventWatcher, nil)
-	s.service.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, domainunitless.EventConfigChanged).Return(
+	s.scriptletService.EXPECT().WatchApplicationEvents(gomock.Any(), s.application.UUID).Return(eventWatcher, nil)
+	s.scriptletService.EXPECT().GetScriptletEvent(gomock.Any(), s.application.UUID, domainunitless.EventConfigChanged).Return(
 		domainunitless.Event{Name: domainunitless.EventConfigChanged}, nil,
 	)
 }

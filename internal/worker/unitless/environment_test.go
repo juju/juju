@@ -24,7 +24,8 @@ func TestEnvironmentSuite(t *testing.T) {
 }
 
 func (s *environmentSuite) TestGlobalEnvContainsCommonBuiltins(c *tc.C) {
-	app := globalEnv().App()
+	registry := globalEnv()
+	app := registry.App()
 	names := make([]string, 0, len(app.Methods))
 	for _, method := range app.Methods {
 		names = append(names, method.Name())

@@ -6,15 +6,19 @@ package scriptlet
 import (
 	"github.com/canonical/starlark/starlark"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/errors"
 )
-
-// IntentSetStatus indicates an application status update.
-const IntentSetStatus IntentType = "set-status"
 
 const setStatusSafety = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
 
 var setStatusBuiltin = starlark.NewBuiltinWithSafety("set_status", setStatusSafety, setStatus)
+
+// StatusCollector retains the last status set during an event.
+type StatusCollector struct {
+	Status  string
+	Message string
+}
 
 func setStatus(
 	thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple,
@@ -24,23 +28,15 @@ func setStatus(
 		return nil, err
 	}
 
-	collector, err := intentCollectorForThread(thread)
+	if status == "" {
+		return nil, errors.New("status must not be empty").Add(coreerrors.NotValid)
+	}
+
+	statusCollector, err := intentCollectorForThread[*StatusCollector](thread)
 	if err != nil {
-		return nil, errors.Errorf("getting IntentCollector from thread: %w", err)
+		return nil, errors.Errorf("getting status collector from thread: %w", err)
 	}
-	intentArgs := map[string]any{
-		"status":  status,
-		"message": message,
-	}
-	if err := thread.AddAllocs(starlark.EstimateSize(intentArgs)); err != nil {
-		return nil, errors.Errorf("adding allocations for set-status arguments: %w", err)
-	}
-	err = collector.append(thread, Intent{
-		Type: IntentSetStatus,
-		Args: intentArgs,
-	})
-	if err != nil {
-		return nil, errors.Errorf("appending set-status intent: %w", err)
-	}
+	statusCollector.Status = status
+	statusCollector.Message = message
 	return starlark.None, nil
 }

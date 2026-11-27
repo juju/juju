@@ -61,9 +61,9 @@ func (cfg ExecutorConfig) Validate() error {
 	return nil
 }
 
-// Executor handles event and returns the collected intents.
+// Executor handles events and returns the collected intents.
 type Executor interface {
-	Handle(context.Context, domainunitless.Event) ([]scriptlet.Intent, error)
+	Handle(context.Context, domainunitless.Event) (*scriptlet.IntentCollectors, error)
 }
 
 // ExecutorFactory creates an executor for a loaded application scriptlet.
@@ -109,8 +109,8 @@ type starformExecutor struct {
 }
 
 // Handle handles a single Event, by dispatching it to the Scriptlet associated
-// with the event name, and returning the resulting intents.
-func (e *starformExecutor) Handle(ctx context.Context, event domainunitless.Event) ([]scriptlet.Intent, error) {
+// with the event name, and returning the collected intents.
+func (e *starformExecutor) Handle(ctx context.Context, event domainunitless.Event) (*scriptlet.IntentCollectors, error) {
 	ctx, cancel := context.WithTimeout(ctx, e.maxDuration)
 	defer cancel()
 
@@ -118,17 +118,22 @@ func (e *starformExecutor) Handle(ctx context.Context, event domainunitless.Even
 	if err != nil {
 		return nil, errors.Errorf("serialising event attrs: %w", err)
 	}
-	collector := scriptlet.IntentCollector{}
+	registry := globalEnv()
+	collectors := registry.IntentCollectors()
 	eo := starform.EventObject{
 		Name:  event.Name.String(),
 		Attrs: attrs,
-		State: &collector,
+		State: collectors,
 	}
 
 	if err := e.scriptSet.Handle(ctx, &eo); err != nil {
+		// Rephrase deadline-exceeded errors as Starlark execution errors.
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return nil, errors.Errorf("handling event %q: too much time taken: %w", event.Name, err)
+		}
 		return nil, errors.Errorf("handling event %q: %w", event.Name, err)
 	}
-	return collector.Intents(), nil
+	return collectors, nil
 }
 
 func attrsToStarlark(attrs map[string]any) (starlark.StringDict, error) {

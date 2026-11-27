@@ -9,6 +9,8 @@ import (
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
 	"github.com/juju/tc"
+
+	coreerrors "github.com/juju/juju/core/errors"
 )
 
 // These must match Starform's event object thread-local bridge.
@@ -19,7 +21,7 @@ type starformEventObjectStorage = struct {
 }
 
 func (s *scriptletSuite) TestSetStatusCollectsIntent(c *tc.C) {
-	collector := &IntentCollector{}
+	collectors := newTestEnv().IntentCollectors()
 	ft := formtest.From(c)
 	ft.SetApp(app())
 	ft.SetEvent(&starform.EventObject{
@@ -27,7 +29,7 @@ func (s *scriptletSuite) TestSetStatusCollectsIntent(c *tc.C) {
 		Attrs: starlark.StringDict{
 			"message": starlark.String("updated"),
 		},
-		State: collector,
+		State: collectors,
 	})
 
 	ft.RunString(`
@@ -38,22 +40,21 @@ def on_config_changed(event):
     juju.set_status("active", message=event.message)
 `)
 
-	assertStatusIntents(c, collector.Intents(), Intent{
-		Type: IntentSetStatus,
-		Args: map[string]any{
-			"status":  "active",
-			"message": "updated",
-		},
+	c.Check(IntentCollector[*StatusCollector](collectors), tc.DeepEquals, &StatusCollector{
+		Status:  "active",
+		Message: "updated",
 	})
 }
 
-func (s *scriptletSuite) TestSetStatusUnobservedEventHasNoIntent(c *tc.C) {
-	collector := &IntentCollector{}
+// TestSetStatusMessageOptional asserts that the message kwarg may be
+// omitted, leaving the collected message empty.
+func (s *scriptletSuite) TestSetStatusMessageOptional(c *tc.C) {
+	collectors := newTestEnv().IntentCollectors()
 	ft := formtest.From(c)
 	ft.SetApp(app())
 	ft.SetEvent(&starform.EventObject{
-		Name:  "update_status",
-		State: collector,
+		Name:  "config_changed",
+		State: collectors,
 	})
 
 	ft.RunString(`
@@ -64,17 +65,74 @@ def on_config_changed(event):
     juju.set_status("active")
 `)
 
-	c.Check(collector.Intents(), tc.DeepEquals, []Intent{})
+	c.Check(IntentCollector[*StatusCollector](collectors).Status, tc.Equals, "active")
+}
+
+func (s *scriptletSuite) TestSetStatusUnobservedEventHasNoIntent(c *tc.C) {
+	collectors := newTestEnv().IntentCollectors()
+	ft := formtest.From(c)
+	ft.SetApp(app())
+	ft.SetEvent(&starform.EventObject{
+		Name:  "update_status",
+		State: collectors,
+	})
+
+	ft.RunString(`
+def init():
+    juju.observe("config_changed", on_config_changed)
+
+def on_config_changed(event):
+    juju.set_status("active")
+`)
+
+	c.Check(IntentCollector[*StatusCollector](collectors), tc.DeepEquals, &StatusCollector{})
+}
+
+func (s *scriptletSuite) TestSetStatusEmptyStatusRejected(c *tc.C) {
+	st := startest.From(c)
+	st.AddLocal(starformEventObjectLocalKey, &starformEventObjectStorage{Event: &starform.EventObject{
+		Name:  "config_changed",
+		State: newTestEnv().IntentCollectors(),
+	}})
+
+	args := starlark.Tuple{starlark.String("")}
+	st.RunThread(func(thread *starlark.Thread) {
+		_, err := starlark.Call(thread, setStatusBuiltin, args, nil)
+		c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+		c.Check(err, tc.ErrorMatches, "status must not be empty")
+	})
+}
+
+func (s *scriptletSuite) TestSetStatusWithoutCollectors(c *tc.C) {
+	st := startest.From(c)
+	st.AddLocal(starformEventObjectLocalKey, &starformEventObjectStorage{Event: &starform.EventObject{
+		Name: "config_changed",
+	}})
+
+	args := starlark.Tuple{starlark.String("active")}
+	st.RunThread(func(thread *starlark.Thread) {
+		_, err := starlark.Call(thread, setStatusBuiltin, args, nil)
+		c.Assert(err, tc.ErrorMatches, `.*getting status collector from thread: unavailable`)
+	})
+}
+
+func (s *scriptletSuite) TestCollectorNotRegistered(c *tc.C) {
+	collectors := (&EnvRegistry{}).IntentCollectors()
+	c.Check(func() {
+		IntentCollector[*StatusCollector](collectors)
+	}, tc.PanicMatches, `internal error: intent collector \*scriptlet\.StatusCollector not registered`)
 }
 
 func (s *scriptletSuite) TestSetStatusCPUSafe(c *tc.C) {
 	assertSetStatusSafety(c, starlark.CPUSafe, func(st *startest.ST) {
-		st.SetMinSteps(1)
+		st.SetMaxSteps(0)
 	})
 }
 
 func (s *scriptletSuite) TestSetStatusMemSafe(c *tc.C) {
-	assertSetStatusSafety(c, starlark.MemSafe, nil)
+	assertSetStatusSafety(c, starlark.MemSafe, func(st *startest.ST) {
+		st.SetMaxAllocs(0)
+	})
 }
 
 func (s *scriptletSuite) TestSetStatusTimeSafe(c *tc.C) {
@@ -85,6 +143,12 @@ func (s *scriptletSuite) TestSetStatusIOSafe(c *tc.C) {
 	assertSetStatusSafety(c, starlark.IOSafe, nil)
 }
 
+func newTestEnv() *EnvRegistry {
+	env := &EnvRegistry{}
+	RegisterEnv(env)
+	return env
+}
+
 func app() *starform.AppObject {
 	return &starform.AppObject{
 		Name:    "juju",
@@ -92,33 +156,33 @@ func app() *starform.AppObject {
 	}
 }
 
-func assertStatusIntents(c *tc.C, intents []Intent, expected Intent) {
-	c.Assert(len(intents), tc.Not(tc.Equals), 0)
-	for _, intent := range intents {
-		c.Check(intent, tc.DeepEquals, expected)
-	}
-}
-
 func assertSetStatusSafety(c *tc.C, safety starlark.SafetyFlags, configure func(*startest.ST)) {
-	collector := &IntentCollector{}
+	collectors := newTestEnv().IntentCollectors()
 	st := startest.From(c)
 	st.AddLocal(starformEventObjectLocalKey, &starformEventObjectStorage{Event: &starform.EventObject{
 		Name:  "config_changed",
-		State: collector,
+		State: collectors,
 	}})
 	st.RequireSafety(safety)
 	if configure != nil {
 		configure(st)
 	}
 
+	// Incoming values are already accounted for by the interpreter, so
+	// they are allocated before the measured region; each iteration
+	// passes a distinct message.
+	messages := []string{"updated", "renewed", "refreshed"}
+	kwargsByMessage := make([][]starlark.Tuple, len(messages))
+	for i, message := range messages {
+		kwargsByMessage[i] = []starlark.Tuple{{
+			starlark.String("message"),
+			starlark.String(message),
+		}}
+	}
 	args := starlark.Tuple{starlark.String("active")}
-	kwargs := []starlark.Tuple{{
-		starlark.String("message"),
-		starlark.String("updated"),
-	}}
 	st.RunThread(func(thread *starlark.Thread) {
-		previousNumIntents := len(collector.intents)
 		for i := 0; i < st.N; i++ {
+			kwargs := kwargsByMessage[i%len(kwargsByMessage)]
 			result, err := starlark.Call(thread, setStatusBuiltin, args, kwargs)
 			if err != nil {
 				st.Error(err)
@@ -130,27 +194,13 @@ func assertSetStatusSafety(c *tc.C, safety starlark.SafetyFlags, configure func(
 			}
 		}
 
-		expectedNumIntents := previousNumIntents + st.N
-		if len(collector.intents) != expectedNumIntents {
-			st.Errorf("expected %d intents, got %d", expectedNumIntents, len(collector.intents))
+		statusCollector := IntentCollector[*StatusCollector](collectors)
+		expectedMessage := messages[(st.N-1)%len(messages)]
+		if statusCollector.Status != "active" || statusCollector.Message != expectedMessage {
+			st.Errorf(`expected last status "active"/%q, got %q/%q`,
+				expectedMessage, statusCollector.Status, statusCollector.Message)
 			return
 		}
-		if st.N > 0 {
-			assertSetStatusIntent(st, collector.intents[len(collector.intents)-1])
-		}
-		st.KeepAlive(collector.intents)
+		st.KeepAlive(statusCollector)
 	})
-}
-
-func assertSetStatusIntent(st *startest.ST, intent Intent) {
-	if intent.Type != IntentSetStatus {
-		st.Errorf("expected intent type %q, got %q", IntentSetStatus, intent.Type)
-		return
-	}
-	if status := intent.Args["status"]; status != "active" {
-		st.Errorf(`expected status "active", got %q`, status)
-	}
-	if message := intent.Args["message"]; message != "updated" {
-		st.Errorf(`expected message "updated", got %q`, message)
-	}
 }

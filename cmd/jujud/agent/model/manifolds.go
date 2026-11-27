@@ -415,11 +415,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The unitless worker runs controller-side scriptlets for unitless
 		// charm applications.
 		unitlessName: ifResponsible(ifNotMigrating(unitless.Manifold(unitless.ManifoldConfig{
-			DomainServicesName:  domainServicesName,
-			GetScriptletService: unitless.GetScriptletService,
-			NewWorker:           unitless.NewWorker,
-			Clock:               config.Clock,
-			Logger:              config.LoggingContext.GetLogger("juju.worker.unitless"),
+			DomainServicesName:          domainServicesName,
+			GetScriptletService:         unitless.GetScriptletService,
+			GetApplicationStatusService: unitless.GetApplicationStatusService,
+			NewWorker:                   unitless.NewWorker,
+			Clock:                       config.Clock,
+			Logger:                      config.LoggingContext.GetLogger("juju.worker.unitless"),
 		}))),
 	}
 	return result
