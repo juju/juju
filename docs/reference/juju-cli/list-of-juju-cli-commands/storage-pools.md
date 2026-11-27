@@ -18,34 +18,34 @@ juju storage-pools [options]
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--name` |  | Only show pools with these names |
+| `--name` |  | Filter by pool name; repeat for each name |
 | `-o`, `--output` |  | Specify an output file |
-| `--provider` |  | Only show pools of these provider types |
+| `--provider` |  | Filter by provider; repeat for each provider |
 
 ## Examples
 
-List all storage pools:
+List the pools in the selected model:
 
     juju storage-pools
 
-List only pools of type kubernetes, azure, ebs:
+Show two pools by name:
 
-    juju storage-pools --provider kubernetes,azure,ebs
+    juju storage-pools --name rootfs --name tmpfs
 
-List only pools named pool1 and pool2:
+On an AWS model, show the pools for the EBS and loop providers as YAML:
 
-    juju storage-pools --name pool1,pool2
+    juju storage-pools --provider ebs --provider loop --format yaml
 
 
 ## Details
 
-The user can filter on pool type, name.
+Use `--name` to select a pool; a positional name does not filter the
+list. To give several names or providers, repeat the corresponding flag.
 
-If no filter is specified, all current pools are listed.
-If at least 1 name and type is specified, only pools that match both a name
-AND a type from criteria are listed.
-If only names are specified, only mentioned pools will be listed.
-If only types are specified, all pools of the specified types will be listed.
+The default table shows each pool's name, provider and attributes. In
+JSON and YAML, the pool names are the keys. If no pools match, the
+command succeeds without writing a table or a JSON or YAML document.
 
-Both pool types and names must be valid.
-Valid pool types are pool types that are registered for Juju model.
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/storage-pool/

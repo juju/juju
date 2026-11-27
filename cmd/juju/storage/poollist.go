@@ -37,30 +37,30 @@ func formatPoolInfo(all []params.StoragePool) map[string]PoolInfo {
 }
 
 const poolListCommandDoc = `
-The user can filter on pool type, name.
+Use ` + "`--name`" + ` to select a pool; a positional name does not filter the
+list. To give several names or providers, repeat the corresponding flag.
 
-If no filter is specified, all current pools are listed.
-If at least 1 name and type is specified, only pools that match both a name
-AND a type from criteria are listed.
-If only names are specified, only mentioned pools will be listed.
-If only types are specified, all pools of the specified types will be listed.
+The default table shows each pool's name, provider and attributes. In
+JSON and YAML, the pool names are the keys. If no pools match, the
+command succeeds without writing a table or a JSON or YAML document.
 
-Both pool types and names must be valid.
-Valid pool types are pool types that are registered for Juju model.
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/storage-pool/
 `
 
 const poolListCommandExample = `
-List all storage pools:
+List the pools in the selected model:
 
     juju storage-pools
 
-List only pools of type kubernetes, azure, ebs:
+Show two pools by name:
 
-    juju storage-pools --provider kubernetes,azure,ebs
+    juju storage-pools --name rootfs --name tmpfs
 
-List only pools named pool1 and pool2:
+On an AWS model, show the pools for the EBS and loop providers as YAML:
 
-    juju storage-pools --name pool1,pool2
+    juju storage-pools --provider ebs --provider loop --format yaml
 `
 
 // NewPoolListCommand returns a command that lists storage pools on a model
@@ -104,8 +104,8 @@ func (c *poolListCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *poolListCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.StorageCommandBase.SetFlags(f)
-	f.Var(cmd.NewAppendStringsValue(&c.Providers), "provider", "Only show pools of these provider types")
-	f.Var(cmd.NewAppendStringsValue(&c.Names), "name", "Only show pools with these names")
+	f.Var(cmd.NewAppendStringsValue(&c.Providers), "provider", "Filter by provider; repeat for each provider")
+	f.Var(cmd.NewAppendStringsValue(&c.Names), "name", "Filter by pool name; repeat for each name")
 
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,

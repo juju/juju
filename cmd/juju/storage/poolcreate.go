@@ -29,17 +29,24 @@ type PoolCreateAPI interface {
 var disallowedAttrKeys = []string{"name", "type"}
 
 const poolCreateCommandDoc = `
+On a machine model, give the pool name followed by the storage provider.
+On a Kubernetes model, omit the provider to use ` + "`kubernetes`" + `.
+Give each attribute as a separate ` + "`key=value`" + ` argument. The keys
+` + "`name`" + ` and ` + "`type`" + ` are reserved.
+
 Further reading:
 
-- https://canonical.com/juju/docs/juju-cli/latest/reference/storage/#storage-pool
-- https://canonical.com/juju/docs/juju-cli/latest/reference/storage/#storage-provider
-
+- https://canonical.com/juju/docs/juju-cli/latest/reference/storage-pool/
 `
 
 const poolCreateCommandExamples = `
-    juju create-storage-pool ebsrotary ebs volume-type=standard
-    juju create-storage-pool gcepd storage-provisioner=kubernetes.io/gce-pd [storage-mode=RWX|RWO|ROX] parameters.type=pd-standard
+On an AWS model, create an EBS pool:
 
+    juju create-storage-pool workload-storage ebs volume-type=gp3
+
+On a Kubernetes model with a storage class named ` + "`fast`" + `:
+
+    juju create-storage-pool fast-storage storage-class=fast storage-mode=RWO
 `
 
 // NewPoolCreateCommand returns a command that creates or defines a storage pool
@@ -118,8 +125,8 @@ func (c *poolCreateCommand) Init(args []string) (err error) {
 func (c *poolCreateCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "create-storage-pool",
-		Args:     "<name> <storage provider> [<key>=<value> [<key>=<value>...]]",
-		Purpose:  "Create or define a storage pool.",
+		Args:     "<name> [<provider>] [<key>=<value> ...]",
+		Purpose:  "Create a storage pool in the selected model.",
 		Doc:      poolCreateCommandDoc,
 		Examples: poolCreateCommandExamples,
 		SeeAlso: []string{

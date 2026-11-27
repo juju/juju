@@ -18,11 +18,15 @@ juju remove-storage-pool [options] <name>
 
 ## Examples
 
-Remove the storage-pool named fast-storage:
-
-      juju remove-storage-pool fast-storage
+    juju remove-storage-pool fast-storage
 
 
 ## Details
 
-Remove a single existing storage pool.
+Give one pool name. The command does not prompt for confirmation and prints
+nothing on success. If the pool is not found, the command reports the failure
+and exits with an error.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/storage-pool/

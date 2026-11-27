@@ -82,6 +82,29 @@ model "Juju" {
     // Two unit agents, for integration.
     agent_foo [type: juju-software, label: "Unit agent\n(foo/0)"]
     agent_bar [type: juju-software, label: "Unit agent\n(bar/0)"]
+
+    // Storage pool: what a user declares (the pool, a storage directive that
+    // refers to it, the model default) and what Juju provisions (a unit with a storage
+    // instance provisioned from the pool). Generic names; the abstraction box
+    // is the Model.
+    pool_model [type: entity, label: "Model", abstracts: "model", padding: compact] {
+      pool_declared [type: stage, label: "", padding: compact] {
+        pool_app       [type: entity, label: "Application"]
+        pool_directive [type: entity, label: "Storage directive"]
+        pool           [type: entity, label: "Storage pool"]
+        pool_default   [type: entity, label: "Model default"]
+      }
+      pool_exists [type: stage, label: "", padding: compact] {
+        pool_unit     [type: entity, label: "Unit", deployed: true]
+        pool_instance [type: entity, label: "Storage instance", deployed: true]
+      }
+    }
+    // The model's cloud, in Juju's sense: any entity with an API that provides
+    // compute, networking and optionally storage. Its storage provider is one
+    // of the model's storage providers.
+    // The storage provider and the cloud are left out of this figure on purpose:
+    // the cloud badge says the entities have incarnations on a cloud's resources,
+    // and a provider is cloud-side or machine-side, so the text says which.
   }
 
   edges {
@@ -125,6 +148,13 @@ model "Juju" {
     ssh_processing_controller -> ssh_target [type: stream]
     ssh_decrypt -> ssh_proxy [type: control]
     ssh_proxy -> ssh_encrypt [type: control]
+
+    pool_app       -> pool_directive [type: control, label: "has"]
+    pool_directive -> pool           [type: control, label: "refers to"]
+    pool_default   -> pool           [type: control, label: "refers to"]
+    pool_app       -> pool_unit      [type: control, label: "runs as"]
+    pool           -> pool_instance  [type: control, label: "supplies"]
+    pool_unit      -> pool_instance  [type: control, label: "has attached"]
   }
 
   behaviours {
@@ -212,7 +242,17 @@ model "Juju" {
     }
   }
 
-  style { extends: juju }
+  style {
+    extends: juju
+    // An invisible layout group: the two stages of the story are drawn as quiet
+    // box annotations around it in the view.
+    stage { stroke: "none" fill: "none" }
+    // The dotted entity border is faint on a light page; thicken it there only.
+    entity { stroke-width: 2 }
+    @dark {
+      stage { stroke: "none" fill: "none" }
+    }
+  }
 }
 
 diagram "The problem" from "Juju" {
@@ -350,5 +390,31 @@ diagram "SSH proxy machine reverse tunnel" from "Juju" {
          style: "solid", color: "#E95420", padding: 24]
     box [nodes: "ssh_machine_server ssh_machine_agent", label: "Machine",
          style: "solid", color: "#E95420", padding: 24]
+  }
+}
+
+diagram "Storage pool in a deployment" from "Juju" {
+  select {
+    nodes: pool_model
+    edges: type control
+    routing: orthogonal
+    sizing: uniform
+  }
+  positions {
+    pool_model direction: down
+    pool_instance align-centre pool
+    pool_unit align-centre pool_app
+    pool_exists same-width pool_declared
+  }
+  emphasize { focus [pool] }
+  annotations {
+    box [nodes: "pool_app pool_directive pool pool_default", label: "What you declare",
+         label-position: inside-top, style: "solid", color: "quiet",
+         label-color: "text", label-style: "italic", padding: 18,
+         padding-top: 14]
+    box [nodes: "pool_unit pool_instance", label: "What Juju provisions",
+         label-position: inside-top, style: "solid", color: "quiet",
+         label-color: "text", label-style: "italic", padding: 18,
+         padding-top: 14, padding-left: 34, padding-right: 178]
   }
 }
