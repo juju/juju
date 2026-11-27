@@ -5,12 +5,14 @@ package unitless
 
 import (
 	"testing"
+	"time"
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	domainunitless "github.com/juju/juju/domain/unitless"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/scriptlet"
 	coretesting "github.com/juju/juju/internal/testing"
 )
@@ -45,6 +47,18 @@ func (s *starformSuite) TestExecutorConfigValidate(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, "negative MaxSteps not valid")
 
 	config = validExecutorConfig()
+	config.MaxDuration = 0
+	err = config.Validate()
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, "non-positive MaxDuration not valid")
+
+	config = validExecutorConfig()
+	config.MaxDuration = -1
+	err = config.Validate()
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, "non-positive MaxDuration not valid")
+
+	config = validExecutorConfig()
 	config.Logger = nil
 	err = config.Validate()
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
@@ -57,6 +71,27 @@ func (s *starformSuite) TestNewStarformExecutorRejectsInvalidConfig(c *tc.C) {
 
 	executor, err := NewStarformExecutor(c.Context(), config)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(executor, tc.IsNil)
+}
+
+func (s *starformSuite) TestNewStarformExecutorTimesOutLongRunningInit(c *tc.C) {
+	executor, err := NewStarformExecutor(c.Context(), ExecutorConfig{
+		Scriptlet: domainunitless.ScriptletApplication{
+			Sources: []domainunitless.ScriptSource{{
+				LoadPath: "hooks.star",
+				Source: `
+def init():
+    for i in range(1000000000000):
+        print(i)
+`,
+			}},
+		},
+		MaxAllocs:   1 << 40,
+		MaxSteps:    1 << 40,
+		MaxDuration: 10 * time.Millisecond,
+		Logger:      NewStarformLogAdapter(internallogger.Noop()),
+	})
+	c.Assert(err, tc.ErrorMatches, `.*Starlark computation cancelled: context deadline exceeded.*`)
 	c.Check(executor, tc.IsNil)
 }
 
@@ -74,9 +109,10 @@ def on_config_changed(event):
 `,
 			}},
 		},
-		MaxAllocs: defaultMaxAllocs,
-		MaxSteps:  defaultMaxSteps,
-		Logger:    NewStarformLogAdapter(newRecordingLogger()),
+		MaxAllocs:   defaultMaxAllocs,
+		MaxSteps:    defaultMaxSteps,
+		MaxDuration: defaultMaxDuration,
+		Logger:      NewStarformLogAdapter(newRecordingLogger()),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -114,14 +150,42 @@ def on_config_changed(event):
 `,
 			}},
 		},
-		MaxAllocs: defaultMaxAllocs,
-		MaxSteps:  defaultMaxSteps,
-		Logger:    NewStarformLogAdapter(newRecordingLogger()),
+		MaxAllocs:   defaultMaxAllocs,
+		MaxSteps:    defaultMaxSteps,
+		MaxDuration: defaultMaxDuration,
+		Logger:      NewStarformLogAdapter(newRecordingLogger()),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	intents, err := executor.Handle(c.Context(), domainunitless.Event{Name: "config_changed"})
 	c.Assert(err, tc.ErrorMatches, `.*division by zero.*`)
+	c.Check(intents, tc.IsNil)
+}
+
+func (s *starformSuite) TestHandleTimesOutLongRunningScriptlet(c *tc.C) {
+	executor, err := NewStarformExecutor(c.Context(), ExecutorConfig{
+		Scriptlet: domainunitless.ScriptletApplication{
+			Sources: []domainunitless.ScriptSource{{
+				LoadPath: "hooks.star",
+				Source: `
+def init():
+    juju.observe("config_changed", on_config_changed)
+
+def on_config_changed(event):
+    for i in range(1000000000000):
+        print(i)
+`,
+			}},
+		},
+		MaxAllocs:   1 << 40,
+		MaxSteps:    1 << 40,
+		MaxDuration: 10 * time.Millisecond,
+		Logger:      NewStarformLogAdapter(internallogger.Noop()),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	intents, err := executor.Handle(c.Context(), domainunitless.Event{Name: "config_changed"})
+	c.Assert(err, tc.ErrorMatches, `.*Starlark computation cancelled: context deadline exceeded.*`)
 	c.Check(intents, tc.IsNil)
 }
 
@@ -200,8 +264,9 @@ func validExecutorConfig() ExecutorConfig {
 				Source:   "def init(): pass",
 			}},
 		},
-		MaxAllocs: defaultMaxAllocs,
-		MaxSteps:  defaultMaxSteps,
-		Logger:    NewStarformLogAdapter(newRecordingLogger()),
+		MaxAllocs:   defaultMaxAllocs,
+		MaxSteps:    defaultMaxSteps,
+		MaxDuration: defaultMaxDuration,
+		Logger:      NewStarformLogAdapter(newRecordingLogger()),
 	}
 }

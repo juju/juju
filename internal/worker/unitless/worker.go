@@ -40,6 +40,10 @@ type Config struct {
 	// during a single scriptlet function execution.
 	MaxSteps int64
 
+	// MaxDuration limits the wall-clock time that can elapse
+	// during a single scriptlet function execution.
+	MaxDuration time.Duration
+
 	// Logger logs worker output.
 	Logger logger.Logger
 }
@@ -60,6 +64,9 @@ func (cfg Config) Validate() error {
 	}
 	if cfg.MaxSteps < 0 {
 		return internalerrors.New("negative MaxSteps not valid").Add(coreerrors.NotValid)
+	}
+	if cfg.MaxDuration <= 0 {
+		return internalerrors.New("non-positive MaxDuration not valid").Add(coreerrors.NotValid)
 	}
 	if cfg.Logger == nil {
 		return internalerrors.New("nil Logger not valid").Add(coreerrors.NotValid)
@@ -149,6 +156,7 @@ func (w *scriptletWorker) handleApplicationChanges(ctx context.Context, applicat
 				NewExecutor:      w.config.NewExecutor,
 				MaxAllocs:        w.config.MaxAllocs,
 				MaxSteps:         w.config.MaxSteps,
+				MaxDuration:      w.config.MaxDuration,
 				Logger:           w.config.Logger,
 			})
 		})

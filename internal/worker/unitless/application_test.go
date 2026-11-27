@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
@@ -258,6 +259,7 @@ func (s *applicationRunnerSuite) TestStartsExecutorWithApplicationAndLimits(c *t
 	c.Check(config.Scriptlet, tc.DeepEquals, s.application)
 	c.Check(config.MaxAllocs, tc.Equals, s.config.MaxAllocs)
 	c.Check(config.MaxSteps, tc.Equals, s.config.MaxSteps)
+	c.Check(config.MaxDuration, tc.Equals, s.config.MaxDuration)
 	c.Check(config.Logger, tc.NotNil)
 
 	workertest.CleanKill(c, runner)
@@ -774,9 +776,10 @@ func (s *applicationRunnerSuite) setupMocks(c *tc.C) *gomock.Controller {
 		NewExecutor: func(context.Context, ExecutorConfig) (Executor, error) {
 			return nil, errors.New("unexpected executor creation")
 		},
-		MaxAllocs: 12345,
-		MaxSteps:  67890,
-		Logger:    s.logger,
+		MaxAllocs:   12345,
+		MaxSteps:    67890,
+		MaxDuration: 5 * time.Second,
+		Logger:      s.logger,
 	}
 	return ctrl
 }

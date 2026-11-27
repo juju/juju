@@ -6,6 +6,7 @@ package unitless
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
@@ -166,10 +167,11 @@ func (s *refreshSuite) startWorker(c *tc.C) *scriptletWorker {
 				}
 			}), nil
 		},
-		Clock:     clock.WallClock,
-		MaxAllocs: 12345,
-		MaxSteps:  67890,
-		Logger:    log,
+		Clock:       clock.WallClock,
+		MaxAllocs:   12345,
+		MaxSteps:    67890,
+		MaxDuration: 5 * time.Second,
+		Logger:      log,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return w.(*scriptletWorker)
@@ -180,6 +182,7 @@ func (s *refreshSuite) assertRefreshed(c *tc.C, application domainunitless.Scrip
 	c.Check(config.Scriptlet, tc.DeepEquals, application)
 	c.Check(config.MaxAllocs, tc.Equals, int64(12345))
 	c.Check(config.MaxSteps, tc.Equals, int64(67890))
+	c.Check(config.MaxDuration, tc.Equals, 5*time.Second)
 	c.Check(waitFor(c, s.handled), tc.DeepEquals, refreshedEvent{
 		charmUUID: application.CharmUUID,
 		event:     domainunitless.Event{Name: domainunitless.EventConfigChanged},

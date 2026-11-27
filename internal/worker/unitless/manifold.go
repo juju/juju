@@ -82,6 +82,7 @@ func (config ManifoldConfig) start(_ context.Context, getter dependency.Getter) 
 		Clock:            config.Clock,
 		MaxAllocs:        defaultMaxAllocs,
 		MaxSteps:         defaultMaxSteps,
+		MaxDuration:      defaultMaxDuration,
 		Logger:           config.Logger,
 	})
 	if err != nil {

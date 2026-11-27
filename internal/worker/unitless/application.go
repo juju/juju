@@ -5,6 +5,7 @@ package unitless
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
@@ -25,6 +26,7 @@ type applicationRunnerConfig struct {
 	NewExecutor      ExecutorFactory
 	MaxAllocs        int64
 	MaxSteps         int64
+	MaxDuration      time.Duration
 	Logger           logger.Logger
 }
 
@@ -196,10 +198,11 @@ func (r *applicationRunner) startScriptlet(
 	}
 
 	executor, err := r.config.NewExecutor(ctx, ExecutorConfig{
-		Scriptlet: application,
-		MaxAllocs: r.config.MaxAllocs,
-		MaxSteps:  r.config.MaxSteps,
-		Logger:    NewStarformLogAdapter(r.config.Logger),
+		Scriptlet:   application,
+		MaxAllocs:   r.config.MaxAllocs,
+		MaxSteps:    r.config.MaxSteps,
+		MaxDuration: r.config.MaxDuration,
+		Logger:      NewStarformLogAdapter(r.config.Logger),
 	})
 	if err != nil {
 		return internalerrors.Errorf("creating scriptlet executor for application %q: %w", applicationUUID, err)

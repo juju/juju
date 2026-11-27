@@ -66,6 +66,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 			c.Check(config.Clock, tc.Equals, expectClock)
 			c.Check(config.MaxAllocs, tc.Equals, int64(defaultMaxAllocs))
 			c.Check(config.MaxSteps, tc.Equals, int64(defaultMaxSteps))
+			c.Check(config.MaxDuration, tc.Equals, defaultMaxDuration)
 			c.Check(config.Logger, tc.Equals, logger)
 			return expectWorker, nil
 		},
