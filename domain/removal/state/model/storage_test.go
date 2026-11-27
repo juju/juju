@@ -16,6 +16,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	corenetwork "github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/network"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
@@ -48,6 +49,45 @@ func (s *storageSuite) TestStorageAttachmentExists(c *tc.C) {
 	exists, err = st.StorageAttachmentExists(ctx, "not-today-henry")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
+}
+
+func (s *storageSuite) TestGetStorageAttachmentUUIDsForUnit(c *tc.C) {
+	ctx := c.Context()
+
+	unitUUID, err := coreunit.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// A unit that does not exist is an error.
+	_, err = st.GetStorageAttachmentUUIDsForUnit(ctx, unitUUID.String())
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+
+	// Add a unit with two storage attachments.
+	s.addUnit(c, unitUUID.String())
+
+	saUUID1, err := storage.NewStorageAttachmentUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	saUUID2, err := storage.NewStorageAttachmentUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.addStorageAttachment(c, saUUID1.String(), unitUUID.String())
+	s.addStorageAttachment(c, saUUID2.String(), unitUUID.String())
+	// Attachments are returned irrespective of their life.
+	s.setStorageAttachmentLife(c, saUUID2.String(), int(life.Dead))
+
+	uuids, err := st.GetStorageAttachmentUUIDsForUnit(ctx, unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuids, tc.SameContents, []string{saUUID1.String(), saUUID2.String()})
+
+	// A unit with no storage attachments is not an error.
+	emptyUnitUUID, err := coreunit.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	s.addUnit(c, emptyUnitUUID.String())
+
+	uuids, err = st.GetStorageAttachmentUUIDsForUnit(ctx, emptyUnitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuids, tc.HasLen, 0)
 }
 
 func (s *storageSuite) TestEnsureStorageAttachmentNotAliveNotFound(c *tc.C) {
@@ -1882,6 +1922,65 @@ func (s *storageSuite) bindVolumeToStorageInstance(c *tc.C, siUUID, volUUID stri
 
 // addAppUnitStorage sets up a unit with a storage attachment.
 // The storage instance and attachment UUIDs are returned.
+// addUnit inserts a bare-bones alive unit with the input UUID.
+func (s *storageSuite) addUnit(c *tc.C, unitUUID string) {
+	ctx := c.Context()
+
+	charm := "some-charm-uuid"
+	_, err := s.DB().ExecContext(ctx, `
+INSERT INTO charm (uuid, reference_name, architecture_id)
+VALUES (?, ?, ?)
+ON CONFLICT DO NOTHING`,
+		charm, charm, 0)
+	c.Assert(err, tc.ErrorIsNil)
+
+	app := "some-app-uuid"
+	_, err = s.DB().ExecContext(ctx, `
+INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid)
+VALUES (?, ?, ?, ?, ?)
+ON CONFLICT (uuid) DO NOTHING`,
+		app, app, 0, charm, corenetwork.AlphaSpaceId)
+	c.Assert(err, tc.ErrorIsNil)
+
+	node := "net-node-" + unitUUID
+	_, err = s.DB().ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", node)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?, ?)",
+		unitUUID, unitUUID, 0, app, charm, node)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// addStorageAttachment attaches a bare-bones alive storage instance to the
+// unit with the input UUID.
+func (s *storageSuite) addStorageAttachment(c *tc.C, saUUID, unitUUID string) {
+	ctx := c.Context()
+
+	storagePool := "some-storage-pool-uuid"
+	_, err := s.DB().ExecContext(ctx, `
+INSERT INTO storage_pool (uuid, name, type)
+VALUES (?, ?, ?)
+ON CONFLICT (uuid) DO NOTHING`,
+		storagePool, "loop", "loop")
+	c.Assert(err, tc.ErrorIsNil)
+
+	storageInstance := "instance-" + saUUID
+	_, err = s.DB().ExecContext(ctx, `
+INSERT INTO storage_instance (
+    uuid, storage_id, storage_kind_id, storage_pool_uuid, requested_size_mib,
+    charm_name, storage_name, life_id
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		storageInstance, "storage-"+saUUID, 1, storagePool, 100, "some-charm-uuid", "storage", 0)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id) VALUES (?, ?, ?, ?)",
+		saUUID, storageInstance, unitUUID, 0)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *storageSuite) addAppUnitStorage(c *tc.C) (string, string) {
 	ctx := c.Context()
 

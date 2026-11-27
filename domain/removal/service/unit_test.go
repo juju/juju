@@ -19,6 +19,7 @@ import (
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/domain/storage"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/juju"
@@ -728,6 +729,103 @@ func (s *unitSuite) TestMarkUnitAsDeadError(c *tc.C) {
 
 	err := s.newService(c).MarkUnitAsDead(c.Context(), uUUID)
 	c.Assert(err, tc.ErrorMatches, ".*the front fell off")
+}
+
+func (s *unitSuite) TestMarkUnitAsDeadCascade(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uUUID := unittesting.GenUnitUUID(c)
+	saUUID := tc.Must(c, storage.NewStorageAttachmentUUID)
+
+	s.modelState.EXPECT().GetStorageAttachmentUUIDsForUnit(
+		gomock.Any(), uUUID.String(),
+	).Return([]string{saUUID.String()}, nil)
+
+	// The unit's storage attachment is marked dead, cascading the unit's
+	// filesystem and volume attachments to dying.
+	s.modelState.EXPECT().GetStorageAttachmentLife(
+		gomock.Any(), saUUID.String(),
+	).Return(life.Dying, nil)
+	s.modelState.EXPECT().EnsureStorageAttachmentDeadCascade(
+		gomock.Any(), saUUID.String(),
+	).Return(internal.CascadedStorageProvisionedAttachmentLives{}, nil)
+
+	s.modelState.EXPECT().MarkUnitAsDeadWithNoEntities(
+		gomock.Any(), uUUID.String(),
+	).Return(nil)
+
+	err := s.newService(c).MarkUnitAsDeadCascade(c.Context(), uUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *unitSuite) TestMarkUnitAsDeadCascadeNoStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uUUID := unittesting.GenUnitUUID(c)
+
+	s.modelState.EXPECT().GetStorageAttachmentUUIDsForUnit(
+		gomock.Any(), uUUID.String(),
+	).Return(nil, nil)
+
+	s.modelState.EXPECT().MarkUnitAsDeadWithNoEntities(
+		gomock.Any(), uUUID.String(),
+	).Return(nil)
+
+	err := s.newService(c).MarkUnitAsDeadCascade(c.Context(), uUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *unitSuite) TestMarkUnitAsDeadCascadeUnitNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uUUID := unittesting.GenUnitUUID(c)
+
+	s.modelState.EXPECT().GetStorageAttachmentUUIDsForUnit(
+		gomock.Any(), uUUID.String(),
+	).Return(nil, applicationerrors.UnitNotFound)
+
+	err := s.newService(c).MarkUnitAsDeadCascade(c.Context(), uUUID)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitSuite) TestMarkUnitAsDeadCascadeUnitAlive(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uUUID := unittesting.GenUnitUUID(c)
+
+	s.modelState.EXPECT().GetStorageAttachmentUUIDsForUnit(
+		gomock.Any(), uUUID.String(),
+	).Return(nil, nil)
+	// The unit cannot be marked dead; the removal of its dependencies has
+	// not completed. The call is refused, to be reattempted later.
+	s.modelState.EXPECT().MarkUnitAsDeadWithNoEntities(
+		gomock.Any(), uUUID.String(),
+	).Return(removalerrors.EntityStillAlive)
+
+	err := s.newService(c).MarkUnitAsDeadCascade(c.Context(), uUUID)
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
+}
+
+func (s *unitSuite) TestMarkUnitAsDeadCascadeAttachmentNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uUUID := unittesting.GenUnitUUID(c)
+	saUUID := tc.Must(c, storage.NewStorageAttachmentUUID)
+
+	s.modelState.EXPECT().GetStorageAttachmentUUIDsForUnit(
+		gomock.Any(), uUUID.String(),
+	).Return([]string{saUUID.String()}, nil)
+	// The attachment was concurrently removed; this is not an error.
+	s.modelState.EXPECT().GetStorageAttachmentLife(
+		gomock.Any(), saUUID.String(),
+	).Return(-1, storageerrors.StorageAttachmentNotFound)
+
+	s.modelState.EXPECT().MarkUnitAsDeadWithNoEntities(
+		gomock.Any(), uUUID.String(),
+	).Return(nil)
+
+	err := s.newService(c).MarkUnitAsDeadCascade(c.Context(), uUUID)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func newUnitJob(c *tc.C) removal.Job {
