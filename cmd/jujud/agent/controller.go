@@ -148,7 +148,19 @@ func (p controllerStartupValueProvider) BackupLocalValues() (backup.LocalValues,
 	if err != nil {
 		return backup.LocalValues{}, errors.Trace(err)
 	}
-	return backup.LocalValues{DataDir: cfg.DataDir, LogDir: cfg.LogDir}, nil
+
+	agentDataDir := cfg.DataDir
+	if cfg.IsK8SController {
+		// A Kubernetes controller keeps controller-private state under
+		// <juju-data>/controller, while the companion machine agent and
+		// both binaries use the shared <juju-data> directory.
+		agentDataDir = filepath.Dir(cfg.DataDir)
+	}
+	return backup.LocalValues{
+		DataDir:      cfg.DataDir,
+		AgentDataDir: agentDataDir,
+		LogDir:       cfg.LogDir,
+	}, nil
 }
 
 // ObjectStoreRootDir returns the current local root dir for file-backed object

@@ -44,13 +44,20 @@ func BackupDirToUse(configuredDir string) string {
 // backup archive. It is a variable so tests can replace the filesystem
 // walk with a deterministic list, mirroring [SSHDir].
 var GetFilesToBackUp = func(rootDir string, paths *Paths) ([]string, error) {
-	glob := filepath.Join(rootDir, paths.DataDir, agentsDir, agentsConfs)
+	agentDataDir := paths.AgentDataDir
+	if agentDataDir == "" {
+		// Controllers that use the original combined layout keep agent files
+		// alongside controller-private data.
+		agentDataDir = paths.DataDir
+	}
+
+	glob := filepath.Join(rootDir, agentDataDir, agentsDir, agentsConfs)
 	agentConfs, err := filepath.Glob(glob)
 	if err != nil {
 		return nil, errors.Errorf("failed to fetch agent config files: %w", err)
 	}
 
-	glob = filepath.Join(rootDir, paths.DataDir, initDir, "*")
+	glob = filepath.Join(rootDir, agentDataDir, initDir, "*")
 	serviceConfs, err := filepath.Glob(glob)
 	if err != nil {
 		return nil, errors.Errorf("failed to fetch service config files: %w", err)
@@ -58,7 +65,7 @@ var GetFilesToBackUp = func(rootDir string, paths *Paths) ([]string, error) {
 
 	// The tools directory must be there; a failure to walk it is fatal.
 	backupFiles := []string{
-		filepath.Join(rootDir, paths.DataDir, toolsDir),
+		filepath.Join(rootDir, agentDataDir, toolsDir),
 	}
 
 	backupFiles = append(backupFiles, agentConfs...)

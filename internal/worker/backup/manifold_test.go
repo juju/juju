@@ -35,7 +35,7 @@ func manifoldConfig(c *tc.C) ManifoldConfig {
 		ControllerTag:           names.NewControllerAgentTag("0"),
 		MachineInstanceIDGetter: NoMachineInstanceID,
 		MachineBaseGetter:       NoMachineBase,
-		LocalConfigReader:       localConfigStub{values: LocalValues{DataDir: "/data", LogDir: "/logs"}},
+		LocalConfigReader:       localConfigStub{values: LocalValues{DataDir: "/data", AgentDataDir: "/agent-data", LogDir: "/logs"}},
 		Clock:                   worker.Clock, Logger: worker.Logger,
 		NewWorker: NewWorker,
 	}
@@ -132,6 +132,9 @@ func (s *manifoldSuite) TestInvalidConfiguration(c *tc.C) {
 		{func(c *ManifoldConfig) { c.Logger = nil }, "nil Logger not valid"},
 		{func(c *ManifoldConfig) { c.NewWorker = nil }, "nil NewWorker not valid"},
 		{func(c *ManifoldConfig) { c.LocalConfigReader = localConfigStub{} }, "empty backup paths not valid"},
+		{func(c *ManifoldConfig) {
+			c.LocalConfigReader = localConfigStub{values: LocalValues{DataDir: "/data", LogDir: "/logs"}}
+		}, "empty backup paths not valid"},
 		{func(c *ManifoldConfig) { c.LocalConfigReader = localConfigStub{err: errors.New("paths failed")} }, "reading backup paths: paths failed"},
 	}
 	for _, test := range tests {

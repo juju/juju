@@ -349,20 +349,23 @@ func (s *controllerStartupValueProviderSuite) TestCACertReturnsRuntimeConfigErro
 func (s *controllerStartupValueProviderSuite) TestBackupLocalValuesReadCurrentRuntimeConfig(c *tc.C) {
 	runtimeDir := c.MkDir()
 	runtimePath := filepath.Join(runtimeDir, controllerruntimeconfig.Filename)
+	agentDataDirOne := filepath.Join(runtimeDir, "agent-data-one")
 	err := controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
-		ControllerID:         "0",
-		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		ControllerModelUUID:  "feedface-dead-beef-cafe-c0ffee000000",
-		DataDir:              filepath.Join(runtimeDir, "data-one"),
-		SocketDir:            "/var/snap/juju/common/sockets",
-		SharedAgentDir:       "/var/snap/juju/common",
-		LogDir:               filepath.Join(runtimeDir, "log-one"),
-		APIPort:              17070,
-		AgentPassword:        "agent-password",
-		CACert:               "ca-cert",
-		CAPrivateKey:         "ca-key",
-		ControllerCert:       "server-cert",
-		ControllerPrivateKey: "server-key",
+		ControllerID:           "0",
+		ControllerUUID:         "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ControllerModelUUID:    "feedface-dead-beef-cafe-c0ffee000000",
+		DataDir:                filepath.Join(agentDataDirOne, "controller"),
+		IsK8SController:        true,
+		SocketDir:              "/var/snap/juju/common/sockets",
+		SharedAgentDir:         "/var/snap/juju/common",
+		LogDir:                 filepath.Join(runtimeDir, "log-one"),
+		APIPort:                17070,
+		AgentPassword:          "agent-password",
+		ControllerNodePassword: "controller-node-password",
+		CACert:                 "ca-cert",
+		CAPrivateKey:           "ca-key",
+		ControllerCert:         "server-cert",
+		ControllerPrivateKey:   "server-key",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -373,7 +376,8 @@ func (s *controllerStartupValueProviderSuite) TestBackupLocalValuesReadCurrentRu
 
 	values, err := provider.BackupLocalValues()
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(values.DataDir, tc.Equals, filepath.Join(runtimeDir, "data-one"))
+	c.Check(values.DataDir, tc.Equals, filepath.Join(agentDataDirOne, "controller"))
+	c.Check(values.AgentDataDir, tc.Equals, agentDataDirOne)
 	c.Check(values.LogDir, tc.Equals, filepath.Join(runtimeDir, "log-one"))
 
 	err = controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
@@ -396,6 +400,7 @@ func (s *controllerStartupValueProviderSuite) TestBackupLocalValuesReadCurrentRu
 	values, err = provider.BackupLocalValues()
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(values.DataDir, tc.Equals, filepath.Join(runtimeDir, "data-two"))
+	c.Check(values.AgentDataDir, tc.Equals, filepath.Join(runtimeDir, "data-two"))
 	c.Check(values.LogDir, tc.Equals, filepath.Join(runtimeDir, "log-two"))
 }
 
