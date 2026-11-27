@@ -121,6 +121,13 @@ VALUES ('machine1', 0, NULL, NULL), ('machine2', 1, ?, NULL), ('machine3', 2, ?,
 VALUES ('joining', 0, 0, 0), ('joined', 1, 0, 0)`)
 	execSQL(c, s.DB(), `INSERT INTO relation_status (relation_uuid, relation_status_type_id, message, updated_at)
 VALUES ('joining', 0, NULL, NULL), ('joined', 1, 'joined', ?)`, updated)
+	execSQL(c, s.DB(), `INSERT INTO charm (uuid, reference_name) VALUES ('charm', 'test')`)
+	execSQL(c, s.DB(), `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid)
+VALUES ('app', 'test', 0, 'charm', 'space')`)
+	execSQL(c, s.DB(), `INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid, charm_uuid)
+VALUES ('unit', 'test/0', 0, 'app', 'node1', 'charm')`)
+	execSQL(c, s.DB(), `INSERT INTO unit_state_relation (unit_uuid, "key", value)
+VALUES ('unit', 0, 'zero'), ('unit', 1, 'one')`)
 	execSQL(c, s.DB(), `INSERT INTO removal (uuid, removal_type_id, entity_uuid, force, scheduled_for)
 VALUES ('removal1', 0, 'entity1', FALSE, ?), ('removal2', 0, 'entity2', TRUE, ?)`, updated, updated)
 	execSQL(c, s.DB(), `INSERT INTO charm (uuid, reference_name) VALUES ('charm1', 'foo')`)
@@ -138,6 +145,7 @@ VALUES ('charm1', 0, 0, 0, '24.04', 'stable', NULL, 0), ('charm1', 0, 1, NULL, N
 	c.Assert(err, tc.ErrorIsNil)
 	execSQL(c, s.DB(), `DELETE FROM sequence`)
 	execSQL(c, s.DB(), `DELETE FROM relation_status`)
+	execSQL(c, s.DB(), `DELETE FROM unit_state_relation`)
 	execSQL(c, s.DB(), `DELETE FROM removal`)
 	// No placement exists on a fresh model database. The caller supplies its
 	// target explicitly, without needing a pre-existing blob to infer it.
@@ -156,6 +164,9 @@ VALUES ('charm1', 0, 0, 0, '24.04', 'stable', NULL, 0), ('charm1', 0, 1, NULL, N
 	c.Check(after.MachineStatus, tc.SameContents, before.MachineStatus)
 	c.Check(after.RelationStatus, tc.SameContents, before.RelationStatus)
 	c.Check(after.RelationStatusType, tc.SameContents, before.RelationStatusType)
+	c.Check(after.UnitStateRelation, tc.SameContents, before.UnitStateRelation)
+	checkString(c, s.DB(),
+		`SELECT group_concat(DISTINCT typeof("key")) FROM unit_state_relation`, "integer")
 	checkString(c, s.DB(),
 		`SELECT group_concat(DISTINCT typeof(relation_status_type_id)) FROM relation_status`, "integer")
 	checkString(c, s.DB(), `SELECT group_concat(DISTINCT typeof(id)) FROM relation_status_type`, "integer")

@@ -373,6 +373,29 @@ func (s *deltasSuite) TestRelationStatusRejectsInvalidIDs(c *tc.C) {
 	}
 }
 
+func (s *deltasSuite) TestUnitStateRelationKeys(c *tc.C) {
+	transform := NewTransform(deltas{})
+	got, err := transform(c.Context(), v4_0_12.ModelExport{
+		UnitStateRelation: []v4_0_12.UnitStateRelation{
+			{UnitUUID: "unit-0", Key: "0", Value: "zero"},
+			{UnitUUID: "unit-1", Key: "42", Value: "checkpoint"},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.UnitStateRelation, tc.DeepEquals, []v4_1_0.UnitStateRelation{
+		{UnitUUID: "unit-0", Key: 0, Value: "zero"},
+		{UnitUUID: "unit-1", Key: 42, Value: "checkpoint"},
+	})
+
+	for _, key := range []string{"", "bad", "1.5", "9223372036854775808"} {
+		_, err := transform(c.Context(), v4_0_12.ModelExport{
+			UnitStateRelation: []v4_0_12.UnitStateRelation{{UnitUUID: "unit-0", Key: key}},
+		})
+		c.Check(err, tc.ErrorMatches, `UnitStateRelation delta: unit state relation for "unit-0": invalid unit_state_relation.key .*`)
+		c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+	}
+}
+
 // TestRemovalConvertsForceToBoolean verifies that the legacy integer flag maps
 // 0 to false and 1 to true, and that every other field is carried unchanged.
 func (s *deltasSuite) TestRemovalConvertsForceToBoolean(c *tc.C) {

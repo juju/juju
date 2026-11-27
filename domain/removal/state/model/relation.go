@@ -402,14 +402,14 @@ AND    scope_uuid = $entityUUID.uuid`, relationUUID)
 		return errors.Errorf("preparing relation secret permission deletion: %w", err)
 	}
 
-	// Unit relation state uses the numeric relation ID encoded as text.
+	// Unit relation state uses the numeric relation ID.
 	// Delete the relation from all states.
 	// This means that forced removal will never have a subsequent hook
 	// execution indicating that the unit is still part of the relation.
 	unitStateStmt, err := st.Prepare(`
 DELETE FROM unit_state_relation
 WHERE "key" IN (
-    SELECT CAST(relation_id AS TEXT) FROM relation WHERE uuid = $entityUUID.uuid
+    SELECT relation_id FROM relation WHERE uuid = $entityUUID.uuid
 )`, relationUUID)
 	if err != nil {
 		return errors.Errorf("preparing unit relation state deletion: %w", err)

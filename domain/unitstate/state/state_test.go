@@ -59,7 +59,7 @@ func (s *stateSuite) TestSetUnitStateFiltersMissingRelations(c *tc.C) {
 	s.addRelation(c, 1, life.Dying)
 	s.addRelation(c, 2, life.Dead)
 	s.query(c, `INSERT INTO unit_state_relation (unit_uuid, "key", value) VALUES (?, ?, ?)`,
-		s.unitUUID, "3", "old checkpoint")
+		s.unitUUID, 3, "old checkpoint")
 
 	agentState := unitstate.UnitState{
 		Name: s.unitName,
@@ -313,7 +313,7 @@ func (s *stateSuite) TestUpdateUnitStateRelation(c *tc.C) {
 
 	// Set some initial state. This should be overwritten.
 	s.query(c, `INSERT INTO unit_state_relation (unit_uuid, "key", value) VALUES (?, ?, ?)`,
-		s.unitUUID, "1", "one-val")
+		s.unitUUID, 1, "one-val")
 
 	expState := map[int]string{
 		2: "two-val",
@@ -349,6 +349,16 @@ func (s *stateSuite) TestUpdateUnitStateRelation(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(gotState, tc.DeepEquals, expState)
+
+	var keyType string
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			`SELECT typeof("key") FROM unit_state_relation WHERE unit_uuid = ? LIMIT 1`,
+			s.unitUUID,
+		).Scan(&keyType)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(keyType, tc.Equals, "integer")
 }
 
 func (s *stateSuite) TestUpdateUnitStateRelationEmptyMap(c *tc.C) {
@@ -357,7 +367,7 @@ func (s *stateSuite) TestUpdateUnitStateRelationEmptyMap(c *tc.C) {
 
 	// Set some initial state. This should be deleted.
 	s.query(c, `INSERT INTO unit_state_relation (unit_uuid, "key", value) VALUES (?, ?, ?)`,
-		s.unitUUID, "1", "one-val")
+		s.unitUUID, 1, "one-val")
 
 	err := s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return s.state.setUnitStateRelation(ctx, tx, entityUUID{UUID: s.unitUUID}, map[int]string{})

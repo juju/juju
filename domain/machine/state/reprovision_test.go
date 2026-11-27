@@ -46,7 +46,7 @@ INSERT INTO unit_state_charm (unit_uuid, "key", value)
 VALUES (?, ?, ?)`, "reprovision-unit", "charm-state", "value")
 	s.runQuery(c, `
 INSERT INTO unit_state_relation (unit_uuid, "key", value)
-VALUES (?, ?, ?)`, "reprovision-unit", "relation-state", "value")
+VALUES (?, ?, ?)`, "reprovision-unit", 0, "value")
 	s.runQuery(c, "INSERT INTO unit_agent_presence (unit_uuid, last_seen) VALUES (?, ?)",
 		"reprovision-unit", time.Now())
 	preservedCounts := map[string]int{
@@ -330,7 +330,7 @@ INSERT INTO unit_state_charm (unit_uuid, "key", value)
 VALUES (?, ?, ?)`, "reprovision-unit", "state", "value")
 	s.runQuery(c, `
 INSERT INTO unit_state_relation (unit_uuid, "key", value)
-VALUES (?, ?, ?)`, "reprovision-unit", "0", "value")
+VALUES (?, ?, ?)`, "reprovision-unit", 0, "value")
 	s.runQuery(c, `
 INSERT INTO unit_virtual_ssh_host_key (unit_uuid, algorithm_type_id, ssh_key)
 VALUES (?, ?, ?)`, "reprovision-unit", 0, "old-host-key")
