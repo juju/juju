@@ -232,9 +232,13 @@ func (st *State) GetLokiConfig(ctx context.Context) (logging.LokiConfig, error) 
 		return logging.LokiConfig{}, errors.Capture(err)
 	}
 
+	// Remove the cast when a dqlite release containing canonical/dqlite#883
+	// is bundled; otherwise NULL BOOLEAN is read as false.
 	stmt, err := st.Prepare(`
-SELECT &lokiConfigRow.*
-FROM logging_loki_config
+SELECT l.endpoint AS &lokiConfigRow.endpoint,
+       l.ca_cert AS &lokiConfigRow.ca_cert,
+       CAST(l.insecure_skip_verify AS INTEGER) AS &lokiConfigRow.insecure_skip_verify
+FROM logging_loki_config AS l
 `, lokiConfigRow{})
 	if err != nil {
 		return logging.LokiConfig{}, errors.Capture(err)
