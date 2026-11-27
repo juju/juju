@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"os"
-	"path"
 	"path/filepath"
 	"time"
 
@@ -101,28 +100,28 @@ func (c *RecoverCommand) Run(ctx *cmd.Context) error {
 		return errors.New("agent data directory holds no recovery marker")
 	}
 
-	bootstrapParamsData, err := os.ReadFile(path.Join(c.DataDir(), cloudconfig.FileNameBootstrapParams))
-	if err != nil {
-		return errors.Errorf("reading bootstrap params file: %w", err)
-	}
-	var node instancecfg.StateInitializationParams
-	if err := node.Unmarshal(bootstrapParamsData); err != nil {
-		return errors.Capture(err)
-	}
-	if !node.RecoveryMode {
-		return errors.New("bootstrap params are not for a recovery allocation")
-	}
-	if node.ControllerCloud.Type == cloud.CloudTypeKubernetes {
-		// The pod uses the recovery marker as a fence, not as machine
-		// archive parameters. Prepare its local identity only.
-		return errors.Capture(c.initialiseK8sRecoveryController(ctx))
-	}
 	paramsData, err := os.ReadFile(filepath.Join(c.DataDir(), internalrecovery.ParamsFile))
 	if err != nil {
 		return errors.Errorf("reading recovery parameters: %w", err)
 	}
 	if len(bytes.TrimSpace(paramsData)) == 0 {
-		return errors.New("recovery parameters are empty")
+		// A replacement pod uses an empty marker as its recovery fence.
+		// Only this path needs the separate bootstrap parameters.
+		data, err := os.ReadFile(filepath.Join(c.DataDir(), cloudconfig.FileNameBootstrapParams))
+		if err != nil {
+			return errors.Errorf("reading bootstrap params file: %w", err)
+		}
+		var node instancecfg.StateInitializationParams
+		if err := node.Unmarshal(data); err != nil {
+			return errors.Capture(err)
+		}
+		if !node.RecoveryMode {
+			return errors.New("bootstrap params are not for a recovery allocation")
+		}
+		if node.ControllerCloud.Type != cloud.CloudTypeKubernetes {
+			return errors.New("recovery parameters are empty")
+		}
+		return errors.Capture(c.initialiseK8sRecoveryController(ctx))
 	}
 
 	var params internalrecovery.Params

@@ -112,6 +112,23 @@ func (s *recoveryMachineSuite) TestRecoverMachineInitialisesReplacement(c *tc.C)
 	c.Check(string(marker), tc.Equals, fixture.checksum+"\n")
 }
 
+// TestRecoverMachineWithoutStandaloneBootstrapParams checks that the
+// standalone bootstrap-params file is not required: the recovery
+// parameters delivered with the replacement are authoritative.
+func (s *recoveryMachineSuite) TestRecoverMachineWithoutStandaloneBootstrapParams(c *tc.C) {
+	fixture := s.provisionRecovery(c, nil)
+	c.Assert(os.Remove(
+		filepath.Join(fixture.dataDir, cloudconfig.FileNameBootstrapParams),
+	), tc.ErrorIsNil)
+
+	calls := &recoverCalls{}
+	command := s.newRecoverCommand(c, fixture, nil, calls)
+	err := command.Run(cmdtesting.Context(c))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(calls.dqliteRuns, tc.Equals, 1)
+	c.Check(calls.machineName, tc.Equals, recoveryArchivedMachine)
+}
+
 // TestRecoverRejectsFreshEmbeddedParams ensures the provenance guard also
 // applies to the node configuration embedded in populated recovery params.
 func (s *recoveryMachineSuite) TestRecoverRejectsFreshEmbeddedParams(c *tc.C) {

@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/juju/names/v6"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/controller"
+	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -30,6 +32,7 @@ import (
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
+	internalrecovery "github.com/juju/juju/internal/recovery"
 	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
@@ -89,6 +92,32 @@ func (s *freshControllerSuite) TestRecoveryK8sController(c *tc.C) {
 	s.assertFreshController(c, true, nil, true, agent.BootstrapControllerId)
 }
 
+// TestRecoveryK8sControllerNotSupported checks that a populated
+// recovery allocation for a Kubernetes controller is rejected with the
+// typed not-supported error before any database work.
+func (s *freshControllerSuite) TestRecoveryK8sControllerNotSupported(c *tc.C) {
+	dataDir := c.MkDir()
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+	modelConfig := jujutesting.CustomModelConfig(c, jujutesting.Attrs{
+		"name": "controller", "uuid": modelUUID.String(), "type": cloud.CloudTypeKubernetes,
+		"agent-version": jujuversion.Current.String(),
+	})
+	node := instancecfg.StateInitializationParams{
+		ControllerConfig:      jujutesting.FakeControllerConfig(),
+		ControllerModelConfig: modelConfig,
+		ControllerCloud: cloud.Cloud{
+			Name: "test-cloud", Type: cloud.CloudTypeKubernetes, AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
+		},
+		RecoveryMode: true,
+	}
+	writeRecoveryParams(c, dataDir, node)
+
+	command := NewRecoverCommand()
+	command.AgentConf = agentconf.NewAgentConf(dataDir)
+	err := command.Run(cmdtesting.Context(c))
+	c.Check(err, tc.ErrorIs, coreerrors.NotSupported)
+}
+
 func (s *freshControllerSuite) TestRecoverRejectsFreshBootstrapParams(c *tc.C) {
 	dataDir := c.MkDir()
 	writeRecoveryMarker(c, dataDir)
@@ -101,6 +130,19 @@ func (s *freshControllerSuite) TestRecoverRejectsFreshBootstrapParams(c *tc.C) {
 	command.AgentConf = agentconf.NewAgentConf(dataDir)
 	err = command.Run(cmdtesting.Context(c))
 	c.Check(err, tc.ErrorMatches, "bootstrap params are not for a recovery allocation")
+}
+
+// TestRecoverRejectsNonRecoveryParams checks that recovery parameters
+// embedding a fresh bootstrap allocation are rejected before any
+// database work.
+func (s *freshControllerSuite) TestRecoverRejectsNonRecoveryParams(c *tc.C) {
+	dataDir := c.MkDir()
+	writeRecoveryParams(c, dataDir, recoveryGuardTestParams(c, false))
+
+	command := NewRecoverCommand()
+	command.AgentConf = agentconf.NewAgentConf(dataDir)
+	err := command.Run(cmdtesting.Context(c))
+	c.Check(err, tc.ErrorMatches, "recovery params are not for a recovery allocation")
 }
 
 func (s *freshControllerSuite) TestRecoverRequiresRecoveryMarker(c *tc.C) {
@@ -122,6 +164,26 @@ func writeRecoveryMarker(c *tc.C, dataDir string) {
 	marker := filepath.Join(dataDir, agent.RecoveryParamsFile)
 	c.Assert(os.MkdirAll(filepath.Dir(marker), 0700), tc.ErrorIsNil)
 	c.Assert(os.WriteFile(marker, nil, 0600), tc.ErrorIsNil)
+}
+
+// writeRecoveryParams writes populated recovery parameters embedding
+// the given node, as cloud-init delivers them for a machine replacement.
+// No archive is written: the guards reject a disallowed node before any
+// archive work.
+func writeRecoveryParams(c *tc.C, dataDir string, node instancecfg.StateInitializationParams) {
+	node.AgentVersion = jujuversion.Current
+	params := internalrecovery.Params{
+		ArchivePath:  filepath.Join(dataDir, "archive.tar.gz"),
+		SHA256:       strings.Repeat("0", 64),
+		AgentVersion: node.AgentVersion,
+		MachineName:  "0",
+		Node:         node,
+	}
+	data, err := params.Marshal()
+	c.Assert(err, tc.ErrorIsNil)
+	paramsPath := filepath.Join(dataDir, agent.RecoveryParamsFile)
+	c.Assert(os.MkdirAll(filepath.Dir(paramsPath), 0o700), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(paramsPath, data, 0o600), tc.ErrorIsNil)
 }
 
 // recoveryGuardTestParams returns marshalling-valid params for exercising
