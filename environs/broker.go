@@ -159,6 +159,8 @@ type InstanceBroker interface {
 
 	// StopInstances shuts down the instances with the specified IDs.
 	// Unknown instance IDs are ignored, to enable idempotency.
+	// If only some of the instances could not be stopped, the provider
+	// should return a *StopInstancesError naming them.
 	StopInstances(context.Context, ...instance.Id) error
 
 	// AllInstances returns all instances currently known to the broker.
