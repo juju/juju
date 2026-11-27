@@ -822,7 +822,77 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelationDyingApplication(c 
 		Charm:                       charm,
 		Username:                    "consumer-user",
 	})
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
+
+	// No synthetic application should have been created.
+	var count int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT COUNT(*) FROM application WHERE uuid = ?
+`, synthApplicationUUID).Scan(&count)
+	})
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
+// TestAddConsumedRelationTwiceDyingApplication checks that a relation which
+// is already registered can be registered again once the offer application
+// is dying. The consuming model relies on this to remove the relation.
+func (s *modelRemoteApplicationSuite) TestAddConsumedRelationTwiceDyingApplication(c *tc.C) {
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	consumerModelUUID := tc.Must(c, internaluuid.NewUUID).String()
+	consumerApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	synthApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	// Offer resources needed:
+	offerApplicationUUID := tc.Must(c, coreapplication.NewUUID)
+	offerCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	// Create an offer in the database.
+	s.createOffer(c, offerUUID)
+	// Create a charm in the database.
+	s.createCharm(c, offerCharmUUID)
+	// Create an application in the database.
+	s.createApplication(c, offerApplicationUUID, offerCharmUUID, offerUUID)
+
+	charm := charm.Charm{
+		ReferenceName: "bar",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "foo",
+			Description: "remote consumer application",
+			Provides: map[string]charm.Relation{
+				"db": {
+					Name:      "db",
+					Role:      charm.RoleProvider,
+					Interface: "db",
+					Limit:     1,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Requires: map[string]charm.Relation{},
+			Peers:    map[string]charm.Relation{},
+		},
+	}
+	args := crossmodelrelation.AddRemoteApplicationConsumerArgs{
+		OfferUUID:                   offerUUID,
+		RelationUUID:                relationUUID,
+		ConsumerModelUUID:           consumerModelUUID,
+		ConsumerApplicationUUID:     consumerApplicationUUID,
+		ConsumerApplicationEndpoint: "db",
+		SynthApplicationUUID:        synthApplicationUUID,
+		CharmUUID:                   charmUUID,
+		Charm:                       charm,
+		Username:                    "consumer-user",
+	}
+	err := s.state.AddConsumedRelation(c.Context(), "foo", args)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.query(c, `UPDATE application SET life_id = ? WHERE uuid = ?`, int(life.Dying), offerApplicationUUID)
+
+	err = s.state.AddConsumedRelation(c.Context(), "foo", args)
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteRelationAlreadyRegistered)
 }
 
 func (s *modelRemoteApplicationSuite) TestAddConsumedRelationDeadApplication(c *tc.C) {
@@ -874,7 +944,7 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelationDeadApplication(c *
 		Charm:                       charm,
 		Username:                    "consumer-user",
 	})
-	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationIsDead)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
 }
 
 func (s *modelRemoteApplicationSuite) TestGetApplicationUUIDByOfferUUID(c *tc.C) {
