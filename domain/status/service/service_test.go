@@ -4,6 +4,7 @@
 package service
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -948,16 +949,23 @@ func (s *serviceSuite) TestSetUnitAgentStatusInvalidStatus(c *tc.C) {
 func (s *serviceSuite) TestSetUnitPresence(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().SetUnitPresence(gomock.Any(), coreunit.Name("foo/666"))
+	var recorded string
+	s.modelState.EXPECT().SetUnitPresence(gomock.Any(), coreunit.Name("foo/666"), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ coreunit.Name, token string) error {
+			recorded = token
+			return nil
+		})
 
-	err := s.modelService.SetUnitPresence(c.Context(), coreunit.Name("foo/666"))
+	token, err := s.modelService.SetUnitPresence(c.Context(), coreunit.Name("foo/666"))
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(token.Validate(), tc.ErrorIsNil)
+	c.Check(token.String(), tc.Equals, recorded)
 }
 
 func (s *serviceSuite) TestSetUnitPresenceInvalidName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.modelService.SetUnitPresence(c.Context(), coreunit.Name("!!!"))
+	_, err := s.modelService.SetUnitPresence(c.Context(), coreunit.Name("!!!"))
 	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
 }
 
@@ -977,19 +985,50 @@ func (s *serviceSuite) TestDeleteUnitPresenceInvalidName(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
 }
 
+func (s *serviceSuite) TestDeleteUnitPresenceWithToken(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	token := tc.Must0(c, status.NewPresenceToken)
+	s.modelState.EXPECT().DeleteUnitPresenceWithToken(gomock.Any(), coreunit.Name("foo/666"), token.String())
+
+	err := s.modelService.DeleteUnitPresenceWithToken(c.Context(), coreunit.Name("foo/666"), token)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestDeleteUnitPresenceWithTokenInvalidToken(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.modelService.DeleteUnitPresenceWithToken(c.Context(), coreunit.Name("foo/666"), "")
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *serviceSuite) TestDeleteUnitPresenceWithTokenInvalidName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.modelService.DeleteUnitPresenceWithToken(c.Context(), coreunit.Name("!!!"), "token")
+	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
+}
+
 func (s *serviceSuite) TestSetMachinePresence(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().SetMachinePresence(gomock.Any(), machine.Name("666"))
+	var recorded string
+	s.modelState.EXPECT().SetMachinePresence(gomock.Any(), machine.Name("666"), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ machine.Name, token string) error {
+			recorded = token
+			return nil
+		})
 
-	err := s.modelService.SetMachinePresence(c.Context(), machine.Name("666"))
+	token, err := s.modelService.SetMachinePresence(c.Context(), machine.Name("666"))
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(token.Validate(), tc.ErrorIsNil)
+	c.Check(token.String(), tc.Equals, recorded)
 }
 
 func (s *serviceSuite) TestSetMachinePresenceInvalidName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.modelService.SetMachinePresence(c.Context(), machine.Name("!!!"))
+	_, err := s.modelService.SetMachinePresence(c.Context(), machine.Name("!!!"))
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -1006,6 +1045,30 @@ func (s *serviceSuite) TestDeleteMachinePresenceInvalidName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.modelService.DeleteMachinePresence(c.Context(), machine.Name("!!!"))
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *serviceSuite) TestDeleteMachinePresenceWithToken(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	token := tc.Must0(c, status.NewPresenceToken)
+	s.modelState.EXPECT().DeleteMachinePresenceWithToken(gomock.Any(), machine.Name("666"), token.String())
+
+	err := s.modelService.DeleteMachinePresenceWithToken(c.Context(), machine.Name("666"), token)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestDeleteMachinePresenceWithTokenInvalidToken(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.modelService.DeleteMachinePresenceWithToken(c.Context(), machine.Name("666"), "")
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *serviceSuite) TestDeleteMachinePresenceWithTokenInvalidName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.modelService.DeleteMachinePresenceWithToken(c.Context(), machine.Name("!!!"), "token")
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 

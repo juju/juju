@@ -1095,10 +1095,11 @@ JOIN application ON application.uuid = application_status.application_uuid
 	return ret, nil
 }
 
-// SetUnitPresence marks the presence of the specified unit, returning an error
-// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+// SetUnitPresence marks the presence of the specified unit, recording token
+// as the login that set it. It returns an error satisfying
+// [applicationerrors.UnitNotFound] if the unit doesn't exist.
 // The unit life is not considered when making this query.
-func (st *ModelState) SetUnitPresence(ctx context.Context, name coreunit.Name) error {
+func (st *ModelState) SetUnitPresence(ctx context.Context, name coreunit.Name, token string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -1116,7 +1117,8 @@ func (st *ModelState) SetUnitPresence(ctx context.Context, name coreunit.Name) e
 	recordUnit := `
 INSERT INTO unit_agent_presence (*) VALUES ($unitPresence.*)
 ON CONFLICT(unit_uuid) DO UPDATE SET
-	last_seen = excluded.last_seen;
+	last_seen = excluded.last_seen,
+	token = excluded.token;
 `
 	var presence unitPresence
 	recordUnitStmt, err := st.Prepare(recordUnit, presence)
@@ -1134,6 +1136,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 		presence := unitPresence{
 			UnitUUID: uuid.UnitUUID,
 			LastSeen: st.clock.Now().UTC(),
+			Token:    token,
 		}
 
 		if err := tx.Query(ctx, recordUnitStmt, presence).Run(); err != nil {
@@ -1141,10 +1144,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 		}
 		return nil
 	})
-	if err != nil {
-		return errors.Capture(err)
-	}
-	return nil
+	return errors.Capture(err)
 }
 
 // DeleteUnitPresence removes the presence of the specified unit. If the
@@ -1179,10 +1179,39 @@ WHERE unit_uuid = (
 	return errors.Capture(err)
 }
 
-// SetMachinePresence marks the presence of the specified machine, returning an
-// error satisfying [machineerrors.MachineNotFound] if the machine doesn't
-// exist. The machine life is not considered when making this query.
-func (st *ModelState) SetMachinePresence(ctx context.Context, name coremachine.Name) error {
+// DeleteUnitPresenceWithToken removes the presence of the specified unit only
+// if it was recorded with token. If the unit isn't found, or its presence has
+// since been recorded by another login, it does nothing.
+// The unit life is not considered when making this query.
+func (st *ModelState) DeleteUnitPresenceWithToken(ctx context.Context, name coreunit.Name, token string) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	unit := unitName{Name: name}
+	presence := unitPresence{Token: token}
+
+	deleteStmt, err := st.Prepare(`
+DELETE FROM unit_agent_presence
+WHERE  unit_uuid = (SELECT uuid FROM unit WHERE name = $unitName.name)
+AND    token = $unitPresence.token;
+`, unit, presence)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, deleteStmt, unit, presence).Run()
+	})
+	return errors.Capture(err)
+}
+
+// SetMachinePresence marks the presence of the specified machine, recording
+// token as the login that set it. It returns an error satisfying
+// [machineerrors.MachineNotFound] if the machine doesn't exist. The machine
+// life is not considered when making this query.
+func (st *ModelState) SetMachinePresence(ctx context.Context, name coremachine.Name, token string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -1200,7 +1229,8 @@ func (st *ModelState) SetMachinePresence(ctx context.Context, name coremachine.N
 	recordMachine := `
 INSERT INTO machine_agent_presence (*) VALUES ($machinePresence.*)
 ON CONFLICT(machine_uuid) DO UPDATE SET
-	last_seen = excluded.last_seen;
+	last_seen = excluded.last_seen,
+	token = excluded.token;
 `
 	var presence machinePresence
 	recordMachineStmt, err := st.Prepare(recordMachine, presence)
@@ -1218,6 +1248,7 @@ ON CONFLICT(machine_uuid) DO UPDATE SET
 		presence := machinePresence{
 			MachineUUID: uuid.UUID,
 			LastSeen:    st.clock.Now().UTC(),
+			Token:       token,
 		}
 
 		if err := tx.Query(ctx, recordMachineStmt, presence).Run(); err != nil {
@@ -1225,10 +1256,7 @@ ON CONFLICT(machine_uuid) DO UPDATE SET
 		}
 		return nil
 	})
-	if err != nil {
-		return errors.Capture(err)
-	}
-	return nil
+	return errors.Capture(err)
 }
 
 // DeleteMachinePresence removes the presence of the specified machine. If the
@@ -1260,6 +1288,34 @@ WHERE machine_uuid = (
 		return nil
 	})
 
+	return errors.Capture(err)
+}
+
+// DeleteMachinePresenceWithToken removes the presence of the specified
+// machine only if it was recorded with token. If the machine isn't found, or
+// its presence has since been recorded by another login, it does nothing.
+// The machine life is not considered when making this query.
+func (st *ModelState) DeleteMachinePresenceWithToken(ctx context.Context, name coremachine.Name, token string) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	machine := machineName{Name: name.String()}
+	presence := machinePresence{Token: token}
+
+	deleteStmt, err := st.Prepare(`
+DELETE FROM machine_agent_presence
+WHERE  machine_uuid = (SELECT uuid FROM machine WHERE name = $machineName.name)
+AND    token = $machinePresence.token;
+`, machine, presence)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, deleteStmt, machine, presence).Run()
+	})
 	return errors.Capture(err)
 }
 

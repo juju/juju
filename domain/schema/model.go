@@ -204,6 +204,7 @@ var modelPostPatchFilesByVersion = []struct {
 	version: semversion.MustParse("4.0.17"),
 	files: []string{
 		"0066-ip-address-selection.PATCH.sql",
+		"0067-agent-presence-token.PATCH.sql",
 	},
 }}
 
