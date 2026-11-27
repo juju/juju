@@ -30,21 +30,22 @@ const (
 // StorageDirectiveOverride is a type alias for the domain type.
 type StorageDirectiveOverride = application.ApplicationStorageDirectiveOverride
 
-// GetApplicationStorageDirectives returns the storage directives that are
-// set for an application. If the application does not have any storage
-// directives set then an empty result is returned.
+// GetApplicationCharmStorageDirectives returns the storage directives and
+// associated charm storage metadata set for an application's current charm. If
+// the application does not have any storage directives set then an empty result
+// is returned.
 //
 // The following error types can be expected:
 // - [github.com/juju/juju/domain/application/errors.ApplicationNotFound]
 // when the application no longer exists.
-func (s *Service) GetApplicationStorageDirectives(
+func (s *Service) GetApplicationCharmStorageDirectives(
 	ctx context.Context,
 	uuid coreapplication.UUID,
 ) ([]internal.StorageDirective, error) {
 	if uuid.Validate() != nil {
 		return nil, errors.New("application uuid is not valid").Add(coreerrors.NotValid)
 	}
-	return s.st.GetApplicationStorageDirectives(ctx, uuid)
+	return s.st.GetApplicationCharmStorageDirectives(ctx, uuid)
 }
 
 // GetUnitStorageDirectiveByName returns the named storage directive for the unit.
@@ -66,21 +67,77 @@ func (s *Service) GetUnitStorageDirectiveByName(
 	return s.st.GetUnitStorageDirectiveByName(ctx, uuid, storageName.String())
 }
 
-// GetApplicationStorageDirectivesInfo returns the storage directives set for an application,
-// keyed to the storage name. If the application does not have any storage
-// directives set then an empty result is returned.
+// GetApplicationStorageDirectives returns the persisted storage directives for
+// an application's current charm, ordered by storage name. If the application
+// has no storage directives, an empty slice is returned.
 //
 // The following errors may be expected:
-// - [coreerrors.NotValid] when the supplied application uuid is not valid.
-// - [applicationerrors.ApplicationNotFound] if the application does not exist.
-func (s *Service) GetApplicationStorageDirectivesInfo(
+// - [coreerrors.NotValid] when the supplied application UUID is not valid.
+// - [applicationerrors.ApplicationNotFound] when the application does not
+// exist.
+func (s *Service) GetApplicationStorageDirectives(
 	ctx context.Context,
-	uuid coreapplication.UUID,
-) (map[string]application.ApplicationStorageInfo, error) {
-	if uuid.Validate() != nil {
-		return nil, errors.New("application uuid is not valid").Add(coreerrors.NotValid)
+	appUUID coreapplication.UUID,
+) ([]application.ApplicationStorageDirective, error) {
+	if err := appUUID.Validate(); err != nil {
+		return nil, errors.Errorf("application UUID: %w", err)
 	}
-	return s.st.GetApplicationStorageDirectivesInfo(ctx, uuid)
+
+	directives, err := s.st.GetApplicationStorageDirectives(
+		ctx, appUUID.String(),
+	)
+	if err != nil {
+		return nil, errors.Errorf(
+			"getting storage directives for application %q: %w", appUUID, err,
+		)
+	}
+	if len(directives) == 0 {
+		return []application.ApplicationStorageDirective{}, nil
+	}
+
+	return directives, nil
+}
+
+// GetApplicationStorageDirectiveByName returns the persisted storage directive
+// for a single named storage on an application's current charm.
+//
+// The following errors may be expected:
+// - [coreerrors.NotValid] when the supplied application UUID is not valid.
+// - [corestorage.InvalidStorageName] when the supplied storage name is not
+// valid.
+// - [applicationerrors.ApplicationNotFound] when the application does not
+// exist.
+// - [applicationerrors.StorageNameNotSupported] when no storage directive
+// exists for the named storage on the application.
+func (s *Service) GetApplicationStorageDirectiveByName(
+	ctx context.Context,
+	appUUID coreapplication.UUID,
+	storageName corestorage.Name,
+) (application.ApplicationStorageDirective, error) {
+	if err := appUUID.Validate(); err != nil {
+		return application.ApplicationStorageDirective{},
+			errors.Errorf("application UUID: %w", err)
+	}
+	if err := storageName.Validate(); err != nil {
+		return application.ApplicationStorageDirective{}, errors.Capture(err)
+	}
+
+	directive, found, err := s.st.GetApplicationStorageDirectiveByName(
+		ctx, appUUID.String(), storageName.String(),
+	)
+	if err != nil {
+		return application.ApplicationStorageDirective{}, errors.Errorf(
+			"getting storage directive %q for application %q: %w",
+			storageName, appUUID, err,
+		)
+	}
+	if !found {
+		return application.ApplicationStorageDirective{}, errors.Errorf(
+			"storage %q on application %q", storageName, appUUID,
+		).Add(applicationerrors.StorageNameNotSupported)
+	}
+
+	return directive, nil
 }
 
 // MakeApplicationStorageDirectiveArgs creates a slice of

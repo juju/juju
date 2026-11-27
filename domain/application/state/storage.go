@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"math"
 	"slices"
 	"strings"
 
@@ -27,56 +28,61 @@ import (
 	"github.com/juju/juju/internal/iter"
 )
 
-// GetApplicationStorageDirectivesInfo returns the storage directives set for an application,
-// keyed to the storage name. If the application does not have any storage
-// directives set then an empty result is returned.
+// GetApplicationStorageDirectives returns the persisted storage directives for
+// the application's current charm, ordered by storage name. If the application
+// has no storage directives, an empty slice is returned.
 //
-// If the application does not exist, then a [applicationerrors.ApplicationNotFound]
-// error is returned.
-func (st *State) GetApplicationStorageDirectivesInfo(
+// If the application does not exist, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (st *State) GetApplicationStorageDirectives(
 	ctx context.Context,
-	appUUID coreapplication.UUID,
-) (map[string]application.ApplicationStorageInfo, error) {
+	appUUID string,
+) ([]application.ApplicationStorageDirective, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	appUUIDInput := entityUUID{UUID: appUUID.String()}
+	appUUIDInput := entityUUID{UUID: appUUID}
 
 	query, err := st.Prepare(`
-SELECT &applicationStorageInfo.* FROM (
-	SELECT  asd.count,
-			asd.size_mib,
-			asd.storage_name,
-			sp.name as storage_pool_name
-	FROM application_storage_directive asd
-	JOIN storage_pool sp ON sp.uuid = asd.storage_pool_uuid
-	WHERE asd.application_uuid = $entityUUID.uuid
+WITH directives AS (
+	SELECT asd.storage_name AS storage_name,
+	       asd.storage_pool_uuid AS storage_pool_uuid,
+	       sp.name AS storage_pool_name,
+	       asd.size_mib AS size_mib,
+	       asd.count AS count
+	FROM   application AS a
+	JOIN   application_storage_directive AS asd
+	       ON asd.application_uuid = a.uuid
+	       AND asd.charm_uuid = a.charm_uuid
+	JOIN   storage_pool AS sp
+	       ON sp.uuid = asd.storage_pool_uuid
+	WHERE  a.uuid = $entityUUID.uuid
 )
-		`,
-		appUUIDInput, applicationStorageInfo{},
+SELECT   d.* AS &applicationStorageDirectiveRow.*
+FROM     directives AS d
+ORDER BY d.storage_name
+`,
+		appUUIDInput, applicationStorageDirectiveRow{},
 	)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	storageInfoResult := []applicationStorageInfo{}
-
+	var rows []applicationStorageDirectiveRow
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		exists, err := st.checkApplicationExists(ctx, tx, appUUID)
+		exists, err := st.checkApplicationExists(
+			ctx, tx, coreapplication.UUID(appUUID),
+		)
 		if err != nil {
-			return errors.Errorf(
-				"checking application %q exists: %w", appUUID, err,
-			)
+			return errors.Errorf("checking application exists: %w", err)
 		}
 		if !exists {
-			return errors.Errorf(
-				"application %q does not exist", appUUID,
-			).Add(applicationerrors.ApplicationNotFound)
+			return applicationerrors.ApplicationNotFound
 		}
 
-		err = tx.Query(ctx, query, appUUIDInput).GetAll(&storageInfoResult)
+		err = tx.Query(ctx, query, appUUIDInput).GetAll(&rows)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
@@ -86,27 +92,150 @@ SELECT &applicationStorageInfo.* FROM (
 		return nil, errors.Capture(err)
 	}
 
-	// Preallocate map with expected size since each storage name
-	appStorage := make(map[string]application.ApplicationStorageInfo, len(storageInfoResult))
-	for _, info := range storageInfoResult {
-		appStorage[info.StorageName] = application.ApplicationStorageInfo{
-			StoragePoolName: info.StoragePoolName,
-			SizeMiB:         info.SizeMiB,
-			Count:           info.Count,
+	directives := make([]application.ApplicationStorageDirective, 0, len(rows))
+	for _, row := range rows {
+		directive, err := decodeApplicationStorageDirective(row)
+		if err != nil {
+			return nil, errors.Errorf("storage directive %q: %w", row.StorageName, err)
 		}
+		directives = append(directives, directive)
 	}
 
-	return appStorage, nil
+	return directives, nil
 }
 
-// GetApplicationStorageDirectives returns the storage directives that are
-// set for an application . If the application does not have any storage
-// directives set then an empty result is returned.
+// GetApplicationStorageDirectiveByName returns the persisted storage directive
+// for a single storage name on an application's current charm, and whether a
+// matching directive row was found.
+//
+// If the application does not exist, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (st *State) GetApplicationStorageDirectiveByName(
+	ctx context.Context,
+	appUUID, storageName string,
+) (application.ApplicationStorageDirective, bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return application.ApplicationStorageDirective{}, false, errors.Capture(err)
+	}
+
+	input := applicationStorageDirectiveByNameInput{
+		ApplicationUUID: appUUID,
+		StorageName:     storageName,
+	}
+
+	query, err := st.Prepare(`
+WITH directives AS (
+	SELECT asd.storage_name AS storage_name,
+	       asd.storage_pool_uuid AS storage_pool_uuid,
+	       sp.name AS storage_pool_name,
+	       asd.size_mib AS size_mib,
+	       asd.count AS count
+	FROM   application AS a
+	JOIN   application_storage_directive AS asd
+	       ON asd.application_uuid = a.uuid
+	       AND asd.charm_uuid = a.charm_uuid
+	JOIN   storage_pool AS sp
+	       ON sp.uuid = asd.storage_pool_uuid
+	WHERE  a.uuid = $applicationStorageDirectiveByNameInput.application_uuid
+	AND    asd.storage_name = $applicationStorageDirectiveByNameInput.storage_name
+)
+SELECT d.* AS &applicationStorageDirectiveRow.*
+FROM   directives AS d
+`,
+		input, applicationStorageDirectiveRow{},
+	)
+	if err != nil {
+		return application.ApplicationStorageDirective{}, false, errors.Capture(err)
+	}
+
+	var (
+		row   applicationStorageDirectiveRow
+		found bool
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkApplicationExists(
+			ctx, tx, coreapplication.UUID(appUUID),
+		)
+		if err != nil {
+			return errors.Errorf("checking application exists: %w", err)
+		}
+		if !exists {
+			return applicationerrors.ApplicationNotFound
+		}
+
+		var r applicationStorageDirectiveRow
+		err = tx.Query(ctx, query, input).Get(&r)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			found = false
+			return nil
+		} else if err != nil {
+			return err
+		}
+		row = r
+		found = true
+		return nil
+	})
+	if err != nil {
+		return application.ApplicationStorageDirective{}, false, errors.Capture(err)
+	}
+	if !found {
+		return application.ApplicationStorageDirective{}, false, nil
+	}
+
+	directive, err := decodeApplicationStorageDirective(row)
+	if err != nil {
+		return application.ApplicationStorageDirective{}, false, errors.Capture(err)
+	}
+
+	return directive, true, nil
+}
+
+func decodeApplicationStorageDirective(
+	row applicationStorageDirectiveRow,
+) (application.ApplicationStorageDirective, error) {
+	checkedSize, err := checkedSizeMiB(row.SizeMiB)
+	if err != nil {
+		return application.ApplicationStorageDirective{}, err
+	}
+	checkedCount, err := checkedDirectiveCount(row.Count)
+	if err != nil {
+		return application.ApplicationStorageDirective{}, err
+	}
+	return application.ApplicationStorageDirective{
+		Name:     corestorage.Name(row.StorageName),
+		PoolUUID: domainstorage.StoragePoolUUID(row.StoragePoolUUID),
+		PoolName: row.StoragePoolName,
+		SizeMiB:  checkedSize,
+		Count:    checkedCount,
+	}, nil
+}
+
+func checkedSizeMiB(sizeMiB int64) (uint64, error) {
+	if sizeMiB < 0 {
+		return 0, errors.Errorf("negative storage size %d MiB", sizeMiB)
+	}
+	return uint64(sizeMiB), nil
+}
+
+func checkedDirectiveCount(count int64) (uint32, error) {
+	if count < 0 || count > math.MaxUint32 {
+		return 0, errors.Errorf(
+			"storage directive count %d out of uint32 range", count,
+		)
+	}
+	return uint32(count), nil
+}
+
+// GetApplicationCharmStorageDirectives returns the storage directives and
+// associated charm storage metadata set for an application's current charm. If
+// the application does not have any storage directives set then an empty result
+// is returned.
 //
 // The following error types can be expected:
 // - [github.com/juju/juju/domain/application/errors.ApplicationNotFound]
 // when the application no longer exists.
-func (st *State) GetApplicationStorageDirectives(
+func (st *State) GetApplicationCharmStorageDirectives(
 	ctx context.Context,
 	appUUID coreapplication.UUID,
 ) ([]internal.StorageDirective, error) {
@@ -117,20 +246,29 @@ func (st *State) GetApplicationStorageDirectives(
 
 	appUUIDInput := entityUUID{UUID: appUUID.String()}
 	query, err := st.Prepare(`
-SELECT &storageDirective.* FROM (
-    SELECT asd.count,
-           asd.size_mib,
-           asd.storage_name,
-           asd.storage_pool_uuid,
+WITH directives AS (
+    SELECT asd.count AS count,
+           asd.size_mib AS size_mib,
+           asd.storage_name AS storage_name,
+           asd.storage_pool_uuid AS storage_pool_uuid,
            cm.name AS charm_metadata_name,
            csk.kind AS charm_storage_kind,
            cs.count_max AS count_max
-    FROM   application_storage_directive asd
-    JOIN   charm_storage cs ON cs.charm_uuid = asd.charm_uuid AND cs.name = asd.storage_name
-    JOIN   charm_metadata cm ON cm.charm_uuid = asd.charm_uuid
-    JOIN   charm_storage_kind csk ON csk.id = cs.storage_kind_id
-    WHERE  application_uuid = $entityUUID.uuid
+    FROM   application AS a
+    JOIN   application_storage_directive AS asd
+           ON asd.application_uuid = a.uuid
+           AND asd.charm_uuid = a.charm_uuid
+    JOIN   charm_storage AS cs
+           ON cs.charm_uuid = asd.charm_uuid
+           AND cs.name = asd.storage_name
+    JOIN   charm_metadata AS cm
+           ON cm.charm_uuid = asd.charm_uuid
+    JOIN   charm_storage_kind AS csk
+           ON csk.id = cs.storage_kind_id
+    WHERE  a.uuid = $entityUUID.uuid
 )
+SELECT d.* AS &storageDirective.*
+FROM   directives AS d
 		`,
 		appUUIDInput, storageDirective{},
 	)

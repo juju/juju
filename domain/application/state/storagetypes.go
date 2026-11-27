@@ -146,13 +146,21 @@ type insertStorageVolumeStatus struct {
 // either a volume or filesystem in the model.
 type storageProviderIDs []string
 
-// applicationStorageInfo is used to retrieve storage information for an
-// application.
-type applicationStorageInfo struct {
-	StoragePoolName string `db:"storage_pool_name"`
+// applicationStorageDirectiveRow is used to retrieve persisted storage
+// directives for an application.
+type applicationStorageDirectiveRow struct {
 	StorageName     string `db:"storage_name"`
-	Count           uint64 `db:"count"`
-	SizeMiB         uint64 `db:"size_mib"`
+	StoragePoolUUID string `db:"storage_pool_uuid"`
+	StoragePoolName string `db:"storage_pool_name"`
+	SizeMiB         int64  `db:"size_mib"`
+	Count           int64  `db:"count"`
+}
+
+// applicationStorageDirectiveByNameInput is the query input for retrieving a
+// single named storage directive for an application.
+type applicationStorageDirectiveByNameInput struct {
+	ApplicationUUID string `db:"application_uuid"`
+	StorageName     string `db:"storage_name"`
 }
 
 // storageDirective represents either a storage directive from a unit in the

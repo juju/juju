@@ -1844,7 +1844,7 @@ func (s *ProviderService) SetApplicationCharm(ctx context.Context, appName strin
 	// and handle any newly added storage definitions.
 
 	// Retrieve the current storage directives for the application.
-	storageDirectives, err := s.storageService.GetApplicationStorageDirectives(ctx, appUUID)
+	storageDirectives, err := s.storageService.GetApplicationCharmStorageDirectives(ctx, appUUID)
 	if err != nil {
 		return errors.Errorf("getting application storage directives: %w", err)
 	}

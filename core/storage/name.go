@@ -28,7 +28,7 @@ const (
 
 var (
 	validStorageID   = regexp.MustCompile("^(" + storageNameSnippet + ")/" + numberSnippet + "$")
-	validStorageName = regexp.MustCompile(storageNameSnippet)
+	validStorageName = regexp.MustCompile("^" + storageNameSnippet + "$")
 )
 
 // Name represents a storage name.

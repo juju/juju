@@ -24,7 +24,7 @@ func setAddUnitNoopStorageExpects(
 	st.EXPECT().GetStorageAttachInfoForStorageInstances(
 		gomock.Any(), tc.Bind(tc.HasLen, 0),
 	).AnyTimes()
-	storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), gomock.Any()).Return(
+	storageService.EXPECT().GetApplicationCharmStorageDirectives(gomock.Any(), gomock.Any()).Return(
 		[]internal.StorageDirective{}, nil,
 	).AnyTimes()
 	storageService.EXPECT().MakeUnitStorageArgs(
@@ -48,7 +48,7 @@ func setCreateApplicationNoopStorageExpects(
 	st.EXPECT().GetStorageAttachInfoForStorageInstances(
 		gomock.Any(), tc.Bind(tc.HasLen, 0),
 	).AnyTimes()
-	storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), gomock.Any()).Return(
+	storageService.EXPECT().GetApplicationCharmStorageDirectives(gomock.Any(), gomock.Any()).Return(
 		[]internal.StorageDirective{}, nil,
 	).AnyTimes()
 	storageService.EXPECT().MakeApplicationStorageDirectiveArgs(

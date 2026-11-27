@@ -18,9 +18,18 @@ func TestStorageNameSuite(t *testing.T) {
 }
 
 func (s *storageNameSuite) TestStorageNameValidity(c *tc.C) {
+	assertStorageNameValid(c, "data")
 	assertStorageNameValid(c, "shared-fs")
+	assertStorageNameValid(c, "pg-data1")
 	assertStorageNameInvalid(c, "")
 	assertStorageNameInvalid(c, "0")
+	assertStorageNameInvalid(c, "pg-data-1")
+	assertStorageNameInvalid(c, "shared-fs/0")
+	assertStorageNameInvalid(c, "-shared-fs")
+	assertStorageNameInvalid(c, "shared-fs-")
+	assertStorageNameInvalid(c, "shared--fs")
+	assertStorageNameInvalid(c, "BAD_name")
+	assertStorageNameInvalid(c, "shared fs")
 }
 
 func assertStorageNameValid(c *tc.C, name string) {

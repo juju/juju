@@ -3848,3 +3848,53 @@ func (s *providerServiceSuite) TestPrepareUnitAddStorageCAASNotSupported(c *tc.C
 	)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
+
+func (s *providerServiceSuite) TestGetApplicationStorageDirectives(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	expected := []application.ApplicationStorageDirective{
+		{
+			Name:     "pgdata",
+			PoolUUID: poolUUID,
+			PoolName: "ebs",
+			SizeMiB:  2048,
+			Count:    0,
+		},
+	}
+
+	s.storageService.EXPECT().GetApplicationStorageDirectives(
+		gomock.Any(), appUUID,
+	).Return(expected, nil)
+
+	got, err := s.service.GetApplicationStorageDirectives(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, expected)
+}
+
+func (s *providerServiceSuite) TestGetApplicationStorageDirectiveByName(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	expected := application.ApplicationStorageDirective{
+		Name:     "pgdata",
+		PoolUUID: poolUUID,
+		PoolName: "ebs",
+		SizeMiB:  4096,
+		Count:    2,
+	}
+
+	s.storageService.EXPECT().GetApplicationStorageDirectiveByName(
+		gomock.Any(), appUUID, corestorage.Name("pgdata"),
+	).Return(expected, nil)
+
+	got, err := s.service.GetApplicationStorageDirectiveByName(
+		c.Context(), appUUID, "pgdata",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, expected)
+}

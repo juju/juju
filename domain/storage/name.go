@@ -20,7 +20,7 @@ const (
 )
 
 var (
-	validStorageName = regexp.MustCompile(storageNameSnippet)
+	validStorageName = regexp.MustCompile("^" + storageNameSnippet + "$")
 )
 
 // ParseName returns a new Name. If the name is invalid, an [InvalidStorageName] error

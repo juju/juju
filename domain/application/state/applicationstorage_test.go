@@ -120,7 +120,7 @@ func (s *applicationStorageSuite) createApplicationWithStorageDirectives(
 	return appID
 }
 
-func (s *applicationStorageSuite) TestGetApplicationStorageDirectives(c *tc.C) {
+func (s *applicationStorageSuite) TestGetApplicationCharmStorageDirectives(c *tc.C) {
 	poolUUID := s.storageHelper.newStoragePool(c, "test", "testprovider")
 	appUUID := s.createApplicationWithStorageDirectives(
 		c,
@@ -183,14 +183,14 @@ func (s *applicationStorageSuite) TestGetApplicationStorageDirectives(c *tc.C) {
 		},
 	}
 
-	directives, err := st.GetApplicationStorageDirectives(c.Context(), appUUID)
+	directives, err := st.GetApplicationCharmStorageDirectives(c.Context(), appUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(directives, tc.DeepEquals, expected)
 }
 
-// TestGetApplicationStorageDirectivesEmpty tests that when an application has
+// TestGetApplicationCharmStorageDirectivesEmpty tests that when an application has
 // no storage directives an empty result is returned.
-func (s *applicationStorageSuite) TestGetApplicationStorageDirectivesEmpty(c *tc.C) {
+func (s *applicationStorageSuite) TestGetApplicationCharmStorageDirectivesEmpty(c *tc.C) {
 	appUUID := s.createApplicationWithStorageDirectives(
 		c,
 		"testcharm",
@@ -205,14 +205,14 @@ func (s *applicationStorageSuite) TestGetApplicationStorageDirectivesEmpty(c *tc
 		loggertesting.WrapCheckLog(c),
 	)
 
-	directives, err := st.GetApplicationStorageDirectives(c.Context(), appUUID)
+	directives, err := st.GetApplicationCharmStorageDirectives(c.Context(), appUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(directives, tc.HasLen, 0)
 }
 
-// TestGetApplicationStorageDirectivesNotFound tests that when an application
+// TestGetApplicationCharmStorageDirectivesNotFound tests that when an application
 // is not found the appropriate error is returned.
-func (s *applicationStorageSuite) TestGetApplicationStorageDirectivesNotFound(c *tc.C) {
+func (s *applicationStorageSuite) TestGetApplicationCharmStorageDirectivesNotFound(c *tc.C) {
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	st := NewState(
 		s.ModelSuite.TxnRunnerFactory(),
@@ -221,6 +221,6 @@ func (s *applicationStorageSuite) TestGetApplicationStorageDirectivesNotFound(c 
 		loggertesting.WrapCheckLog(c),
 	)
 
-	_, err := st.GetApplicationStorageDirectives(c.Context(), appUUID)
+	_, err := st.GetApplicationCharmStorageDirectives(c.Context(), appUUID)
 	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }

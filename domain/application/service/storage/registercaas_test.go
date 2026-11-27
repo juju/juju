@@ -83,7 +83,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitStorageArg(c *tc.C
 	s.state.EXPECT().GetStorageInstancesForProviderIDs(gomock.Any(), []string{
 		"fs-1",
 	}).Return([]domainstorage.StorageInstanceInfoForAttach{}, nil)
-	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(
+	s.state.EXPECT().GetApplicationCharmStorageDirectives(gomock.Any(), appUUID).Return(
 		[]internal.StorageDirective{
 			{
 				CharmMetadataName: "big-beautiful-charm",
@@ -529,7 +529,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitWithExistingStorag
 	s.state.EXPECT().GetStorageInstancesForProviderIDs(gomock.Any(), []string{
 		"fs-1", "fs-2",
 	}).Return(existingProviderStorage, nil).AnyTimes()
-	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(
+	s.state.EXPECT().GetApplicationCharmStorageDirectives(gomock.Any(), appUUID).Return(
 		[]internal.StorageDirective{
 			{
 				CharmMetadataName: "big-beautiful-charm",
@@ -631,7 +631,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitApplicationNotFoun
 		},
 	}
 
-	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(
+	s.state.EXPECT().GetApplicationCharmStorageDirectives(gomock.Any(), appUUID).Return(
 		[]internal.StorageDirective{},
 		applicationerrors.ApplicationNotFound,
 	)
