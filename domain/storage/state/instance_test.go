@@ -14,6 +14,7 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/storage/internal"
+	internaldatabase "github.com/juju/juju/internal/database"
 )
 
 // instanceSuite is a test suite for asserting storage instance based interfaces
@@ -199,6 +200,82 @@ func (s *instanceSuite) TestStorageInstanceInfoFilesystemUnitAttach(c *tc.C) {
 	})
 }
 
+// TestStorageInstanceInfoFilesystemAttachmentIsolation checks that filesystem
+// attachments are matched by both filesystem and node.
+func (s *instanceSuite) TestStorageInstanceInfoFilesystemAttachmentIsolation(c *tc.C) {
+	poolUUID := s.newStoragePool(c, "mypool", "myprovider", nil)
+	appUUID, charmUUID := s.newApplication(c, "app1")
+	siUUID, _ := s.newFilesystemStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "storage1",
+	)
+	unitUUID, unitName, unitNetNodeUUID := s.newUnitForApplication(c, appUUID)
+	saUUID := s.newStorageAttachment(c, siUUID, unitUUID)
+	fsUUID := s.newModelFilesystem(c, siUUID)
+	s.newModelFilesystemAttachmentWithMountPoint(
+		c, fsUUID, unitNetNodeUUID, "/mnt/fs1",
+	)
+	otherUnitUUID, otherUnitName, otherNodeUUID := s.newUnitForApplication(c, appUUID)
+	otherSAUUID := s.newStorageAttachment(c, siUUID, otherUnitUUID)
+	otherSIUUID, _ := s.newFilesystemStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "storage2",
+	)
+	otherFSUUID := s.newModelFilesystem(c, otherSIUUID)
+	s.newModelFilesystemAttachmentWithMountPoint(c, otherFSUUID, otherNodeUUID, "/mnt/other")
+
+	st := NewState(s.TxnRunnerFactory())
+	info, err := st.GetStorageInstanceInfo(c.Context(), siUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	want := []internal.StorageInstanceInfoAttachment{
+		{
+			Filesystem: &internal.StorageInstanceInfoAttachmentFilesystem{
+				MountPoint: "/mnt/fs1",
+			},
+			Life:     domainlife.Alive,
+			UnitName: unitName,
+			UnitUUID: unitUUID,
+			UUID:     saUUID,
+		},
+		{
+			Life:     domainlife.Alive,
+			UnitName: otherUnitName,
+			UnitUUID: otherUnitUUID,
+			UUID:     otherSAUUID,
+		},
+	}
+	if otherSAUUID.String() < saUUID.String() {
+		want[0], want[1] = want[1], want[0]
+	}
+	c.Check(info.Attachments, tc.DeepEquals, want)
+}
+
+func (s *instanceSuite) TestFilesystemAttachmentUniquePerNode(c *tc.C) {
+	poolUUID := s.newStoragePool(c, "mypool", "myprovider", nil)
+	appUUID, charmUUID := s.newApplication(c, "app1")
+	siUUID, _ := s.newFilesystemStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "storage1",
+	)
+	_, _, nodeUUID := s.newUnitForApplication(c, appUUID)
+	_, _, otherNodeUUID := s.newUnitForApplication(c, appUUID)
+	fsUUID := s.newModelFilesystem(c, siUUID)
+	first := s.newModelFilesystemAttachmentWithMountPoint(c, fsUUID, nodeUUID, "/mnt/fs1")
+
+	for _, l := range []domainlife.Life{domainlife.Alive, domainlife.Dying, domainlife.Dead} {
+		_, err := s.DB().ExecContext(c.Context(),
+			"UPDATE storage_filesystem_attachment SET life_id = ? WHERE uuid = ?",
+			l, first.String(),
+		)
+		c.Assert(err, tc.ErrorIsNil)
+		second := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
+		_, err = s.DB().ExecContext(c.Context(), `
+INSERT INTO storage_filesystem_attachment
+    (uuid, storage_filesystem_uuid, net_node_uuid, life_id, provision_scope_id)
+VALUES (?, ?, ?, 0, 0)`, second.String(), fsUUID.String(), nodeUUID.String())
+		c.Check(internaldatabase.IsErrConstraintUnique(err), tc.IsTrue)
+	}
+
+	s.newModelFilesystemAttachmentWithMountPoint(c, fsUUID, otherNodeUUID, "/mnt/fs2")
+}
+
 // TestStorageInstanceInfoFilesysteamVolumeBackedUnitAttached tests that
 // [State.GetStorageInstanceInfo] correctly returns storage instance information
 // for a filesystem-backed storage instance that is also backed by a volume and
@@ -297,6 +374,52 @@ func (s *instanceSuite) TestStorageInstanceInfoFilesysteamVolumeBackedUnitAttach
 		},
 		UUID: siUUID,
 	})
+}
+
+// TestStorageInstanceInfoVolumeLinksByAttachment checks that device links stay
+// with the correct unit when another attachment has no volume on its machine.
+func (s *instanceSuite) TestStorageInstanceInfoVolumeLinksByAttachment(c *tc.C) {
+	poolUUID := s.newStoragePool(c, "mypool", "myprovider", nil)
+	appUUID, charmUUID := s.newApplication(c, "app1")
+	siUUID, _ := s.newBlockStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "storage1",
+	)
+	machineUUID, machineName := s.newMachine(c)
+	unitUUID, unitName, nodeUUID := s.newUnitForApplicationOnMachine(c, appUUID, machineUUID)
+	saUUID := s.newStorageAttachment(c, siUUID, unitUUID)
+	deviceUUID := s.newBlockDevice(c, machineUUID)
+	s.setBlockDeviceLinks(c, deviceUUID, []string{"/dev/disk/by-id/1"})
+	volumeUUID := s.newModelVolume(c, siUUID)
+	s.newModelVolumeAttachment(c, volumeUUID, nodeUUID, deviceUUID)
+
+	otherMachineUUID, otherMachineName := s.newMachine(c)
+	otherUnitUUID, otherUnitName, _ := s.newUnitForApplicationOnMachine(c, appUUID, otherMachineUUID)
+	otherSAUUID := s.newStorageAttachment(c, siUUID, otherUnitUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+	info, err := st.GetStorageInstanceInfo(c.Context(), siUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	want := []internal.StorageInstanceInfoAttachment{
+		{
+			Life:     domainlife.Alive,
+			Machine:  &internal.StorageInstanceInfoAttachmentMachine{Name: machineName, UUID: machineUUID},
+			Volume:   &internal.StorageInstanceInfoAttachmentVolume{DeviceName: deviceUUID.String(), DeviceNameLinks: []string{"/dev/disk/by-id/1"}},
+			UnitName: unitName,
+			UnitUUID: unitUUID,
+			UUID:     saUUID,
+		},
+		{
+			Life:     domainlife.Alive,
+			Machine:  &internal.StorageInstanceInfoAttachmentMachine{Name: otherMachineName, UUID: otherMachineUUID},
+			UnitName: otherUnitName,
+			UnitUUID: otherUnitUUID,
+			UUID:     otherSAUUID,
+		},
+	}
+	if otherSAUUID.String() < saUUID.String() {
+		want[0], want[1] = want[1], want[0]
+	}
+	c.Check(info.Attachments, tc.DeepEquals, want)
 }
 
 // TestStorageInstanceInfoVolumeUnitAttach tests that
