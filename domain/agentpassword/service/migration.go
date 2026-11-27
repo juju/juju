@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
@@ -33,6 +34,14 @@ type MigrationState interface {
 
 	// SetMachinePasswordHash sets the password hash for the given machine.
 	SetMachinePasswordHash(context.Context, machine.UUID, agentpassword.PasswordHash) error
+
+	// GetApplicationUUIDByName returns the UUID of the application with the
+	// given name.
+	GetApplicationUUIDByName(context.Context, string) (application.UUID, error)
+
+	// SetApplicationPasswordHash sets the password hash for the given
+	// application.
+	SetApplicationPasswordHash(context.Context, application.UUID, agentpassword.PasswordHash) error
 }
 
 // MigrationService provides the API for migrating passwords.
@@ -97,4 +106,18 @@ func (s *MigrationService) SetMachinePasswordHash(ctx context.Context, machineNa
 	}
 
 	return s.st.SetMachinePasswordHash(ctx, machineUUID, passwordHash)
+}
+
+// SetApplicationPasswordHash sets the password hash for the given
+// application.
+func (s *MigrationService) SetApplicationPasswordHash(ctx context.Context, applicationName string, passwordHash agentpassword.PasswordHash) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	appUUID, err := s.st.GetApplicationUUIDByName(ctx, applicationName)
+	if err != nil {
+		return errors.Errorf("getting application UUID: %w", err)
+	}
+
+	return s.st.SetApplicationPasswordHash(ctx, appUUID, passwordHash)
 }

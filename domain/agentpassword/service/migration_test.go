@@ -9,6 +9,7 @@ import (
 	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/unit"
@@ -194,6 +195,62 @@ func (s *migrationServiceSuite) TestSetMachinePasswordHashSettingError(c *tc.C) 
 
 	service := NewMigrationService(s.state)
 	err = service.SetMachinePasswordHash(c.Context(), machineName, passwordHash)
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+func (s *migrationServiceSuite) TestSetApplicationPasswordHash(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID, err := application.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	appName := "foo"
+	rand, err := internalpassword.RandomPassword()
+	c.Assert(err, tc.ErrorIsNil)
+
+	passwordHash := agentpassword.PasswordHash(rand)
+
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appUUID, nil)
+	s.state.EXPECT().SetApplicationPasswordHash(gomock.Any(), appUUID, passwordHash).Return(nil)
+
+	service := NewMigrationService(s.state)
+	err = service.SetApplicationPasswordHash(c.Context(), appName, passwordHash)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *migrationServiceSuite) TestSetApplicationPasswordHashNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "foo"
+	rand, err := internalpassword.RandomPassword()
+	c.Assert(err, tc.ErrorIsNil)
+
+	passwordHash := agentpassword.PasswordHash(rand)
+
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(application.UUID(""), applicationerrors.ApplicationNotFound)
+
+	service := NewMigrationService(s.state)
+	err = service.SetApplicationPasswordHash(c.Context(), appName, passwordHash)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *migrationServiceSuite) TestSetApplicationPasswordHashSettingError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID, err := application.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	appName := "foo"
+	rand, err := internalpassword.RandomPassword()
+	c.Assert(err, tc.ErrorIsNil)
+
+	passwordHash := agentpassword.PasswordHash(rand)
+
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appUUID, nil)
+	s.state.EXPECT().SetApplicationPasswordHash(gomock.Any(), appUUID, passwordHash).Return(errors.Errorf("boom"))
+
+	service := NewMigrationService(s.state)
+	err = service.SetApplicationPasswordHash(c.Context(), appName, passwordHash)
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
