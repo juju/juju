@@ -126,6 +126,10 @@ func (e *starformExecutor) Handle(ctx context.Context, event domainunitless.Even
 	}
 
 	if err := e.scriptSet.Handle(ctx, &eo); err != nil {
+		// Rephrase deadline-exceeded errors as Starlark execution errors.
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return nil, errors.Errorf("handling event %q: too much time taken: %w", event.Name, err)
+		}
 		return nil, errors.Errorf("handling event %q: %w", event.Name, err)
 	}
 	return collector.Intents(), nil
