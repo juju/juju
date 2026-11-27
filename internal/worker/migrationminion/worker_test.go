@@ -275,6 +275,46 @@ func (s *Suite) TestVALIDATIONCanConnectButIsRepeatedlyCalled(c *gc.C) {
 	s.stub.CheckCall(c, 5, "Report", "id", migration.VALIDATION, true)
 }
 
+func (s *Suite) TestVALIDATIONTargetDialRetriesTryAgain(c *gc.C) {
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.VALIDATION,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	var attempts int
+	s.config.APIOpen = func(*api.Info, api.DialOpts) (api.Connection, error) {
+		s.stub.AddCall("API open")
+		attempts++
+		if attempts <= 2 {
+			return nil, &rpc.RequestError{Message: "try again", Code: params.CodeTryAgain}
+		}
+		return &stubConnection{stub: s.stub}, nil
+	}
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	// Advance the clock through the retry backoff delays.
+	for i := 0; i < 2; i++ {
+		err = s.clock.WaitAdvance(calculateSleepTime(i), coretesting.LongWait, 1)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	s.waitForStubCalls(c, []string{
+		"Watch",
+		"Lockdown",
+		"API open",
+		"API open",
+		"API open",
+		"ValidateMigration",
+		"API close",
+		"Report",
+	})
+	c.Assert(attempts, gc.Equals, 3)
+	s.stub.CheckCall(c, 7, "Report", "id", migration.VALIDATION, true)
+}
+
 func (s *Suite) TestVALIDATIONCantConnect(c *gc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId: "id",
@@ -938,7 +978,7 @@ func (s *Suite) TestSUCCESSTargetDialTryAgainExhausted(c *gc.C) {
 	}
 
 	err = workertest.CheckKilled(c, w)
-	c.Check(err, gc.ErrorMatches, `.*try changing "agent-ratelimit-max" and "agent-ratelimit-rate".*`)
+	c.Check(err, gc.ErrorMatches, `.*failed to open API to target controller; try changing "agent-ratelimit-max" and "agent-ratelimit-rate".*`)
 
 	criticalFound := false
 	for _, entry := range tw.Log() {
@@ -975,7 +1015,7 @@ func (s *Suite) TestPostSuccessTargetDialTryAgainExhausted(c *gc.C) {
 	}
 
 	err = workertest.CheckKilled(c, w)
-	c.Check(err, gc.ErrorMatches, `.*try changing "agent-ratelimit-max" and "agent-ratelimit-rate".*`)
+	c.Check(err, gc.ErrorMatches, `.*failed to open API to target controller; try changing "agent-ratelimit-max" and "agent-ratelimit-rate".*`)
 }
 
 func (s *Suite) TestSUCCESSTargetDialRetryStopsWhenKilled(c *gc.C) {

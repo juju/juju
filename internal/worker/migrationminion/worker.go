@@ -554,7 +554,8 @@ func (w *Worker) ensureTargetControllerDetails(status watcher.MigrationStatus) e
 		default:
 		}
 		if isTryAgainError(err) {
-			err = errors.Annotate(err, `try changing "agent-ratelimit-max" and "agent-ratelimit-rate"`)
+			return errors.Annotatef(err,
+				"failed to open API to target controller; try changing %q and %q", "agent-ratelimit-max", "agent-ratelimit-rate")
 		}
 		return errors.Annotate(err, "failed to open API to target controller")
 	}
