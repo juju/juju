@@ -244,6 +244,7 @@ type ModelCommand interface {
 	NewAPIRoot(ctx context.Context) (api.Connection, error)
 	NewAPIClient(ctx context.Context) (*client.Client, error)
 	ModelIdentifier() (string, error)
+	ControllerName() (string, error)
 	ControllerDetails() (*jujuclient.ControllerDetails, error)
 }
 

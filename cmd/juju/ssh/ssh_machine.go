@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -26,6 +27,7 @@ import (
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/sshclient"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/network"
 	internallogger "github.com/juju/juju/internal/logger"
 	jujussh "github.com/juju/juju/internal/network/ssh"
@@ -38,7 +40,13 @@ var logger = internallogger.GetLogger("juju.cmd.juju.ssh")
 // and DebugHooksCommand.
 type sshMachine struct {
 	leaderResolver
-	modelName string
+	// qualifiedModelName is the model identifier qualified with the
+	// controller that resolved it, e.g. "ctrl:model". It is kept
+	// resolved here so that commands spawned later (the proxy command)
+	// stay bound to that controller even if the current one changes.
+	// It is always well-formed: initRun validates the controller name
+	// (non-empty, shell-safe) before the join.
+	qualifiedModelName string
 
 	proxy                  bool
 	noHostKeyChecks        bool
@@ -133,15 +141,38 @@ func (c *sshMachine) setPublicKeyRetryStrategy(retryStrategy retry.CallArgs) {
 	c.publicKeyRetryStrategy = retryStrategy
 }
 
+// validProxyCommandControllerName is the conservative allowlist for
+// controller names qualified into the SSH proxy command. OpenSSH runs
+// the proxy command through the user's shell, so only shell-safe
+// characters are permitted. Dots are allowed so that DNS-shaped
+// controller names keep working.
+var validProxyCommandControllerName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
+
 // initRun initializes the API connection if required, and determines
 // if SSH proxying is required. It must be called at the top of the
 // command's Run method.
 //
-// The sshClient, apiAddr and proxy fields are initialized after this call.
+// The qualifiedModelName, sshClient, leaderAPI, statusClient, apiAddr
+// and proxy fields are initialized after this call.
 func (c *sshMachine) initRun(ctx context.Context, mc ModelCommand) (err error) {
-	if c.modelName, err = mc.ModelIdentifier(); err != nil {
+	modelName, err := mc.ModelIdentifier()
+	if err != nil {
 		return errors.Trace(err)
 	}
+	controllerName, err := mc.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// The controller name is interpolated into the proxy command,
+	// which OpenSSH executes through the user's shell. Refuse names
+	// that could escape the command instead of being executed by it.
+	if !validProxyCommandControllerName.MatchString(controllerName) {
+		return errors.NotValidf("controller name %q", controllerName)
+	}
+	// Qualify the model with the controller that resolved it. The nested
+	// command runs later, when a different controller may be current, and
+	// would otherwise resolve the model there.
+	c.qualifiedModelName = modelcmd.JoinModelName(controllerName, modelName)
 
 	if err = c.ensureAPIClient(ctx, mc); err != nil {
 		return errors.Trace(err)
@@ -354,6 +385,11 @@ func (c *sshMachine) setProxyCommand(options *ssh.Options, targets []*resolvedTa
 	// controller host is encrypted and the host key of the ultimate
 	// target host is verified but it would still be better to perform
 	// this extra level of checking.
+
+	// Use the controller as a jumpbox and run nc to route traffic
+	// to the ssh port of the target.
+	proxy := "false"
+	target := "ubuntu@" + c.apiAddr.Hostname()
 	if len(targets) == 1 && targets[0].via != nil {
 		// Use the controller as a jumpbox to ssh into the via target
 		// and run nc to reach the ssh port of the target.
@@ -361,33 +397,23 @@ func (c *sshMachine) setProxyCommand(options *ssh.Options, targets []*resolvedTa
 		// NOTE(achilleasa) this only works when we have a single
 		// target; with multiple targets we would need a different
 		// proxy command for each one
-		options.SetProxyCommand(
-			juju, "ssh",
-			"--model="+c.modelName,
-			// We still need to proxy through the controller to
-			// reach the via target as the target machine might not
-			// have a public IP address.
-			"--proxy=true",
-			"--no-host-key-checks",
-			"--pty=false",
-			fmt.Sprintf("%s@%s", targets[0].via.user, targets[0].via.host),
-			"-q",
-			"nc %h %p",
-		)
-	} else {
-		// Use the controller as a jumpbox and run nc to route traffic
-		// to the ssh port of the target.
-		options.SetProxyCommand(
-			juju, "ssh",
-			"--model="+c.modelName,
-			"--proxy=false",
-			"--no-host-key-checks",
-			"--pty=false",
-			"ubuntu@"+c.apiAddr.Hostname(),
-			"-q",
-			"nc %h %p",
-		)
+		//
+		// We still need to proxy through the controller to
+		// reach the via target as the target machine might not
+		// have a public IP address.
+		proxy = "true"
+		target = fmt.Sprintf("%s@%s", targets[0].via.user, targets[0].via.host)
 	}
+	options.SetProxyCommand(
+		juju, "ssh",
+		"--model="+c.qualifiedModelName,
+		"--proxy="+proxy,
+		"--no-host-key-checks",
+		"--pty=false",
+		target,
+		"-q",
+		"nc %h %p",
+	)
 	return nil
 }
 
