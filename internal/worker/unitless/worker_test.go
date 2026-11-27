@@ -43,14 +43,14 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "nil ScriptletService not valid")
 
 	ctrl := gomock.NewController(c)
-	service := NewMockScriptletService(ctrl)
-	err = Config{ScriptletService: service}.Validate()
+	scriptletService := NewMockScriptletService(ctrl)
+	err = Config{ScriptletService: scriptletService}.Validate()
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Assert(err, tc.ErrorMatches, "nil StatusService not valid")
 
 	statusService := NewMockApplicationStatusService(ctrl)
 	err = Config{
-		ScriptletService: service,
+		ScriptletService: scriptletService,
 		StatusService:    statusService,
 	}.Validate()
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
@@ -60,7 +60,7 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 		return nil, nil
 	}
 	err = Config{
-		ScriptletService: service,
+		ScriptletService: scriptletService,
 		StatusService:    statusService,
 		NewExecutor:      newExecutor,
 	}.Validate()
@@ -68,7 +68,7 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "nil Clock not valid")
 
 	err = Config{
-		ScriptletService: service,
+		ScriptletService: scriptletService,
 		StatusService:    statusService,
 		NewExecutor:      newExecutor,
 		Clock:            clock.WallClock,
@@ -78,7 +78,7 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "nil Logger not valid")
 
 	err = Config{
-		ScriptletService: service,
+		ScriptletService: scriptletService,
 		StatusService:    statusService,
 		NewExecutor:      newExecutor,
 		Clock:            clock.WallClock,
@@ -89,7 +89,7 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "negative MaxAllocs not valid")
 
 	err = Config{
-		ScriptletService: service,
+		ScriptletService: scriptletService,
 		StatusService:    statusService,
 		NewExecutor:      newExecutor,
 		Clock:            clock.WallClock,
@@ -100,7 +100,7 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "negative MaxSteps not valid")
 
 	err = Config{
-		ScriptletService: service,
+		ScriptletService: scriptletService,
 		StatusService:    statusService,
 		NewExecutor:      newExecutor,
 		Clock:            clock.WallClock,
@@ -111,7 +111,7 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "non-positive MaxDuration not valid")
 
 	err = Config{
-		ScriptletService: service,
+		ScriptletService: scriptletService,
 		StatusService:    statusService,
 		NewExecutor:      newExecutor,
 		Clock:            clock.WallClock,
@@ -122,7 +122,7 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "non-positive MaxDuration not valid")
 
 	err = Config{
-		ScriptletService: service,
+		ScriptletService: scriptletService,
 		StatusService:    statusService,
 		NewExecutor:      newExecutor,
 		Clock:            clock.WallClock,
@@ -134,7 +134,7 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 
 func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 	ctrl := gomock.NewController(c)
-	service := NewMockScriptletService(ctrl)
+	scriptletService := NewMockScriptletService(ctrl)
 	statusService := NewMockApplicationStatusService(ctrl)
 	statusService.EXPECT().SetApplicationStatusByUUID(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	applicationUUID := coreapplication.UUID("app-uuid-1")
@@ -159,22 +159,22 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 	dyingChanges <- struct{}{}
 	eventWatchers := make(chan coreapplication.UUID, 1)
 
-	service.EXPECT().WatchScriptletApplications(gomock.Any()).Return(
+	scriptletService.EXPECT().WatchScriptletApplications(gomock.Any()).Return(
 		watchertest.NewMockStringsWatcher(appChanges), nil,
 	)
-	service.EXPECT().GetScriptletApplication(gomock.Any(), applicationUUID).Return(
+	scriptletService.EXPECT().GetScriptletApplication(gomock.Any(), applicationUUID).Return(
 		scriptletApp, nil,
 	)
-	service.EXPECT().WatchScriptletApplication(gomock.Any(), applicationUUID).Return(
+	scriptletService.EXPECT().WatchScriptletApplication(gomock.Any(), applicationUUID).Return(
 		watchertest.NewMockNotifyWatcher(dyingChanges), nil,
 	)
-	service.EXPECT().WatchApplicationEvents(gomock.Any(), applicationUUID).DoAndReturn(
+	scriptletService.EXPECT().WatchApplicationEvents(gomock.Any(), applicationUUID).DoAndReturn(
 		func(context.Context, coreapplication.UUID) (watcher.StringsWatcher, error) {
 			eventWatchers <- applicationUUID
 			return watchertest.NewMockStringsWatcher(eventChanges), nil
 		},
 	)
-	service.EXPECT().GetScriptletEvent(gomock.Any(), applicationUUID, domainunitless.EventConfigChanged).Return(
+	scriptletService.EXPECT().GetScriptletEvent(gomock.Any(), applicationUUID, domainunitless.EventConfigChanged).Return(
 		event, nil,
 	)
 
@@ -195,7 +195,7 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 	maxDuration := 5 * time.Second
 
 	w, err := NewWorker(Config{
-		ScriptletService: service,
+		ScriptletService: scriptletService,
 		StatusService:    statusService,
 		NewExecutor: func(ctx context.Context, config ExecutorConfig) (Executor, error) {
 			executorConfigs <- config

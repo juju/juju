@@ -213,7 +213,7 @@ WHERE uuid = $applicationUUID.uuid;
 		return "", errors.Capture(err)
 	}
 
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, query, ident).Get(&name); errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("looking up name for application %q not found", applicationID).
 				Add(applicationerrors.ApplicationNotFound)
@@ -221,7 +221,8 @@ WHERE uuid = $applicationUUID.uuid;
 			return errors.Capture(err)
 		}
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
 		return "", errors.Capture(err)
 	}
 	return name.Name, nil

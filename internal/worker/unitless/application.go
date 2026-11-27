@@ -247,7 +247,7 @@ func (r *applicationRunner) handleEvent(ctx context.Context, eventName string) e
 		}
 		r.config.Logger.Errorf(
 			ctx, "executing scriptlet event %q for application %q: %v", event.Name, r.config.ApplicationUUID, err)
-		if err := r.setStatusBlocked(ctx, err); err != nil {
+		if err := r.setStatus(ctx, corestatus.Blocked, err.Error()); err != nil {
 			// The caller wraps this with the event name and application UUID.
 			return internalerrors.Errorf("setting blocked status: %w", err)
 		}
@@ -279,24 +279,16 @@ func (r *applicationRunner) applyIntents(ctx context.Context, intents []scriptle
 func (r *applicationRunner) applySetStatusIntent(ctx context.Context, intent scriptlet.Intent) error {
 	statusName, _ := intent.Args["status"].(string)
 	message, _ := intent.Args["message"].(string)
-	return r.config.StatusService.SetApplicationStatusByUUID(
-		ctx, r.config.ApplicationUUID,
-		corestatus.StatusInfo{
-			Status:  corestatus.Status(statusName),
-			Message: message,
-			Since:   new(r.config.Clock.Now()),
-		},
-	)
+	return r.setStatus(ctx, corestatus.Status(statusName), message)
 }
 
-// setStatusBlocked sets the application status to blocked with the given
-// error message.
-func (r *applicationRunner) setStatusBlocked(ctx context.Context, err error) error {
+// setStatus sets the given application's status and message.
+func (r *applicationRunner) setStatus(ctx context.Context, status corestatus.Status, message string) error {
 	return r.config.StatusService.SetApplicationStatusByUUID(
 		ctx, r.config.ApplicationUUID,
 		corestatus.StatusInfo{
-			Status:  corestatus.Blocked,
-			Message: err.Error(),
+			Status:  status,
+			Message: message,
 			Since:   new(r.config.Clock.Now()),
 		},
 	)
