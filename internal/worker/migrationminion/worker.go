@@ -25,9 +25,6 @@ import (
 )
 
 const (
-	// ErrRetryable is returned when a retryable error occurs.
-	ErrRetryable = errors.ConstError("retryable")
-
 	// errWorkerDying is returned by the fallback report retry loop when the
 	// worker is being torn down. It is fatal to the retry loop, so the
 	// worker can die promptly instead of retrying into its own teardown,
@@ -69,15 +66,13 @@ const (
 //
 // With the total being: 4m6.746s. If we factor in jitter swing, that will give
 // us roughly the 5m max duration. Thus giving us a good balance between
-// retrying and not flooding the target controller.
-//
-// If the migration master does illicit another retry, even after the max
-// duration has been reached, this should give us at least 1 more retry before
-// the migration master gives up.
+// retrying and not flooding the target controller. If the budget is exhausted,
+// the failure is reported so the migration master can abort promptly instead
+// of waiting for its own timeout.
 
 const (
-	// maxRetries is the number of times we'll attempt validation
-	// before giving up.
+	// maxRetries is the number of times we'll attempt validation or
+	// connecting to the target controller before giving up.
 	maxRetries = 20
 
 	// initialRetryDelay is the starting delay - this will be
@@ -88,11 +83,10 @@ const (
 	retryMaxDelay = 25 * time.Second
 
 	// retryMaxDuration is the maximum time we'll spend retrying the validation
-	// before giving up.
+	// or target controller connection before giving up.
 	retryMaxDuration = 5 * time.Minute
 
-	// retryExpBackoff is the exponential backoff factor for retrying the
-	// validation.
+	// retryExpBackoff is the exponential backoff factor for the retries.
 	retryExpBackoff = 1.6
 
 	// maxRedirects is the maximum number of redirects we'll follow when
@@ -285,11 +279,7 @@ func (w *Worker) handle(status watcher.MigrationStatus) error {
 		// migration phases.
 	}
 
-	// If the error is ErrRetryable, then don't record the phase as processed.
-	// This will allow the worker to retry the phase again.
-	if errors.Is(err, ErrRetryable) {
-		return nil
-	} else if err != nil {
+	if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -327,11 +317,20 @@ func (w *Worker) doVALIDATION(status watcher.MigrationStatus) error {
 		BackoffFunc: retry.ExpBackoff(initialRetryDelay, retryMaxDelay, retryExpBackoff, w.config.ApplyJitter),
 		Stop:        w.catacomb.Dying(),
 	})
-	if errors.Is(err, apiservererrors.ErrTryAgain) || params.IsCodeTryAgain(err) {
+	// If the worker is being torn down, don't report failure: a shutdown
+	// must not abort a migration that could continue after a restart.
+	select {
+	case <-w.catacomb.Dying():
+		return w.catacomb.ErrDying()
+	default:
+	}
+	if isTryAgainError(err) {
 		// Provide additional context about why the error occurred in the logs.
-		// Then report the error to the migrationmaster.
+		// Then report the failure so the migration master aborts promptly.
+		// There is no guarantee of another change event to retry the phase,
+		// so holding back the report only delays the abort until the minion
+		// report timeout.
 		w.config.Logger.Warningf(`validation failed: try changing "agent-ratelimit-max" and "agent-ratelimit-rate", before trying again: %v`, err)
-		return ErrRetryable
 	} else if err != nil {
 		// Don't return this error just log it and report to the
 		// migrationmaster that things didn't work out.
@@ -340,6 +339,24 @@ func (w *Worker) doVALIDATION(status watcher.MigrationStatus) error {
 
 	// Report the result of the validation.
 	return w.report(status, err == nil)
+}
+
+// isTryAgainError returns true if the error indicates the controller asked
+// the client to retry, for example because its agent rate limiter is
+// temporarily exhausted.
+func isTryAgainError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, apiservererrors.ErrTryAgain) || params.IsCodeTryAgain(err) {
+		return true
+	}
+	// retry.Call wraps the final failure and params.IsCodeTryAgain uses the
+	// cause, so classify the last attempt error to retain the TryAgain status.
+	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) || retry.IsRetryStopped(err) {
+		return isTryAgainError(retry.LastError(err))
+	}
+	return false
 }
 
 func (w *Worker) validate(status watcher.MigrationStatus) error {
@@ -423,7 +440,9 @@ func (w *Worker) dialFollowingRedirects(apiInfo *api.Info, redirectCount int) (a
 
 func (w *Worker) doSUCCESS(status watcher.MigrationStatus) (err error) {
 	if err := w.ensureTargetControllerDetails(status); err != nil {
-		return errors.Trace(err)
+		err = errors.Trace(err)
+		w.logAgentConfigNotUpdated(err)
+		return err
 	}
 
 	// Report first because the config update that's about to happen
@@ -448,10 +467,7 @@ func (w *Worker) doSUCCESS(status watcher.MigrationStatus) (err error) {
 func (w *Worker) updateAgentConfigForTargetController(status watcher.MigrationStatus) (err error) {
 	defer func() {
 		if err != nil {
-			cfg := w.config.Agent.CurrentConfig()
-			w.config.Logger.Criticalf("migration failed for %v: %s/agent.conf left unchanged and pointing to source controller: %v",
-				cfg.Tag(), cfg.Dir(), err,
-			)
+			w.logAgentConfigNotUpdated(err)
 		}
 	}()
 
@@ -475,18 +491,73 @@ func (w *Worker) updateAgentConfigForTargetController(status watcher.MigrationSt
 	return errors.Annotate(err, "setting agent config")
 }
 
+// logAgentConfigNotUpdated logs the message that the agent config still
+// points at the source controller. A teardown error is not actionable
+// and is skipped so normal shutdown does not produce a false critical.
+func (w *Worker) logAgentConfigNotUpdated(err error) {
+	select {
+	case <-w.catacomb.Dying():
+		if errors.Is(err, w.catacomb.ErrDying()) {
+			return
+		}
+	default:
+	}
+	cfg := w.config.Agent.CurrentConfig()
+	w.config.Logger.Criticalf("migration failed for %v: %s/agent.conf left unchanged and pointing to source controller: %v",
+		cfg.Tag(), cfg.Dir(), err,
+	)
+}
+
 func (w *Worker) ensureTargetControllerDetails(status watcher.MigrationStatus) error {
 	// If the new details struct is nil, it means that the agent restarted
 	// between the VALIDATION and SUCCESS, or in post SUCCESS phases, and we
 	// need to re-dial the new controller to ensure that we follow any redirects
 	// that may have occurred.
-	if w.newControllerDetails == nil {
-		conn, newDetails, err := w.dialNewController(status.TargetAPIAddrs, status.TargetCACert)
-		if err != nil {
-			return errors.Annotate(err, "failed to open API to target controller")
+	if w.newControllerDetails != nil {
+		return nil
+	}
+
+	// A model migration reconnects every agent of the model at once, and the
+	// target controller's agent rate limiter may reject the overflow with a
+	// TryAgain error. Retry such rejections with the same bounded backoff used
+	// for validation, otherwise a single rejection during the reconnect storm
+	// leaves the agent config pointing at the source controller.
+	err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			conn, newDetails, err := w.dialNewController(status.TargetAPIAddrs, status.TargetCACert)
+			if err != nil {
+				return err
+			}
+			_ = conn.Close()
+			w.newControllerDetails = &newDetails
+			return nil
+		},
+		IsFatalError: func(err error) bool {
+			return !isTryAgainError(err)
+		},
+		NotifyFunc: func(lastError error, attempt int) {
+			w.config.Logger.Warningf("failed to connect to target controller (attempt %d): %v", attempt, lastError)
+		},
+		Clock:       w.config.Clock,
+		Attempts:    maxRetries,
+		Delay:       initialRetryDelay,
+		MaxDuration: retryMaxDuration,
+		BackoffFunc: retry.ExpBackoff(initialRetryDelay, retryMaxDelay, retryExpBackoff, w.config.ApplyJitter),
+		Stop:        w.catacomb.Dying(),
+	})
+	if err != nil {
+		// A kill can land during the backoff sleep between attempts. Treat
+		// that like a dial aborted because the worker is dying.
+		select {
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+		default:
 		}
-		_ = conn.Close()
-		w.newControllerDetails = &newDetails
+		if isTryAgainError(err) {
+			return errors.Annotatef(err,
+				"failed to open API to target controller; try changing %q and %q", "agent-ratelimit-max", "agent-ratelimit-rate")
+		}
+		return errors.Annotate(err, "failed to open API to target controller")
 	}
 	return nil
 }
