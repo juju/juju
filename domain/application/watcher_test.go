@@ -451,52 +451,6 @@ func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 	harness.Run(c, struct{}{})
 }
 
-func (s *watcherSuite) TestWatchApplicationScale(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application_scale")
-
-	svc := s.setupService(c, factory)
-
-	s.createCAASApplication(c, svc, "foo")
-	s.createCAASApplication(c, svc, "bar")
-
-	ctx := c.Context()
-	s.AssertChangeStreamIdle(c, "before watcher start")
-	watcher, err := svc.WatchApplicationScale(ctx, "foo")
-	c.Assert(err, tc.ErrorIsNil)
-
-	harness := watchertest.NewHarness[struct{}](s, watchertest.NewWatcherC[struct{}](c, watcher))
-	harness.AddTest(c, func(c *tc.C) {
-		// First update after creating the app.
-		err = svc.SetApplicationScale(ctx, "foo", 2)
-		c.Assert(err, tc.ErrorIsNil)
-	}, func(w watchertest.WatcherC[struct{}]) {
-		w.AssertChange()
-	})
-	harness.AddTest(c, func(c *tc.C) {
-		// Update same value.
-		err = svc.SetApplicationScale(ctx, "foo", 2)
-		c.Assert(err, tc.ErrorIsNil)
-	}, func(w watchertest.WatcherC[struct{}]) {
-		w.AssertNoChange()
-	})
-	harness.AddTest(c, func(c *tc.C) {
-		// Update new value.
-		err = svc.SetApplicationScale(ctx, "foo", 3)
-		c.Assert(err, tc.ErrorIsNil)
-	}, func(w watchertest.WatcherC[struct{}]) {
-		w.AssertChange()
-	})
-	harness.AddTest(c, func(c *tc.C) {
-		// Different app.
-		err = svc.SetApplicationScale(ctx, "bar", 2)
-		c.Assert(err, tc.ErrorIsNil)
-	}, func(w watchertest.WatcherC[struct{}]) {
-		w.AssertNoChange()
-	})
-
-	harness.Run(c, struct{}{})
-}
-
 func (s *watcherSuite) TestWatchApplicationsWithPendingCharms(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application")
 

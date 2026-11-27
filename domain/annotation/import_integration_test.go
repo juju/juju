@@ -89,6 +89,9 @@ func (s *importSuite) TestImportAnnotations(c *tc.C) {
 		app := desc.AddApplication(description.ApplicationArgs{
 			Name: name, CharmURL: "ch:client-1",
 		})
+		if modelType == model.CAAS {
+			app.SetDesiredScale(1)
+		}
 		// The application import also imports the charm, so origin, metadata
 		// and manifest must be present for it to succeed.
 		app.SetCharmOrigin(description.CharmOriginArgs{

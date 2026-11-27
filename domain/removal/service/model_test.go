@@ -12,6 +12,7 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -34,6 +35,7 @@ func (s *modelSuite) TestRemoveModelNoForceSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	mUUID := tc.Must0(c, coremodel.NewUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID).String()
 	destroyStorage := true
 
 	when := time.Now()
@@ -49,7 +51,7 @@ func (s *modelSuite) TestRemoveModelNoForceSuccess(c *tc.C) {
 	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
 	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), &destroyStorage).Return(removal.ModelArtifacts{
 		RelationUUIDs:    []string{"some-relation-id"},
-		UnitUUIDs:        []string{"some-unit-id"},
+		UnitUUIDs:        []string{unitUUID},
 		MachineUUIDs:     []string{"some-machine-id"},
 		ApplicationUUIDs: []string{"some-application-id"},
 	}, nil)
@@ -63,7 +65,7 @@ func (s *modelSuite) TestRemoveModelNoForceSuccess(c *tc.C) {
 	// expectations here, so we'll assume that the
 	// unit/relation/application no longer exists, to prevent this test
 	// from depending on the unit/relation/application removal logic.
-	mExp.UnitExists(gomock.Any(), "some-unit-id").Return(false, nil)
+	mExp.UnitExists(gomock.Any(), unitUUID).Return(false, nil)
 	mExp.GetRelationKind(gomock.Any(), "some-relation-id").Return(
 		removalinternal.RelationKindOrdinary, relationerrors.RelationNotFound,
 	)
@@ -78,11 +80,12 @@ func (s *modelSuite) TestRemoveModelRetrySchedulesRemovalJobs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	mUUID := tc.Must0(c, coremodel.NewUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID).String()
 	destroyStorage := true
 	when := time.Now()
 	artifacts := removal.ModelArtifacts{
 		RelationUUIDs:    []string{"some-relation-id"},
-		UnitUUIDs:        []string{"some-unit-id"},
+		UnitUUIDs:        []string{unitUUID},
 		MachineUUIDs:     []string{"some-machine-id"},
 		ApplicationUUIDs: []string{"some-application-id"},
 	}
@@ -105,9 +108,9 @@ func (s *modelSuite) TestRemoveModelRetrySchedulesRemovalJobs(c *tc.C) {
 	mExp.GetRelationKind(gomock.Any(), "some-relation-id").Return(removalinternal.RelationKindOrdinary, nil).Times(4)
 	mExp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "some-relation-id", false, when.UTC()).Return(nil).Times(2)
 
-	mExp.UnitExists(gomock.Any(), "some-unit-id").Return(true, nil).Times(2)
-	mExp.EnsureUnitNotAliveCascade(gomock.Any(), "some-unit-id", true).Return(removalinternal.CascadedUnitLives{}, nil).Times(2)
-	mExp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "some-unit-id", false, when.UTC()).Return(nil).Times(2)
+	mExp.UnitExists(gomock.Any(), unitUUID).Return(true, nil).Times(2)
+	mExp.EnsureUnitNotAliveCascade(gomock.Any(), unitUUID, true).Return(removalinternal.CascadedUnitLives{}, nil).Times(2)
+	mExp.UnitScheduleRemovalCascade(gomock.Any(), gomock.Any(), unitUUID, false, when.UTC(), gomock.Len(0)).Return("removal-job", nil).Times(2)
 
 	mExp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "some-machine-id", false, when.UTC()).Return(nil).Times(2)
 
@@ -129,11 +132,12 @@ func (s *modelSuite) TestRemoveModelRetryWithForceSchedulesRemovalJobs(c *tc.C) 
 	defer s.setupMocks(c).Finish()
 
 	mUUID := tc.Must0(c, coremodel.NewUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID).String()
 	destroyStorage := true
 	when := time.Now()
 	artifacts := removal.ModelArtifacts{
 		RelationUUIDs:    []string{"some-relation-id"},
-		UnitUUIDs:        []string{"some-unit-id"},
+		UnitUUIDs:        []string{unitUUID},
 		MachineUUIDs:     []string{"some-machine-id"},
 		ApplicationUUIDs: []string{"some-application-id"},
 	}
@@ -160,10 +164,10 @@ func (s *modelSuite) TestRemoveModelRetryWithForceSchedulesRemovalJobs(c *tc.C) 
 	mExp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "some-relation-id", false, when.UTC()).Return(nil)
 	mExp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "some-relation-id", true, when.UTC()).Return(nil)
 
-	mExp.UnitExists(gomock.Any(), "some-unit-id").Return(true, nil).Times(2)
-	mExp.EnsureUnitNotAliveCascade(gomock.Any(), "some-unit-id", true).Return(removalinternal.CascadedUnitLives{}, nil).Times(2)
-	mExp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "some-unit-id", false, when.UTC()).Return(nil)
-	mExp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "some-unit-id", true, when.UTC()).Return(nil)
+	mExp.UnitExists(gomock.Any(), unitUUID).Return(true, nil).Times(2)
+	mExp.EnsureUnitNotAliveCascade(gomock.Any(), unitUUID, true).Return(removalinternal.CascadedUnitLives{}, nil).Times(2)
+	mExp.UnitScheduleRemovalCascade(gomock.Any(), gomock.Any(), unitUUID, false, when.UTC(), gomock.Len(0)).Return("removal-job", nil)
+	mExp.UnitScheduleRemovalCascade(gomock.Any(), gomock.Any(), unitUUID, true, when.UTC(), gomock.Len(0)).Return("removal-job", nil)
 
 	mExp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "some-machine-id", false, when.UTC()).Return(nil)
 	mExp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "some-machine-id", true, when.UTC()).Return(nil)
@@ -251,6 +255,7 @@ func (s *modelSuite) TestRemoveModelNoForceSuccessControllerModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	mUUID := tc.Must0(c, coremodel.NewUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID).String()
 	destroyStorage := true
 
 	when := time.Now()
@@ -266,7 +271,7 @@ func (s *modelSuite) TestRemoveModelNoForceSuccessControllerModel(c *tc.C) {
 	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
 	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), &destroyStorage).Return(removal.ModelArtifacts{
 		RelationUUIDs:    []string{"some-relation-id"},
-		UnitUUIDs:        []string{"some-unit-id"},
+		UnitUUIDs:        []string{unitUUID},
 		MachineUUIDs:     []string{"some-machine-id"},
 		ApplicationUUIDs: []string{"some-application-id"},
 	}, nil)
@@ -280,7 +285,7 @@ func (s *modelSuite) TestRemoveModelNoForceSuccessControllerModel(c *tc.C) {
 	// expectations here, so we'll assume that the
 	// unit/relation/application no longer exists, to prevent this test
 	// from depending on the unit/relation/application removal logic.
-	mExp.UnitExists(gomock.Any(), "some-unit-id").Return(false, nil)
+	mExp.UnitExists(gomock.Any(), unitUUID).Return(false, nil)
 	mExp.GetRelationKind(gomock.Any(), "some-relation-id").Return(
 		removalinternal.RelationKindOrdinary, relationerrors.RelationNotFound,
 	)

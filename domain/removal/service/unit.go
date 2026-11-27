@@ -9,6 +9,7 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
@@ -44,8 +45,19 @@ type UnitState interface {
 	GetRelationUnitsForUnit(ctx context.Context, unitUUID string) ([]string, error)
 
 	// UnitScheduleRemoval schedules a removal job for the unit with the
-	// input unit UUID, qualified with the input force boolean.
-	UnitScheduleRemoval(ctx context.Context, removalUUID, unitUUID string, force bool, when time.Time) error
+	// input unit UUID, qualified with the input force boolean. It returns the
+	// UUID of the scheduled job, which can be an existing matching job. A
+	// matching job's deadline is advanced if the requested time is earlier.
+	UnitScheduleRemoval(ctx context.Context, removalUUID, unitUUID string, force bool, when time.Time) (string, error)
+
+	// UnitScheduleRemovalCascade atomically ensures the unit job and the
+	// supplied cascade jobs. Matching jobs are reused and their deadlines can
+	// be brought forward, but never postponed. The persisted unit job UUID is
+	// returned, even when that job existed before this call.
+	UnitScheduleRemovalCascade(
+		ctx context.Context, removalUUID, unitUUID string, force bool,
+		when time.Time, jobs []internal.UnitRemovalJob,
+	) (string, error)
 
 	// GetUnitLife returns the life of the unit with the input UUID.
 	GetUnitLife(ctx context.Context, unitUUID string) (life.Life, error)
@@ -88,6 +100,10 @@ func (s *Service) RemoveUnit(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	if err := unitUUID.Validate(); err != nil {
+		return "", errors.Errorf("validating unit UUID: %w", err)
+	}
+
 	exists, err := s.modelState.UnitExists(ctx, unitUUID.String())
 	if err != nil {
 		return "", errors.Errorf("checking if unit exists: %w", err)
@@ -104,61 +120,111 @@ func (s *Service) RemoveUnit(
 		return "", errors.Errorf("unit %q: %w", unitUUID, err)
 	}
 
-	// Normalize the wait here so the cascaded scheduling below cannot
-	// see a non-forced wait.
+	// Life advancement is already committed. If scheduling fails or the
+	// process stops here, the next attempt reconstructs this cascade from
+	// the dying unit and ensures the entire job set again.
+	return s.scheduleUnitRemovalCascade(ctx, unitUUID, cascaded, force, wait)
+}
+
+func (s *Service) scheduleUnitRemovalCascade(
+	ctx context.Context, unitUUID unit.UUID, cascaded internal.CascadedUnitLives,
+	force bool, wait time.Duration,
+) (removal.UUID, error) {
 	wait = s.normalizeWait(ctx, unitUUID, force, wait)
-	unitJobUUID, err := s.scheduleWithForceWait(ctx, unitUUID, force, wait, s.unitScheduleRemoval)
+	now := s.clock.Now().UTC()
+	unitJobs, err := newUnitRemovalJobs(removal.UnitJob, unitUUID.String(), force, wait, now)
 	if err != nil {
 		return "", errors.Capture(err)
-	} else if cascaded.IsEmpty() {
-		// No other entities associated with the unit were
-		// also ensured to be "dying", so we're done.
-		return unitJobUUID, nil
 	}
+	unitJob := unitJobs[len(unitJobs)-1]
+	jobs := unitJobs[:len(unitJobs)-1]
 
+	var machineUUIDs []string
 	if cascaded.MachineUUID != nil {
-		s.logger.Infof(ctx, "unit was the last one on machine %q, scheduling removal", *cascaded.MachineUUID)
-		if err := s.scheduleCascaded(ctx, []string{*cascaded.MachineUUID}, force, wait, s.machineScheduleRemoval); err != nil {
-			return "", errors.Capture(err)
+		machineUUIDs = []string{*cascaded.MachineUUID}
+	}
+
+	targets := []struct {
+		jobType removal.JobType
+		uuids   []string
+	}{
+		{jobType: removal.MachineJob, uuids: machineUUIDs},
+		{jobType: removal.StorageAttachmentJob, uuids: cascaded.StorageAttachmentUUIDs},
+		{jobType: removal.StorageFilesystemAttachmentJob, uuids: cascaded.FileSystemAttachmentUUIDs},
+		{jobType: removal.StorageVolumeAttachmentJob, uuids: cascaded.VolumeAttachmentUUIDs},
+		{jobType: removal.StorageVolumeAttachmentPlanJob, uuids: cascaded.VolumeAttachmentPlanUUIDs},
+		{jobType: removal.StorageFilesystemJob, uuids: cascaded.FileSystemUUIDs},
+		{jobType: removal.StorageVolumeJob, uuids: cascaded.VolumeUUIDs},
+		{jobType: removal.StorageInstanceJob, uuids: cascaded.StorageInstanceUUIDs},
+	}
+	for _, target := range targets {
+		for _, entityUUID := range target.uuids {
+			dependentJobs, err := newUnitRemovalJobs(target.jobType, entityUUID, force, wait, now)
+			if err != nil {
+				return "", errors.Capture(err)
+			}
+			jobs = append(jobs, dependentJobs...)
 		}
 	}
-
-	if err := s.scheduleCascaded(ctx, cascaded.StorageAttachmentUUIDs, force, wait, s.storageAttachmentScheduleRemoval); err != nil {
-		return "", errors.Capture(err)
-	}
-
-	if err := s.scheduleCascaded(ctx, cascaded.FileSystemAttachmentUUIDs, force, wait, s.filesystemAttachmentScheduleRemoval); err != nil {
-		return "", errors.Capture(err)
-	}
-
-	if err := s.scheduleCascaded(ctx, cascaded.VolumeAttachmentUUIDs, force, wait, s.volumeAttachmentScheduleRemoval); err != nil {
-		return "", errors.Capture(err)
-	}
-
-	if err := s.scheduleCascaded(ctx, cascaded.VolumeAttachmentPlanUUIDs, force, wait, s.volumeAttachmentPlanScheduleRemoval); err != nil {
-		return "", errors.Capture(err)
-	}
-
-	if err := s.scheduleCascaded(ctx, cascaded.FileSystemUUIDs, force, wait, s.filesystemScheduleRemoval); err != nil {
-		return "", errors.Capture(err)
-	}
-
-	if err := s.scheduleCascaded(ctx, cascaded.VolumeUUIDs, force, wait, s.volumeScheduleRemoval); err != nil {
-		return "", errors.Capture(err)
-	}
-
-	if err := s.scheduleCascaded(ctx, cascaded.StorageInstanceUUIDs, force, wait, s.storageInstanceScheduleRemoval); err != nil {
-		return "", errors.Capture(err)
-	}
-
 	if cascaded.CharmUUID != nil {
-		s.logger.Infof(ctx, "unit was the last alive one on charm %q, scheduling removal", *cascaded.CharmUUID)
-		if err := s.scheduleCharmRemovals(ctx, []string{*cascaded.CharmUUID}); err != nil {
+		if err := corecharm.ID(*cascaded.CharmUUID).Validate(); err != nil {
+			return "", errors.Errorf("validating charm UUID: %w", err)
+		}
+		jobUUID, err := removal.NewUUID()
+		if err != nil {
 			return "", errors.Capture(err)
 		}
+		jobs = append(jobs, internal.UnitRemovalJob{
+			UUID:         jobUUID.String(),
+			RemovalType:  removal.CharmJob,
+			EntityUUID:   *cascaded.CharmUUID,
+			ScheduledFor: now,
+		})
 	}
 
-	return unitJobUUID, nil
+	scheduledUUID, err := s.modelState.UnitScheduleRemovalCascade(
+		ctx, unitJob.UUID, unitJob.EntityUUID, unitJob.Force, unitJob.ScheduledFor, jobs,
+	)
+	if err != nil {
+		return "", errors.Errorf("scheduling removal of unit %q: %w", unitUUID, err)
+	}
+	s.logger.Infof(ctx, "ensured removal job %q and dependants for unit %q", scheduledUUID, unitUUID)
+	return removal.UUID(scheduledUUID), nil
+}
+
+// newUnitRemovalJobs constructs the requested job, preceded by an immediate
+// normal job when force has a positive wait. The requested job is always last.
+// The wait must already be normalised for the removal request.
+func newUnitRemovalJobs(
+	jobType removal.JobType, entityUUID string, force bool,
+	wait time.Duration, now time.Time,
+) ([]internal.UnitRemovalJob, error) {
+	var jobs []internal.UnitRemovalJob
+	if force && wait > 0 {
+		jobUUID, err := removal.NewUUID()
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		jobs = append(jobs, internal.UnitRemovalJob{
+			UUID:         jobUUID.String(),
+			RemovalType:  jobType,
+			EntityUUID:   entityUUID,
+			ScheduledFor: now,
+		})
+	}
+
+	jobUUID, err := removal.NewUUID()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	jobs = append(jobs, internal.UnitRemovalJob{
+		UUID:         jobUUID.String(),
+		RemovalType:  jobType,
+		EntityUUID:   entityUUID,
+		Force:        force,
+		ScheduledFor: now.Add(wait),
+	})
+	return jobs, nil
 }
 
 // MarkUnitAsDead marks the unit as dead. It will not remove the unit as
@@ -210,14 +276,15 @@ func (s *Service) unitScheduleRemoval(
 		return "", errors.Capture(err)
 	}
 
-	if err := s.modelState.UnitScheduleRemoval(
+	scheduledJobUUID, err := s.modelState.UnitScheduleRemoval(
 		ctx, jobUUID.String(), unitUUID.String(), force, s.clock.Now().UTC().Add(wait),
-	); err != nil {
+	)
+	if err != nil {
 		return "", errors.Errorf("unit: %w", err)
 	}
 
-	s.logger.Infof(ctx, "scheduled removal job %q for unit %q", jobUUID, unitUUID)
-	return jobUUID, nil
+	s.logger.Infof(ctx, "ensured removal job %q for unit %q", scheduledJobUUID, unitUUID)
+	return removal.UUID(scheduledJobUUID), nil
 }
 
 // processUnitRemovalJob deletes a unit if it is dying.

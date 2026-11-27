@@ -10,9 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -20,7 +22,10 @@ import (
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/life"
 	domainrelation "github.com/juju/juju/domain/relation"
+	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	removalinternal "github.com/juju/juju/domain/removal/internal"
+	removalservice "github.com/juju/juju/domain/removal/service"
 	domainstorage "github.com/juju/juju/domain/storage"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -388,21 +393,33 @@ func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccess(c *tc.C) {
 	s.checkMachineLife(c, unitMachineUUID.String(), life.Alive)
 }
 
-func (s *unitSuite) TestEnsureUnitNotAliveCascadeDyingSuccess(c *tc.C) {
+func (s *unitSuite) TestEnsureUnitNotAliveCascadeDyingUnitCascadesDependents(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
 	c.Assert(len(unitUUIDs), tc.Equals, 1)
 	unitUUID := unitUUIDs[0]
+	unitMachineUUID := s.getUnitMachineUUID(c, unitUUID)
+	storageInstanceUUID, storageAttachmentUUID := s.addUnitStorageAttachment(c, unitUUID, true)
+
+	// Simulate another workflow having already advanced the unit life.
+	s.advanceUnitLife(c, unitUUID, life.Dying)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	_, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String(), false)
+	cascade, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String(), true)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Unit was already "dying" and should be unchanged.
 	s.checkUnitLife(c, unitUUID.String(), life.Dying)
+	s.checkMachineLife(c, unitMachineUUID.String(), life.Dying)
+	s.checkStorageAttachmentLife(c, storageAttachmentUUID, life.Dying)
+	s.checkStorageInstanceLife(c, storageInstanceUUID, life.Dying)
+
+	c.Assert(cascade.MachineUUID, tc.NotNil)
+	c.Check(*cascade.MachineUUID, tc.Equals, unitMachineUUID.String())
+	c.Check(cascade.StorageAttachmentUUIDs, tc.DeepEquals, []string{storageAttachmentUUID})
+	c.Check(cascade.StorageInstanceUUIDs, tc.DeepEquals, []string{storageInstanceUUID})
 }
 
 func (s *unitSuite) TestEnsureUnitNotAliveCascadeRetryReturnsDyingArtifacts(c *tc.C) {
@@ -450,10 +467,11 @@ func (s *unitSuite) TestUnitRemovalNormalSuccess(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	when := time.Now().UTC()
-	err := st.UnitScheduleRemoval(
+	removalUUID, err := st.UnitScheduleRemoval(
 		c.Context(), "removal-uuid", unitUUID.String(), false, when,
 	)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(removalUUID, tc.Equals, "removal-uuid")
 
 	// We should have a removal job scheduled immediately.
 	row := s.DB().QueryRow(
@@ -473,6 +491,349 @@ func (s *unitSuite) TestUnitRemovalNormalSuccess(c *tc.C) {
 	c.Check(rUUID, tc.Equals, unitUUID.String())
 	c.Check(force, tc.Equals, false)
 	c.Check(scheduledFor, tc.Equals, when)
+}
+
+func (s *unitSuite) TestUnitScheduleRemovalReturnsExistingJob(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(unitUUIDs, tc.HasLen, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	when := time.Now().UTC()
+	removalUUID, err := st.UnitScheduleRemoval(
+		c.Context(), "first-removal-uuid", unitUUIDs[0].String(), false, when,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(removalUUID, tc.Equals, "first-removal-uuid")
+
+	removalUUID, err = st.UnitScheduleRemoval(
+		c.Context(), "second-removal-uuid", unitUUIDs[0].String(), false, when.Add(time.Minute),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(removalUUID, tc.Equals, "first-removal-uuid")
+
+	removalUUID, err = st.UnitScheduleRemoval(
+		c.Context(), "forced-removal-uuid", unitUUIDs[0].String(), true, when,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(removalUUID, tc.Equals, "forced-removal-uuid")
+
+	row := s.DB().QueryRow("SELECT COUNT(*) FROM removal WHERE entity_uuid = ?", unitUUIDs[0].String())
+	var count int
+	err = row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 2)
+}
+
+func (s *unitSuite) TestUnitScheduleRemovalKeepsEarliestDeadline(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(unitUUIDs, tc.HasLen, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	now := time.Date(2026, time.November, 16, 12, 0, 0, 0, time.UTC)
+	for _, force := range []bool{false, true} {
+		jobUUID := fmt.Sprintf("removal-uuid-%t", force)
+		scheduledUUID, err := st.UnitScheduleRemoval(
+			c.Context(), jobUUID, unitUUIDs[0].String(), force, now.Add(5*time.Minute),
+		)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(scheduledUUID, tc.Equals, jobUUID)
+
+		for i, test := range []struct {
+			wait     time.Duration
+			deadline time.Duration
+		}{
+			{wait: time.Minute, deadline: time.Minute},
+			{wait: 0, deadline: 0},
+			{wait: 0, deadline: 0},
+			{wait: 10 * time.Minute, deadline: 0},
+		} {
+			scheduledUUID, err := st.UnitScheduleRemoval(
+				c.Context(), fmt.Sprintf("duplicate-uuid-%t-%d", force, i),
+				unitUUIDs[0].String(), force, now.Add(test.wait),
+			)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(scheduledUUID, tc.Equals, jobUUID)
+
+			var scheduledFor time.Time
+			err = s.DB().QueryRowContext(c.Context(),
+				"SELECT scheduled_for FROM removal WHERE uuid = ?", jobUUID,
+			).Scan(&scheduledFor)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(scheduledFor, tc.Equals, now.Add(test.deadline),
+				tc.Commentf("force %t, requested wait %s", force, test.wait))
+		}
+	}
+
+	jobs, err := st.GetAllJobs(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(jobs, tc.HasLen, 2)
+}
+
+func (s *unitSuite) TestUnitScheduleRemovalConcurrentDeadlines(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	now := time.Date(2026, time.November, 16, 12, 0, 0, 0, time.UTC)
+	jobUUID, err := st.UnitScheduleRemoval(
+		c.Context(), "first-removal-uuid", "unit-uuid", true, now.Add(5*time.Minute),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	type result struct {
+		jobUUID string
+		err     error
+	}
+	start := make(chan struct{})
+	waits := []time.Duration{time.Minute, 0, 10 * time.Minute}
+	results := make(chan result, len(waits))
+	ctx := c.Context()
+	for i, wait := range waits {
+		go func() {
+			select {
+			case <-start:
+			case <-ctx.Done():
+				return
+			}
+			uuid, err := st.UnitScheduleRemoval(
+				ctx, fmt.Sprintf("concurrent-removal-uuid-%d", i),
+				"unit-uuid", true, now.Add(wait),
+			)
+			select {
+			case results <- result{jobUUID: uuid, err: err}:
+			case <-ctx.Done():
+			}
+		}()
+	}
+	close(start)
+	for range waits {
+		select {
+		case result := <-results:
+			c.Assert(result.err, tc.ErrorIsNil)
+			c.Check(result.jobUUID, tc.Equals, jobUUID)
+		case <-ctx.Done():
+			c.Fatal("timed out waiting for removal scheduling")
+		}
+	}
+
+	jobs, err := st.GetAllJobs(ctx)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobs, tc.HasLen, 1)
+	c.Check(jobs[0].UUID.String(), tc.Equals, jobUUID)
+	c.Check(jobs[0].ScheduledFor, tc.Equals, now)
+}
+
+func (s *unitSuite) TestUnitScheduleRemovalCascadeReusesJobsAfterRestart(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	now := s.now
+	// Another removal path may already have scheduled the unit and one child.
+	_, err := st.UnitScheduleRemoval(c.Context(), "existing-unit-job", "unit-uuid", false, now.Add(5*time.Minute))
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.StorageAttachmentScheduleRemoval(c.Context(), "existing-attachment-job", "attachment-uuid", false, now.Add(5*time.Minute))
+	c.Assert(err, tc.ErrorIsNil)
+
+	jobTypes := []removal.JobType{
+		removal.MachineJob, removal.StorageAttachmentJob,
+		removal.StorageFilesystemAttachmentJob, removal.StorageVolumeAttachmentJob,
+		removal.StorageVolumeAttachmentPlanJob, removal.StorageFilesystemJob,
+		removal.StorageVolumeJob, removal.StorageInstanceJob, removal.CharmJob,
+	}
+	var firstJobs []removal.Job
+	earliest := now.Add(5 * time.Minute)
+	for i, wait := range []time.Duration{5 * time.Minute, 10 * time.Minute, time.Minute, 0, 10 * time.Minute} {
+		// Reconstruct state as a new process would; there is no local cache.
+		st = NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+		var children []removalinternal.UnitRemovalJob
+		for _, jobType := range jobTypes {
+			entityUUID := "entity-uuid"
+			if jobType == removal.StorageAttachmentJob {
+				entityUUID = "attachment-uuid"
+			}
+			children = append(children, removalinternal.UnitRemovalJob{
+				UUID:         fmt.Sprintf("child-%d-%d", i, jobType),
+				RemovalType:  jobType,
+				EntityUUID:   entityUUID,
+				ScheduledFor: now.Add(wait),
+			})
+		}
+		uuid, err := st.UnitScheduleRemovalCascade(c.Context(), fmt.Sprintf("unit-job-%d", i), "unit-uuid", false, now.Add(wait), children)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(uuid, tc.Equals, "existing-unit-job")
+		jobs, err := st.GetAllJobs(c.Context())
+		c.Assert(err, tc.ErrorIsNil)
+		if i == 0 {
+			firstJobs = jobs
+			c.Check(jobs, tc.HasLen, len(jobTypes)+1)
+		}
+		if now.Add(wait).Before(earliest) {
+			earliest = now.Add(wait)
+		}
+		for j := range firstJobs {
+			firstJobs[j].ScheduledFor = earliest
+		}
+		c.Check(jobs, tc.SameContents, firstJobs)
+	}
+}
+
+func (s *unitSuite) TestUnitScheduleRemovalCascadeForceQualification(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	now := s.now
+	children := []removalinternal.UnitRemovalJob{
+		{UUID: "normal-unit-job", RemovalType: removal.UnitJob, EntityUUID: "unit-uuid", ScheduledFor: now},
+		{UUID: "normal-storage-job", RemovalType: removal.StorageAttachmentJob, EntityUUID: "storage-uuid", ScheduledFor: now},
+		{UUID: "forced-storage-job", RemovalType: removal.StorageAttachmentJob, EntityUUID: "storage-uuid", Force: true, ScheduledFor: now.Add(time.Minute)},
+		{UUID: "charm-job", RemovalType: removal.CharmJob, EntityUUID: "charm-uuid", ScheduledFor: now},
+	}
+	uuid, err := st.UnitScheduleRemovalCascade(c.Context(), "forced-unit-job", "unit-uuid", true, now.Add(time.Minute), children)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuid, tc.Equals, "forced-unit-job")
+	firstJobs, err := st.GetAllJobs(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(firstJobs, tc.HasLen, 5)
+	for i := range children {
+		children[i].UUID = "retry-" + children[i].UUID
+	}
+	uuid, err = st.UnitScheduleRemovalCascade(c.Context(), "retry-unit-job", "unit-uuid", true, now.Add(2*time.Minute), children)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuid, tc.Equals, "forced-unit-job")
+	jobs, err := st.GetAllJobs(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(jobs, tc.SameContents, firstJobs)
+}
+
+func (s *unitSuite) TestUnitScheduleRemovalCascadeRollsBackAndRecovers(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	now := s.now
+	_, err := st.UnitScheduleRemoval(c.Context(), "existing-unit-job", "unit-uuid", false, now.Add(time.Minute))
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.StorageAttachmentScheduleRemoval(c.Context(), "existing-storage-job", "storage-uuid", false, now.Add(time.Minute))
+	c.Assert(err, tc.ErrorIsNil)
+	before, err := st.GetAllJobs(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	children := []removalinternal.UnitRemovalJob{
+		{UUID: "storage-job", RemovalType: removal.StorageAttachmentJob, EntityUUID: "storage-uuid", ScheduledFor: now},
+		{UUID: "machine-job", RemovalType: removal.MachineJob, EntityUUID: "machine-uuid", ScheduledFor: now},
+		// Fail the insert after updating one deadline and inserting one job.
+		{UUID: "existing-unit-job", RemovalType: removal.CharmJob, EntityUUID: "charm-uuid", ScheduledFor: now},
+	}
+	_, err = st.UnitScheduleRemovalCascade(c.Context(), "new-unit-job", "unit-uuid", false, now, children)
+	c.Assert(err, tc.NotNil)
+	jobs, err := st.GetAllJobs(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(jobs, tc.SameContents, before)
+
+	children[2].UUID = "charm-job"
+	st = NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	uuid, err := st.UnitScheduleRemovalCascade(c.Context(), "retry-unit-job", "unit-uuid", false, now, children)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuid, tc.Equals, "existing-unit-job")
+	jobs, err = st.GetAllJobs(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(jobs, tc.HasLen, 4)
+	for _, job := range jobs {
+		c.Check(job.ScheduledFor, tc.Equals, now)
+	}
+}
+
+func (s *unitSuite) TestUnitScheduleRemovalCascadeConcurrent(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	now := s.now
+	start := make(chan struct{})
+	type result struct {
+		uuid string
+		err  error
+	}
+	waits := []time.Duration{time.Minute, 0, 10 * time.Minute}
+	results := make(chan result, len(waits))
+	ctx := c.Context()
+	for i, wait := range waits {
+		go func() {
+			select {
+			case <-start:
+			case <-ctx.Done():
+				return
+			}
+			children := []removalinternal.UnitRemovalJob{
+				{UUID: fmt.Sprintf("storage-job-%d", i), RemovalType: removal.StorageAttachmentJob, EntityUUID: "storage-uuid", ScheduledFor: now.Add(wait)},
+				{UUID: fmt.Sprintf("charm-job-%d", i), RemovalType: removal.CharmJob, EntityUUID: "charm-uuid", ScheduledFor: now.Add(wait)},
+			}
+			uuid, err := st.UnitScheduleRemovalCascade(ctx, fmt.Sprintf("unit-job-%d", i), "unit-uuid", false, now.Add(wait), children)
+			select {
+			case results <- result{uuid, err}:
+			case <-ctx.Done():
+			}
+		}()
+	}
+	close(start)
+	var unitJobUUID string
+	for range waits {
+		select {
+		case result := <-results:
+			c.Assert(result.err, tc.ErrorIsNil)
+			if unitJobUUID == "" {
+				unitJobUUID = result.uuid
+			}
+			c.Check(result.uuid, tc.Equals, unitJobUUID)
+		case <-ctx.Done():
+			c.Fatal("timed out waiting for unit cascade scheduling")
+		}
+	}
+	jobs, err := st.GetAllJobs(ctx)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(jobs, tc.HasLen, 3)
+	for _, job := range jobs {
+		c.Check(job.ScheduledFor, tc.Equals, now)
+	}
+}
+
+func (s *unitSuite) TestRemoveK8sUnitRecoversAfterLifeAdvancement(c *tc.C) {
+	appSvc := s.setupApplicationService(c)
+	appUUID := s.createCAASApplication(c, appSvc, "some-app", applicationservice.AddUnitArg{})
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(unitUUIDs, tc.HasLen, 1)
+	unitUUID := unitUUIDs[0]
+	_, attachmentUUID := s.addUnitStorageAttachment(c, unitUUID, true)
+	logger := loggertesting.WrapCheckLog(c)
+	st := NewState(s.TxnRunnerFactory(), logger)
+	// Simulate stopping after life advancement but before job scheduling.
+	_, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkUnitLife(c, unitUUID.String(), life.Dying)
+	s.checkStorageAttachmentLife(c, attachmentUUID, life.Dying)
+	jobs, err := st.GetAllJobs(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(jobs, tc.HasLen, 0)
+
+	clock := testclock.NewClock(s.now)
+	var firstJobs []removal.Job
+	var unitJobUUID removal.UUID
+	for i := range 3 {
+		st = NewState(s.TxnRunnerFactory(), logger)
+		svc := removalservice.NewWatchableService(
+			nil, st, nil, nil, nil, coremodel.UUID(s.ModelUUID()), clock, logger,
+		)
+		uuid, err := svc.RemoveUnit(c.Context(), unitUUID, false, false, 0)
+		c.Assert(err, tc.ErrorIsNil)
+		jobs, err := st.GetAllJobs(c.Context())
+		c.Assert(err, tc.ErrorIsNil)
+		if i == 0 {
+			firstJobs = jobs
+			unitJobUUID = uuid
+			c.Check(jobs, tc.HasLen, 3)
+			var jobTypes []removal.JobType
+			for _, job := range jobs {
+				jobTypes = append(jobTypes, job.RemovalType)
+			}
+			c.Check(jobTypes, tc.SameContents, []removal.JobType{
+				removal.UnitJob, removal.StorageAttachmentJob, removal.CharmJob,
+			})
+		}
+		c.Check(uuid, tc.Equals, unitJobUUID)
+		c.Check(jobs, tc.SameContents, firstJobs)
+		clock.Advance(3 * time.Second)
+	}
 }
 
 func (s *unitSuite) TestGetRelationUnitsForUnit(c *tc.C) {
@@ -566,7 +927,7 @@ func (s *unitSuite) TestUnitRemovalNotExistsSuccess(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	when := time.Now().UTC()
-	err := st.UnitScheduleRemoval(
+	_, err := st.UnitScheduleRemoval(
 		c.Context(), "removal-uuid", "some-unit-uuid", true, when,
 	)
 	c.Assert(err, tc.ErrorIsNil)
