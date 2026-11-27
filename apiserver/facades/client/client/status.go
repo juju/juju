@@ -369,7 +369,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		// in a temporary collection keyed on machine to allow for the later
 		// pass. This fixes situations similar to inconsistencies
 		// observed in lp#1592872.
-		machineUnits := map[string][]string{}
+		machineUnits := map[string][]*state.Unit{}
 		for _, unitMap := range context.allAppsUnitsCharmBindings.units {
 			for name, unit := range unitMap {
 				machineId, err := unit.AssignedMachineId()
@@ -381,7 +381,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 					continue
 				}
 				if machineId != "" {
-					machineUnits[machineId] = append(machineUnits[machineId], unit.ApplicationName())
+					machineUnits[machineId] = append(machineUnits[machineId], unit)
 				}
 
 				// Always start examining at the top-level. This
@@ -404,10 +404,12 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 			}
 		}
 		for _, m := range matchedMachines.SortedValues() {
-			for _, a := range machineUnits[m] {
-				if !matchedApps.Contains(a) {
-					matchedApps.Add(a)
+			for _, u := range machineUnits[m] {
+				appName := u.ApplicationName()
+				if !matchedApps.Contains(appName) {
+					matchedApps.Add(appName)
 				}
+				context.allAppsUnitsCharmBindings.units[appName][u.Name()] = u
 			}
 		}
 
