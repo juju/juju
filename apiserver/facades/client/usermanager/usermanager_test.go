@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade/facadetest"
@@ -530,6 +531,13 @@ func (s *userManagerSuite) TestModelUsersInfo(c *tc.C) {
 			LastModelLogin: time.Time{},
 		}}, nil,
 	)
+	// The caller isn't in the local list, so their own entry is added.
+	s.modelService.EXPECT().GetModelUser(
+		gomock.Any(), coremodel.UUID(s.ApiServerSuite.ControllerModelUUID()), s.apiUser.Name,
+	).Return(coremodel.ModelUserInfo{
+		Name:        s.apiUser.Name,
+		DisplayName: s.apiUser.Name.Name(),
+	}, nil)
 
 	controllerModelTag := names.NewModelTag(s.ApiServerSuite.ControllerModelUUID())
 
@@ -540,6 +548,13 @@ func (s *userManagerSuite) TestModelUsersInfo(c *tc.C) {
 
 	expected := params.ModelUserInfoResults{
 		Results: []params.ModelUserInfoResult{{
+			Result: &params.ModelUserInfo{
+				ModelTag:    controllerModelTag.String(),
+				UserName:    s.apiUser.Name.Name(),
+				DisplayName: s.apiUser.Name.Name(),
+				Access:      "admin",
+			},
+		}, {
 			Result: &params.ModelUserInfo{
 				ModelTag:    controllerModelTag.String(),
 				UserName:    owner.Name(),
@@ -580,6 +595,89 @@ func (s *userManagerSuite) TestModelUsersInfo(c *tc.C) {
 	sort.Sort(ByUserName(expected.Results))
 	sort.Sort(ByUserName(results.Results))
 	c.Assert(results, tc.DeepEquals, expected)
+}
+
+// TestModelUsersInfoNonAdminNoLocalPermission asserts that ModelUserInfo
+// succeeds for a non-admin caller with no local model permission row,
+// reporting the access level resolved from the authorizer. This is the
+// external JWT case.
+func (s *userManagerSuite) TestModelUsersInfoNonAdminNoLocalPermission(c *tc.C) {
+	controllerModelTag := names.NewModelTag(s.ApiServerSuite.ControllerModelUUID())
+	// The caller's only grant is authorizer-derived: the fake authorizer
+	// grants read access on this model based on the username.
+	s.setAPIUserAndAuth(c, "read-"+controllerModelTag.String())
+	defer s.setUpAPI(c).Finish()
+
+	// The caller has no local permission row: GetModelUser returns a
+	// sparse row with an empty access level.
+	s.modelService.EXPECT().GetModelUser(
+		gomock.Any(), coremodel.UUID(s.ApiServerSuite.ControllerModelUUID()), s.apiUser.Name,
+	).Return(coremodel.ModelUserInfo{
+		Name:        s.apiUser.Name,
+		DisplayName: s.apiUser.Name.Name(),
+		Access:      permission.NoAccess,
+	}, nil)
+
+	results, err := s.api.ModelUserInfo(c.Context(), params.Entities{Entities: []params.Entity{{
+		Tag: controllerModelTag.String(),
+	}}})
+	c.Assert(err, tc.ErrorIsNil)
+
+	expected := params.ModelUserInfoResults{
+		Results: []params.ModelUserInfoResult{{
+			Result: &params.ModelUserInfo{
+				ModelTag:    controllerModelTag.String(),
+				UserName:    s.apiUser.Name.Name(),
+				DisplayName: s.apiUser.Name.Name(),
+				// The reported access is the authorizer-resolved
+				// level, not the empty local one.
+				Access: "read",
+			},
+		}},
+	}
+	c.Assert(results, tc.DeepEquals, expected)
+}
+
+// TestModelUsersInfoNonAdminStaleLocalPermission asserts that a non-admin
+// caller's own entry reports the authorizer-resolved access level, even
+// when a stale local permission row records a different level.
+func (s *userManagerSuite) TestModelUsersInfoNonAdminStaleLocalPermission(c *tc.C) {
+	controllerModelTag := names.NewModelTag(s.ApiServerSuite.ControllerModelUUID())
+	// The fake authorizer grants read access on this model based on the
+	// username.
+	s.setAPIUserAndAuth(c, "read-"+controllerModelTag.String())
+	defer s.setUpAPI(c).Finish()
+
+	// The local row says write, which no longer matches the authorizer.
+	s.modelService.EXPECT().GetModelUser(
+		gomock.Any(), coremodel.UUID(s.ApiServerSuite.ControllerModelUUID()), s.apiUser.Name,
+	).Return(coremodel.ModelUserInfo{
+		Name:        s.apiUser.Name,
+		DisplayName: s.apiUser.Name.Name(),
+		Access:      permission.WriteAccess,
+	}, nil)
+
+	results, err := s.api.ModelUserInfo(c.Context(), params.Entities{Entities: []params.Entity{{
+		Tag: controllerModelTag.String(),
+	}}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Result, tc.NotNil)
+	c.Check(results.Results[0].Result.Access, tc.Equals, params.ModelReadAccess)
+}
+
+// TestModelUsersInfoNoAccessReturnsAuthorizerError asserts that a caller
+// with no access to the model gets the authorizer's permission error.
+func (s *userManagerSuite) TestModelUsersInfoNoAccessReturnsAuthorizerError(c *tc.C) {
+	controllerModelTag := names.NewModelTag(s.ApiServerSuite.ControllerModelUUID())
+	// The fake authorizer grants this user no access to the model.
+	s.setAPIUserAndAuth(c, "nobody")
+	defer s.setUpAPI(c).Finish()
+
+	_, err := s.api.ModelUserInfo(c.Context(), params.Entities{Entities: []params.Entity{{
+		Tag: controllerModelTag.String(),
+	}}})
+	c.Check(err, tc.ErrorIs, authentication.ErrorEntityMissingPermission)
 }
 
 // ByUserName implements sort.Interface for []params.ModelUserInfoResult based on

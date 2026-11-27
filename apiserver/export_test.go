@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/providertracker"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/services"
@@ -33,6 +34,14 @@ func APIHandlerWithEntity(tag names.Tag) *apiHandler {
 			Tag: tag,
 		},
 	}
+}
+
+func APIHandlerWithAuthInfo(authInfo authentication.AuthInfo) *apiHandler {
+	return &apiHandler{authInfo: authInfo}
+}
+
+func (r *apiHandler) UserAccess(ctx context.Context, target names.Tag) (permission.Access, error) {
+	return r.userAccess(ctx, target)
 }
 
 func NewErrRoot(err error) *errRoot {
