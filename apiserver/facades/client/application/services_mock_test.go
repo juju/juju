@@ -344,48 +344,48 @@ type MockApplicationService struct {
 
 // MockApplicationServiceMockRecorder is the mock recorder for MockApplicationService.
 type MockApplicationServiceMockRecorder struct {
-	mock                                       *MockApplicationService
-	addCAASUnitsExpects                        []*gomock.Call2V_2[context.Context, string, service.AddUnitArg, []unit.Name, error]
-	addIAASUnitsExpects                        []*gomock.Call2V_3[context.Context, string, service.AddIAASUnitArg, []unit.Name, []machine.Name, error]
-	changeApplicationScaleExpects              []*gomock.Call3_2[context.Context, string, int, int, error]
-	createCAASApplicationExpects               []*gomock.Call5V_2[context.Context, string, charm1.Charm, charm.Origin, service.AddApplicationArgs, service.AddUnitArg, application.UUID, error]
-	createIAASApplicationExpects               []*gomock.Call5V_2[context.Context, string, charm1.Charm, charm.Origin, service.AddApplicationArgs, service.AddIAASUnitArg, application.UUID, error]
-	getApplicationAndCharmConfigExpects        []*gomock.Call2_2[context.Context, application.UUID, service.ApplicationConfig, error]
-	getApplicationCharmOriginExpects           []*gomock.Call2_2[context.Context, string, charm.Origin, error]
-	getApplicationConstraintsExpects           []*gomock.Call2_2[context.Context, application.UUID, constraints.Value, error]
-	getApplicationDetailsByNameExpects         []*gomock.Call2_2[context.Context, string, application0.ApplicationDetails, error]
-	getApplicationEndpointBindingsExpects      []*gomock.Call2_2[context.Context, string, map[string]network.SpaceUUID, error]
-	getApplicationEndpointNamesExpects         []*gomock.Call2_2[context.Context, application.UUID, []string, error]
-	getApplicationLifeExpects                  []*gomock.Call2_2[context.Context, application.UUID, life.Value, error]
-	getApplicationStorageDirectivesInfoExpects []*gomock.Call2_2[context.Context, application.UUID, map[string]application0.ApplicationStorageInfo, error]
-	getApplicationUUIDByNameExpects            []*gomock.Call2_2[context.Context, string, application.UUID, error]
-	getCharmExpects                            []*gomock.Call2_4[context.Context, charm0.CharmLocator, charm1.Charm, charm0.CharmLocator, bool, error]
-	getCharmDownloadInfoExpects                []*gomock.Call2_2[context.Context, charm0.CharmLocator, *charm0.DownloadInfo, error]
-	getCharmLocatorByApplicationNameExpects    []*gomock.Call2_2[context.Context, string, charm0.CharmLocator, error]
-	getCharmMetadataExpects                    []*gomock.Call2_2[context.Context, charm0.CharmLocator, charm1.Meta, error]
-	getCharmMetadataNameExpects                []*gomock.Call2_2[context.Context, charm0.CharmLocator, string, error]
-	getExposedEndpointsExpects                 []*gomock.Call2_2[context.Context, string, map[string]application0.ExposedEndpoint, error]
-	getSupportedFeaturesExpects                []*gomock.Call1_2[context.Context, assumes.FeatureSet, error]
-	getUnitK8sPodInfoExpects                   []*gomock.Call2_2[context.Context, unit.Name, application0.K8sPodInfo, error]
-	getUnitLifeExpects                         []*gomock.Call2_2[context.Context, unit.Name, life.Value, error]
-	getUnitMachineNameExpects                  []*gomock.Call2_2[context.Context, unit.Name, machine.Name, error]
-	getUnitNamesAndUUIDsForApplicationExpects  []*gomock.Call2_2[context.Context, string, []application0.UnitNameAndUUID, error]
-	getUnitNamesForApplicationExpects          []*gomock.Call2_2[context.Context, string, []unit.Name, error]
-	getUnitUUIDExpects                         []*gomock.Call2_2[context.Context, unit.Name, unit.UUID, error]
-	getUnitWorkloadVersionExpects              []*gomock.Call2_2[context.Context, unit.Name, string, error]
-	isApplicationExposedExpects                []*gomock.Call2_2[context.Context, string, bool, error]
-	isCharmAvailableExpects                    []*gomock.Call2_2[context.Context, charm0.CharmLocator, bool, error]
-	isSubordinateApplicationExpects            []*gomock.Call2_2[context.Context, application.UUID, bool, error]
-	isSubordinateApplicationByNameExpects      []*gomock.Call2_2[context.Context, string, bool, error]
-	mergeApplicationEndpointBindingsExpects    []*gomock.Call4_1[context.Context, application.UUID, map[string]network.SpaceName, bool, error]
-	mergeExposeSettingsExpects                 []*gomock.Call3_1[context.Context, string, map[string]application0.ExposedEndpoint, error]
-	resolveApplicationConstraintsExpects       []*gomock.Call2_2[context.Context, constraints.Value, constraints0.Constraints, error]
-	setApplicationCharmExpects                 []*gomock.Call4_1[context.Context, string, charm0.CharmLocator, application0.SetCharmParams, error]
-	setApplicationConstraintsExpects           []*gomock.Call3_1[context.Context, application.UUID, constraints.Value, error]
-	setApplicationScaleExpects                 []*gomock.Call3_1[context.Context, string, int, error]
-	unsetApplicationConfigKeysExpects          []*gomock.Call3_1[context.Context, application.UUID, []string, error]
-	unsetExposeSettingsExpects                 []*gomock.Call3_1[context.Context, string, set.Strings, error]
-	updateApplicationConfigExpects             []*gomock.Call3_1[context.Context, application.UUID, map[string]string, error]
+	mock                                      *MockApplicationService
+	addCAASUnitsExpects                       []*gomock.Call2V_2[context.Context, string, service.AddUnitArg, []unit.Name, error]
+	addIAASUnitsExpects                       []*gomock.Call2V_3[context.Context, string, service.AddIAASUnitArg, []unit.Name, []machine.Name, error]
+	changeApplicationScaleExpects             []*gomock.Call3_2[context.Context, string, int, int, error]
+	createCAASApplicationExpects              []*gomock.Call5V_2[context.Context, string, charm1.Charm, charm.Origin, service.AddApplicationArgs, service.AddUnitArg, application.UUID, error]
+	createIAASApplicationExpects              []*gomock.Call5V_2[context.Context, string, charm1.Charm, charm.Origin, service.AddApplicationArgs, service.AddIAASUnitArg, application.UUID, error]
+	getApplicationAndCharmConfigExpects       []*gomock.Call2_2[context.Context, application.UUID, service.ApplicationConfig, error]
+	getApplicationCharmOriginExpects          []*gomock.Call2_2[context.Context, string, charm.Origin, error]
+	getApplicationConstraintsExpects          []*gomock.Call2_2[context.Context, application.UUID, constraints.Value, error]
+	getApplicationDetailsByNameExpects        []*gomock.Call2_2[context.Context, string, application0.ApplicationDetails, error]
+	getApplicationEndpointBindingsExpects     []*gomock.Call2_2[context.Context, string, map[string]network.SpaceUUID, error]
+	getApplicationEndpointNamesExpects        []*gomock.Call2_2[context.Context, application.UUID, []string, error]
+	getApplicationLifeExpects                 []*gomock.Call2_2[context.Context, application.UUID, life.Value, error]
+	getApplicationStorageDirectivesExpects    []*gomock.Call2_2[context.Context, application.UUID, []application0.ApplicationStorageDirective, error]
+	getApplicationUUIDByNameExpects           []*gomock.Call2_2[context.Context, string, application.UUID, error]
+	getCharmExpects                           []*gomock.Call2_4[context.Context, charm0.CharmLocator, charm1.Charm, charm0.CharmLocator, bool, error]
+	getCharmDownloadInfoExpects               []*gomock.Call2_2[context.Context, charm0.CharmLocator, *charm0.DownloadInfo, error]
+	getCharmLocatorByApplicationNameExpects   []*gomock.Call2_2[context.Context, string, charm0.CharmLocator, error]
+	getCharmMetadataExpects                   []*gomock.Call2_2[context.Context, charm0.CharmLocator, charm1.Meta, error]
+	getCharmMetadataNameExpects               []*gomock.Call2_2[context.Context, charm0.CharmLocator, string, error]
+	getExposedEndpointsExpects                []*gomock.Call2_2[context.Context, string, map[string]application0.ExposedEndpoint, error]
+	getSupportedFeaturesExpects               []*gomock.Call1_2[context.Context, assumes.FeatureSet, error]
+	getUnitK8sPodInfoExpects                  []*gomock.Call2_2[context.Context, unit.Name, application0.K8sPodInfo, error]
+	getUnitLifeExpects                        []*gomock.Call2_2[context.Context, unit.Name, life.Value, error]
+	getUnitMachineNameExpects                 []*gomock.Call2_2[context.Context, unit.Name, machine.Name, error]
+	getUnitNamesAndUUIDsForApplicationExpects []*gomock.Call2_2[context.Context, string, []application0.UnitNameAndUUID, error]
+	getUnitNamesForApplicationExpects         []*gomock.Call2_2[context.Context, string, []unit.Name, error]
+	getUnitUUIDExpects                        []*gomock.Call2_2[context.Context, unit.Name, unit.UUID, error]
+	getUnitWorkloadVersionExpects             []*gomock.Call2_2[context.Context, unit.Name, string, error]
+	isApplicationExposedExpects               []*gomock.Call2_2[context.Context, string, bool, error]
+	isCharmAvailableExpects                   []*gomock.Call2_2[context.Context, charm0.CharmLocator, bool, error]
+	isSubordinateApplicationExpects           []*gomock.Call2_2[context.Context, application.UUID, bool, error]
+	isSubordinateApplicationByNameExpects     []*gomock.Call2_2[context.Context, string, bool, error]
+	mergeApplicationEndpointBindingsExpects   []*gomock.Call4_1[context.Context, application.UUID, map[string]network.SpaceName, bool, error]
+	mergeExposeSettingsExpects                []*gomock.Call3_1[context.Context, string, map[string]application0.ExposedEndpoint, error]
+	resolveApplicationConstraintsExpects      []*gomock.Call2_2[context.Context, constraints.Value, constraints0.Constraints, error]
+	setApplicationCharmExpects                []*gomock.Call4_1[context.Context, string, charm0.CharmLocator, application0.SetCharmParams, error]
+	setApplicationConstraintsExpects          []*gomock.Call3_1[context.Context, application.UUID, constraints.Value, error]
+	setApplicationScaleExpects                []*gomock.Call3_1[context.Context, string, int, error]
+	unsetApplicationConfigKeysExpects         []*gomock.Call3_1[context.Context, application.UUID, []string, error]
+	unsetExposeSettingsExpects                []*gomock.Call3_1[context.Context, string, set.Strings, error]
+	updateApplicationConfigExpects            []*gomock.Call3_1[context.Context, application.UUID, map[string]string, error]
 }
 
 // NewMockApplicationService creates a new mock instance.
@@ -620,23 +620,23 @@ func (mr *MockApplicationServiceMockRecorder) GetApplicationLife(arg0, arg1 any)
 // MockApplicationServiceGetApplicationLifeCall is the typed call wrapper for GetApplicationLife.
 type MockApplicationServiceGetApplicationLifeCall = gomock.Call2_2[context.Context, application.UUID, life.Value, error]
 
-// GetApplicationStorageDirectivesInfo mocks base method.
-func (m *MockApplicationService) GetApplicationStorageDirectivesInfo(ctx context.Context, uuid application.UUID) (map[string]application0.ApplicationStorageInfo, error) {
+// GetApplicationStorageDirectives mocks base method.
+func (m *MockApplicationService) GetApplicationStorageDirectives(ctx context.Context, appUUID application.UUID) ([]application0.ApplicationStorageDirective, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getApplicationStorageDirectivesInfoExpects, m.ctrl, m, "GetApplicationStorageDirectivesInfo", ctx, uuid)
+	return gomock.Dispatch2_2(&m.recorder.getApplicationStorageDirectivesExpects, m.ctrl, m, "GetApplicationStorageDirectives", ctx, appUUID)
 }
 
-// GetApplicationStorageDirectivesInfo indicates an expected call of GetApplicationStorageDirectivesInfo.
-func (mr *MockApplicationServiceMockRecorder) GetApplicationStorageDirectivesInfo(ctx, uuid any) *MockApplicationServiceGetApplicationStorageDirectivesInfoCall {
+// GetApplicationStorageDirectives indicates an expected call of GetApplicationStorageDirectives.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationStorageDirectives(ctx, appUUID any) *MockApplicationServiceGetApplicationStorageDirectivesCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, application.UUID, map[string]application0.ApplicationStorageInfo, error](mr.mock.ctrl.T, mr.mock, "GetApplicationStorageDirectivesInfo", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uuid))
-	mr.getApplicationStorageDirectivesInfoExpects = append(mr.getApplicationStorageDirectivesInfoExpects, call)
+	call := gomock.NewCall2_2[context.Context, application.UUID, []application0.ApplicationStorageDirective, error](mr.mock.ctrl.T, mr.mock, "GetApplicationStorageDirectives", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appUUID))
+	mr.getApplicationStorageDirectivesExpects = append(mr.getApplicationStorageDirectivesExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockApplicationServiceGetApplicationStorageDirectivesInfoCall is the typed call wrapper for GetApplicationStorageDirectivesInfo.
-type MockApplicationServiceGetApplicationStorageDirectivesInfoCall = gomock.Call2_2[context.Context, application.UUID, map[string]application0.ApplicationStorageInfo, error]
+// MockApplicationServiceGetApplicationStorageDirectivesCall is the typed call wrapper for GetApplicationStorageDirectives.
+type MockApplicationServiceGetApplicationStorageDirectivesCall = gomock.Call2_2[context.Context, application.UUID, []application0.ApplicationStorageDirective, error]
 
 // GetApplicationUUIDByName mocks base method.
 func (m *MockApplicationService) GetApplicationUUIDByName(ctx context.Context, name string) (application.UUID, error) {

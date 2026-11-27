@@ -2415,19 +2415,19 @@ func (api *APIBase) getOneApplicationStorage(ctx context.Context, entity params.
 		return nil, internalerrors.Capture(err)
 	}
 
-	storage, err := api.applicationService.GetApplicationStorageDirectivesInfo(ctx, appUUID)
+	directives, err := api.applicationService.GetApplicationStorageDirectives(ctx, appUUID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil, internalerrors.Errorf("application %q not found", appTag.Id()).Add(coreerrors.NotFound)
 	} else if err != nil {
 		return nil, internalerrors.Capture(err)
 	}
 
-	sc := make(map[string]params.StorageDirectives, len(storage))
-	for name, storageInfo := range storage {
-		sc[name] = params.StorageDirectives{
-			Pool:    storageInfo.StoragePoolName,
-			SizeMiB: &storageInfo.SizeMiB,
-			Count:   &storageInfo.Count,
+	sc := make(map[string]params.StorageDirectives, len(directives))
+	for _, directive := range directives {
+		sc[directive.Name.String()] = params.StorageDirectives{
+			Pool:    directive.PoolName,
+			SizeMiB: new(directive.SizeMiB),
+			Count:   new(uint64(directive.Count)),
 		}
 	}
 

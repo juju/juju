@@ -11,6 +11,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
+	corestorage "github.com/juju/juju/core/storage"
 	domainapplication "github.com/juju/juju/domain/application"
 	domainapplicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -217,32 +218,120 @@ func (s *directiveSuite) TestValidateApplicationStorageDirectiveOverridesNoMaxLi
 	tc.Check(c, err, tc.ErrorIsNil)
 }
 
-func (s *directiveSuite) TestGetApplicationStorageDirectivesInfo(c *tc.C) {
+func (s *directiveSuite) TestGetApplicationStorageDirectives(c *tc.C) {
 	defer s.setupMocks(c.T).Finish()
 
 	ctx := c.Context()
 	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
 
-	// Test it rejects a bad UUID. test
-	_, err := svc.GetApplicationStorageDirectivesInfo(ctx, "invalid-uuid")
-	tc.Check(c, err, tc.ErrorIs, coreerrors.NotValid)
+	// Rejects an invalid UUID without hitting state.
+	_, err := svc.GetApplicationStorageDirectives(ctx, "invalid-uuid")
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 
-	// Test happy path.
-	appUUID, err := coreapplication.NewUUID()
-	tc.Check(c, err, tc.ErrorIsNil)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 
-	expectedDirectivesInfo := make(map[string]domainapplication.ApplicationStorageInfo)
-	expectedDirectivesInfo["data"] = domainapplication.ApplicationStorageInfo{
-		Count:           2,
-		SizeMiB:         10240,
-		StoragePoolName: "my-storage-pool",
+	// Missing application propagates ApplicationNotFound.
+	s.state.EXPECT().GetApplicationStorageDirectives(
+		ctx, appUUID.String(),
+	).Return(nil, applicationerrors.ApplicationNotFound)
+	_, err = svc.GetApplicationStorageDirectives(ctx, appUUID)
+	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+
+	// Application with no storage returns an empty non-nil slice.
+	s.state.EXPECT().GetApplicationStorageDirectives(
+		ctx, appUUID.String(),
+	).Return(nil, nil)
+	empty, err := svc.GetApplicationStorageDirectives(ctx, appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(empty, tc.DeepEquals, []domainapplication.ApplicationStorageDirective{})
+
+	// Happy path including zero count preserved.
+	dataDirective := domainapplication.ApplicationStorageDirective{
+		Name:     "data",
+		PoolUUID: poolUUID,
+		PoolName: "my-storage-pool",
+		SizeMiB:  10240,
+		Count:    2,
 	}
-	s.state.EXPECT().GetApplicationStorageDirectivesInfo(ctx, appUUID).Return(expectedDirectivesInfo, nil)
+	logsDirective := domainapplication.ApplicationStorageDirective{
+		Name:     "logs",
+		PoolUUID: poolUUID,
+		PoolName: "my-storage-pool",
+		SizeMiB:  512,
+		Count:    0,
+	}
+	expected := []domainapplication.ApplicationStorageDirective{
+		dataDirective,
+		logsDirective,
+	}
+	s.state.EXPECT().GetApplicationStorageDirectives(
+		ctx, appUUID.String(),
+	).Return(expected, nil)
 
-	directivesInfo, err := svc.GetApplicationStorageDirectivesInfo(ctx, appUUID)
-	tc.Check(c, err, tc.ErrorIsNil)
+	directives, err := svc.GetApplicationStorageDirectives(ctx, appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(directives, tc.DeepEquals, expected)
+}
 
-	c.Check(directivesInfo, tc.DeepEquals, expectedDirectivesInfo)
+func (s *directiveSuite) TestGetApplicationStorageDirectiveByName(c *tc.C) {
+	defer s.setupMocks(c.T).Finish()
+
+	ctx := c.Context()
+	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+
+	// Rejects an invalid UUID.
+	_, err := svc.GetApplicationStorageDirectiveByName(ctx, "invalid-uuid", "data")
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+
+	// Rejects invalid storage names without hitting state.
+	for _, badName := range []corestorage.Name{"", "data/0", "-data", "BAD_name"} {
+		_, err = svc.GetApplicationStorageDirectiveByName(ctx, appUUID, badName)
+		c.Check(err, tc.ErrorIs, corestorage.InvalidStorageName, tc.Commentf("%q", badName))
+	}
+
+	// Propagates missing application.
+	s.state.EXPECT().GetApplicationStorageDirectiveByName(
+		ctx, appUUID.String(), "data",
+	).Return(domainapplication.ApplicationStorageDirective{}, false, applicationerrors.ApplicationNotFound)
+	_, err = svc.GetApplicationStorageDirectiveByName(ctx, appUUID, "data")
+	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+
+	// Wraps state errors with the storage name and application UUID once.
+	s.state.EXPECT().GetApplicationStorageDirectiveByName(
+		ctx, appUUID.String(), "data",
+	).Return(domainapplication.ApplicationStorageDirective{}, false, errors.New("negative storage size -1 MiB"))
+	_, err = svc.GetApplicationStorageDirectiveByName(ctx, appUUID, "data")
+	c.Check(
+		err,
+		tc.ErrorMatches,
+		`getting storage directive "data" for application "`+appUUID.String()+`": negative storage size -1 MiB`,
+	)
+
+	// Distinguishes unknown storage name on an existing application.
+	s.state.EXPECT().GetApplicationStorageDirectiveByName(
+		ctx, appUUID.String(), "unknown",
+	).Return(domainapplication.ApplicationStorageDirective{}, false, nil)
+	_, err = svc.GetApplicationStorageDirectiveByName(ctx, appUUID, "unknown")
+	c.Check(err, tc.ErrorIs, applicationerrors.StorageNameNotSupported)
+
+	// Returns persisted directive, preserving zero count.
+	expected := domainapplication.ApplicationStorageDirective{
+		Name:     "logs",
+		PoolUUID: poolUUID,
+		PoolName: "my-storage-pool",
+		SizeMiB:  512,
+		Count:    0,
+	}
+	s.state.EXPECT().GetApplicationStorageDirectiveByName(
+		ctx, appUUID.String(), "logs",
+	).Return(expected, true, nil)
+	got, err := svc.GetApplicationStorageDirectiveByName(ctx, appUUID, "logs")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, expected)
 }
 
 // TestValidateApplicationStorageDirectiveOverridesExceedMax tests that when a

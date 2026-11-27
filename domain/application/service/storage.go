@@ -24,25 +24,45 @@ import (
 type StorageDirectiveOverrides = storage.StorageDirectiveOverride
 
 type StorageService interface {
-	// GetApplicationStorageDirectivesInfo returns the storage directives set for an application,
-	// keyed to the storage name. If the application does not have any storage
-	// directives set then an empty result is returned.
+	// GetApplicationStorageDirectives returns the persisted storage directives
+	// for an application's current charm, ordered by storage name. If the
+	// application has no storage directives, an empty slice is returned.
 	//
-	// If the application does not exist, then a [applicationerrors.ApplicationNotFound]
-	// error is returned.
-	GetApplicationStorageDirectivesInfo(
+	// The following errors may be expected:
+	// - [coreerrors.NotValid] when the supplied application UUID is not valid.
+	// - [applicationerrors.ApplicationNotFound] when the application does not
+	// exist.
+	GetApplicationStorageDirectives(
 		ctx context.Context,
-		uuid coreapplication.UUID,
-	) (map[string]application.ApplicationStorageInfo, error)
+		appUUID coreapplication.UUID,
+	) ([]application.ApplicationStorageDirective, error)
 
-	// GetApplicationStorageDirectives returns the storage directives that are
-	// set for an application. If the application does not have any storage
-	// directives set then an empty result is returned.
+	// GetApplicationStorageDirectiveByName returns the persisted storage
+	// directive for a single named storage on an application's current charm.
+	//
+	// The following errors may be expected:
+	// - [coreerrors.NotValid] when the supplied application UUID is not valid.
+	// - [corestorage.InvalidStorageName] when the supplied storage name is not
+	// valid.
+	// - [applicationerrors.ApplicationNotFound] when the application does not
+	// exist.
+	// - [applicationerrors.StorageNameNotSupported] when no storage directive
+	// exists for the named storage on the application.
+	GetApplicationStorageDirectiveByName(
+		ctx context.Context,
+		appUUID coreapplication.UUID,
+		storageName corestorage.Name,
+	) (application.ApplicationStorageDirective, error)
+
+	// GetApplicationCharmStorageDirectives returns the storage directives and
+	// associated charm storage metadata set for an application's current charm.
+	// If the application does not have any storage directives set then an empty
+	// result is returned.
 	//
 	// The following error types can be expected:
 	// - [github.com/juju/juju/domain/application/errors.ApplicationNotFound]
 	// when the application no longer exists.
-	GetApplicationStorageDirectives(
+	GetApplicationCharmStorageDirectives(
 		context.Context, coreapplication.UUID,
 	) ([]internal.StorageDirective, error)
 

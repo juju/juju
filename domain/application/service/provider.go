@@ -116,14 +116,46 @@ func NewProviderService(
 	}
 }
 
-// GetApplicationStorageDirectivesInfo returns the storage directives set for an application,
-// keyed to the storage name. If the application does not have any storage
-// directives set then an empty result is returned.
+// GetApplicationStorageDirectives returns the persisted storage directives for
+// an application's current charm, ordered by storage name. If the application
+// has no storage directives, an empty slice is returned.
 //
-// If the application does not exist, then a [applicationerrors.ApplicationNotFound]
-// error is returned.
-func (s *ProviderService) GetApplicationStorageDirectivesInfo(ctx context.Context, uuid coreapplication.UUID) (map[string]application.ApplicationStorageInfo, error) {
-	return s.storageService.GetApplicationStorageDirectivesInfo(ctx, uuid)
+// The following errors may be expected:
+// - [coreerrors.NotValid] when the supplied application UUID is not valid.
+// - [applicationerrors.ApplicationNotFound] when the application does not
+// exist.
+func (s *ProviderService) GetApplicationStorageDirectives(
+	ctx context.Context,
+	appUUID coreapplication.UUID,
+) ([]application.ApplicationStorageDirective, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.storageService.GetApplicationStorageDirectives(ctx, appUUID)
+}
+
+// GetApplicationStorageDirectiveByName returns the persisted storage directive
+// for a single named storage on an application's current charm.
+//
+// The following errors may be expected:
+// - [coreerrors.NotValid] when the supplied application UUID is not valid.
+// - [corestorage.InvalidStorageName] when the supplied storage name is not
+// valid.
+// - [applicationerrors.ApplicationNotFound] when the application does not
+// exist.
+// - [applicationerrors.StorageNameNotSupported] when no storage directive
+// exists for the named storage on the application.
+func (s *ProviderService) GetApplicationStorageDirectiveByName(
+	ctx context.Context,
+	appUUID coreapplication.UUID,
+	storageName corestorage.Name,
+) (application.ApplicationStorageDirective, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.storageService.GetApplicationStorageDirectiveByName(
+		ctx, appUUID, storageName,
+	)
 }
 
 // CreateIAASApplication creates the specified IAAS application and units if
@@ -312,7 +344,7 @@ func (s *ProviderService) AddIAASUnits(
 		return nil, nil, errors.Errorf("getting application %q platform: %w", appName, err)
 	}
 
-	storageDirectives, err := s.storageService.GetApplicationStorageDirectives(ctx, appUUID)
+	storageDirectives, err := s.storageService.GetApplicationCharmStorageDirectives(ctx, appUUID)
 	if err != nil {
 		return nil, nil, errors.Errorf(
 			"getting application %q storage directives: %w",
@@ -378,7 +410,7 @@ func (s *ProviderService) AddCAASUnits(
 		return nil, errors.Errorf("making application %q constraints: %w", appName, err)
 	}
 
-	storageDirectives, err := s.storageService.GetApplicationStorageDirectives(ctx, appUUID)
+	storageDirectives, err := s.storageService.GetApplicationCharmStorageDirectives(ctx, appUUID)
 	if err != nil {
 		return nil, errors.Errorf(
 			"getting application %q storage directives: %w",

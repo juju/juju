@@ -291,8 +291,8 @@ WHERE  name = $getUnit.name
 // arguments of a new subordinate unit. If the application does not have any
 // storage directives set then an empty result is returned.
 //
-// The read mirrors GetApplicationStorageDirectives of the application domain
-// state, without the application existence check: the caller has already
+// The read mirrors GetApplicationCharmStorageDirectives of the application
+// domain state, without the application existence check: the caller has already
 // resolved the application.
 func (st *State) getApplicationStorageDirectives(
 	ctx context.Context,

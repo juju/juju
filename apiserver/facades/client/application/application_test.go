@@ -2101,7 +2101,7 @@ func (s *applicationSuite) TestSetRelationsSuspendedNotFound(c *tc.C) {
 	})
 }
 
-func (s *applicationSuite) TestGetApplicationStorageDirectivesInfo(c *tc.C) {
+func (s *applicationSuite) TestGetApplicationStorageDirectives(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -2116,17 +2116,26 @@ func (s *applicationSuite) TestGetApplicationStorageDirectivesInfo(c *tc.C) {
 	)
 
 	poolName := "my-loop"
-	size := uint64(20)
-	count := uint64(1)
-	s.applicationService.EXPECT().GetApplicationStorageDirectivesInfo(
+	logsSize := uint64(20)
+	logsCount := uint64(1)
+	archiveSize := uint64(1024)
+	archiveCount := uint64(0)
+	s.applicationService.EXPECT().GetApplicationStorageDirectives(
 		gomock.Any(),
 		appUUID,
 	).Return(
-		map[string]domainapplication.ApplicationStorageInfo{
-			"logs": {
-				StoragePoolName: poolName,
-				SizeMiB:         size,
-				Count:           count,
+		[]domainapplication.ApplicationStorageDirective{
+			{
+				Name:     "archive",
+				PoolName: poolName,
+				SizeMiB:  archiveSize,
+				Count:    uint32(archiveCount),
+			},
+			{
+				Name:     "logs",
+				PoolName: poolName,
+				SizeMiB:  logsSize,
+				Count:    uint32(logsCount),
 			},
 		},
 		nil,
@@ -2143,8 +2152,13 @@ func (s *applicationSuite) TestGetApplicationStorageDirectivesInfo(c *tc.C) {
 	c.Check(sc, tc.DeepEquals, map[string]params.StorageDirectives{
 		"logs": {
 			Pool:    poolName,
-			SizeMiB: &size,
-			Count:   &count,
+			SizeMiB: &logsSize,
+			Count:   &logsCount,
+		},
+		"archive": {
+			Pool:    poolName,
+			SizeMiB: &archiveSize,
+			Count:   &archiveCount,
 		},
 	})
 }
