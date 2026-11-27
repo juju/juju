@@ -32,8 +32,16 @@ const (
 // Paths holds the paths that backups needs.
 type Paths struct {
 	BackupDir string
-	DataDir   string
-	LogsDir   string
+
+	// DataDir is the controller-private data directory. It contains Dqlite,
+	// object store data, and controller identity material.
+	DataDir string
+
+	// AgentDataDir is the shared agent data directory. It contains agent
+	// configurations, service definitions, and the controller tools.
+	AgentDataDir string
+
+	LogsDir string
 }
 
 // ChecksumFormatSHA256 identifies how to interpret the checksum for a

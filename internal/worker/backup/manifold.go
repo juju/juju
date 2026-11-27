@@ -23,7 +23,11 @@ import (
 )
 
 // LocalValues contains the current controller filesystem paths.
-type LocalValues struct{ DataDir, LogDir string }
+type LocalValues struct {
+	DataDir      string
+	AgentDataDir string
+	LogDir       string
+}
 
 // LocalConfigReader reads paths each time the worker starts.
 type LocalConfigReader interface{ BackupLocalValues() (LocalValues, error) }
@@ -99,7 +103,7 @@ func Manifold(c ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, errors.Errorf("reading backup paths: %w", err)
 			}
-			if paths.DataDir == "" || paths.LogDir == "" {
+			if paths.DataDir == "" || paths.AgentDataDir == "" || paths.LogDir == "" {
 				return nil, errors.Errorf("empty backup paths %w", coreerrors.NotValid)
 			}
 			var leaseManager lease.Manager
@@ -186,6 +190,7 @@ func (g archiveGenerator) Create(ctx context.Context, notes string) (*corebackup
 		ControllerUUID:                g.config.ControllerUUID,
 		ControllerModelUUID:           coremodel.UUID(g.config.ControllerModelUUID),
 		DataDir:                       g.paths.DataDir,
+		AgentDataDir:                  g.paths.AgentDataDir,
 		LogDir:                        g.paths.LogDir,
 		MachineInstanceIDGetter:       g.config.MachineInstanceIDGetter,
 		MachineBaseGetter:             g.config.MachineBaseGetter,

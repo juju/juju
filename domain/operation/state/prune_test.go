@@ -5,6 +5,8 @@ package state
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +14,8 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/dustin/go-humanize"
 	"github.com/juju/tc"
+
+	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
 type pruneByAgeSuite struct {
@@ -296,10 +300,10 @@ func (s *pruneBySizeSuite) TestEstimateOperationSizeWithData(c *tc.C) {
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	// Expect: At this point data other than stored one are negligible, so we
-	// got 5KiB total and 2KiB avg (4KiB + neglictable data), rounded up to 5KiB.
-	c.Check(total, tc.Equals, 5)
-	c.Check(avg, tc.Equals, 5/2)
+	// Nullable columns contribute zero, while the rest of each row is counted.
+	// The bytes beyond the 4 KiB object store round the total up to 6 KiB.
+	c.Check(total, tc.Equals, 6)
+	c.Check(avg, tc.Equals, 2)
 }
 
 // TestEstimateOperationSizeWithDataSmallTasks verifies that row counts and object store
@@ -357,9 +361,10 @@ func (s *pruneBySizeSuite) TestEstimateOperationSizeWithDataBigLog(c *tc.C) {
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	// Expect: At this point we have about 5KiB of logs and 4KiB of object store
-	c.Check(total, tc.Equals, 9)
-	c.Check(avg, tc.Equals, 9/2)
+	// Nullable columns contribute zero, while the rest of each row is counted.
+	// The bytes beyond the logs and 4 KiB object store round up to 10 KiB.
+	c.Check(total, tc.Equals, 10)
+	c.Check(avg, tc.Equals, 4)
 }
 
 // TestPruneOperationsToKeepUnderSizeMiBIgnoresNonPositive ensures no pruning occurs when size Limit is zero or negative.
@@ -414,6 +419,242 @@ func (s *pruneBySizeSuite) TestPruneOperationsToKeepUnderSizeMiBPrunesExpected(c
 	// Assert: exactly one operation should remain: the newer one (opNew). The older completed opOld is deleted first.
 	c.Check(storeUUIDs, tc.SameContents, []string{"/big"})
 	c.Check(s.selectDistinctValues(c, "uuid", "operation"), tc.SameContents, []string{opNew})
+}
+
+// TestComputeObjectStoreSizeByValue pins the number of bytes measured for the
+// object store entries referenced by task outputs, for sizes of zero, negative
+// and larger than 32 bits.
+func (s *pruneBySizeSuite) TestComputeObjectStoreSizeByValue(c *tc.C) {
+	// Arrange
+	opUUID := s.addOperation(c)
+	var expected int
+	for i, size := range []int{0, -3, 3000000000} {
+		task := s.addOperationTask(c, opUUID)
+		path := fmt.Sprintf("/path/%d", i)
+		sha256 := fmt.Sprintf("sha256-%d", i)
+		sha384 := fmt.Sprintf("sha384-%d", i)
+		storeUUID := s.addOperationTaskOutputWithData(c, task, sha256, sha384, size, path)
+
+		// Size of the operation_task_output row and of the metadata path row.
+		expected += len(task) + 2*len(path) + len(storeUUID)
+		// Size of the metadata row: the content size, followed by the size of
+		// the text form of each column.
+		expected += size + len(storeUUID) + len(sha256) + len(sha384) + len(strconv.Itoa(size))
+	}
+
+	// Act
+	var obtained int
+	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		obtained, err = s.state.computeObjectStoreSize(ctx, tx, humanize.Byte)
+		return err
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained, tc.Equals, expected)
+}
+
+// TestEstimateOperationSizeNullableFields verifies that a NULL field does not
+// hide variable-length content elsewhere in the same row.
+func (s *pruneBySizeSuite) TestEstimateOperationSizeNullableFields(c *tc.C) {
+	op := s.addOperation(c)
+	task := s.addOperationTask(c, op)
+	s.query(c, `UPDATE operation SET summary = NULL, execution_group = ? WHERE uuid = ?`,
+		strings.Repeat("é", 1024), op)
+	s.query(c, `INSERT INTO operation_task_status (task_uuid, status_id, message, updated_at)
+		VALUES (?, 0, ?, NULL)`, task, strings.Repeat("x", 2048))
+
+	var total, avg int
+	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		total, avg, err = s.state.estimateOperationSizeInKiB(ctx, tx)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(total, tc.Equals, 5)
+	c.Check(avg, tc.Equals, 4)
+}
+
+// TestEstimateOperationSizeVariableContent covers each variable-length field
+// and ensures multiple logs and parameters do not multiply one another.
+func (s *pruneBySizeSuite) TestEstimateOperationSizeVariableContent(c *tc.C) {
+	op := s.addOperation(c)
+	task := s.addOperationTask(c, op)
+	charm := s.addCharm(c)
+	content := strings.Repeat("x", 4*humanize.KiByte)
+	s.query(c, `UPDATE operation SET summary = ?, execution_group = ? WHERE uuid = ?`,
+		content, content, op)
+	s.query(c, `UPDATE operation_task SET task_id = ? WHERE uuid = ?`, content, task)
+	s.addOperationTaskLog(c, task, content)
+	s.addOperationTaskLog(c, task, content)
+	s.addOperationParameter(c, op, "first", content)
+	s.addOperationParameter(c, op, "second", content)
+	s.addOperationAction(c, op, charm, content)
+	s.query(c, `INSERT INTO operation_task_status (task_uuid, status_id, message)
+		VALUES (?, 0, ?)`, task, content)
+
+	var total, avg int
+	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		total, avg, err = s.state.estimateOperationSizeInKiB(ctx, tx)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(total, tc.Equals, 37)
+	c.Check(avg, tc.Equals, 36)
+}
+
+// TestFixedRowSizeEstimates compares the fixed allowances with representative
+// textual values. Variable-length fields are measured separately in SQL.
+func (s *pruneBySizeSuite) TestFixedRowSizeEstimates(c *tc.C) {
+	uuid := internaluuid.MustNewUUID().String()
+	timestamp := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC).Format(time.RFC3339)
+	for _, test := range []struct {
+		name      string
+		estimate  int
+		reference int
+	}{
+		{"operation", operationRowBytes, len(uuid) + len("12345") + 3*len(timestamp) + len("1")},
+		{"task", taskRowBytes, 2*len(uuid) + 3*len(timestamp)},
+		{"log", logRowBytes, len(uuid) + len(timestamp)},
+		{"action", actionRowBytes, 2 * len(uuid)},
+		{"parameter", parameterRowBytes, len(uuid)},
+		{"status", statusRowBytes, len(uuid) + len("5") + len(timestamp)},
+		{"receiver association", associationRowBytes, 2 * len(uuid)},
+	} {
+		// The estimate uses eight bytes per timestamp instead of its text
+		// length. Allow 40% error for an individual row.
+		c.Check(test.estimate*10 >= test.reference*6, tc.IsTrue,
+			tc.Commentf("%s: estimate %d bytes; representative values %d bytes",
+				test.name, test.estimate, test.reference))
+		c.Check(test.estimate*10 <= test.reference*14, tc.IsTrue,
+			tc.Commentf("%s: estimate %d bytes; representative values %d bytes",
+				test.name, test.estimate, test.reference))
+	}
+}
+
+// TestEstimateOperationSizeSchema requires a review of the estimate whenever
+// the columns or their declared types change.
+func (s *pruneBySizeSuite) TestEstimateOperationSizeSchema(c *tc.C) {
+	tables := map[string][]string{
+		"operation": {
+			"uuid TEXT", "operation_id INTEGER", "summary TEXT",
+			"enqueued_at TIMESTAMP", "started_at TIMESTAMP", "completed_at TIMESTAMP",
+			"parallel BOOLEAN", "execution_group TEXT",
+		},
+		"operation_task": {
+			"uuid TEXT", "operation_uuid TEXT", "task_id TEXT",
+			"enqueued_at DATETIME", "started_at DATETIME", "completed_at DATETIME",
+		},
+		"operation_task_log":         {"task_uuid TEXT", "content TEXT", "created_at TIMESTAMP"},
+		"operation_action":           {"operation_uuid TEXT", "charm_uuid TEXT", "charm_action_key TEXT"},
+		"operation_parameter":        {"operation_uuid TEXT", "key TEXT", "value TEXT"},
+		"operation_task_status":      {"task_uuid TEXT", "status_id INT", "message TEXT", "updated_at DATETIME"},
+		"operation_machine_task":     {"task_uuid TEXT", "machine_uuid TEXT"},
+		"operation_unit_task":        {"task_uuid TEXT", "unit_uuid TEXT"},
+		"operation_task_output":      {"task_uuid TEXT", "store_path TEXT"},
+		"object_store_metadata":      {"uuid TEXT", "sha_256 TEXT", "sha_384 TEXT", "size INT"},
+		"object_store_metadata_path": {"path TEXT", "metadata_uuid TEXT"},
+	}
+	for table, expected := range tables {
+		rows := s.queryRows(c, `SELECT pti.name, pti.type
+FROM pragma_table_info(?) AS pti ORDER BY pti.cid`, table)
+		var columns []string
+		for _, row := range rows {
+			columns = append(columns, fmt.Sprintf("%s %s", row["name"], row["type"]))
+		}
+		c.Check(columns, tc.DeepEquals, expected,
+			tc.Commentf("review the pruning estimate for table %s", table))
+	}
+}
+
+// TestEstimateOperationSizeRepresentativeData compares the estimate against
+// the byte lengths of known representative values and object content. These
+// lengths do not include database pages, indexes or other storage overhead.
+func (s *pruneBySizeSuite) TestEstimateOperationSizeRepresentativeData(c *tc.C) {
+	const (
+		timestamp = "2024-01-02T03:04:05Z"
+		summary   = "example operation"
+		group     = "group"
+		message   = "status message"
+		log       = "example log entry"
+		action    = "action"
+		key       = "parameter"
+		value     = "example value"
+		output    = 128
+	)
+	charm := s.addCharm(c)
+	unit := s.addUnit(c, charm)
+	machine := s.addMachine(c, "0")
+	var referenceBytes int
+	for i := range 12 {
+		op := s.addOperation(c)
+		task := s.addOperationTask(c, op)
+		taskID := fmt.Sprintf("task-%d", i)
+		s.query(c, `UPDATE operation SET operation_id = ?, summary = ?, execution_group = ?,
+			enqueued_at = ?, started_at = ?, completed_at = ?, parallel = 1
+			WHERE uuid = ?`, 1000+i, summary, group, timestamp, timestamp, timestamp, op)
+		s.query(c, `UPDATE operation_task SET task_id = ?,
+			enqueued_at = ?, started_at = ?, completed_at = ? WHERE uuid = ?`,
+			taskID, timestamp, timestamp, timestamp, task)
+		s.query(c, `INSERT INTO operation_task_status
+			(task_uuid, status_id, message, updated_at) VALUES (?, 5, ?, ?)`,
+			task, message, timestamp)
+		s.query(c, `INSERT INTO operation_task_log (task_uuid, content, created_at)
+			VALUES (?, ?, ?)`, task, log, timestamp)
+		s.addOperationAction(c, op, charm, action)
+		s.addOperationParameter(c, op, key, value)
+		if i%2 == 0 {
+			s.addOperationUnitTask(c, task, unit)
+			referenceBytes += len(task) + len(unit)
+		} else {
+			s.addOperationMachineTask(c, task, machine)
+			referenceBytes += len(task) + len(machine)
+		}
+		path := fmt.Sprintf("/output/%d", i)
+		sha256 := fmt.Sprintf("sha256-%d", i)
+		sha384 := fmt.Sprintf("sha384-%d", i)
+		store := s.addOperationTaskOutputWithData(c, task, sha256, sha384, output, path)
+
+		referenceBytes += len(op) + len(strconv.Itoa(1000+i)) + len(summary) +
+			3*len(timestamp) + len("1") + len(group)
+		referenceBytes += len(task) + len(op) + len(taskID) + 3*len(timestamp)
+		referenceBytes += len(task) + len("5") + len(message) + len(timestamp)
+		referenceBytes += len(task) + len(log) + len(timestamp)
+		referenceBytes += len(op) + len(charm) + len(action)
+		referenceBytes += len(op) + len(key) + len(value)
+		referenceBytes += len(task) + 2*len(path) + 2*len(store) +
+			len(sha256) + len(sha384) + len(strconv.Itoa(output)) + output
+	}
+
+	var total int
+	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		total, _, err = s.state.estimateOperationSizeInKiB(ctx, tx)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	estimatedBytes := total * humanize.KiByte
+	// Allow 25% error, plus one KiB for the estimate's rounding.
+	c.Check(estimatedBytes >= referenceBytes*3/4, tc.IsTrue,
+		tc.Commentf("estimated %d bytes; representative content %d bytes", estimatedBytes, referenceBytes))
+	c.Check(estimatedBytes <= referenceBytes*5/4+humanize.KiByte, tc.IsTrue,
+		tc.Commentf("estimated %d bytes; representative content %d bytes", estimatedBytes, referenceBytes))
+}
+
+// TestPruneBySizeCountsParameters verifies that large parameter content
+// contributes to the decision to prune the oldest operation.
+func (s *pruneBySizeSuite) TestPruneBySizeCountsParameters(c *tc.C) {
+	old := s.addCompletedOperation(c, time.Hour)
+	newer := s.addOperation(c)
+	s.query(c, `INSERT INTO operation_parameter (operation_uuid, "key", value)
+		VALUES (?, 'command', ?)`, old, strings.Repeat("x", 3*humanize.MiByte))
+
+	paths, err := s.state.pruneOperationsToKeepUnderSizeMiB(c.Context(), 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(paths, tc.HasLen, 0)
+	c.Check(s.selectDistinctValues(c, "uuid", "operation"), tc.SameContents, []string{newer})
 }
 
 // generateLongString creates and returns a long string containing the given

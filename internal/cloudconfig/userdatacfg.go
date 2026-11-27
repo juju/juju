@@ -616,7 +616,8 @@ ls -la "$snap_data/charms"
 	}
 
 	// Step 5: Write the staged files with owner-only permissions, stage host OS
-	// identity, run jujud.init and jujud.bootstrap-state within a single
+	// identity, run jujud.init and the state command (bootstrap-state, or
+	// recover-state for recovery allocations) within a single
 	// trap-protected script. The trap guarantees the staging directory is
 	// removed regardless of exit status, preventing credentials from persisting
 	// on disk on failure. Cloud-init must never write directly into the
@@ -629,6 +630,25 @@ ls -la "$snap_data/charms"
 	// file redirect: confined stdio to redirected files is dropped.
 	stagedRuntimeConfPath := path.Join(snapInitStagingDir, controllerruntimeconfig.Filename)
 	stagedBootstrapParamsPath := path.Join(snapInitStagingDir, controllerruntimeconfig.FileNameBootstrapParams)
+	stagedRecoveryParamsPath := path.Join(snapInitStagingDir, agent.RecoveryParamsFile)
+
+	// Recovery allocations stage an empty recovery/params marker alongside
+	// the bootstrap params so jujud init delivers it into $SNAP_COMMON:
+	// its presence makes the data directory a recovery target, and from
+	// the next recovery stage its contents become the populated recovery
+	// parameters. The state command is recover-state instead of
+	// bootstrap-state, and carries no timeout.
+	stateCmd := "bootstrap-state"
+	timeoutArg := fmt.Sprintf(" --timeout %s", shquote(w.icfg.Bootstrap.Timeout.String()))
+	recoveryStaging := ""
+	if w.icfg.Bootstrap.StateInitializationParams.RecoveryMode {
+		stateCmd = "recover-state"
+		timeoutArg = ""
+		recoveryStaging = fmt.Sprintf(`
+install -D -m 600 /dev/null %[1]s
+echo '' > %[1]s`, shquote(stagedRecoveryParamsPath))
+	}
+
 	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Configuring snap controller"))
 	w.conf.AddRunCmd(fmt.Sprintf(
 		`set -e
@@ -638,16 +658,19 @@ install -D -m 600 /dev/null %[2]s
 echo %[3]s > %[2]s
 install -D -m 600 /dev/null %[4]s
 echo %[5]s > %[4]s
-cp -L /etc/os-release /var/snap/%[6]s/common/host-os-release
-snap run %[6]s.init %[1]s
-snap run %[6]s.bootstrap-state --timeout %[7]s`,
+%[6]s
+cp -L /etc/os-release /var/snap/%[7]s/common/host-os-release
+snap run %[7]s.init %[1]s
+snap run %[7]s.%[8]s%[9]s`,
 		shquote(snapInitStagingDir),
 		shquote(stagedRuntimeConfPath),
 		shquote(string(stagedRuntimeCfgContent)),
 		shquote(stagedBootstrapParamsPath),
 		shquote(string(bootstrapParams)),
+		recoveryStaging,
 		bootstrap.ControllerSnapPackageName,
-		shquote(w.icfg.Bootstrap.Timeout.String()),
+		stateCmd,
+		timeoutArg,
 	))
 
 	// Step 6: Start and enable the initialized snap controller daemon.
@@ -924,14 +947,21 @@ func (c *userdataConfig) addMachineAgentToBoot() error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot make cloud-init init script for the %s agent", name)
 	}
-	startCmds, err := svc.StartCommands()
-	if err != nil {
-		return errors.Annotatef(err, "cannot make cloud-init init script for the %s agent", name)
-	}
-	cmds = append(cmds, startCmds...)
-
 	svcName := c.icfg.MachineAgentServiceName
-	c.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (service %s)", svcName))
+	if c.icfg.Bootstrap != nil && c.icfg.Bootstrap.StateInitializationParams.RecoveryMode {
+		// Recovery: install the machine agent service but do not start
+		// it. Until the recovery import completes there is no controller
+		// database or API for it to connect to, so starting it would only
+		// produce error loops. A later recovery stage enables the service.
+		c.conf.AddRunCmd(cloudinit.LogProgressCmd("Installing Juju machine agent (service %s) without starting it (recovery)", svcName))
+	} else {
+		startCmds, err := svc.StartCommands()
+		if err != nil {
+			return errors.Annotatef(err, "cannot make cloud-init init script for the %s agent", name)
+		}
+		cmds = append(cmds, startCmds...)
+		c.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (service %s)", svcName))
+	}
 	c.conf.AddScripts(cmds...)
 	return nil
 }

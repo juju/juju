@@ -35,6 +35,7 @@ type Creator struct {
 	machineInstanceID   GetMachineInstanceIDFunc
 	machineBase         GetMachineBaseFunc
 	dataDir             string
+	agentDataDir        string
 	logDir              string
 
 	controllerExport    ControllerExportService
@@ -57,6 +58,7 @@ type CreatorConfig struct {
 	ControllerUUID      string
 	ControllerModelUUID coremodel.UUID
 	DataDir             string
+	AgentDataDir        string
 	LogDir              string
 	ModelServicesGetter ModelServicesGetterFunc
 
@@ -117,6 +119,9 @@ func (c CreatorConfig) Validate() error {
 	if c.DataDir == "" {
 		return errors.Errorf("empty DataDir %w", coreerrors.NotValid)
 	}
+	if c.AgentDataDir == "" {
+		return errors.Errorf("empty AgentDataDir %w", coreerrors.NotValid)
+	}
 	if c.LogDir == "" {
 		return errors.Errorf("empty LogDir %w", coreerrors.NotValid)
 	}
@@ -171,6 +176,7 @@ func NewCreator(cfg CreatorConfig) (*Creator, error) {
 		machineInstanceID:     cfg.MachineInstanceIDGetter,
 		machineBase:           cfg.MachineBaseGetter,
 		dataDir:               cfg.DataDir,
+		agentDataDir:          cfg.AgentDataDir,
 		logDir:                cfg.LogDir,
 		controllerExport:      cfg.ControllerExport,
 		modelServicesGetter:   cfg.ModelServicesGetter,
@@ -213,9 +219,10 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 	c.logger.Debugf(ctx, "creating backup in %q", backupDir)
 
 	paths := corebackups.Paths{
-		BackupDir: backupDir,
-		DataDir:   c.dataDir,
-		LogsDir:   c.logDir,
+		BackupDir:    backupDir,
+		DataDir:      c.dataDir,
+		AgentDataDir: c.agentDataDir,
+		LogsDir:      c.logDir,
 	}
 	files, err := corebackups.GetFilesToBackUp("", &paths)
 	if err != nil {

@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"path"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -147,7 +148,19 @@ func (p controllerStartupValueProvider) BackupLocalValues() (backup.LocalValues,
 	if err != nil {
 		return backup.LocalValues{}, errors.Trace(err)
 	}
-	return backup.LocalValues{DataDir: cfg.DataDir, LogDir: cfg.LogDir}, nil
+
+	agentDataDir := cfg.DataDir
+	if cfg.IsK8SController {
+		// A Kubernetes controller keeps controller-private state under
+		// <juju-data>/controller, while the companion machine agent and
+		// both binaries use the shared <juju-data> directory.
+		agentDataDir = filepath.Dir(cfg.DataDir)
+	}
+	return backup.LocalValues{
+		DataDir:      cfg.DataDir,
+		AgentDataDir: agentDataDir,
+		LogDir:       cfg.LogDir,
+	}, nil
 }
 
 // ObjectStoreRootDir returns the current local root dir for file-backed object
@@ -587,14 +600,53 @@ func (a *ControllerApplication) initStandaloneControllerLocks() {
 	a.upgradeCheckLock = gate.AlreadyUnlocked{}
 }
 
+// errRecoveryImportPending is returned by validateRecoveryEngineStart while
+// the recovery marker exists: the allocation is waiting for its state import.
+var errRecoveryImportPending = errors.New("recovery import has not completed")
+
+// validateRecoveryEngineStart refuses to start the dependency engine while a
+// recovery allocation is waiting for its state import. The marker is staged
+// into $SNAP_COMMON before the daemon starts, and removed once the import
+// completes. Recovery allocations only exist for the snap controller, so a
+// missing $SNAP_COMMON means there is no marker to consult.
+func validateRecoveryEngineStart() error {
+	snapCommon := os.Getenv("SNAP_COMMON")
+	if snapCommon == "" {
+		return nil
+	}
+	isRecovery, err := agent.IsRecovery(snapCommon)
+	if err != nil {
+		return errors.Annotate(err, "checking recovery marker")
+	}
+	if isRecovery {
+		return errRecoveryImportPending
+	}
+	return nil
+}
+
 func (a *ControllerApplication) makeEngineCreator(
 	agentName string,
 	previousAgentVersion semversion.Number,
 	logSink corelogger.LogSink,
 ) func(context.Context) (worker.Worker, error) {
+	// The runner restarts the engine worker every RestartDelay while
+	// the recovery import is pending, so the expected wait is logged
+	// once instead of erroring on every attempt. Genuine marker
+	// check failures are unexpected and stay errors each time.
+	logRecoveryWait := new(sync.Once)
 	return func(ctx context.Context) (worker.Worker, error) {
 		controllerRuntimeConfig, err := controllerruntimeconfig.ReadControllerRuntimeConfig(a.controllerRuntimePath)
 		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := validateRecoveryEngineStart(); err != nil {
+			if errors.Is(err, errRecoveryImportPending) {
+				logRecoveryWait.Do(func() {
+					logger.Infof(ctx, "recovery import pending; not starting the dependency engine yet")
+				})
+			} else {
+				logger.Errorf(ctx, "%v", err)
+			}
 			return nil, errors.Trace(err)
 		}
 		engineConfigFunc := agentengine.DependencyEngineConfig

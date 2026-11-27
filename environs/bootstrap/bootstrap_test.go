@@ -443,17 +443,35 @@ func (s *bootstrapSuite) assertFinalizePodBootstrapConfig(c *tc.C, serviceType, 
 	c.Assert(podConfig.Bootstrap.ControllerExternalName, tc.Equals, externalName)
 	c.Assert(podConfig.Bootstrap.ControllerExternalIPs, tc.DeepEquals, externalIps)
 	c.Assert(podConfig.AgentEnvironment, tc.DeepEquals, map[string]string{"foo": "bar"})
+	c.Check(podConfig.Bootstrap.StateInitializationParams.RecoveryMode, tc.IsFalse)
 }
 
 // validRecoveryParams describes an archived amd64 controller without any
-// fresh-bootstrap secrets, registration details or agent-building options.
+// fresh-bootstrap registration details or agent-building options.
 func validRecoveryParams(archivedVersion semversion.Number) bootstrap.RecoveryParams {
 	return bootstrap.RecoveryParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		BootstrapBase:    jammyBootstrapBase,
-		Arch:             arch.AMD64,
-		AgentVersion:     archivedVersion,
+		AllocationParams: bootstrap.AllocationParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			BootstrapBase:    jammyBootstrapBase,
+		},
+		Arch:                       arch.AMD64,
+		AgentVersion:               archivedVersion,
+		MachineID:                  "7",
+		CAPrivateKey:               coretesting.CAKey,
+		AdminSecret:                "fake-moon-landing",
+		AvailableTools:             recoveryTools(archivedVersion, arch.AMD64),
+		BootstrapSSHAuthorizedKeys: []string{"ssh-ed25519 AAAA"},
 	}
+}
+
+// recoveryTools returns the archived agent tools for the given platform.
+func recoveryTools(version semversion.Number, arch string) tools.List {
+	return tools.List{{
+		Version: semversion.Binary{Number: version, Release: "ubuntu", Arch: arch},
+		URL:     "file:///var/lib/juju/tools/juju" + version.String() + "-ubuntu-" + arch + ".tgz",
+		SHA256:  "sha256",
+		Size:    42,
+	}}
 }
 
 // failingDataSourceFactory fails the test when used, proving that no
@@ -479,9 +497,10 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAAS(c *tc.C) {
 		Arch:       arch.AMD64,
 		Base:       jammyBootstrapBase,
 		CloudBootstrapFinalizer: func(
-			environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts,
+			_ environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts,
 		) error {
 			env.finalizerCount++
+			env.instanceConfig = icfg
 			return nil
 		},
 	}
@@ -496,19 +515,18 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAAS(c *tc.C) {
 	// The archived architecture can differ from the client's architecture.
 	params := validRecoveryParams(archivedVersion)
 	params.Arch = arch.ARM64
+	params.AvailableTools = recoveryTools(archivedVersion, arch.ARM64)
 	env.result.Arch = arch.ARM64
 	id, err := bootstrap.Recover(ctx, env, params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(id, tc.Equals, instance.Id("test-instance"))
 
-	// The provider receives the archived binary identity for image selection.
-	// No agent download or installation is requested.
+	// The provider receives the archived tools for image selection and the
+	// bootstrap SSH keys before the agent starts.
 	c.Check(env.bootstrapCount, tc.Equals, 1)
-	c.Check(env.args.AvailableTools, tc.DeepEquals, tools.List{{
-		Version: semversion.Binary{
-			Number: archivedVersion, Release: "ubuntu", Arch: arch.ARM64,
-		},
-	}})
+	c.Check(env.args.AvailableTools, tc.DeepEquals, recoveryTools(archivedVersion, arch.ARM64))
+	c.Check(env.args.AuthorizedKeys, tc.DeepEquals, params.BootstrapSSHAuthorizedKeys)
+	c.Check(env.args.MachineID, tc.Equals, "7")
 	c.Check(env.args.BootstrapBase, tc.Equals, jammyBootstrapBase)
 	c.Assert(env.args.BootstrapConstraints.Arch, tc.NotNil)
 	c.Check(*env.args.BootstrapConstraints.Arch, tc.Equals, arch.ARM64)
@@ -516,8 +534,160 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAAS(c *tc.C) {
 	c.Assert(ok, tc.IsTrue)
 	c.Check(agentVersion, tc.Equals, archivedVersion)
 
-	// Allocation stops before the agent is installed.
-	c.Check(env.finalizerCount, tc.Equals, 0)
+	// The provider finaliser installs and starts the archived agent.
+	c.Check(env.finalizerCount, tc.Equals, 1)
+	c.Assert(env.instanceConfig, tc.NotNil)
+	c.Check(env.instanceConfig.MachineId, tc.Equals, "7")
+	c.Check(env.instanceConfig.MachineAgentServiceName, tc.Equals, "jujuagentd-machine-7")
+	c.Assert(env.instanceConfig.APIInfo, tc.NotNil)
+	c.Check(env.instanceConfig.APIInfo.CACert, tc.Equals, coretesting.CACert)
+	c.Check(env.instanceConfig.APIInfo.ModelTag.Id(), tc.Equals, env.cfg.UUID())
+	c.Check(env.instanceConfig.Bootstrap.StateInitializationParams.AgentVersion,
+		tc.Equals, archivedVersion)
+	c.Check(env.instanceConfig.Bootstrap.StateInitializationParams.RecoveryMode, tc.IsTrue)
+}
+
+// TestBootstrapRecoveryIAASDiscoversPackagedTools checks that when
+// AvailableTools is omitted, recovery queries packaged tools for the exact
+// archived version and architecture without invoking BuildAgentTarball.
+func (s *bootstrapSuite) TestBootstrapRecoveryIAASDiscoversPackagedTools(c *tc.C) {
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	archivedVersion := coretesting.FakeVersionNumber
+	packaged := recoveryTools(archivedVersion, arch.ARM64)
+	var gotFilter tools.Filter
+	s.PatchValue(bootstrap.FindTools, func(
+		_ context.Context, _ envtools.SimplestreamsFetcher, _ environs.BootstrapEnviron,
+		_, _ int, _ []string, filter tools.Filter,
+	) (tools.List, error) {
+		gotFilter = filter
+		return packaged, nil
+	})
+
+	env := &recoveryBootstrapEnviron{
+		bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+	}
+	env.result = &environs.BootstrapResult{
+		InstanceID: "test-instance",
+		Arch:       arch.ARM64,
+		Base:       jammyBootstrapBase,
+		CloudBootstrapFinalizer: func(
+			_ environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts,
+		) error {
+			env.finalizerCount++
+			env.instanceConfig = icfg
+			return nil
+		},
+	}
+
+	params := validRecoveryParams(archivedVersion)
+	params.Arch = arch.ARM64
+	params.AvailableTools = nil
+	params.BuildAgentTarball = func(bool, string, func(semversion.Number) semversion.Number) (*sync.BuiltAgent, error) {
+		c.Fatalf("BuildAgentTarball must not run when packaged tools are found")
+		return nil, nil
+	}
+
+	id, err := bootstrap.Recover(envtesting.BootstrapTestContext(c), env, params)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(id, tc.Equals, instance.Id("test-instance"))
+	c.Check(gotFilter.Number, tc.Equals, archivedVersion)
+	c.Check(gotFilter.Arch, tc.Equals, arch.ARM64)
+	c.Check(gotFilter.OSType, tc.Equals, "ubuntu")
+	c.Check(env.args.AvailableTools, tc.DeepEquals, packaged)
+	c.Check(env.finalizerCount, tc.Equals, 1)
+}
+
+// TestBootstrapRecoveryIAASFallsBackToLocalAgentBinary checks that when no
+// packaged tools match the archived version, recovery validates the host
+// platform and packages the local jujuagentd binary with build=false.
+func (s *bootstrapSuite) TestBootstrapRecoveryIAASFallsBackToLocalAgentBinary(c *tc.C) {
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	archivedVersion := coretesting.FakeVersionNumber
+	s.PatchValue(bootstrap.FindTools, func(
+		context.Context, envtools.SimplestreamsFetcher, environs.BootstrapEnviron,
+		int, int, []string, tools.Filter,
+	) (tools.List, error) {
+		return nil, errors.NotFoundf("tools")
+	})
+
+	env := &recoveryBootstrapEnviron{
+		bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+	}
+	env.result = &environs.BootstrapResult{
+		InstanceID: "test-instance",
+		Arch:       arch.AMD64,
+		Base:       jammyBootstrapBase,
+		CloudBootstrapFinalizer: func(
+			_ environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts,
+		) error {
+			env.finalizerCount++
+			env.instanceConfig = icfg
+			return nil
+		},
+	}
+
+	var gotBuild bool
+	var gotVersion semversion.Number
+	builtDir := c.MkDir()
+	params := validRecoveryParams(archivedVersion)
+	params.AvailableTools = nil
+	params.BuildAgentTarball = func(
+		build bool, _ string, getForceVersion func(semversion.Number) semversion.Number,
+	) (*sync.BuiltAgent, error) {
+		gotBuild = build
+		gotVersion = getForceVersion(semversion.Zero)
+		return &sync.BuiltAgent{
+			Dir:         builtDir,
+			StorageName: "juju.tgz",
+			Sha256Hash:  "deadbeef",
+			Size:        128,
+			Version: semversion.Binary{
+				Number:  archivedVersion,
+				Release: "ubuntu",
+				Arch:    arch.AMD64,
+			},
+		}, nil
+	}
+
+	id, err := bootstrap.Recover(envtesting.BootstrapTestContext(c), env, params)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(id, tc.Equals, instance.Id("test-instance"))
+	c.Check(gotBuild, tc.IsFalse)
+	c.Check(gotVersion, tc.Equals, archivedVersion)
+	c.Assert(env.args.AvailableTools, tc.HasLen, 1)
+	c.Check(env.args.AvailableTools[0].URL, tc.Equals, "file://"+filepath.Join(builtDir, "juju.tgz"))
+	c.Check(env.finalizerCount, tc.Equals, 1)
+}
+
+// TestBootstrapRecoveryIAASRejectsCrossArchLocalFallback checks that when no
+// packaged tools exist and the host architecture differs from the archived
+// controller, recovery rejects the local fallback before invoking
+// BuildAgentTarball.
+func (s *bootstrapSuite) TestBootstrapRecoveryIAASRejectsCrossArchLocalFallback(c *tc.C) {
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	archivedVersion := coretesting.FakeVersionNumber
+	s.PatchValue(bootstrap.FindTools, func(
+		context.Context, envtools.SimplestreamsFetcher, environs.BootstrapEnviron,
+		int, int, []string, tools.Filter,
+	) (tools.List, error) {
+		return nil, errors.NotFoundf("tools")
+	})
+
+	env := &recoveryBootstrapEnviron{
+		bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+	}
+	params := validRecoveryParams(archivedVersion)
+	params.Arch = arch.ARM64
+	params.AvailableTools = nil
+	params.BuildAgentTarball = func(bool, string, func(semversion.Number) semversion.Number) (*sync.BuiltAgent, error) {
+		c.Fatalf("BuildAgentTarball must not run when host arch differs from archived arch")
+		return nil, nil
+	}
+
+	id, err := bootstrap.Recover(envtesting.BootstrapTestContext(c), env, params)
+	c.Check(id, tc.Equals, instance.Id(""))
+	c.Check(err, tc.ErrorMatches, `cannot use agent built for "arm64" using a machine running on "amd64"`)
+	c.Check(env.bootstrapCount, tc.Equals, 0)
 }
 
 // TestBootstrapRecoveryIAASForwardsProvisioningInputs checks that every
@@ -535,6 +705,11 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASForwardsProvisioningInputs(c *
 				InstanceID: "test-instance",
 				Arch:       arch.ARM64,
 				Base:       jammyBootstrapBase,
+				CloudBootstrapFinalizer: func(
+					environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts,
+				) error {
+					return nil
+				},
 			},
 		},
 		region: simplestreams.CloudSpec{Region: "north", Endpoint: "https://cloud.example"},
@@ -549,6 +724,7 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASForwardsProvisioningInputs(c *
 	}
 	params := validRecoveryParams(archivedVersion)
 	params.Arch = arch.ARM64
+	params.AvailableTools = recoveryTools(archivedVersion, arch.ARM64)
 	params.Cloud = cloud.Cloud{Name: "lxd", Type: "lxd"}
 	params.CloudRegion = "north"
 	params.ControllerName = "source-ctrl"
@@ -575,6 +751,8 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASForwardsProvisioningInputs(c *
 	c.Check(args.Placement, tc.Equals, "zone=zone-a")
 	c.Check(args.BootstrapBase, tc.Equals, jammyBootstrapBase)
 	c.Check(args.SupportedBootstrapBases, tc.DeepEquals, []corebase.Base{jammyBootstrapBase})
+	c.Check(args.AuthorizedKeys, tc.DeepEquals, params.BootstrapSSHAuthorizedKeys)
+	c.Check(args.MachineID, tc.Equals, "7")
 
 	// The model constraints are passed through untouched.
 	c.Assert(args.ModelConstraints.CpuCores, tc.NotNil)
@@ -645,11 +823,25 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASResultChecks(c *tc.C) {
 		result: nil,
 		err:    "provider returned no replacement instance details",
 	}, {
+		name: "no machine controller finaliser",
+		result: &environs.BootstrapResult{
+			InstanceID: "test-instance",
+			Arch:       arch.AMD64,
+			Base:       jammyBootstrapBase,
+		},
+		wantID: "test-instance",
+		err:    `replacement instance "test-instance" may require manual removal: provider returned no machine controller finaliser`,
+	}, {
 		name: "wrong base",
 		result: &environs.BootstrapResult{
 			InstanceID: "test-instance",
 			Arch:       arch.AMD64,
 			Base:       focalBootstrapBase,
+			CloudBootstrapFinalizer: func(
+				environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts,
+			) error {
+				return nil
+			},
 		},
 		wantID: "test-instance",
 		err:    `replacement instance "test-instance" may require manual removal: replacement base differs from archived controller`,
@@ -659,6 +851,11 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASResultChecks(c *tc.C) {
 			InstanceID: "test-instance",
 			Arch:       arch.ARM64,
 			Base:       jammyBootstrapBase,
+			CloudBootstrapFinalizer: func(
+				environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts,
+			) error {
+				return nil
+			},
 		},
 		wantID: "test-instance",
 		err:    `replacement instance "test-instance" may require manual removal: replacement architecture differs from archived agent`,
@@ -673,6 +870,7 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASResultChecks(c *tc.C) {
 		id, err := bootstrap.Recover(envtesting.BootstrapTestContext(c), env, validRecoveryParams(archivedVersion))
 		c.Check(id, tc.Equals, test.wantID)
 		c.Check(err, tc.ErrorMatches, test.err)
+		c.Check(env.finalizerCount, tc.Equals, 0)
 	}
 }
 
@@ -726,16 +924,22 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASCancelled(c *tc.C) {
 
 	env := &recoveryBootstrapEnviron{
 		bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
-		result: &environs.BootstrapResult{
-			InstanceID: "test-instance",
-			Arch:       arch.AMD64,
-			Base:       jammyBootstrapBase,
-		},
 		// Cancel while the provider is returning the allocated
 		// instance, so the cancellation is observed after a valid
-		// allocation. The hook belongs to the fake alone; production
-		// code has no such callback.
+		// allocation and finalisation. The hook belongs to the fake
+		// alone; production code has no such callback.
 		afterAllocate: cancel,
+	}
+	env.result = &environs.BootstrapResult{
+		InstanceID: "test-instance",
+		Arch:       arch.AMD64,
+		Base:       jammyBootstrapBase,
+		CloudBootstrapFinalizer: func(
+			environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts,
+		) error {
+			env.finalizerCount++
+			return nil
+		},
 	}
 	id, err := bootstrap.Recover(
 		envtesting.BootstrapContext(ctx, c), env, validRecoveryParams(archivedVersion))
@@ -744,6 +948,33 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASCancelled(c *tc.C) {
 	c.Check(err, tc.ErrorIs, bootstrap.Cancelled())
 	c.Check(err, tc.ErrorMatches,
 		`replacement instance "test-instance" may require manual removal: cancelled`)
+	c.Check(env.finalizerCount, tc.Equals, 1)
+}
+
+func (s *bootstrapSuite) TestBootstrapRecoveryIAASFinaliserError(c *tc.C) {
+	finaliseErr := errors.New("finalise failed")
+	env := &recoveryBootstrapEnviron{
+		bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+	}
+	env.result = &environs.BootstrapResult{
+		InstanceID: "test-instance",
+		Arch:       arch.AMD64,
+		Base:       jammyBootstrapBase,
+		CloudBootstrapFinalizer: func(
+			environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts,
+		) error {
+			env.finalizerCount++
+			return finaliseErr
+		},
+	}
+	id, err := bootstrap.Recover(
+		envtesting.BootstrapTestContext(c), env,
+		validRecoveryParams(coretesting.FakeVersionNumber))
+	c.Check(id, tc.Equals, instance.Id("test-instance"))
+	c.Check(err, tc.ErrorIs, finaliseErr)
+	c.Check(err, tc.ErrorMatches,
+		`replacement instance "test-instance" may require manual removal: finalise failed`)
+	c.Check(env.finalizerCount, tc.Equals, 1)
 }
 
 func (s *bootstrapSuite) TestBootstrapRecoveryIAASPreAllocationFailure(c *tc.C) {
@@ -779,6 +1010,41 @@ func (s *bootstrapSuite) TestBootstrapRecoveryIAASInvalidParams(c *tc.C) {
 		name:   "unsupported arch",
 		mutate: func(p *bootstrap.RecoveryParams) { p.Arch = "invalid" },
 		err:    `.*recovery controller architecture "invalid" not valid`,
+	}, {
+		name:   "no machine ID",
+		mutate: func(p *bootstrap.RecoveryParams) { p.MachineID = "" },
+		err:    `.*recovery machine ID "" not valid`,
+	}, {
+		name:   "invalid machine ID",
+		mutate: func(p *bootstrap.RecoveryParams) { p.MachineID = "not-a-machine" },
+		err:    `.*recovery machine ID "not-a-machine" not valid`,
+	}, {
+		name:   "no CA private key",
+		mutate: func(p *bootstrap.RecoveryParams) { p.CAPrivateKey = "" },
+		err:    ".*recovery without a CA private key not valid",
+	}, {
+		name:   "no admin secret",
+		mutate: func(p *bootstrap.RecoveryParams) { p.AdminSecret = "" },
+		err:    ".*recovery without an admin secret not valid",
+	}, {
+		name: "no tools or builder",
+		mutate: func(p *bootstrap.RecoveryParams) {
+			p.AvailableTools = nil
+			p.BuildAgentTarball = nil
+		},
+		err: ".*recovery without agent tools or builder not valid",
+	}, {
+		name: "nil tool entry",
+		mutate: func(p *bootstrap.RecoveryParams) {
+			p.AvailableTools = tools.List{nil}
+		},
+		err: ".*recovery with nil agent tool entry not valid",
+	}, {
+		name: "mismatched tool version",
+		mutate: func(p *bootstrap.RecoveryParams) {
+			p.AvailableTools = recoveryTools(semversion.MustParse("9.9.9"), arch.AMD64)
+		},
+		err: `.*recovery tool version .* not matching agent version .* not valid`,
 	}, {
 		name:   "no controller UUID",
 		mutate: func(p *bootstrap.RecoveryParams) { delete(p.ControllerConfig, "controller-uuid") },

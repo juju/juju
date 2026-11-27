@@ -51,7 +51,7 @@ func (s *filesSuite) TestGetFilesToBackUpSkipsObjectstore(c *tc.C) {
 	s.writeFile(c, filepath.Join(dataDir, "tools", "jujud"), "binary")
 
 	files, err := backups.GetFilesToBackUp(rootDir,
-		&backups.Paths{DataDir: relDataDir})
+		&backups.Paths{DataDir: relDataDir, AgentDataDir: relDataDir})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(set.NewStrings(files...), tc.DeepEquals, set.NewStrings(
 		filepath.Join(dataDir, "tools", "jujud"),
@@ -62,7 +62,7 @@ func (s *filesSuite) TestGetFilesToBackUpMissingTools(c *tc.C) {
 	rootDir := c.MkDir()
 
 	_, err := backups.GetFilesToBackUp(rootDir,
-		&backups.Paths{DataDir: relDataDir})
+		&backups.Paths{DataDir: relDataDir, AgentDataDir: relDataDir})
 	c.Assert(err, tc.ErrorMatches,
 		`cannot walk ".*tools.*`)
 }
@@ -94,7 +94,8 @@ func (s *filesSuite) TestGetFilesToBackUp(c *tc.C) {
 	// server.pem, shared-secret and nonce.txt are absent and must be
 	// tolerated.
 	files, err := backups.GetFilesToBackUp(rootDir, &backups.Paths{
-		DataDir: relDataDir,
+		DataDir:      relDataDir,
+		AgentDataDir: relDataDir,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(set.NewStrings(files...), tc.DeepEquals, set.NewStrings(
@@ -128,7 +129,8 @@ func (s *filesSuite) TestGetFilesToBackUpUnreadableSSHKeys(c *tc.C) {
 	})
 
 	files, err := backups.GetFilesToBackUp(rootDir, &backups.Paths{
-		DataDir: relDataDir,
+		DataDir:      relDataDir,
+		AgentDataDir: relDataDir,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(set.NewStrings(files...).Contains(
@@ -151,7 +153,8 @@ func (s *filesSuite) TestGetFilesToBackUpUnreadableOptionalFile(c *tc.C) {
 	})
 
 	_, err := backups.GetFilesToBackUp(rootDir, &backups.Paths{
-		DataDir: relDataDir,
+		DataDir:      relDataDir,
+		AgentDataDir: relDataDir,
 	})
 	c.Assert(err, tc.ErrorMatches, "stat .*system-identity: permission denied")
 }
@@ -174,7 +177,8 @@ func (s *filesSuite) TestGetFilesToBackUpUnreadableSymlinkTarget(c *tc.C) {
 	})
 
 	_, err := backups.GetFilesToBackUp(rootDir, &backups.Paths{
-		DataDir: relDataDir,
+		DataDir:      relDataDir,
+		AgentDataDir: relDataDir,
 	})
 	c.Assert(err, tc.ErrorMatches,
 		`cannot walk ".*tools": stat .*link: permission denied`)
@@ -186,11 +190,36 @@ func (s *filesSuite) TestGetFilesToBackUpWithRootDir(c *tc.C) {
 	s.writeFile(c, filepath.Join(dataDir, "tools", "jujud"), "binary")
 
 	files, err := backups.GetFilesToBackUp(rootDir, &backups.Paths{
-		DataDir: relDataDir,
+		DataDir:      relDataDir,
+		AgentDataDir: relDataDir,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(set.NewStrings(files...), tc.DeepEquals, set.NewStrings(
 		filepath.Join(dataDir, "tools", "jujud"),
+	))
+}
+
+func (s *filesSuite) TestGetFilesToBackUpWithSeparateAgentDataDir(c *tc.C) {
+	rootDir := c.MkDir()
+	agentDataDir := filepath.Join(rootDir, relDataDir)
+	controllerDataDir := filepath.Join(agentDataDir, "controller")
+
+	s.writeFile(c, filepath.Join(agentDataDir, "tools", "jujud"), "binary")
+	s.writeFile(c,
+		filepath.Join(agentDataDir, "agents", "machine-0", "agent.conf"), "conf")
+	s.writeFile(c, filepath.Join(agentDataDir, "init", "machine-0.conf"), "init")
+	s.writeFile(c, filepath.Join(controllerDataDir, "system-identity"), "identity")
+
+	files, err := backups.GetFilesToBackUp(rootDir, &backups.Paths{
+		DataDir:      filepath.Join(relDataDir, "controller"),
+		AgentDataDir: relDataDir,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(set.NewStrings(files...), tc.DeepEquals, set.NewStrings(
+		filepath.Join(agentDataDir, "tools", "jujud"),
+		filepath.Join(agentDataDir, "agents", "machine-0", "agent.conf"),
+		filepath.Join(agentDataDir, "init", "machine-0.conf"),
+		filepath.Join(controllerDataDir, "system-identity"),
 	))
 }
 

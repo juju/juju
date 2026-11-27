@@ -807,6 +807,36 @@ snap install --dangerous %[1]s`,
 	assertOrderedSnapHandoff(c, allScripts, "snap install --dangerous")
 }
 
+func (s *cloudinitSuite) TestCloudInitWithRecoveryStateHandoff(c *tc.C) {
+	cfg := makeBootstrapConfig(jammy, 0)
+	cfg.Bootstrap.StateInitializationParams.RecoveryMode = true
+	allScripts := s.renderedScripts(c, cfg)
+
+	// recover-state replaces bootstrap-state: running fresh state
+	// initialisation on a recovery allocation would destroy the archived
+	// controller's data.
+	c.Check(allScripts, tc.Contains, "snap run jujud.recover-state")
+	c.Check(allScripts, tc.Not(tc.Contains), "bootstrap-state")
+
+	// The empty recovery/params marker must be staged before jujud init
+	// delivers it into $SNAP_COMMON, and recover-state must run after init
+	// so the marker is already in place when the daemon starts.
+	stagedMarker := filepath.Join(cloudconfig.SnapInitStagingDir, agent.RecoveryParamsFile)
+	markerIdx := strings.Index(allScripts, stagedMarker)
+	initIdx := strings.Index(allScripts, "snap run jujud.init")
+	recoverIdx := strings.Index(allScripts, "snap run jujud.recover-state")
+	c.Check(markerIdx, tc.GreaterThan, -1)
+	c.Check(initIdx, tc.GreaterThan, -1)
+	c.Check(recoverIdx, tc.GreaterThan, -1)
+	c.Check(markerIdx < initIdx, tc.IsTrue)
+	c.Check(initIdx < recoverIdx, tc.IsTrue)
+
+	// The machine agent service is installed but not started: until the
+	// recovery import completes there is nothing for it to connect to.
+	c.Check(allScripts, tc.Contains, "Installing Juju machine agent (service jujuagentd-machine-0) without starting it (recovery)")
+	c.Check(allScripts, tc.Not(tc.Contains), "Starting Juju machine agent")
+}
+
 // TestCloudInitWithLocalControllerSnapAndExpectedVersion verifies that the
 // dangerous install path includes a ControllerSnapExpectedVersion shell check
 // when the expected version is set.

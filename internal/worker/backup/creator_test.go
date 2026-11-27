@@ -49,6 +49,7 @@ type backupsSuite struct {
 	controllerModelUUID coremodel.UUID
 	modelUUID           string
 	dataDirPath         string
+	agentDataDirPath    string
 	logDirPath          string
 
 	controllerExport *MockControllerExportService
@@ -86,6 +87,7 @@ func (s *backupsSuite) SetUpTest(c *tc.C) {
 	// walk is patched, so nothing reads them. Real empty directories
 	// make any accidental real walk fail loudly.
 	s.dataDirPath = c.MkDir()
+	s.agentDataDirPath = c.MkDir()
 	s.logDirPath = c.MkDir()
 
 	s.controllerStore = &stubObjectStore{objects: map[string][]byte{}}
@@ -132,6 +134,7 @@ func (s *backupsSuite) newCreatorConfig(c *tc.C, modelServicesFor ModelServicesG
 		ControllerUUID:                s.controllerUUID,
 		ControllerModelUUID:           s.controllerModelUUID,
 		DataDir:                       s.dataDirPath,
+		AgentDataDir:                  s.agentDataDirPath,
 		LogDir:                        s.logDirPath,
 		MachineInstanceIDGetter:       MachineInstanceID,
 		MachineBaseGetter:             MachineBase,
@@ -171,6 +174,7 @@ func (s *backupsSuite) TestCreatorConfigValidate(c *tc.C) {
 		ControllerUUID:                s.controllerUUID,
 		ControllerModelUUID:           s.controllerModelUUID,
 		DataDir:                       s.dataDirPath,
+		AgentDataDir:                  s.agentDataDirPath,
 		LogDir:                        s.logDirPath,
 		MachineInstanceIDGetter:       MachineInstanceID,
 		MachineBaseGetter:             MachineBase,
@@ -195,6 +199,7 @@ func (s *backupsSuite) TestCreatorConfigValidate(c *tc.C) {
 		{func(c *CreatorConfig) { c.ControllerUUID = "" }, "empty ControllerUUID not valid"},
 		{func(c *CreatorConfig) { c.ControllerModelUUID = "bad" }, "controller model UUID: .*"},
 		{func(c *CreatorConfig) { c.DataDir = "" }, "empty DataDir not valid"},
+		{func(c *CreatorConfig) { c.AgentDataDir = "" }, "empty AgentDataDir not valid"},
 		{func(c *CreatorConfig) { c.LogDir = "" }, "empty LogDir not valid"},
 		{func(c *CreatorConfig) { c.MachineInstanceIDGetter = nil }, "nil MachineInstanceIDGetter not valid"},
 		{func(c *CreatorConfig) { c.MachineBaseGetter = nil }, "nil MachineBaseGetter not valid"},
@@ -263,9 +268,10 @@ func (s *backupsSuite) expectFilesToBackUp(c *tc.C, backupDir string) []string {
 	s.PatchValue(&corebackups.GetFilesToBackUp, func(rootDir string, paths *corebackups.Paths) ([]string, error) {
 		c.Check(rootDir, tc.Equals, "")
 		c.Check(*paths, tc.DeepEquals, corebackups.Paths{
-			BackupDir: backupDir,
-			DataDir:   s.dataDirPath,
-			LogsDir:   s.logDirPath,
+			BackupDir:    backupDir,
+			DataDir:      s.dataDirPath,
+			AgentDataDir: s.agentDataDirPath,
+			LogsDir:      s.logDirPath,
 		})
 		return []string{blob}, nil
 	})

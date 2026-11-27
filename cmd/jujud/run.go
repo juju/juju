@@ -249,6 +249,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	}
 
 	jujud.Register(agentcmd.NewBootstrapCommand())
+	jujud.Register(agentcmd.NewRecoverCommand())
 
 	jujud.Register(agentcmd.NewInitCommand())
 

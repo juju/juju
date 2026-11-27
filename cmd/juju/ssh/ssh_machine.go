@@ -40,7 +40,8 @@ type sshMachine struct {
 	leaderResolver
 	modelName string
 
-	proxy                  bool
+	proxy                  autoBoolValue
+	useProxy               bool
 	noHostKeyChecks        bool
 	target                 string
 	args                   []string
@@ -84,7 +85,7 @@ func (t *resolvedTarget) isAgent() bool {
 const defaultSSHPort = 22
 
 func (c *sshMachine) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.proxy, "proxy", false, "Proxy through the API server")
+	f.Var(&c.proxy, "proxy", "Proxy through the controller machine's OpenSSH server (requires --direct; defaults to the model's proxy-ssh setting)")
 	f.BoolVar(&c.noHostKeyChecks, "no-host-key-checks", false, "Skip host key checking (INSECURE)")
 }
 
@@ -137,7 +138,7 @@ func (c *sshMachine) setPublicKeyRetryStrategy(retryStrategy retry.CallArgs) {
 // if SSH proxying is required. It must be called at the top of the
 // command's Run method.
 //
-// The sshClient, apiAddr and proxy fields are initialized after this call.
+// The sshClient, apiAddr and useProxy fields are initialized after this call.
 func (c *sshMachine) initRun(ctx context.Context, mc ModelCommand) (err error) {
 	if c.modelName, err = mc.ModelIdentifier(); err != nil {
 		return errors.Trace(err)
@@ -146,7 +147,7 @@ func (c *sshMachine) initRun(ctx context.Context, mc ModelCommand) (err error) {
 	if err = c.ensureAPIClient(ctx, mc); err != nil {
 		return errors.Trace(err)
 	}
-	c.proxy, err = c.proxySSH(ctx)
+	c.useProxy, err = c.proxySSH(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -207,7 +208,14 @@ func (c *sshMachine) getSSHOptions(ctx context.Context, enablePty bool, targets 
 		options.EnablePTY()
 	}
 
-	if c.proxy {
+	if c.useProxy {
+		// The controller may not be able to route traffic to a container
+		// on a FAN address, so route through the machine hosting it.
+		for _, target := range targets {
+			if err := c.maybePopulateTargetViaField(ctx, target, c.statusClient.Status); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
 		if err := c.setProxyCommand(&options, targets); err != nil {
 			return nil, err
 		}
@@ -233,18 +241,6 @@ func (c *sshMachine) copy(ctx Context) error {
 	args, targets, err := expandSCPArgs(ctx, c.getArgs(), c.resolveTarget)
 	if err != nil {
 		return err
-	}
-
-	if c.proxy {
-		for _, target := range targets {
-			// If we are trying to connect to a container on a FAN address,
-			// we need to route the traffic via the machine that hosts it.
-			// This is required as the controller is unable to route fan
-			// traffic across subnets.
-			if err = c.maybePopulateTargetViaField(ctx, target, c.statusClient.Status); err != nil {
-				return errors.Trace(err)
-			}
-		}
 	}
 
 	options, err := c.getSSHOptions(ctx, false, targets...)
@@ -325,13 +321,10 @@ func (c *sshMachine) generateKnownHosts(ctx context.Context, targets []*resolved
 	return c.knownHostsPath, nil
 }
 
-// proxySSH returns false if both c.proxy and the proxy-ssh model
-// configuration are false -- otherwise it returns true.
+// proxySSH uses the proxy-ssh model configuration only when --proxy is unset.
 func (c *sshMachine) proxySSH(ctx context.Context) (bool, error) {
-	if c.proxy {
-		// No need to check the API if user explicitly requested
-		// proxying.
-		return true, nil
+	if c.proxy.b != nil {
+		return *c.proxy.b, nil
 	}
 	proxy, err := c.sshClient.Proxy(ctx)
 	if err != nil {
@@ -362,7 +355,7 @@ func (c *sshMachine) setProxyCommand(options *ssh.Options, targets []*resolvedTa
 		// target; with multiple targets we would need a different
 		// proxy command for each one
 		options.SetProxyCommand(
-			juju, "ssh",
+			juju, "ssh", "--direct",
 			"--model="+c.modelName,
 			// We still need to proxy through the controller to
 			// reach the via target as the target machine might not
@@ -375,10 +368,10 @@ func (c *sshMachine) setProxyCommand(options *ssh.Options, targets []*resolvedTa
 			"nc %h %p",
 		)
 	} else {
-		// Use the controller as a jumpbox and run nc to route traffic
-		// to the ssh port of the target.
+		// The controller hop must not inherit proxy-ssh from the model,
+		// or it would generate another ProxyCommand to the controller.
 		options.SetProxyCommand(
-			juju, "ssh",
+			juju, "ssh", "--direct",
 			"--model="+c.modelName,
 			"--proxy=false",
 			"--no-host-key-checks",
@@ -428,7 +421,7 @@ func (c *sshMachine) resolveTarget(ctx context.Context, target string) (*resolve
 	}
 
 	getAddress := c.reachableAddressGetter
-	if c.proxy {
+	if c.useProxy {
 		// Ideally a reachability scan would be done from the
 		// controller's perspective but that isn't possible yet, so
 		// fall back to the legacy mode (i.e. use the instance's
@@ -497,10 +490,10 @@ func (c *sshMachine) resolveWithRetry(ctx context.Context, target resolvedTarget
 }
 
 // legacyAddressGetter returns the preferred public or private address of the
-// given entity (private when c.proxy is true), using the sshClient. Only used
+// given entity (private when proxying), using the sshClient. Only used
 // when the SSHClient API facade v2 is not available or when proxy-ssh is set.
 func (c *sshMachine) legacyAddressGetter(ctx context.Context, entity string) (string, error) {
-	if c.proxy {
+	if c.useProxy {
 		return c.sshClient.PrivateAddress(ctx, entity)
 	}
 
