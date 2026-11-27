@@ -10,6 +10,8 @@ def on_config_changed(event):
     print("config changed")
     other_file_func()
 
+    juju.set_status("active", message="config changed")
+
 def on_relation_created(event):
     print("relation created")
 

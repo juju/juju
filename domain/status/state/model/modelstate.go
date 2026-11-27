@@ -191,6 +191,43 @@ func (st *ModelState) GetApplicationUUIDByName(ctx context.Context, name string)
 	return id, nil
 }
 
+// GetApplicationNameByUUID returns the given application's name, or
+// [applicationerrors.ApplicationNotFound] if none is found.
+func (st *ModelState) GetApplicationNameByUUID(
+	ctx context.Context,
+	applicationID string,
+) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	ident := applicationUUID{UUID: applicationID}
+	var name applicationName
+	query, err := st.Prepare(`
+SELECT name AS &applicationName.name
+FROM application
+WHERE uuid = $applicationUUID.uuid;
+`, ident, name)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, query, ident).Get(&name); errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("application %q not found", applicationID).
+				Add(applicationerrors.ApplicationNotFound)
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return name.Name, nil
+}
+
 // GetApplicationUUIDAndNameByUnitName returns the application UUID and name for the
 // named unit.
 //

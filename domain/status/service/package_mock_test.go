@@ -50,6 +50,7 @@ type MockModelStateMockRecorder struct {
 	getAllVolumesExpects                                      []*gomock.Call1_2[context.Context, []status.Volume, error]
 	getApplicationAndUnitModelStatusesExpects                 []*gomock.Call1_2[context.Context, map[string]int, error]
 	getApplicationAndUnitStatusesExpects                      []*gomock.Call1_2[context.Context, map[string]status.Application, error]
+	getApplicationNameByUUIDExpects                           []*gomock.Call2_2[context.Context, string, string, error]
 	getApplicationStatusExpects                               []*gomock.Call2_2[context.Context, application.UUID, status.StatusInfo[status.WorkloadStatusType], error]
 	getApplicationUUIDAndNameByUnitNameExpects                []*gomock.Call2_3[context.Context, unit.Name, application.UUID, string, error]
 	getApplicationUUIDByNameExpects                           []*gomock.Call2_2[context.Context, string, application.UUID, error]
@@ -412,6 +413,24 @@ func (mr *MockModelStateMockRecorder) GetApplicationAndUnitStatuses(ctx any) *Mo
 
 // MockModelStateGetApplicationAndUnitStatusesCall is the typed call wrapper for GetApplicationAndUnitStatuses.
 type MockModelStateGetApplicationAndUnitStatusesCall = gomock.Call1_2[context.Context, map[string]status.Application, error]
+
+// GetApplicationNameByUUID mocks base method.
+func (m *MockModelState) GetApplicationNameByUUID(ctx context.Context, applicationID string) (string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getApplicationNameByUUIDExpects, m.ctrl, m, "GetApplicationNameByUUID", ctx, applicationID)
+}
+
+// GetApplicationNameByUUID indicates an expected call of GetApplicationNameByUUID.
+func (mr *MockModelStateMockRecorder) GetApplicationNameByUUID(ctx, applicationID any) *MockModelStateGetApplicationNameByUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, string, error](mr.mock.ctrl.T, mr.mock, "GetApplicationNameByUUID", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(applicationID))
+	mr.getApplicationNameByUUIDExpects = append(mr.getApplicationNameByUUIDExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelStateGetApplicationNameByUUIDCall is the typed call wrapper for GetApplicationNameByUUID.
+type MockModelStateGetApplicationNameByUUIDCall = gomock.Call2_2[context.Context, string, string, error]
 
 // GetApplicationStatus mocks base method.
 func (m *MockModelState) GetApplicationStatus(ctx context.Context, appID application.UUID) (status.StatusInfo[status.WorkloadStatusType], error) {

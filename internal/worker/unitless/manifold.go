@@ -26,6 +26,9 @@ type ManifoldConfig struct {
 	// services.
 	GetScriptletService func(dependency.Getter, string) (ScriptletService, error)
 
+	// GetApplicationStatusService extracts the application status service.
+	GetApplicationStatusService func(dependency.Getter, string) (ApplicationStatusService, error)
+
 	// NewWorker creates the unitless worker.
 	NewWorker func(Config) (worker.Worker, error)
 
@@ -43,6 +46,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.GetScriptletService == nil {
 		return errors.New("nil GetScriptletService not valid").Add(coreerrors.NotValid)
+	}
+	if config.GetApplicationStatusService == nil {
+		return errors.New("nil GetApplicationStatusService not valid").Add(coreerrors.NotValid)
 	}
 	if config.NewWorker == nil {
 		return errors.New("nil NewWorker not valid").Add(coreerrors.NotValid)
@@ -76,8 +82,14 @@ func (config ManifoldConfig) start(_ context.Context, getter dependency.Getter) 
 		return nil, errors.Capture(err)
 	}
 
+	statusService, err := config.GetApplicationStatusService(getter, config.DomainServicesName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
 	w, err := config.NewWorker(Config{
 		ScriptletService: scriptletService,
+		StatusService:    statusService,
 		NewExecutor:      NewStarformExecutor,
 		Clock:            config.Clock,
 		MaxAllocs:        defaultMaxAllocs,
@@ -100,4 +112,14 @@ func GetScriptletService(getter dependency.Getter, name string) (ScriptletServic
 	}
 
 	return domainServices.Unitless(), nil
+}
+
+// GetApplicationStatusService extracts the application status service.
+func GetApplicationStatusService(getter dependency.Getter, name string) (ApplicationStatusService, error) {
+	var domainServices services.ModelDomainServices
+	if err := getter.Get(name, &domainServices); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return domainServices.Status(), nil
 }

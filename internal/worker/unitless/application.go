@@ -5,8 +5,10 @@ package unitless
 
 import (
 	"context"
+	"errors"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 
@@ -14,19 +16,23 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainunitless "github.com/juju/juju/domain/unitless"
 	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/scriptlet"
 )
 
 type applicationRunnerConfig struct {
 	ApplicationUUID  coreapplication.UUID
 	ScriptletService ScriptletService
+	StatusService    ApplicationStatusService
 	NewExecutor      ExecutorFactory
 	MaxAllocs        int64
 	MaxSteps         int64
 	MaxDuration      time.Duration
+	Clock            clock.Clock
 	Logger           logger.Logger
 }
 
@@ -227,13 +233,63 @@ func (r *applicationRunner) handleEvent(ctx context.Context, eventName string) e
 
 	intents, err := r.executor.Handle(ctx, event)
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			select {
+			case <-r.catacomb.Dying():
+				// Respect runner shutdown.
+				r.config.Logger.Infof(
+					ctx, "scriptlet event %q for application %q interrupted by shutdown",
+					event.Name, r.config.ApplicationUUID)
+				return nil
+			default:
+				// Not shutdown; treat as a scriptlet failure.
+			}
+		}
 		r.config.Logger.Errorf(
 			ctx, "executing scriptlet event %q for application %q: %v", event.Name, r.config.ApplicationUUID, err)
+		if err := r.setStatus(ctx, corestatus.Blocked, err.Error()); err != nil {
+			// The caller wraps this with the event name and application UUID.
+			return internalerrors.Errorf("setting blocked status: %w", err)
+		}
 		return nil
 	}
 	for _, intent := range intents {
 		r.config.Logger.Infof(
 			ctx, "scriptlet application %q event %q intent: %s", r.config.ApplicationUUID, event.Name, intent.Type)
 	}
+	return r.applyIntents(ctx, intents)
+}
+
+// applyIntents applies the given intents, logging and skipping unknown types.
+func (r *applicationRunner) applyIntents(ctx context.Context, intents []scriptlet.Intent) error {
+	for _, intent := range intents {
+		switch intent.Type {
+		case scriptlet.IntentSetStatus:
+			if err := r.applySetStatusIntent(ctx, intent); err != nil {
+				return internalerrors.Errorf("applying intent %q: %w", intent.Type, err)
+			}
+		default:
+			r.config.Logger.Warningf(ctx, "ignoring unknown intent type %q", intent.Type)
+		}
+	}
 	return nil
+}
+
+// applySetStatusIntent applies the given set-status intent.
+func (r *applicationRunner) applySetStatusIntent(ctx context.Context, intent scriptlet.Intent) error {
+	statusName, _ := intent.Args["status"].(string)
+	message, _ := intent.Args["message"].(string)
+	return r.setStatus(ctx, corestatus.Status(statusName), message)
+}
+
+// setStatus sets the given application's status and message.
+func (r *applicationRunner) setStatus(ctx context.Context, status corestatus.Status, message string) error {
+	return r.config.StatusService.SetApplicationStatusByUUID(
+		ctx, r.config.ApplicationUUID,
+		corestatus.StatusInfo{
+			Status:  status,
+			Message: message,
+			Since:   new(r.config.Clock.Now()),
+		},
+	)
 }

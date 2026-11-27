@@ -200,6 +200,72 @@ func (s *serviceSuite) TestSetApplicationStatusInvalidStatus(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `.*unknown workload status "allocating"`)
 }
 
+func (s *serviceSuite) TestSetApplicationStatusByUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+
+	applicationUUID := tc.Must(c, application.NewUUID)
+	s.modelState.EXPECT().GetApplicationNameByUUID(gomock.Any(), applicationUUID.String()).Return("gitlab", nil)
+	s.modelState.EXPECT().SetApplicationStatus(gomock.Any(), applicationUUID, status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusBlocked,
+		Message: "doink",
+		Data:    []byte(`{"foo":"bar"}`),
+		Since:   &now,
+	})
+
+	err := s.modelService.SetApplicationStatusByUUID(c.Context(), applicationUUID, corestatus.StatusInfo{
+		Status:  corestatus.Blocked,
+		Message: "doink",
+		Data:    map[string]any{"foo": "bar"},
+		Since:   &now,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(s.statusHistory.records, tc.DeepEquals, []statusHistoryRecord{{
+		ns: statushistory.Namespace{Kind: corestatus.KindApplication, ID: "gitlab"},
+		s: corestatus.StatusInfo{
+			Status:  corestatus.Blocked,
+			Message: "doink",
+			Data:    map[string]any{"foo": "bar"},
+			Since:   &now,
+		},
+	}})
+}
+
+func (s *serviceSuite) TestSetApplicationStatusByUUIDInvalidUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.modelService.SetApplicationStatusByUUID(c.Context(), "invalid", corestatus.StatusInfo{
+		Status: corestatus.Blocked,
+	})
+	c.Assert(err, tc.ErrorMatches, `validating application UUID.*`)
+}
+
+func (s *serviceSuite) TestSetApplicationStatusByUUIDNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	applicationUUID := tc.Must(c, application.NewUUID)
+	s.modelState.EXPECT().GetApplicationNameByUUID(gomock.Any(), applicationUUID.String()).Return(
+		"", applicationerrors.ApplicationNotFound,
+	)
+
+	err := s.modelService.SetApplicationStatusByUUID(c.Context(), applicationUUID, corestatus.StatusInfo{
+		Status: corestatus.Blocked,
+	})
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *serviceSuite) TestSetApplicationStatusByUUIDInvalidStatus(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	applicationUUID := tc.Must(c, application.NewUUID)
+	err := s.modelService.SetApplicationStatusByUUID(c.Context(), applicationUUID, corestatus.StatusInfo{
+		Status: corestatus.Status("invalid"),
+	})
+	c.Assert(err, tc.ErrorMatches, `.*unknown workload status "invalid"`)
+}
+
 func (s *serviceSuite) TestSetOperatorStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
