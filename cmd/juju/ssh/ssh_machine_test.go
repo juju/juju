@@ -269,92 +269,158 @@ func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForContainerMachineTarg
 // differs from the suite's current controller (testing.ControllerName),
 // so the nested command must use the resolved one.
 func (s *SSHMachineSuite) TestSetProxyCommandQualifiesModelWithResolvedController(c *gc.C) {
+	for i, m := range []struct {
+		about   string
+		modelID string
+		expect  string
+	}{{
+		about:   "bare model name",
+		modelID: "m",
+		expect:  "ctrl-b:m",
+	}, {
+		about:   "owner-qualified model name",
+		modelID: "admin/m",
+		expect:  "ctrl-b:admin/m",
+	}} {
+		c.Logf("model test %d: %s", i, m.about)
+
+		ctrl := gomock.NewController(c)
+
+		// The model command resolves the target model on the
+		// controller "ctrl-b", which is not the current controller.
+		mc := mocks.NewMockModelCommand(ctrl)
+		mc.EXPECT().ModelIdentifier().Return(m.modelID, nil)
+		mc.EXPECT().ControllerName().Return("ctrl-b", nil)
+
+		machine := &sshMachine{
+			// With proxying explicitly requested, initRun does not query
+			// the API for the proxy-ssh setting.
+			proxy: true,
+			// Pre-set API clients let initRun skip opening a connection;
+			// none of their methods are expected to be called. The API
+			// address is set here because ensureAPIClient is skipped.
+			sshClient: fakeAPIClient{},
+			apiAddr:   &url.URL{Host: "1.2.3.4:17070"},
+		}
+		machine.setLeaderAPI(mocks.NewMockLeaderAPI(ctrl))
+
+		err := machine.initRun(mc)
+		c.Assert(err, jc.ErrorIsNil)
+
+		for j, t := range []struct {
+			about   string
+			targets []*resolvedTarget
+			expect  string
+		}{{
+			about:   "controller jump",
+			targets: []*resolvedTarget{{user: "ubuntu", host: "10.0.0.1"}},
+			expect: `juju ssh --model=` + m.expect + ` --proxy=false ` +
+				`--no-host-key-checks --pty=false ubuntu@1.2.3.4 ` +
+				`-q "nc %h %p"`,
+		}, {
+			about: "via target",
+			targets: []*resolvedTarget{{
+				user: "ubuntu", host: "252.66.6.42",
+				via: &resolvedTarget{user: "ubuntu", host: "10.0.0.1"},
+			}},
+			expect: `juju ssh --model=` + m.expect + ` --proxy=true ` +
+				`--no-host-key-checks --pty=false ubuntu@10.0.0.1 ` +
+				`-q "nc %h %p"`,
+		}} {
+			c.Logf("test %d.%d: %s", i, j, t.about)
+
+			var options ssh.Options
+			err := machine.setProxyCommand(&options, t.targets)
+			c.Assert(err, jc.ErrorIsNil)
+
+			// The fake ssh set up by the suite echoes its arguments,
+			// including the rendered -o ProxyCommand value.
+			out, err := ssh.Command("ubuntu@10.0.0.1", nil, &options).CombinedOutput()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Check(string(out), jc.Contains, "-o ProxyCommand "+t.expect)
+		}
+		ctrl.Finish()
+	}
+}
+
+// TestInitRunPropagatesControllerNameError checks that a failure to
+// resolve the controller name is returned by initRun.
+func (s *SSHMachineSuite) TestInitRunPropagatesControllerNameError(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	// The model command resolves the target model "m" on the
-	// controller "ctrl-b", which is not the current controller.
+	boom := errors.New("cannot resolve controller")
 	mc := mocks.NewMockModelCommand(ctrl)
 	mc.EXPECT().ModelIdentifier().Return("m", nil)
-	mc.EXPECT().ControllerName().Return("ctrl-b", nil)
+	mc.EXPECT().ControllerName().Return("", boom)
 
-	machine := &sshMachine{
-		// With proxying explicitly requested, initRun does not query
-		// the API for the proxy-ssh setting.
-		proxy: true,
-		// Pre-set API clients let initRun skip opening a connection;
-		// none of their methods are expected to be called. The API
-		// address is set here because ensureAPIClient is skipped.
-		sshClient: fakeAPIClient{},
-		apiAddr:   &url.URL{Host: "1.2.3.4:17070"},
-	}
-	machine.setLeaderAPI(mocks.NewMockLeaderAPI(ctrl))
+	err := new(sshMachine).initRun(mc)
+	c.Assert(err, jc.ErrorIs, boom)
+}
 
-	err := machine.initRun(mc)
-	c.Assert(err, jc.ErrorIsNil)
-
+// TestInitRunValidatesControllerName checks that controller names
+// which could escape the proxy command are rejected before being
+// qualified into it, while shell-safe names (including DNS-shaped
+// ones) are accepted.
+func (s *SSHMachineSuite) TestInitRunValidatesControllerName(c *gc.C) {
 	for i, t := range []struct {
 		about   string
-		targets []*resolvedTarget
-		expect  string
+		name    string
+		allowed bool
 	}{{
-		about:   "controller jump",
-		targets: []*resolvedTarget{{user: "ubuntu", host: "10.0.0.1"}},
-		expect: `juju ssh --model=ctrl-b:m --proxy=false ` +
-			`--no-host-key-checks --pty=false ubuntu@1.2.3.4 ` +
-			`-q "nc %h %p"`,
+		about:   "simple name",
+		name:    "ctrl-b",
+		allowed: true,
 	}, {
-		about: "via target",
-		targets: []*resolvedTarget{{
-			user: "ubuntu", host: "252.66.6.42",
-			via: &resolvedTarget{user: "ubuntu", host: "10.0.0.1"},
-		}},
-		expect: `juju ssh --model=ctrl-b:m --proxy=true ` +
-			`--no-host-key-checks --pty=false ubuntu@10.0.0.1 ` +
-			`-q "nc %h %p"`,
+		about:   "DNS-shaped name",
+		name:    "ctrl.example.com",
+		allowed: true,
+	}, {
+		about: "command substitution",
+		name:  "ctrl`id`",
+	}, {
+		about: "command separator",
+		name:  "ctrl;rm -rf /",
+	}, {
+		about: "pipe",
+		name:  "ctrl|id",
+	}, {
+		about: "colon breaks the round-trip model split",
+		name:  "ctrl:evil",
+	}, {
+		about: "empty name",
+		name:  "",
 	}} {
 		c.Logf("test %d: %s", i, t.about)
 
-		var options ssh.Options
-		err := machine.setProxyCommand(&options, t.targets)
-		c.Assert(err, jc.ErrorIsNil)
+		ctrl := gomock.NewController(c)
+		mc := mocks.NewMockModelCommand(ctrl)
+		mc.EXPECT().ModelIdentifier().Return("m", nil)
+		mc.EXPECT().ControllerName().Return(t.name, nil)
 
-		// The fake ssh set up by the suite echoes its arguments,
-		// including the rendered -o ProxyCommand value.
-		out, err := ssh.Command("ubuntu@10.0.0.1", nil, &options).CombinedOutput()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(string(out), jc.Contains, "-o ProxyCommand "+t.expect)
+		machine := &sshMachine{
+			// As above: let initRun skip the API connection and its
+			// proxy-ssh query.
+			proxy:     true,
+			sshClient: fakeAPIClient{},
+			apiAddr:   &url.URL{Host: "1.2.3.4:17070"},
+		}
+		machine.setLeaderAPI(mocks.NewMockLeaderAPI(ctrl))
+
+		err := machine.initRun(mc)
+		if t.allowed {
+			c.Check(err, jc.ErrorIsNil)
+		} else {
+			c.Check(errors.IsNotValid(err), jc.IsTrue)
+		}
+		ctrl.Finish()
 	}
 }
 
 // fakeAPIClient implements sshAPIClient. It allows setting up
 // sshMachine without an API connection; none of its methods are
 // expected to be called.
-type fakeAPIClient struct{}
-
-func (fakeAPIClient) PublicAddress(string) (string, error) {
-	return "", errors.New("unexpected call to PublicAddress")
-}
-
-func (fakeAPIClient) PrivateAddress(string) (string, error) {
-	return "", errors.New("unexpected call to PrivateAddress")
-}
-
-func (fakeAPIClient) AllAddresses(string) ([]string, error) {
-	return nil, errors.New("unexpected call to AllAddresses")
-}
-
-func (fakeAPIClient) PublicKeys(string) ([]string, error) {
-	return nil, errors.New("unexpected call to PublicKeys")
-}
-
-func (fakeAPIClient) Proxy() (bool, error) {
-	return false, errors.New("unexpected call to Proxy")
-}
-
-func (fakeAPIClient) Close() error {
-	return errors.New("unexpected call to Close")
-}
+type fakeAPIClient struct{ sshAPIClient }
 
 func (s *SSHMachineSuite) TestKeyFetchRetries(c *gc.C) {
 	s.setupModel(c)
