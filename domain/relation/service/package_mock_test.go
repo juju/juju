@@ -233,6 +233,7 @@ type MockStateMockRecorder struct {
 	setRelationRemoteApplicationAndUnitSettingsExpects []*gomock.Call5_1[context.Context, string, string, map[string]string, map[string]map[string]string, error]
 	setRelationUnitSettingsExpects                     []*gomock.Call4_1[context.Context, relation.UnitUUID, map[string]string, []string, error]
 	setRemoteRelationSuspendedStateExpects             []*gomock.Call4_1[context.Context, string, bool, string, error]
+	setSettingsSequencesExpects                        []*gomock.Call1_1[context.Context, error]
 	watcherApplicationSettingsNamespaceExpects         []*gomock.Call0_1[string]
 }
 
@@ -986,6 +987,24 @@ func (mr *MockStateMockRecorder) SetRemoteRelationSuspendedState(ctx, relationUU
 
 // MockStateSetRemoteRelationSuspendedStateCall is the typed call wrapper for SetRemoteRelationSuspendedState.
 type MockStateSetRemoteRelationSuspendedStateCall = gomock.Call4_1[context.Context, string, bool, string, error]
+
+// SetSettingsSequences mocks base method.
+func (m *MockState) SetSettingsSequences(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_1(&m.recorder.setSettingsSequencesExpects, m.ctrl, m, "SetSettingsSequences", ctx)
+}
+
+// SetSettingsSequences indicates an expected call of SetSettingsSequences.
+func (mr *MockStateMockRecorder) SetSettingsSequences(ctx any) *MockStateSetSettingsSequencesCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_1[context.Context, error](mr.mock.ctrl.T, mr.mock, "SetSettingsSequences", gomock.EnsureMatcher(ctx))
+	mr.setSettingsSequencesExpects = append(mr.setSettingsSequencesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateSetSettingsSequencesCall is the typed call wrapper for SetSettingsSequences.
+type MockStateSetSettingsSequencesCall = gomock.Call1_1[context.Context, error]
 
 // WatcherApplicationSettingsNamespace mocks base method.
 func (m *MockState) WatcherApplicationSettingsNamespace() string {

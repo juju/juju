@@ -29,6 +29,8 @@ import (
 	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
 	migrationclaimstate "github.com/juju/juju/domain/modelmigration/state/controller"
 	migrationmodelstate "github.com/juju/juju/domain/modelmigration/state/model"
+	relationservice "github.com/juju/juju/domain/relation/service"
+	relationstate "github.com/juju/juju/domain/relation/state"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/uuid"
@@ -140,6 +142,10 @@ func (g activationDomainServicesGetter) ServicesForModel(
 			g.clock,
 			g.logger,
 		),
+		relation: relationservice.NewWatchableService(
+			relationstate.NewState(g.modelFactory, g.clock, g.logger, nil),
+			nil, nil, nil, nil, g.logger,
+		),
 	}, nil
 }
 
@@ -149,6 +155,7 @@ type activationDomainServices struct {
 	modelMigration *modelmigrationservice.WatchableService
 	model          *modelservice.WatchableService
 	cmr            *crossmodelrelationservice.WatchableService
+	relation       *relationservice.WatchableService
 }
 
 func (s activationDomainServices) ModelMigration() *modelmigrationservice.WatchableService {
@@ -161,6 +168,10 @@ func (s activationDomainServices) Model() *modelservice.WatchableService {
 
 func (s activationDomainServices) CrossModelRelation() *crossmodelrelationservice.WatchableService {
 	return s.cmr
+}
+
+func (s activationDomainServices) Relation() *relationservice.WatchableService {
+	return s.relation
 }
 
 func (s *controllerImportSuite) activationGetter(

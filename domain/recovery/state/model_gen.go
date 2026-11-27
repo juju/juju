@@ -1862,7 +1862,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "relation_application_settings_hash",
 			deleteSQL: `DELETE FROM "relation_application_settings_hash" AS t`,
-			insertSQL: `INSERT INTO "relation_application_settings_hash" ("relation_endpoint_uuid", "sha256") SELECT $RelationApplicationSettingsHash.relation_endpoint_uuid AS "relation_endpoint_uuid", $RelationApplicationSettingsHash.sha256 AS "sha256"`,
+			insertSQL: `INSERT INTO "relation_application_settings_hash" ("relation_endpoint_uuid", "sha256", "revision") SELECT $RelationApplicationSettingsHash.relation_endpoint_uuid AS "relation_endpoint_uuid", $RelationApplicationSettingsHash.sha256 AS "sha256", $RelationApplicationSettingsHash.revision AS "revision"`,
 			sample:    exporttypes.RelationApplicationSettingsHash{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
 				return insertRows(ctx, tx, stmt, dump.RelationApplicationSettingsHash, nil)
@@ -1972,7 +1972,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "relation_unit_settings_hash",
 			deleteSQL: `DELETE FROM "relation_unit_settings_hash" AS t`,
-			insertSQL: `INSERT INTO "relation_unit_settings_hash" ("relation_unit_uuid", "sha256") SELECT $RelationUnitSettingsHash.relation_unit_uuid AS "relation_unit_uuid", $RelationUnitSettingsHash.sha256 AS "sha256"`,
+			insertSQL: `INSERT INTO "relation_unit_settings_hash" ("relation_unit_uuid", "sha256", "revision") SELECT $RelationUnitSettingsHash.relation_unit_uuid AS "relation_unit_uuid", $RelationUnitSettingsHash.sha256 AS "sha256", $RelationUnitSettingsHash.revision AS "revision"`,
 			sample:    exporttypes.RelationUnitSettingsHash{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
 				return insertRows(ctx, tx, stmt, dump.RelationUnitSettingsHash, nil)

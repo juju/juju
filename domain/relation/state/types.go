@@ -190,16 +190,24 @@ type relationUnitSettingName struct {
 type applicationSettingsHash struct {
 	RelationEndpointUUID string `db:"relation_endpoint_uuid"`
 	Hash                 string `db:"sha256"`
+	Revision             int64  `db:"revision"`
 }
 
-type nameAndHash struct {
-	Hash string `db:"sha256"`
-	Name string `db:"name"`
+type relationSettingsHash struct {
+	RelationUUID string `db:"relation_uuid"`
+	Hash         string `db:"sha256"`
+	Revision     int64  `db:"revision"`
+}
+
+type nameAndRevision struct {
+	Revision int64  `db:"revision"`
+	Name     string `db:"name"`
 }
 
 type unitSettingsHash struct {
 	RelationUnitUUID string `db:"relation_unit_uuid"`
 	Hash             string `db:"sha256"`
+	Revision         int64  `db:"revision"`
 }
 
 type keys []string

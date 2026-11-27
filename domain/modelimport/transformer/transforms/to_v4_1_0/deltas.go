@@ -5,6 +5,7 @@ package to_v4_1_0
 
 import (
 	"context"
+	"encoding/binary"
 	"strconv"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -131,6 +132,19 @@ func (d deltas) RelationApplicationSetting(_ context.Context, src []v4_0_12.Rela
 	return result, nil
 }
 
+// RelationApplicationSettingsHash preserves each legacy hash-derived version.
+func (d deltas) RelationApplicationSettingsHash(_ context.Context, src []v4_0_12.RelationApplicationSettingsHash, _ *v4_0_12.ModelExport) ([]v4_1_0.RelationApplicationSettingsHash, error) {
+	result := make([]v4_1_0.RelationApplicationSettingsHash, len(src))
+	for i, hash := range src {
+		result[i] = v4_1_0.RelationApplicationSettingsHash{
+			RelationEndpointUUID: hash.RelationEndpointUUID,
+			Sha256:               hash.Sha256,
+			Revision:             hashToInt(hash.Sha256),
+		}
+	}
+	return result, nil
+}
+
 // RelationUnitSetting copies all v4_0_12 fields into the 4.1.0 schema, where the
 // relation_unit_setting.value column is NOT NULL and disallows the empty string.
 // A 4.0.12 row whose value is NULL (or empty) has no valid representation in
@@ -150,6 +164,27 @@ func (d deltas) RelationUnitSetting(_ context.Context, src []v4_0_12.RelationUni
 		})
 	}
 	return result, nil
+}
+
+// RelationUnitSettingsHash preserves each legacy hash-derived version.
+func (d deltas) RelationUnitSettingsHash(_ context.Context, src []v4_0_12.RelationUnitSettingsHash, _ *v4_0_12.ModelExport) ([]v4_1_0.RelationUnitSettingsHash, error) {
+	result := make([]v4_1_0.RelationUnitSettingsHash, len(src))
+	for i, hash := range src {
+		result[i] = v4_1_0.RelationUnitSettingsHash{
+			RelationUnitUUID: hash.RelationUnitUUID,
+			Sha256:           hash.Sha256,
+			Revision:         hashToInt(hash.Sha256),
+		}
+	}
+	return result, nil
+}
+
+// hashToInt matches the legacy watcher version: the first eight bytes of the
+// hash text in little-endian order, padded with zeros for short or empty hashes.
+func hashToInt(hash string) int64 {
+	var prefix [8]byte
+	copy(prefix[:], hash)
+	return int64(binary.LittleEndian.Uint64(prefix[:]))
 }
 
 // ApplicationScale: struct shape changed in 4.1.0. We always default to 0,

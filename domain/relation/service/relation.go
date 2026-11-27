@@ -43,6 +43,10 @@ type StatusHistory interface {
 type State interface {
 	WatcherState
 
+	// SetSettingsSequences initialises missing settings sequences and raises
+	// existing counters to at least the highest revision in each relation.
+	SetSettingsSequences(ctx context.Context) error
+
 	// ApplicationExists checks if the given application exists.
 	ApplicationExists(ctx context.Context, applicationID application.UUID) error
 
@@ -409,6 +413,16 @@ func NewService(
 		statusHistory:       statusHistory,
 		storagePoolProvider: storagePoolProvider,
 	}
+}
+
+// ReconcileSettingsSequences prepares an imported model's settings sequences
+// before migration releases its workers. It preserves higher counters and is
+// safe to repeat while the model remains gated for import.
+func (s *Service) ReconcileSettingsSequences(ctx context.Context) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return errors.Capture(s.st.SetSettingsSequences(ctx))
 }
 
 // AddRelation takes two endpoints identifiers of the form

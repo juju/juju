@@ -412,7 +412,7 @@ WHERE relation_endpoint_uuid = ?
 			}
 			settings[key] = value
 		}
-		return nil
+		return rows.Err()
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) getting relation settings: %s",
 		errors.ErrorStack(err)))
@@ -487,7 +487,7 @@ WHERE relation_unit_uuid = ?
 			}
 			settings[key] = value
 		}
-		return nil
+		return rows.Err()
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) getting relation settings: %s",
 		errors.ErrorStack(err)))

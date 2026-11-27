@@ -3131,9 +3131,9 @@ func (s *relationSuite) TestGetRelationApplicationSettingsApplicationNotFoundFor
 
 func (s *relationSuite) TestGetRelationUnitsChanges(c *tc.C) {
 	// Arrange
-	// - 1 application with settings hash => will return a non nil hash
+	// - 1 application with settings hash => will return a positive revision
 	// - 1 unit with no settings hash => will return a version of 0
-	// - 1 unit with settings hash => will return a non nil hash
+	// - 1 unit with settings hash => will return a positive revision
 	// - 1 unit requested but not found => will be added to departed
 	charmUUID := s.addCharm(c)
 	charmRelationUUID := s.addCharmRelationWithDefaults(c, charmUUID)
@@ -3414,8 +3414,8 @@ func (s *relationSuite) TestGetRelationUnitChanges(c *tc.C) {
 	withSettingRelationEndpointUUID := s.addRelationEndpoint(c, relationUUID, withSettingAppEndpointUUID)
 	s.addRelationUnit(c, noSettingUnitUUID, noSettingRelationEndpointUUID)
 	relUnitUUID := s.addRelationUnit(c, withSettingUnitUUID, withSettingRelationEndpointUUID)
-	s.addRelationUnitSettingsHash(c, relUnitUUID, "42")
-	s.addRelationApplicationSettingsHash(c, withSettingRelationEndpointUUID, "84")
+	s.addRelationUnitSettingsHash(c, relUnitUUID, "42", 1)
+	s.addRelationApplicationSettingsHash(c, withSettingRelationEndpointUUID, "84", 2)
 
 	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) cannot get the DB: %s", errors.ErrorStack(err)))
@@ -3433,13 +3433,13 @@ func (s *relationSuite) TestGetRelationUnitChanges(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error: %s", errors.ErrorStack(err)))
-	c.Assert(changes.Changed, tc.DeepEquals, map[coreunit.Name]int64{
+	c.Check(changes.Changed, tc.DeepEquals, map[coreunit.Name]int64{
 		"noSetting/0":   0,
-		"withSetting/0": hashToInt("42"),
+		"withSetting/0": 1,
 	})
-	c.Assert(changes.AppChanged, tc.DeepEquals, map[string]int64{
+	c.Check(changes.AppChanged, tc.DeepEquals, map[string]int64{
 		"noSetting":   0,
-		"withSetting": hashToInt("84"),
+		"withSetting": 2,
 	})
 	c.Assert(changes.Departed, tc.SameContents, []coreunit.Name{"noSetting/1"})
 }
@@ -3482,8 +3482,8 @@ func (s *relationSuite) TestGetRelationUnitChangesForDifferentRelationUUID(c *tc
 	withSettingRelationEndpointUUID := s.addRelationEndpoint(c, relationUUID, withSettingAppEndpointUUID)
 	s.addRelationUnit(c, noSettingUnitUUID, noSettingRelationEndpointUUID)
 	relUnitUUID := s.addRelationUnit(c, withSettingUnitUUID, withSettingRelationEndpointUUID)
-	s.addRelationUnitSettingsHash(c, relUnitUUID, "42")
-	s.addRelationApplicationSettingsHash(c, withSettingRelationEndpointUUID, "84")
+	s.addRelationUnitSettingsHash(c, relUnitUUID, "42", 1)
+	s.addRelationApplicationSettingsHash(c, withSettingRelationEndpointUUID, "84", 2)
 
 	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) cannot get the DB: %s", errors.ErrorStack(err)))
@@ -4980,8 +4980,8 @@ func (s *relationSuite) TestGetConsumerRelationUnitsChangeSettings(c *tc.C) {
 	withSettingUnitUUID := s.addUnit(c, "withSetting/0", withSettingAppUUID, charmUUID)
 	withSettingRelationEndpointUUID := s.addRelationEndpoint(c, relationUUID, withSettingAppEndpointUUID)
 	relUnitUUID := s.addRelationUnit(c, withSettingUnitUUID, withSettingRelationEndpointUUID)
-	s.addRelationUnitSettingsHash(c, relUnitUUID, "42")
-	s.addRelationApplicationSettingsHash(c, withSettingRelationEndpointUUID, "84")
+	s.addRelationUnitSettingsHash(c, relUnitUUID, "42", 1)
+	s.addRelationApplicationSettingsHash(c, withSettingRelationEndpointUUID, "84", 2)
 
 	// Act
 	changes, err := s.state.GetConsumerRelationUnitsChange(c.Context(),
@@ -4992,10 +4992,10 @@ func (s *relationSuite) TestGetConsumerRelationUnitsChangeSettings(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(changes.UnitsSettingsVersions, tc.DeepEquals, map[string]int64{
-		"withSetting/0": hashToInt("42"),
+		"withSetting/0": 1,
 	})
 	c.Check(changes.AppSettingsVersion, tc.DeepEquals, map[string]int64{
-		"withSetting": hashToInt("84"),
+		"withSetting": 2,
 	})
 	c.Check(changes.DepartedUnits, tc.SameContents, []string{})
 }
@@ -5127,20 +5127,20 @@ func (s *relationSuite) TestGetRelationUUIDsByUnitUUIDEmpty(c *tc.C) {
 
 // addRelationUnitSettingsHash inserts a relation unit settings hash into the
 // database using the provided relationUnitUUID.
-func (s *relationSuite) addRelationUnitSettingsHash(c *tc.C, relationUnitUUID corerelation.UnitUUID, hash string) {
+func (s *relationSuite) addRelationUnitSettingsHash(c *tc.C, relationUnitUUID corerelation.UnitUUID, hash string, revision int64) {
 	s.query(c, `
-INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256)
-VALUES (?,?)
-`, relationUnitUUID, hash)
+INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256, revision)
+VALUES (?,?,?)
+`, relationUnitUUID, hash, revision)
 }
 
 // addRelationApplicationSettingsHash inserts a relation application settings hash into the
 // database using the provided relationEndpointUUID.
-func (s *relationSuite) addRelationApplicationSettingsHash(c *tc.C, relationEndpointUUID string, hash string) {
+func (s *relationSuite) addRelationApplicationSettingsHash(c *tc.C, relationEndpointUUID string, hash string, revision int64) {
 	s.query(c, `
-INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256)
-VALUES (?,?)
-`, relationEndpointUUID, hash)
+INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256, revision)
+VALUES (?,?,?)
+`, relationEndpointUUID, hash, revision)
 }
 
 // fetchAllRelationStatusesOrderByRelationIDs retrieves all relation statuses
@@ -5171,7 +5171,7 @@ ORDER BY r.relation_id
 			}
 			statuses = append(statuses, status)
 		}
-		return nil
+		return rows.Err()
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) fetching inserted relation statuses: %s",
 		errors.ErrorStack(err)))
@@ -5206,7 +5206,7 @@ JOIN relation r  ON re.relation_uuid = r.uuid
 			}
 			epUUIDsByRelID[relID] = append(epUUIDsByRelID[relID], corerelation.EndpointUUID(epUUID))
 		}
-		return nil
+		return rows.Err()
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) fetching inserted relation endpoint: %s", errors.ErrorStack(err)))
 	return epUUIDsByRelID
@@ -5258,7 +5258,7 @@ ORDER BY r.relation_id, rne.cidr
 			result = append(result, currentCIDRs)
 		}
 
-		return nil
+		return rows.Err()
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) fetching relation network egress: %s", errors.ErrorStack(err)))
 	return result

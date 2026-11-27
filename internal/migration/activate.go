@@ -121,6 +121,11 @@ func prepareActivation(
 		return errors.Errorf("validating imported model %q: %w", modelUUID, err)
 	}
 
+	if err := domainServices.Relation().ReconcileSettingsSequences(ctx); err != nil {
+		return errors.Errorf(
+			"reconciling relation settings sequences during activation of model %q: %w", modelUUID, err)
+	}
+
 	if err := reconcileOffererControllers(ctx, domainServices, modelUUID, args); err != nil {
 		return errors.Errorf(
 			"reconciling offerer controller UUIDs for model %q: %w", modelUUID, err)
@@ -131,9 +136,9 @@ func prepareActivation(
 			"reconciling model agent version during activation of model %q: %w", modelUUID, err)
 	}
 
-	// Re-check the claim last. Preparation writes only shared controller rows,
-	// using compare-or-insert, so an abort racing it has nothing to undo - but a
-	// caller told preparation succeeded should not then meet a refused commit.
+	// Re-check the claim last. Shared controller rows use compare-or-insert;
+	// model-owned sequence writes are removed with the model database on abort.
+	// A caller told preparation succeeded should not meet a refused commit.
 	if err := domainServices.ModelMigration().AssertImporting(ctx, modelUUID); err != nil {
 		return errors.Errorf("model %q import claim changed during activation: %w", modelUUID, err)
 	}

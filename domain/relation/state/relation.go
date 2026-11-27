@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
-	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"sort"
@@ -36,6 +35,7 @@ import (
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/relation/internal"
+	domainsequence "github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/internal/errors"
 )
@@ -1248,9 +1248,9 @@ func (st *State) GetRelationUnitChanges(
 	type (
 		uuids  []string
 		change struct {
-			UUID string `db:"uuid"`
-			Name string `db:"name"`
-			Hash string `db:"sha256"`
+			UUID     string `db:"uuid"`
+			Name     string `db:"name"`
+			Revision int64  `db:"revision"`
 		}
 	)
 
@@ -1260,8 +1260,8 @@ func (st *State) GetRelationUnitChanges(
 SELECT 
     ru.unit_uuid AS &change.uuid,
     u.name AS &change.name,
-    rush.sha256 AS &change.sha256
-FROM relation as r
+    COALESCE(rush.revision, 0) AS &change.revision
+FROM relation AS r
 JOIN relation_endpoint AS re ON r.uuid = re.relation_uuid
 JOIN relation_unit AS ru ON re.uuid = ru.relation_endpoint_uuid
 JOIN unit AS u ON ru.unit_uuid = u.uuid
@@ -1275,7 +1275,7 @@ WHERE r.uuid = $relationUUID.uuid AND ru.unit_uuid IN ($uuids[:])`, change{}, re
 SELECT 
     ae.application_uuid AS &change.uuid,
     a.name AS &change.name,
-    rash.sha256 AS &change.sha256
+    COALESCE(rash.revision, 0) AS &change.revision
 FROM application_endpoint AS ae
 JOIN application AS a ON ae.application_uuid = a.uuid
 JOIN relation_endpoint AS re ON ae.uuid = re.endpoint_uuid 
@@ -1343,10 +1343,10 @@ FROM   identities AS i`, getUnit{}, rel, uuids{})
 
 	return domainrelation.RelationUnitsChange{
 		Changed: transform.SliceToMap(unitChanges, func(c change) (unit.Name, int64) {
-			return unit.Name(c.Name), hashToInt(c.Hash)
+			return unit.Name(c.Name), c.Revision
 		}),
 		AppChanged: transform.SliceToMap(appChanges, func(c change) (string, int64) {
-			return c.Name, hashToInt(c.Hash)
+			return c.Name, c.Revision
 		}),
 		Departed: transform.Slice(departedUnits, func(f getUnit) unit.Name { return f.Name }),
 	}, nil
@@ -2089,21 +2089,6 @@ func (st *State) checkUnitCanEnterScope(ctx context.Context, tx *sqlair.TX, rela
 	return nil
 }
 
-// hashToInt converts the first 8 bytes of a hash string into an int64
-// using little-endian byte order.
-// If the hash is shorter than 8 bytes, it pads it with zero bytes.
-// Returns 0 for an empty hash.
-func hashToInt(hash string) int64 {
-	sha := []byte(hash)
-	if len(sha) < 8 {
-		// Avoid panic in case of empty or short hash.
-		sha = append(sha, make([]byte, 8-len(sha))...)
-	}
-	// Empty hash should return 0, since we will have zero-bits.
-	uintValue := binary.LittleEndian.Uint64(sha[:8])
-	return int64(uintValue)
-}
-
 // isSubordinate returns true if the application is a subordinate application.
 func (st *State) isSubordinate(
 	ctx context.Context,
@@ -2427,10 +2412,36 @@ func (st *State) updateApplicationSettingsHash(
 		RelationEndpointUUID: endpointUUID,
 		Hash:                 hash,
 	}
+	currentStmt, err := st.Prepare(`
+SELECT re.relation_uuid AS &relationSettingsHash.relation_uuid,
+       COALESCE(rash.sha256, '') AS &relationSettingsHash.sha256,
+       COALESCE(rash.revision, 0) AS &relationSettingsHash.revision
+FROM relation_endpoint AS re
+LEFT JOIN relation_application_settings_hash AS rash
+    ON rash.relation_endpoint_uuid = re.uuid
+WHERE re.uuid = $applicationSettingsHash.relation_endpoint_uuid
+`, arg, relationSettingsHash{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	var current relationSettingsHash
+	if err := tx.Query(ctx, currentStmt, arg).Get(&current); err != nil {
+		return errors.Capture(err)
+	}
+	if current.Hash == hash && current.Revision != 0 {
+		return nil
+	}
+	namespace := domainsequence.MakePrefixNamespace(domainrelation.SettingsSequenceNamespace, current.RelationUUID)
+	revision, err := sequencestate.NextValueWithStart(ctx, st, tx, namespace, 1)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	arg.Revision = int64(revision)
 	stmt, err := st.Prepare(`
 INSERT INTO relation_application_settings_hash (*) 
 VALUES ($applicationSettingsHash.*) 
-ON CONFLICT (relation_endpoint_uuid) DO UPDATE SET sha256 = excluded.sha256
+ON CONFLICT (relation_endpoint_uuid) DO UPDATE
+SET sha256 = excluded.sha256, revision = excluded.revision
 `, applicationSettingsHash{})
 	if err != nil {
 		return errors.Capture(err)
@@ -2616,10 +2627,36 @@ func (st *State) updateUnitSettingsHash(ctx context.Context, tx *sqlair.TX, unit
 		RelationUnitUUID: unitUUID,
 		Hash:             hash,
 	}
+	currentStmt, err := st.Prepare(`
+SELECT re.relation_uuid AS &relationSettingsHash.relation_uuid,
+       COALESCE(rush.sha256, '') AS &relationSettingsHash.sha256,
+       COALESCE(rush.revision, 0) AS &relationSettingsHash.revision
+FROM relation_unit AS ru
+JOIN relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
+LEFT JOIN relation_unit_settings_hash AS rush ON rush.relation_unit_uuid = ru.uuid
+WHERE ru.uuid = $unitSettingsHash.relation_unit_uuid
+`, arg, relationSettingsHash{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	var current relationSettingsHash
+	if err := tx.Query(ctx, currentStmt, arg).Get(&current); err != nil {
+		return errors.Capture(err)
+	}
+	if current.Hash == hash && current.Revision != 0 {
+		return nil
+	}
+	namespace := domainsequence.MakePrefixNamespace(domainrelation.SettingsSequenceNamespace, current.RelationUUID)
+	revision, err := sequencestate.NextValueWithStart(ctx, st, tx, namespace, 1)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	arg.Revision = int64(revision)
 	stmt, err := st.Prepare(`
 INSERT INTO relation_unit_settings_hash (*) 
 VALUES ($unitSettingsHash.*) 
-ON CONFLICT (relation_unit_uuid) DO UPDATE SET sha256 = excluded.sha256
+ON CONFLICT (relation_unit_uuid) DO UPDATE
+SET sha256 = excluded.sha256, revision = excluded.revision
 `, unitSettingsHash{})
 	if err != nil {
 		return errors.Capture(err)
@@ -3017,14 +3054,14 @@ func (st *State) getApplicationSettingsVersion(
 	relationUUID, applicationUUID string,
 ) (map[string]int64, error) {
 	stmt, err := st.Prepare(`
-SELECT (rash.sha256, a.name) AS (&nameAndHash.*)
+SELECT (rash.revision, a.name) AS (&nameAndRevision.*)
 FROM   relation_application_settings_hash AS rash
 JOIN   relation_endpoint AS re ON rash.relation_endpoint_uuid = re.uuid
 JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
 JOIN   application AS a ON ae.application_uuid = a.uuid
 WHERE  a.uuid = $relationAndApplicationUUID.application_uuid
 AND    re.relation_uuid = $relationAndApplicationUUID.relation_uuid
-`, relationAndApplicationUUID{}, nameAndHash{})
+`, relationAndApplicationUUID{}, nameAndRevision{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -3033,14 +3070,14 @@ AND    re.relation_uuid = $relationAndApplicationUUID.relation_uuid
 		RelationUUID:  relationUUID,
 		ApplicationID: applicationUUID,
 	}
-	var result nameAndHash
+	var result nameAndRevision
 	err = tx.Query(ctx, stmt, relAndApp).Get(&result)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return nil, nil
 	} else if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return map[string]int64{result.Name: hashToInt(result.Hash)}, nil
+	return map[string]int64{result.Name: result.Revision}, nil
 }
 
 func (st *State) getUnitsSettingsVersions(
@@ -3049,7 +3086,7 @@ func (st *State) getUnitsSettingsVersions(
 	relationUUID, applicationUUID string,
 ) (map[string]int64, error) {
 	stmt, err := st.Prepare(`
-SELECT (rush.sha256, u.name) AS (&nameAndHash.*)
+SELECT (rush.revision, u.name) AS (&nameAndRevision.*)
 FROM   relation_unit_settings_hash AS rush
 JOIN   relation_unit AS ru ON rush.relation_unit_uuid = ru.uuid
 JOIN   relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
@@ -3058,7 +3095,7 @@ JOIN   application AS a ON ae.application_uuid = a.uuid
 JOIN   unit AS u ON a.uuid = u.application_uuid AND ru.unit_uuid = u.uuid
 WHERE  a.uuid = $relationAndApplicationUUID.application_uuid
 AND    re.relation_uuid = $relationAndApplicationUUID.relation_uuid
-`, relationAndApplicationUUID{}, nameAndHash{})
+`, relationAndApplicationUUID{}, nameAndRevision{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -3067,15 +3104,15 @@ AND    re.relation_uuid = $relationAndApplicationUUID.relation_uuid
 		RelationUUID:  relationUUID,
 		ApplicationID: applicationUUID,
 	}
-	var result []nameAndHash
+	var result []nameAndRevision
 	err = tx.Query(ctx, stmt, relAndApp).GetAll(&result)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return nil, nil
 	} else if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return transform.SliceToMap(result, func(in nameAndHash) (string, int64) {
-		return in.Name, hashToInt(in.Hash)
+	return transform.SliceToMap(result, func(in nameAndRevision) (string, int64) {
+		return in.Name, in.Revision
 	}), nil
 }
 
