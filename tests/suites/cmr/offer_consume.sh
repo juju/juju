@@ -322,23 +322,39 @@ run_offer_find_external_user() {
 	# Start the discharger in the background; wait for it to write its two
 	# output lines (URL then public key).
 	IDP_OUTPUT="${TEST_DIR}/idp-output.txt"
+	local idp_stderr="${TEST_DIR}/idp-stderr.txt"
+	local idp_pid idp_port
+	# On cold GitHub Actions caches, Go logs downloads to stderr, not the URL/key stream.
+	: >"${IDP_OUTPUT}"
 	go run -exec "$(track_daemon_exec_trampoline)" \
 		github.com/juju/juju/tests/tools/test-identity-provider \
-		--username testextuser >"${IDP_OUTPUT}" 2>&1 &
+		--username testextuser >"${IDP_OUTPUT}" 2>"${idp_stderr}" &
+	idp_pid=$!
+	# Track go run too, so cleanup also covers compilation before the trampoline.
+	track_daemon_pid "${idp_pid}"
 
 	IDP_URL=""
 	IDP_PUBKEY=""
 	for i in $(seq 1 20); do
-		if [[ $(wc -l <"${IDP_OUTPUT}" 2>/dev/null) -ge 2 ]]; then
+		if ! kill -0 "${idp_pid}" 2>/dev/null; then
+			break
+		fi
+		if [[ $(wc -l <"${IDP_OUTPUT}") -ge 2 ]]; then
 			IDP_URL=$(sed -n '1p' "${IDP_OUTPUT}")
 			IDP_PUBKEY=$(sed -n '2p' "${IDP_OUTPUT}")
 			break
 		fi
-		sleep $i
+		sleep "$i"
 	done
 
-	if [[ -z ${IDP_URL} || -z ${IDP_PUBKEY} ]]; then
-		echo "ERROR: test identity provider failed to start"
+	# bakerytest uses an HTTP loopback server; MarshalText emits a 32-byte
+	# key in standard padded base64 (including canonical zero padding bits).
+	idp_port=${IDP_URL##*:}
+	if ! kill -0 "${idp_pid}" 2>/dev/null ||
+		[[ ! ${IDP_URL} =~ ^http://(127\.0\.0\.1|\[::1\]):[1-9][0-9]{0,4}$ ]] ||
+		((idp_port > 65535)) ||
+		[[ ! ${IDP_PUBKEY} =~ ^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$ ]]; then
+		echo "ERROR: test identity provider startup failed; see ${idp_stderr}" >&2
 		exit 1
 	fi
 	echo "Identity provider running at ${IDP_URL}"
