@@ -14,6 +14,7 @@ test_static_analysis() {
 	test_static_analysis_python
 	test_schema
 	test_text_primary_key
+	test_gce_fallback
 
 	# slow ones go last
 	test_static_analysis_go
