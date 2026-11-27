@@ -39,6 +39,67 @@ func (s *recoverySuite) TestCheckAgentVersionBuildMismatch(c *tc.C) {
 		"archive was created by agent version 4.1.0 but this binary is 4.1.0.1.*")
 }
 
+// TestCheckAgentCompatibility pins the version-line gate: patch and build
+// numbers may differ within one version line, but major.minor and the
+// pre-release tag may not. The tag's number is part of the tag, so
+// 4.1-beta3 and 4.1-beta4 are different lines.
+func (s *recoverySuite) TestCheckAgentCompatibility(c *tc.C) {
+	for _, test := range []struct {
+		summary  string
+		archived string
+		current  string
+	}{{
+		summary:  "same release",
+		archived: "4.1.0",
+		current:  "4.1.0",
+	}, {
+		summary:  "release patch",
+		archived: "4.1.0",
+		current:  "4.1.7",
+	}, {
+		summary:  "release build",
+		archived: "4.1.0.1",
+		current:  "4.1.0",
+	}, {
+		summary:  "pre-release build",
+		archived: "4.1-beta3.1",
+		current:  "4.1-beta3",
+	}} {
+		c.Logf("%s", test.summary)
+		info := &recovery.ArchiveInfo{AgentVersion: semversion.MustParse(test.archived)}
+		c.Check(info.CheckAgentCompatibility(semversion.MustParse(test.current)), tc.ErrorIsNil)
+	}
+
+	for _, test := range []struct {
+		summary  string
+		archived string
+		current  string
+	}{{
+		summary:  "different minor",
+		archived: "4.1.0",
+		current:  "4.2.0",
+	}, {
+		summary:  "different major",
+		archived: "4.1.0",
+		current:  "5.1.0",
+	}, {
+		summary:  "different pre-release tag",
+		archived: "4.1-beta3",
+		current:  "4.1-beta4",
+	}, {
+		summary:  "pre-release and release",
+		archived: "4.1-beta3",
+		current:  "4.1.0",
+	}} {
+		c.Logf("%s", test.summary)
+		info := &recovery.ArchiveInfo{AgentVersion: semversion.MustParse(test.archived)}
+		err := info.CheckAgentCompatibility(semversion.MustParse(test.current))
+		c.Check(err, tc.ErrorMatches,
+			"archive was created by agent version .* but this binary is .*; "+
+				"recovery requires the same major.minor version line and pre-release tag")
+	}
+}
+
 func (s *recoverySuite) TestCheckProviderFamily(c *tc.C) {
 	info := &recovery.ArchiveInfo{CloudType: "lxd"}
 	c.Check(info.CheckProviderFamily("lxd"), tc.ErrorIsNil)

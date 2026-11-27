@@ -69,6 +69,9 @@ var (
 	supportedJujuBases = append(coretesting.FakeSupportedJujuBases,
 		corebase.MustParseBaseFromString("ubuntu@18.04"),
 	)
+	recoveryArchivePath    = "/tmp/recovery.tar.gz"
+	recoveryArchiveSHA256  = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	recoverySystemIdentity = "source-system-identity"
 )
 
 type bootstrapSuite struct {
@@ -446,6 +449,9 @@ func validMachineRecoveryParams(archivedVersion semversion.Number) bootstrap.Mac
 		MachineID:                  "7",
 		CAPrivateKey:               coretesting.CAKey,
 		AdminSecret:                "fake-moon-landing",
+		ArchivePath:                recoveryArchivePath,
+		ArchiveSHA256:              recoveryArchiveSHA256,
+		SystemIdentity:             recoverySystemIdentity,
 		AvailableTools:             recoveryTools(archivedVersion, arch.AMD64),
 		BootstrapSSHAuthorizedKeys: []string{"ssh-ed25519 AAAA"},
 	}
@@ -532,11 +538,14 @@ func (s *bootstrapSuite) TestBootstrapRecoveryMachine(c *tc.C) {
 	c.Check(env.instanceConfig.Bootstrap.StateInitializationParams.AgentVersion,
 		tc.Equals, archivedVersion)
 	c.Check(env.instanceConfig.Bootstrap.StateInitializationParams.RecoveryMode, tc.IsTrue)
+	c.Check(env.instanceConfig.Bootstrap.ControllerAgentInfo.SystemIdentity, tc.Equals, recoverySystemIdentity)
+	c.Check(env.instanceConfig.Bootstrap.RecoveryArchivePath, tc.Equals, recoveryArchivePath)
+	c.Check(env.instanceConfig.Bootstrap.RecoveryArchiveSHA256, tc.Equals, recoveryArchiveSHA256)
 }
 
 // TestBootstrapRecoveryMachineDiscoversPackagedTools checks that when
 // AvailableTools is omitted, recovery queries packaged tools for the exact
-// archived version and architecture without invoking BuildAgentTarball.
+// archived version and architecture without reading the backup for tools.
 func (s *bootstrapSuite) TestBootstrapRecoveryMachineDiscoversPackagedTools(c *tc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	archivedVersion := coretesting.FakeVersionNumber
@@ -569,10 +578,6 @@ func (s *bootstrapSuite) TestBootstrapRecoveryMachineDiscoversPackagedTools(c *t
 	params := validMachineRecoveryParams(archivedVersion)
 	params.Arch = arch.ARM64
 	params.AvailableTools = nil
-	params.BuildAgentTarball = func(bool, string, func(semversion.Number) semversion.Number) (*sync.BuiltAgent, error) {
-		c.Fatalf("BuildAgentTarball must not run when packaged tools are found")
-		return nil, nil
-	}
 
 	id, err := bootstrap.RecoverMachine(envtesting.BootstrapTestContext(c), env, params)
 	c.Assert(err, tc.ErrorIsNil)
@@ -584,10 +589,10 @@ func (s *bootstrapSuite) TestBootstrapRecoveryMachineDiscoversPackagedTools(c *t
 	c.Check(env.finalizerCount, tc.Equals, 1)
 }
 
-// TestBootstrapRecoveryMachineFallsBackToLocalAgentBinary checks that when no
-// packaged tools match the archived version, recovery validates the host
-// platform and packages the local jujuagentd binary with build=false.
-func (s *bootstrapSuite) TestBootstrapRecoveryMachineFallsBackToLocalAgentBinary(c *tc.C) {
+// TestBootstrapRecoveryMachineFallsBackToArchivedAgent checks that recovery uses the
+// backed-up agent when simplestreams has no matching tools, even when the
+// source architecture differs from the client.
+func (s *bootstrapSuite) TestBootstrapRecoveryMachineFallsBackToArchivedAgent(c *tc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	archivedVersion := coretesting.FakeVersionNumber
 	s.PatchValue(bootstrap.FindTools, func(
@@ -600,57 +605,43 @@ func (s *bootstrapSuite) TestBootstrapRecoveryMachineFallsBackToLocalAgentBinary
 	env := &recoveryBootstrapEnviron{
 		bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
 	}
+	var stagedPath string
 	env.result = &environs.BootstrapResult{
 		InstanceID: "test-instance",
-		Arch:       arch.AMD64,
+		Arch:       arch.ARM64,
 		Base:       jammyBootstrapBase,
 		CloudBootstrapFinalizer: func(
 			_ environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts,
 		) error {
 			env.finalizerCount++
 			env.instanceConfig = icfg
+			selected := icfg.ToolsList()
+			c.Assert(selected, tc.HasLen, 1)
+			stagedPath = strings.TrimPrefix(selected[0].URL, "file://")
+			c.Check(readAgentFromBundle(c, stagedPath), tc.Equals, "archived agent")
 			return nil
 		},
 	}
 
-	var gotBuild bool
-	var gotVersion semversion.Number
-	builtDir := c.MkDir()
 	params := validMachineRecoveryParams(archivedVersion)
 	params.AvailableTools = nil
-	params.BuildAgentTarball = func(
-		build bool, _ string, getForceVersion func(semversion.Number) semversion.Number,
-	) (*sync.BuiltAgent, error) {
-		gotBuild = build
-		gotVersion = getForceVersion(semversion.Zero)
-		return &sync.BuiltAgent{
-			Dir:         builtDir,
-			StorageName: "juju.tgz",
-			Sha256Hash:  "deadbeef",
-			Size:        128,
-			Version: semversion.Binary{
-				Number:  archivedVersion,
-				Release: "ubuntu",
-				Arch:    arch.AMD64,
-			},
-		}, nil
-	}
+	params.Arch = arch.ARM64
+	params.ArchivePath, params.ArchiveSHA256 = recoveryArchiveWithAgent(c,
+		semversion.Binary{Number: archivedVersion, Release: "ubuntu", Arch: arch.ARM64})
 
 	id, err := bootstrap.RecoverMachine(envtesting.BootstrapTestContext(c), env, params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(id, tc.Equals, instance.Id("test-instance"))
-	c.Check(gotBuild, tc.IsFalse)
-	c.Check(gotVersion, tc.Equals, archivedVersion)
 	c.Assert(env.args.AvailableTools, tc.HasLen, 1)
-	c.Check(env.args.AvailableTools[0].URL, tc.Equals, "file://"+filepath.Join(builtDir, "juju.tgz"))
+	c.Check(env.args.AvailableTools[0].Version.Arch, tc.Equals, arch.ARM64)
 	c.Check(env.finalizerCount, tc.Equals, 1)
+	_, err = os.Stat(stagedPath)
+	c.Check(os.IsNotExist(err), tc.IsTrue)
 }
 
-// TestBootstrapRecoveryMachineRejectsCrossArchLocalFallback checks that when
-// no packaged tools exist and the host architecture differs from the archived
-// controller, recovery rejects the local fallback before invoking
-// BuildAgentTarball.
-func (s *bootstrapSuite) TestBootstrapRecoveryMachineRejectsCrossArchLocalFallback(c *tc.C) {
+// TestBootstrapRecoveryMachineRejectsMissingArchivedAgent checks that a missing
+// matching agent fails before allocating a replacement instance.
+func (s *bootstrapSuite) TestBootstrapRecoveryMachineRejectsMissingArchivedAgent(c *tc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	archivedVersion := coretesting.FakeVersionNumber
 	s.PatchValue(bootstrap.FindTools, func(
@@ -666,15 +657,61 @@ func (s *bootstrapSuite) TestBootstrapRecoveryMachineRejectsCrossArchLocalFallba
 	params := validMachineRecoveryParams(archivedVersion)
 	params.Arch = arch.ARM64
 	params.AvailableTools = nil
-	params.BuildAgentTarball = func(bool, string, func(semversion.Number) semversion.Number) (*sync.BuiltAgent, error) {
-		c.Fatalf("BuildAgentTarball must not run when host arch differs from archived arch")
-		return nil, nil
-	}
+	params.ArchivePath, params.ArchiveSHA256 = recoveryArchiveWithAgent(c,
+		semversion.Binary{Number: archivedVersion, Release: "ubuntu", Arch: arch.AMD64})
 
 	id, err := bootstrap.RecoverMachine(envtesting.BootstrapTestContext(c), env, params)
 	c.Check(id, tc.Equals, instance.Id(""))
-	c.Check(err, tc.ErrorMatches, `cannot use agent built for "arm64" using a machine running on "amd64"`)
+	c.Check(err, tc.ErrorMatches, `preparing archived agent binary: recovery archive does not contain agent .*`)
 	c.Check(env.bootstrapCount, tc.Equals, 0)
+}
+
+func (s *bootstrapSuite) TestBootstrapRecoveryMachinePropagatesSimplestreamsError(c *tc.C) {
+	expected := errors.New("simplestreams unavailable")
+	s.PatchValue(bootstrap.FindTools, func(
+		context.Context, envtools.SimplestreamsFetcher, environs.BootstrapEnviron,
+		int, int, []string, tools.Filter,
+	) (tools.List, error) {
+		return nil, expected
+	})
+	env := &recoveryBootstrapEnviron{
+		bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+	}
+	params := validMachineRecoveryParams(coretesting.FakeVersionNumber)
+	params.AvailableTools = nil
+	_, err := bootstrap.RecoverMachine(envtesting.BootstrapTestContext(c), env, params)
+	c.Check(err, tc.ErrorIs, expected)
+	c.Check(env.bootstrapCount, tc.Equals, 0)
+}
+
+func (s *bootstrapSuite) TestBootstrapRecoveryMachineIgnoresNonMatchingPackagedAgent(c *tc.C) {
+	version := coretesting.FakeVersionNumber
+	s.PatchValue(bootstrap.FindTools, func(
+		context.Context, envtools.SimplestreamsFetcher, environs.BootstrapEnviron,
+		int, int, []string, tools.Filter,
+	) (tools.List, error) {
+		return recoveryTools(semversion.MustParse("9.9.9"), arch.AMD64), nil
+	})
+	env := &recoveryBootstrapEnviron{
+		bootstrapEnviron: newEnviron("foo", useDefaultKeys, nil),
+		result: &environs.BootstrapResult{
+			InstanceID: "test-instance", Arch: arch.AMD64, Base: jammyBootstrapBase,
+			CloudBootstrapFinalizer: func(
+				_ environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts,
+			) error {
+				c.Check(readAgentFromBundle(c, strings.TrimPrefix(icfg.ToolsList()[0].URL, "file://")),
+					tc.Equals, "archived agent")
+				return nil
+			},
+		},
+	}
+	params := validMachineRecoveryParams(version)
+	params.AvailableTools = nil
+	params.ArchivePath, params.ArchiveSHA256 = recoveryArchiveWithAgent(c,
+		semversion.Binary{Number: version, Release: "ubuntu", Arch: arch.AMD64})
+	_, err := bootstrap.RecoverMachine(envtesting.BootstrapTestContext(c), env, params)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(env.bootstrapCount, tc.Equals, 1)
 }
 
 // TestBootstrapRecoveryMachineForwardsProvisioningInputs checks that every
@@ -987,6 +1024,8 @@ func (s *bootstrapSuite) TestBootstrapRecoveryMachinePreAllocationFailure(c *tc.
 		params := validMachineRecoveryParams(archivedVersion)
 		params.SupportedBootstrapBases = supportedJujuBases
 		params.BootstrapBase = test.base
+		// Test the base itself, not a mismatch with pre-resolved tools.
+		params.AvailableTools = nil
 		id, err := bootstrap.RecoverMachine(
 			envtesting.BootstrapTestContext(c), env, params)
 		c.Check(id, tc.Equals, instance.Id(""))
@@ -1016,6 +1055,14 @@ func (s *bootstrapSuite) TestBootstrapRecoveryMachineInvalidParams(c *tc.C) {
 		mutate: func(p *bootstrap.MachineRecoveryParams) { p.AgentVersion = semversion.Number{} },
 		err:    ".*recovery without an agent version not valid",
 	}, {
+		name:   "no archive path",
+		mutate: func(p *bootstrap.MachineRecoveryParams) { p.ArchivePath = "" },
+		err:    ".*recovery without an archive path not valid",
+	}, {
+		name:   "no archive checksum",
+		mutate: func(p *bootstrap.MachineRecoveryParams) { p.ArchiveSHA256 = "" },
+		err:    ".*recovery without an archive checksum not valid",
+	}, {
 		name:   "no base",
 		mutate: func(p *bootstrap.MachineRecoveryParams) { p.BootstrapBase = corebase.Base{} },
 		err:    ".*recovery without a controller base not valid",
@@ -1043,13 +1090,6 @@ func (s *bootstrapSuite) TestBootstrapRecoveryMachineInvalidParams(c *tc.C) {
 		name:   "no admin secret",
 		mutate: func(p *bootstrap.MachineRecoveryParams) { p.AdminSecret = "" },
 		err:    ".*recovery without an admin secret not valid",
-	}, {
-		name: "no tools or builder",
-		mutate: func(p *bootstrap.MachineRecoveryParams) {
-			p.AvailableTools = nil
-			p.BuildAgentTarball = nil
-		},
-		err: ".*recovery without agent tools or builder not valid",
 	}, {
 		name: "nil tool entry",
 		mutate: func(p *bootstrap.MachineRecoveryParams) {

@@ -389,6 +389,16 @@ func (cfg *cloudConfig) ManageEtcHosts(manage bool) {
 
 // AddRunTextFile is defined on the WrittenFilesConfig interface.
 func (cfg *cloudConfig) AddRunTextFile(filename, contents string, perm uint) {
+	if perm&0077 == 0 {
+		// A private text file may contain credentials, like the node
+		// configuration embedded in the recovery parameters. Keep its
+		// contents out of shell tracing without changing the caller's
+		// tracing state.
+		cfg.AddScripts("(", "set +x")
+		cfg.AddScripts(addFileCmds(filename, []byte(contents), perm, false)...)
+		cfg.AddScripts(")")
+		return
+	}
 	cfg.AddScripts(addFileCmds(filename, []byte(contents), perm, false)...)
 }
 
@@ -406,7 +416,26 @@ func (cfg *cloudConfig) AddRunBinaryFile(filename string, data []byte, mode uint
 		cfg.AddScripts(addFileCopyCmds(source, filename, mode)...)
 		return
 	}
+	if mode&0077 == 0 {
+		// An inline binary may contain credentials. Keep its contents out
+		// of shell tracing without changing the caller's tracing state.
+		cfg.AddScripts("(", "set +x")
+		cfg.AddScripts(addFileCmds(filename, data, mode, true)...)
+		cfg.AddScripts(")")
+		return
+	}
 	cfg.AddScripts(addFileCmds(filename, data, mode, true)...)
+}
+
+// AddRunBinaryFileFromPath is defined on the WrittenFilesConfig interface.
+func (cfg *cloudConfig) AddRunBinaryFileFromPath(filename, source string, mode uint) error {
+	transporter, ok := cfg.fileTransporter.(FilePathTransporter)
+	if !ok {
+		return errors.NotSupportedf("file-backed cloud-init transfer")
+	}
+	staged := transporter.SendFile(filename, source)
+	cfg.AddScripts(addFileCopyCmds(staged, filename, mode)...)
+	return nil
 }
 
 // ShellRenderer is defined on the RenderConfig interface.

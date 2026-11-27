@@ -6,12 +6,10 @@ package sshinit
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"strings"
 
-	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/ssh"
 
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
@@ -34,6 +32,10 @@ type ConfigureParams struct {
 	// Config is the cloudinit config to carry out.
 	Config cloudinit.CloudConfig
 
+	// CleanupCommand runs in the remote shell's EXIT trap after setup. It
+	// avoids reconnecting after setup has changed the machine's SSH host keys.
+	CleanupCommand string
+
 	// ProgressWriter is an io.Writer to which progress will be written,
 	// for realtime feedback.
 	ProgressWriter io.Writer
@@ -43,39 +45,65 @@ type ConfigureParams struct {
 // SSH, and executes the provided script which is expected
 // to have been returned by cloudinit ConfigureScript.
 func RunConfigureScript(script string, params ConfigureParams) error {
-	logger.Tracef(context.TODO(), "running %d byte configuration script on %s", len(script), params.Host)
+	_, err := RunConfigureScriptContext(context.Background(), script, params)
+	return err
+}
 
-	encoded := base64.StdEncoding.EncodeToString([]byte(`
-set -e
+// RunConfigureScriptContext runs the configuration script synchronously. It
+// reports whether the remote shell confirmed that CleanupCommand succeeded,
+// even if configuration failed. The context is checked before and after the
+// SSH command because an in-flight command cannot be interrupted safely.
+func RunConfigureScriptContext(ctx context.Context, script string, params ConfigureParams) (stagingCleaned bool, err error) {
+	logger.Tracef(ctx, "running %d byte configuration script on %s", len(script), params.Host)
+
+	const cleanupAck = "juju: staged files removed"
+	var cleanupStaging string
+	if params.CleanupCommand != "" {
+		cleanupStaging = fmt.Sprintf(`
+	if ( %s ) >/dev/null; then
+		echo '%s'
+	else
+		echo "cleaning up staged files failed" >&2
+		cleanupStatus=1
+	fi`, params.CleanupCommand, cleanupAck)
+	}
+
+	// Bash parses the entire brace group before cat consumes the remaining
+	// SSH input. This streams even a large setup script straight to disk.
+	wrapper := `set -e
+tmpfile=
+cleanup() {
+	local status=$?
+	local cleanupStatus=0
+	if [ -n "$tmpfile" ]; then
+		rm -f -- "$tmpfile" || cleanupStatus=1
+	fi` + cleanupStaging + `
+	if [ "$status" -ne 0 ]; then
+		exit "$status"
+	fi
+	exit "$cleanupStatus"
+}
+trap cleanup EXIT
 tmpfile=$(mktemp)
-trap "rm -f $tmpfile" EXIT
-cat > $tmpfile
-/bin/bash $tmpfile
-`))
-
+{
+	cat > "$tmpfile"
+	/bin/bash "$tmpfile" >/dev/null
+	exit
+}
+`
 	client := params.Client
 	if client == nil {
 		client = ssh.DefaultClient
 	}
-
-	// bash will read a byte at a time when consuming commands
-	// from stdin. We avoid sending the entire script -- which
-	// will be very large when uploading tools -- directly to
-	// bash for this reason. Instead, run cat which will write
-	// the script to disk, and then execute it from there.
-	cmd := client.Command(params.Host, []string{
-		"sudo", "/bin/bash", "-c",
-		// The outer bash interprets the $(...), and executes
-		// the decoded script in the nested bash. This avoids
-		// linebreaks in the commandline, which the go.crypto-
-		// based client has trouble with.
-		fmt.Sprintf(
-			`/bin/bash -c "$(echo %s | base64 -d)"`,
-			utils.ShQuote(encoded),
-		),
-	}, params.SSHOptions)
-
-	cmd.Stdin = strings.NewReader(script)
+	cmd := client.Command(params.Host, []string{"sudo", "/bin/bash", "-s"}, params.SSHOptions)
+	cmd.Stdin = io.MultiReader(strings.NewReader(wrapper), strings.NewReader(script))
 	cmd.Stderr = params.ProgressWriter
-	return cmd.Run()
+	// Only the trap writes to stdout. Setup continues to report progress
+	// on stderr, and its exit status is independent of this acknowledgement.
+	var ack strings.Builder
+	if params.CleanupCommand != "" {
+		cmd.Stdout = &ack
+	}
+	err = runCommand(ctx, cmd)
+	return ack.String() == cleanupAck+"\n", err
 }

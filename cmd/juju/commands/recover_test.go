@@ -119,11 +119,11 @@ func (s *recoverySuite) TestRun(c *tc.C) {
 		assertionName = "backup.assert"
 		// TODO(recovery): expect success once the controller is finalised.
 		terminalError = "controller recovery database import is not available in this build; " +
-			"started replacement agent on instance test-instance"
+			"initialised replacement database on instance test-instance"
 	)
 	newProvisionedCommand := func() cmd.Command {
 		return newRecoveryCommandWithProvisioner(func(
-			_ *cmd.Context, _ jujuclient.ClientStore, _ *recovery.ArchiveInfo,
+			_ *cmd.Context, _ jujuclient.ClientStore, _ string, _ *recovery.ArchiveInfo,
 		) error {
 			return errors.New(terminalError)
 		})
@@ -313,8 +313,9 @@ func (s *recoverySuite) TestRunPassesArchiveInfoToProvisioner(c *tc.C) {
 	terminalErr := errors.New("recovery stopped after allocation")
 	var got *recovery.ArchiveInfo
 	command := newRecoveryCommandWithProvisioner(func(
-		_ *cmd.Context, _ jujuclient.ClientStore, info *recovery.ArchiveInfo,
+		_ *cmd.Context, _ jujuclient.ClientStore, archivePath string, info *recovery.ArchiveInfo,
 	) error {
+		c.Check(archivePath, tc.Equals, filepath.Join(dir, "backup.tar.gz"))
 		got = info
 		return terminalErr
 	})
@@ -327,6 +328,8 @@ func (s *recoverySuite) TestRunPassesArchiveInfoToProvisioner(c *tc.C) {
 	c.Check(got.ControllerName, tc.Equals, "source-ctrl")
 	c.Check(got.ControllerModelUUID, tc.Equals, "c0ffee00-aaaa-2222-3333-444455556666")
 	c.Check(got.CACert, tc.Equals, "source-ca-cert")
+	c.Check(got.SystemIdentity, tc.Equals, "source-system-identity")
+	c.Check(got.Checksum, tc.Equals, checksum)
 	c.Check(got.AgentVersion.String(), tc.Equals, "4.1.0")
 	c.Check(got.SourceBase, tc.Equals, "ubuntu@24.04/stable")
 	c.Check(got.SourceArch, tc.Equals, "amd64")
@@ -349,8 +352,9 @@ func (s *recoverySuite) TestRunPassesKubernetesArchiveInfoToProvisioner(c *tc.C)
 	terminalErr := errors.New("recovery stopped after allocation")
 	var got *recovery.ArchiveInfo
 	command := newRecoveryCommandWithProvisioner(func(
-		_ *cmd.Context, _ jujuclient.ClientStore, info *recovery.ArchiveInfo,
+		_ *cmd.Context, _ jujuclient.ClientStore, archivePath string, info *recovery.ArchiveInfo,
 	) error {
+		c.Check(archivePath, tc.Equals, filepath.Join(dir, "backup.tar.gz"))
 		got = info
 		return terminalErr
 	})
@@ -400,7 +404,7 @@ func (s *recoverySuite) TestRecoveryConfigs(c *tc.C) {
 // cloud access.
 func (s *recoverySuite) TestProvisionRecoveryRequiresSourceBase(c *tc.C) {
 	for _, sourceBase := range []string{"", "not-a-base"} {
-		err := provisionRecovery(cmdtesting.Context(c), nil, &recovery.ArchiveInfo{
+		err := provisionRecovery(cmdtesting.Context(c), nil, "", &recovery.ArchiveInfo{
 			CloudType:    "lxd",
 			AgentVersion: version.Current,
 			SourceBase:   sourceBase,
@@ -416,7 +420,7 @@ func (s *recoverySuite) TestProvisionRecoveryRequiresSourceBase(c *tc.C) {
 // provisions from the bootstrap client's host architecture.
 func (s *recoverySuite) TestProvisionRecoveryRequiresSourceArch(c *tc.C) {
 	for _, sourceArch := range []string{"", "not-an-arch"} {
-		err := provisionRecovery(cmdtesting.Context(c), nil, &recovery.ArchiveInfo{
+		err := provisionRecovery(cmdtesting.Context(c), nil, "", &recovery.ArchiveInfo{
 			CloudType:    "lxd",
 			AgentVersion: version.Current,
 			SourceBase:   "ubuntu@24.04",
@@ -426,21 +430,77 @@ func (s *recoverySuite) TestProvisionRecoveryRequiresSourceArch(c *tc.C) {
 	}
 }
 
-// TestProvisionRecoveryRequiresMatchingAgentVersion checks that both machine
-// and Kubernetes archives from a different agent version are rejected before
-// any cloud access or local agent build.
-func (s *recoverySuite) TestProvisionRecoveryRequiresMatchingAgentVersion(c *tc.C) {
-	for _, cloudType := range []string{"lxd", jujucloud.CloudTypeKubernetes} {
-		err := provisionRecovery(cmdtesting.Context(c), nil, &recovery.ArchiveInfo{
-			CloudType:      cloudType,
-			ControllerName: "source-ctrl",
-			AgentVersion:   semversion.MustParse("9.9.9"),
-			SourceBase:     "ubuntu@24.04",
-			SourceArch:     "amd64",
-			MachineName:    "0",
+// TestProvisionRecoveryMachineAcceptsArchivedAgentVersion checks that the client
+// does not have to run the archived agent version: the replacement agent
+// is taken from packaged tools or, failing that, from the archive itself.
+// A missing machine name makes the command stop after the version check,
+// before looking for SSH keys or contacting a cloud.
+func (s *recoverySuite) TestProvisionRecoveryMachineAcceptsArchivedAgentVersion(c *tc.C) {
+	for _, test := range []struct {
+		summary  string
+		current  string
+		archived string
+	}{{
+		summary:  "pre-release build",
+		current:  "4.1-beta3",
+		archived: "4.1-beta3.1",
+	}, {
+		summary:  "release patch",
+		current:  "4.1.0",
+		archived: "4.1.7",
+	}} {
+		c.Logf("%s", test.summary)
+		s.PatchValue(&version.Current, semversion.MustParse(test.current))
+		err := provisionRecovery(cmdtesting.Context(c), nil, "", &recovery.ArchiveInfo{
+			CloudType:    "lxd",
+			AgentVersion: semversion.MustParse(test.archived),
+			SourceBase:   "ubuntu@24.04",
+			SourceArch:   "amd64",
+		})
+		c.Check(err, tc.ErrorMatches, "archive does not record a usable controller machine")
+	}
+}
+
+// TestProvisionRecoveryMachineRejectsOtherVersionLine checks that the client
+// still refuses an archive from another version line, before any cloud
+// access: the client writes the parameters the archived agent consumes
+// and keeps talking to the recovered controller, so major.minor and the
+// pre-release tag must match.
+func (s *recoverySuite) TestProvisionRecoveryMachineRejectsOtherVersionLine(c *tc.C) {
+	for _, test := range []struct {
+		summary  string
+		current  string
+		archived string
+	}{{
+		summary:  "different minor",
+		current:  "4.1.0",
+		archived: "4.2.0",
+	}, {
+		summary:  "different major",
+		current:  "4.1.0",
+		archived: "5.1.0",
+	}, {
+		summary:  "different pre-release tag",
+		current:  "4.1-beta3",
+		archived: "4.1-beta4",
+	}, {
+		summary:  "pre-release and release",
+		current:  "4.1-beta3",
+		archived: "4.1.0",
+	}} {
+		c.Logf("%s", test.summary)
+		s.PatchValue(&version.Current, semversion.MustParse(test.current))
+		err := provisionRecovery(cmdtesting.Context(c), nil, "", &recovery.ArchiveInfo{
+			CloudType:    "lxd",
+			CloudName:    "not-a-cloud",
+			AgentVersion: semversion.MustParse(test.archived),
+			SourceBase:   "ubuntu@24.04",
+			SourceArch:   "amd64",
+			MachineName:  "0",
 		})
 		c.Check(err, tc.ErrorMatches,
-			`archive was created by agent version 9\.9\.9 but this binary .*; recovery requires the exact same version`)
+			"archive was created by agent version .* but this binary is .*; "+
+				"recovery requires the same major.minor version line and pre-release tag")
 	}
 }
 
@@ -448,7 +508,7 @@ func (s *recoverySuite) TestProvisionRecoveryRequiresMatchingAgentVersion(c *tc.
 // not record a usable controller machine is rejected before any cloud access.
 func (s *recoverySuite) TestProvisionRecoveryRequiresMachineName(c *tc.C) {
 	for _, machineName := range []string{"", "not-a-machine"} {
-		err := provisionRecovery(cmdtesting.Context(c), nil, &recovery.ArchiveInfo{
+		err := provisionRecovery(cmdtesting.Context(c), nil, "", &recovery.ArchiveInfo{
 			CloudType:    "lxd",
 			AgentVersion: version.Current,
 			SourceBase:   "ubuntu@24.04",
@@ -477,22 +537,51 @@ func (s *recoverySuite) TestAllocationTargetFromArchive(c *tc.C) {
 	wantBase, err := base.ParseBaseFromString("ubuntu@24.04/stable")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(params.BootstrapBase, tc.Equals, wantBase)
+	c.Check(params.SupportedBootstrapBases, tc.DeepEquals, []base.Base{wantBase})
+	c.Assert(params.BootstrapConstraints.Arch, tc.NotNil)
+	c.Check(*params.BootstrapConstraints.Arch, tc.Equals, nonClientArch)
 	c.Check(params.Arch, tc.Equals, nonClientArch)
 	c.Check(params.AgentVersion, tc.Equals, info.AgentVersion)
 }
 
-// recoveryProvider returns a registered provider by cloud type, so tests
-// exercise the same provider config schema recovery reads.
+func (s *recoverySuite) TestProvisionRecoveryKubernetesRequiresExactAgentVersion(c *tc.C) {
+	for _, test := range []struct{ current, archived string }{
+		{"4.1.0", "4.1.7"},
+		{"4.1-beta3", "4.1-beta3.1"},
+	} {
+		s.PatchValue(&version.Current, semversion.MustParse(test.current))
+		err := provisionRecovery(cmdtesting.Context(c), nil, "", &recovery.ArchiveInfo{
+			CloudType:    jujucloud.CloudTypeKubernetes,
+			AgentVersion: semversion.MustParse(test.archived),
+		})
+		c.Check(err, tc.ErrorMatches,
+			"archive was created by agent version .* but this binary is .*; recovery requires the exact same version")
+	}
+}
+
+// TestProvisionRecoveryRequiresIAASMachineName checks that a machine
+// archive which does not record the source controller machine is rejected
+// before any cloud access.
+func (s *recoverySuite) TestProvisionRecoveryRequiresIAASMachineName(c *tc.C) {
+	err := provisionRecovery(cmdtesting.Context(c), nil, "", &recovery.ArchiveInfo{
+		CloudType:    "lxd",
+		AgentVersion: version.Current,
+		SourceBase:   "ubuntu@24.04",
+		SourceArch:   "amd64",
+	})
+	c.Check(err, tc.ErrorMatches, "archive does not record a usable controller machine")
+}
+
+// recoveryProvider returns a registered provider so configuration tests use
+// the same provider schema as recovery.
 func recoveryProvider(c *tc.C, cloudType string) environs.EnvironProvider {
 	provider, err := environs.Provider(cloudType)
 	c.Assert(err, tc.ErrorIsNil)
 	return provider
 }
 
-// TestRecoveryConfigsPreservesArchivedSettings checks that the archived
-// controller and controller model settings survive into the configuration the
-// replacement is opened with. An LXD project in particular decides which
-// project the controller's instances land in.
+// TestRecoveryConfigsPreservesArchivedSettings checks that allocation keeps
+// the archived controller and provider-specific model configuration.
 func (s *recoverySuite) TestRecoveryConfigsPreservesArchivedSettings(c *tc.C) {
 	info := &recovery.ArchiveInfo{
 		ControllerUUID:      "c0ffee00-1111-2222-3333-444455556666",
@@ -502,33 +591,19 @@ func (s *recoverySuite) TestRecoveryConfigsPreservesArchivedSettings(c *tc.C) {
 		AgentVersion:        semversion.MustParse("4.1.0"),
 		CloudType:           "lxd",
 		ControllerConfig: map[string]string{
-			"api-port":               "17071",
-			"ssh-server-port":        "17023",
-			"auditing-enabled":       "true",
-			"audit-log-max-backups":  "7",
-			"max-debug-log-duration": "10m",
-			// A removed setting from an older/newer build must be ignored
-			// by controller.NewConfig without failing recovery.
-			"removed-setting": "ignored",
+			"api-port": "17071", "ssh-server-port": "17023",
+			"auditing-enabled": "true", "audit-log-max-backups": "7",
+			"max-debug-log-duration": "10m", "removed-setting": "ignored",
 		},
 		ControllerModelConfig: map[string]string{
-			"project":                   "my-project",
-			"image-stream":              "daily",
-			"firewall-mode":             "global",
-			"automatically-retry-hooks": "false",
-			"resource-tags":             "a=b c=d",
-			// Stale identity values must not override the archive's own.
-			"name":          "stale-name",
-			"type":          "ec2",
-			"uuid":          "deadbeef-0000-0000-0000-000000000000",
-			"agent-version": "1.0.0",
+			"project": "my-project", "image-stream": "daily", "firewall-mode": "global",
+			"automatically-retry-hooks": "false", "resource-tags": "a=b c=d",
+			"name": "stale-name", "type": "ec2",
+			"uuid": "deadbeef-0000-0000-0000-000000000000", "agent-version": "1.0.0",
 		},
 	}
-
-	provider := recoveryProvider(c, "lxd")
-	controllerConfig, modelConfig, err := recoveryConfigs(c.Context(), info, provider)
+	controllerConfig, modelConfig, err := recoveryConfigs(c.Context(), info, recoveryProvider(c, "lxd"))
 	c.Assert(err, tc.ErrorIsNil)
-
 	c.Check(controllerConfig.ControllerUUID(), tc.Equals, info.ControllerUUID)
 	c.Check(controllerConfig.ControllerName(), tc.Equals, info.ControllerName)
 	c.Check(controllerConfig.APIPort(), tc.Equals, 17071)
@@ -536,7 +611,6 @@ func (s *recoverySuite) TestRecoveryConfigsPreservesArchivedSettings(c *tc.C) {
 	c.Check(controllerConfig.AuditingEnabled(), tc.IsTrue)
 	c.Check(controllerConfig.AuditLogMaxBackups(), tc.Equals, 7)
 	c.Check(controllerConfig["removed-setting"], tc.IsNil)
-
 	c.Check(modelConfig.Name(), tc.Equals, bootstrap.ControllerModelName)
 	c.Check(modelConfig.Type(), tc.Equals, info.CloudType)
 	c.Check(modelConfig.UUID(), tc.Equals, info.ControllerModelUUID)
@@ -548,15 +622,9 @@ func (s *recoverySuite) TestRecoveryConfigsPreservesArchivedSettings(c *tc.C) {
 	tags, ok := modelConfig.ResourceTags()
 	c.Assert(ok, tc.IsTrue)
 	c.Check(tags, tc.DeepEquals, map[string]string{"a": "b", "c": "d"})
-
-	// The LXD project is read from the unknown attributes, which is exactly
-	// where the provider reads it from when opening the environ.
 	c.Check(modelConfig.UnknownAttrs()["project"], tc.Equals, "my-project")
 }
 
-// TestRecoveryConfigsCoercesProviderTypes checks that persisted provider
-// settings are typed by the provider's schema: a bool recorded as "true" must
-// not reach the provider as a string.
 func (s *recoverySuite) TestRecoveryConfigsCoercesProviderTypes(c *tc.C) {
 	info := &recovery.ArchiveInfo{
 		ControllerUUID:      "c0ffee00-1111-2222-3333-444455556666",
@@ -565,13 +633,10 @@ func (s *recoverySuite) TestRecoveryConfigsCoercesProviderTypes(c *tc.C) {
 		AgentVersion:        semversion.MustParse("4.1.0"),
 		CloudType:           "ec2",
 		ControllerModelConfig: map[string]string{
-			"vpc-id":       "vpc-1234",
-			"vpc-id-force": "true",
+			"vpc-id": "vpc-1234", "vpc-id-force": "true",
 		},
 	}
-
-	provider := recoveryProvider(c, "ec2")
-	_, modelConfig, err := recoveryConfigs(c.Context(), info, provider)
+	_, modelConfig, err := recoveryConfigs(c.Context(), info, recoveryProvider(c, "ec2"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(modelConfig.UnknownAttrs()["vpc-id-force"], tc.Equals, true)
 }
@@ -587,15 +652,10 @@ func (s *recoverySuite) TestRecoveryParamsFromArchiveForwardsProvisioningInputs(
 		},
 	}
 	info := &recovery.ArchiveInfo{
-		AgentVersion:          version.Current,
-		SourceBase:            "ubuntu@24.04/stable",
-		SourceArch:            "arm64",
-		ControllerName:        "source-ctrl",
-		ModelConstraints:      constraints.MustParse("cores=4"),
-		ControllerConstraints: constraints.MustParse("mem=4096 zones=zone-a"),
-		StoragePools:          storagePools,
+		AgentVersion: version.Current, SourceBase: "ubuntu@24.04/stable", SourceArch: "arm64",
+		ControllerName: "source-ctrl", ModelConstraints: constraints.MustParse("cores=4"),
+		ControllerConstraints: constraints.MustParse("mem=4096 zones=zone-a"), StoragePools: storagePools,
 	}
-
 	params, err := recoveryParamsFromArchive(info)
 	c.Assert(err, tc.ErrorIsNil)
 	wantBase, err := base.ParseBaseFromString(info.SourceBase)
@@ -696,7 +756,7 @@ func (s *recoverySuite) TestRecoveryCredentialsUsesLocalKubernetesRegion(c *tc.C
 // Kubernetes archive which does not record the source controller name
 // is rejected before any cloud access.
 func (s *recoverySuite) TestProvisionRecoveryRequiresKubernetesControllerName(c *tc.C) {
-	err := provisionRecovery(cmdtesting.Context(c), nil, &recovery.ArchiveInfo{
+	err := provisionRecovery(cmdtesting.Context(c), nil, "", &recovery.ArchiveInfo{
 		CloudType:    "kubernetes",
 		AgentVersion: version.Current,
 	})
@@ -728,11 +788,11 @@ func (s *recoverySuite) TestProvisionRecoveryFinalisesKubernetesCloudHostRegion(
 		CloudType:      jujucloud.CloudTypeKubernetes,
 		AgentVersion:   version.Current,
 	}
-	err := provisionRecovery(cmdtesting.Context(c), jujuclient.NewMemStore(), info)
+	err := provisionRecovery(cmdtesting.Context(c), jujuclient.NewMemStore(), "", info)
 	c.Check(err, tc.ErrorMatches, "recovery cloud does not record a host cloud region.*")
 
 	hostRegion = "microk8s/localhost"
-	err = provisionRecovery(cmdtesting.Context(c), jujuclient.NewMemStore(), info)
+	err = provisionRecovery(cmdtesting.Context(c), jujuclient.NewMemStore(), "", info)
 	c.Check(err, tc.ErrorMatches, `detecting credentials for "myk8s" cloud provider: credentials not found`)
 }
 
@@ -766,7 +826,7 @@ func (s *recoverySuite) TestProvisionRecoveryKubernetes(c *tc.C) {
 	}
 	info := validKubernetesArchiveInfo(storagePools)
 
-	err := provisionRecovery(cmdtesting.Context(c), store, info)
+	err := provisionRecovery(cmdtesting.Context(c), store, "", info)
 	c.Assert(err, tc.ErrorMatches,
 		`controller recovery database import is not available in this build; started replacement agent in namespace controller-source-ctrl`)
 
@@ -823,7 +883,7 @@ func (s *recoverySuite) TestProvisionRecoveryKubernetesReportsNamespaceOnCancell
 		},
 	})
 
-	err := provisionRecovery(cmdCtx, store, validKubernetesArchiveInfo(nil))
+	err := provisionRecovery(cmdCtx, store, "", validKubernetesArchiveInfo(nil))
 	c.Check(err, tc.ErrorIs, bootstrap.Cancelled())
 	c.Check(err, tc.ErrorMatches,
 		`replacement namespace "controller-source-ctrl" may require manual removal: cancelled`)
@@ -1046,6 +1106,10 @@ func recoveryArchiveForControllerModel(
 		`"ControllerMachineID":"0",` +
 		`"ControllerMachineInstanceID":"inst-10101010"` +
 		`}` + "\n"
+	systemIdentity := ""
+	if cloudType != "kubernetes" {
+		systemIdentity = "    system_identity: source-system-identity\n"
+	}
 	controllerDump := `version: 4.1.0
 payload:
   controller:
@@ -1053,7 +1117,7 @@ payload:
     model_uuid: ` + controllerModelUUID + `
     ca_cert: source-ca-cert
     ca_private_key: source-ca-key
-  cloud:
+` + systemIdentity + `  cloud:
   - uuid: cloud-source
     name: ` + cloudName + `
     cloud_type_id: 1

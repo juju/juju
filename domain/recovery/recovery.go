@@ -97,6 +97,11 @@ type ArchiveInfo struct {
 	CACert       string
 	CAPrivateKey string
 
+	// SystemIdentity is the source controller agent's private SSH identity,
+	// preserved so the replacement can reach surviving agents with the same
+	// identity the archive recorded.
+	SystemIdentity string
+
 	// HANodes is the number of controller nodes the source had. Recovery
 	// always produces a single-node replacement; values above one mean
 	// the remaining controller machines load as dead rows.
@@ -155,6 +160,28 @@ func (i *ArchiveInfo) CheckAgentVersion(current semversion.Number) error {
 		return errors.Errorf(
 			"archive was created by agent version %s but this binary is %s; "+
 				"recovery requires the exact same version", i.AgentVersion, current)
+	}
+	return nil
+}
+
+// CheckAgentCompatibility enforces the version-line recovery gate: the
+// client and the archive must share a major.minor version and, when
+// pre-release, the same pre-release tag. Patch and build numbers may
+// differ: the replacement agent is taken from the archive itself, and
+// CheckAgentVersion pins its exact binary identity on the replacement.
+func (i *ArchiveInfo) CheckAgentCompatibility(current semversion.Number) error {
+	archived := i.AgentVersion
+	// The tag's number is part of the pre-release identity: 4.1-beta3
+	// and 4.1-beta4 are different lines, while release patches are not.
+	sameLine := archived.Major == current.Major &&
+		archived.Minor == current.Minor &&
+		archived.Tag == current.Tag &&
+		(archived.Tag == "" || archived.Patch == current.Patch)
+	if !sameLine {
+		return errors.Errorf(
+			"archive was created by agent version %s but this binary is %s; "+
+				"recovery requires the same major.minor version line "+
+				"and pre-release tag", archived, current)
 	}
 	return nil
 }

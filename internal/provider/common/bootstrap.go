@@ -533,13 +533,22 @@ func DumpOnErrorScript(filenames ...string) string {
 	return strings.Join(lines, "\n")
 }
 
+// filesDispatched runs at the boundary between the staged file
+// transport and the machine configuration script. It is a no-op
+// outside tests, which patch it to cancel the context at that exact
+// point deterministically.
+var filesDispatched = func(context.Context) {}
+
 func ConfigureMachine(
 	ctx environs.BootstrapContext,
 	client ssh.Client,
 	host string,
 	instanceConfig *instancecfg.InstanceConfig,
 	sshOptions *ssh.Options,
-) error {
+) (resultErr error) {
+	if bootstrap.IsContextDone(ctx) {
+		return bootstrap.Cancelled()
+	}
 	// Bootstrap is synchronous, and will spawn a subprocess
 	// to complete the procedure. If the user hits Ctrl-C,
 	// SIGINT is sent to the foreground process attached to
@@ -563,7 +572,23 @@ func ConfigureMachine(
 		ProgressWriter: ctx.GetStderr(),
 	}
 
-	ft := sshinit.NewFileTransporter(sshinitConfig)
+	ft, err := sshinit.NewFileTransporter(sshinitConfig)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	stagingCleaned := false
+	defer func() {
+		if stagingCleaned {
+			// Cleanup ran in the remote script's EXIT trap. Reconnecting
+			// here would fail because setup may have rotated the host keys.
+			return
+		}
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+		if err := ft.Cleanup(cleanupCtx); err != nil {
+			resultErr = stderrors.Join(resultErr, errors.Annotate(err, "cleaning up staged files"))
+		}
+	}()
 	cloudcfg.SetFileTransporter(ft)
 
 	udata, err := cloudconfig.NewUserdataConfig(instanceConfig, cloudcfg)
@@ -583,15 +608,29 @@ func ConfigureMachine(
 
 	// Wait for the files to be sent to the machine.
 	if err := ft.Dispatch(ctx); err != nil {
+		if bootstrap.IsContextDone(ctx) {
+			return errors.Annotate(bootstrap.Cancelled(), "transporting files to machine")
+		}
 		return errors.Annotate(err, "transporting files to machine")
+	}
+	filesDispatched(ctx)
+	if bootstrap.IsContextDone(ctx) {
+		return bootstrap.Cancelled()
 	}
 
 	script := DumpOnErrorScript(
 		instanceConfig.CloudInitOutputLog,
 	) + configScript
 	ctx.Infof("Running machine configuration script...")
-	// TODO(benhoyt) - plumb context through juju/utils/ssh?
-	return sshinit.RunConfigureScript(script, sshinitConfig)
+	sshinitConfig.CleanupCommand = ft.CleanupCommand()
+	stagingCleaned, err = sshinit.RunConfigureScriptContext(ctx, script, sshinitConfig)
+	if err != nil {
+		if bootstrap.IsContextDone(ctx) {
+			return errors.Annotate(bootstrap.Cancelled(), "configuring machine")
+		}
+		return err
+	}
+	return nil
 }
 
 // HostSSHOptionsFunc is a function that, given a hostname, returns

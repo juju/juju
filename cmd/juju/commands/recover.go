@@ -16,7 +16,12 @@ import (
 
 // recoveryProvisioner allocates a replacement using validated archive metadata.
 // The client store supplies credentials for the target cloud.
-type recoveryProvisioner func(*cmd.Context, jujuclient.ClientStore, *recovery.ArchiveInfo) error
+type recoveryProvisioner func(
+	ctx *cmd.Context,
+	store jujuclient.ClientStore,
+	archivePath string,
+	info *recovery.ArchiveInfo,
+) error
 
 func newRecoveryCommand() cmd.Command {
 	return newRecoveryCommandWithProvisioner(provisionRecovery)
@@ -47,11 +52,14 @@ The client must be able to resolve the cloud named in the archive. On a new
 workstation, add the cloud with 'juju add-cloud --client', or a Kubernetes
 cloud with 'juju add-k8s --client', if it is not already available.
 
-This version validates the archive and installs and starts a replacement
-controller agent only. It leaves the machine or namespace for inspection and
-exits with an error reporting its ID or namespace.
-Database import and controller initialisation are not available, and the
-controller is not registered.
+On a machine cloud, recovery uploads and verifies the archive on the replacement
+machine, then initialises its Dqlite database with the controller-node row.
+On Kubernetes, recovery validates the archive locally and starts a replacement
+controller agent in the new namespace without initialising the database.
+
+Neither path imports archived state or registers the controller. The command
+leaves the replacement in place for inspection and exits with an error that
+identifies the instance or namespace.
 
 The recovering client's Juju SSH public keys are installed on the replacement
 machine so it can be inspected over SSH while recovery is pending. They grant
@@ -86,7 +94,7 @@ func (c *recoveryCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Errorf("invalid recovery archive: %w", err)
 	}
-	return c.provision(ctx, c.ClientStore(), info)
+	return c.provision(ctx, c.ClientStore(), archivePath, info)
 }
 
 // readAssertion opens and parses the backup assertion file. Every open,

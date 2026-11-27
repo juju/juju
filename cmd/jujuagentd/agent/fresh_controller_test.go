@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/juju/names/v6"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/controller"
+	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -30,6 +32,7 @@ import (
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
+	internalrecovery "github.com/juju/juju/internal/recovery"
 	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
@@ -72,16 +75,47 @@ func (s *freshControllerSuite) TestK8sTemplateCopyCanBeRetried(c *tc.C) {
 	c.Check(string(data), tc.Equals, "controller config")
 }
 
-func (s *freshControllerSuite) TestRecoverySkipsDqliteInitialisation(c *tc.C) {
-	s.assertFreshController(c, false, nil, true, agent.BootstrapControllerId)
-}
-
-func (s *freshControllerSuite) TestRecoveryUsesArchivedMachineId(c *tc.C) {
-	s.assertFreshController(c, false, nil, true, "7")
+func (s *freshControllerSuite) TestRecoverRejectsEmptyMachineParams(c *tc.C) {
+	dataDir := c.MkDir()
+	params := recoveryGuardTestParams(c, true)
+	paramsData, err := params.Marshal()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(os.WriteFile(filepath.Join(dataDir, cloudconfig.FileNameBootstrapParams), paramsData, 0600), tc.ErrorIsNil)
+	writeRecoveryMarker(c, dataDir)
+	command := NewRecoverCommand()
+	command.AgentConf = agentconf.NewAgentConf(dataDir)
+	err = command.Run(cmdtesting.Context(c))
+	c.Check(err, tc.ErrorMatches, "recovery parameters are empty")
 }
 
 func (s *freshControllerSuite) TestRecoveryK8sController(c *tc.C) {
 	s.assertFreshController(c, true, nil, true, agent.BootstrapControllerId)
+}
+
+// TestRecoveryK8sControllerNotSupported checks that a populated
+// recovery allocation for a Kubernetes controller is rejected with the
+// typed not-supported error before any database work.
+func (s *freshControllerSuite) TestRecoveryK8sControllerNotSupported(c *tc.C) {
+	dataDir := c.MkDir()
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+	modelConfig := jujutesting.CustomModelConfig(c, jujutesting.Attrs{
+		"name": "controller", "uuid": modelUUID.String(), "type": cloud.CloudTypeKubernetes,
+		"agent-version": jujuversion.Current.String(),
+	})
+	node := instancecfg.StateInitializationParams{
+		ControllerConfig:      jujutesting.FakeControllerConfig(),
+		ControllerModelConfig: modelConfig,
+		ControllerCloud: cloud.Cloud{
+			Name: "test-cloud", Type: cloud.CloudTypeKubernetes, AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
+		},
+		RecoveryMode: true,
+	}
+	writeRecoveryParams(c, dataDir, node)
+
+	command := NewRecoverCommand()
+	command.AgentConf = agentconf.NewAgentConf(dataDir)
+	err := command.Run(cmdtesting.Context(c))
+	c.Check(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
 func (s *freshControllerSuite) TestRecoverRejectsFreshBootstrapParams(c *tc.C) {
@@ -96,6 +130,19 @@ func (s *freshControllerSuite) TestRecoverRejectsFreshBootstrapParams(c *tc.C) {
 	command.AgentConf = agentconf.NewAgentConf(dataDir)
 	err = command.Run(cmdtesting.Context(c))
 	c.Check(err, tc.ErrorMatches, "bootstrap params are not for a recovery allocation")
+}
+
+// TestRecoverRejectsNonRecoveryParams checks that recovery parameters
+// embedding a fresh bootstrap allocation are rejected before any
+// database work.
+func (s *freshControllerSuite) TestRecoverRejectsNonRecoveryParams(c *tc.C) {
+	dataDir := c.MkDir()
+	writeRecoveryParams(c, dataDir, recoveryGuardTestParams(c, false))
+
+	command := NewRecoverCommand()
+	command.AgentConf = agentconf.NewAgentConf(dataDir)
+	err := command.Run(cmdtesting.Context(c))
+	c.Check(err, tc.ErrorMatches, "recovery params are not for a recovery allocation")
 }
 
 func (s *freshControllerSuite) TestRecoverRequiresRecoveryMarker(c *tc.C) {
@@ -119,6 +166,26 @@ func writeRecoveryMarker(c *tc.C, dataDir string) {
 	c.Assert(os.WriteFile(marker, nil, 0600), tc.ErrorIsNil)
 }
 
+// writeRecoveryParams writes populated recovery parameters embedding
+// the given node, as cloud-init delivers them for a machine replacement.
+// No archive is written: the guards reject a disallowed node before any
+// archive work.
+func writeRecoveryParams(c *tc.C, dataDir string, node instancecfg.StateInitializationParams) {
+	node.AgentVersion = jujuversion.Current
+	params := internalrecovery.Params{
+		ArchivePath:  filepath.Join(dataDir, "archive.tar.gz"),
+		SHA256:       strings.Repeat("0", 64),
+		AgentVersion: node.AgentVersion,
+		MachineName:  "0",
+		Node:         node,
+	}
+	data, err := params.Marshal()
+	c.Assert(err, tc.ErrorIsNil)
+	paramsPath := filepath.Join(dataDir, agent.RecoveryParamsFile)
+	c.Assert(os.MkdirAll(filepath.Dir(paramsPath), 0o700), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(paramsPath, data, 0o600), tc.ErrorIsNil)
+}
+
 // recoveryGuardTestParams returns marshalling-valid params for exercising
 // the recovery guards without a full bootstrap setup.
 func recoveryGuardTestParams(c *tc.C, recovery bool) instancecfg.StateInitializationParams {
@@ -134,6 +201,38 @@ func recoveryGuardTestParams(c *tc.C, recovery bool) instancecfg.StateInitializa
 		},
 		RecoveryMode: recovery,
 	}
+}
+
+// TestRecoveryMachineRequiresPopulatedParams checks that machine replacements
+// require the recovery parameters supplied with the uploaded archive.
+func (s *freshControllerSuite) TestRecoveryMachineRequiresPopulatedParams(c *tc.C) {
+	dataDir := c.MkDir()
+	modelConfig := jujutesting.CustomModelConfig(c, jujutesting.Attrs{
+		"name": "controller", "uuid": tc.Must0(c, coremodel.NewUUID).String(), "type": "dummy",
+		"agent-version": jujuversion.Current.String(),
+	})
+	params := instancecfg.StateInitializationParams{
+		ControllerConfig:      jujutesting.FakeControllerConfig(),
+		ControllerModelConfig: modelConfig,
+		RecoveryMode:          true,
+		ControllerCloud: cloud.Cloud{
+			Name: "test-cloud", Type: "dummy", AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
+		},
+	}
+	paramsData, err := params.Marshal()
+	c.Assert(err, tc.ErrorIsNil)
+	err = os.WriteFile(filepath.Join(dataDir, cloudconfig.FileNameBootstrapParams), paramsData, 0600)
+	c.Assert(err, tc.ErrorIsNil)
+	// An empty marker must not be mistaken for populated parameters.
+	paramsPath := filepath.Join(dataDir, agent.RecoveryParamsFile)
+	c.Assert(os.MkdirAll(filepath.Dir(paramsPath), 0o700), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(paramsPath, nil, 0o600), tc.ErrorIsNil)
+
+	command := NewRecoverCommand()
+	command.AgentConf = agentconf.NewAgentConf(dataDir)
+	command.MachineId = agent.BootstrapControllerId
+	err = command.Run(cmdtesting.Context(c))
+	c.Check(err, tc.ErrorMatches, "recovery parameters are empty")
 }
 
 func (s *freshControllerSuite) assertFreshController(
@@ -163,10 +262,6 @@ func (s *freshControllerSuite) assertFreshController(
 	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(filepath.Join(dataDir, cloudconfig.FileNameBootstrapParams), paramsData, 0600)
 	c.Assert(err, tc.ErrorIsNil)
-	if skipDqlite {
-		// cloud-init writes the recovery marker before invoking recover-state.
-		writeRecoveryMarker(c, dataDir)
-	}
 
 	cfg, err := agent.NewStateMachineConfig(agent.AgentConfigParams{
 		Paths: agent.Paths{DataDir: dataDir}, Tag: tag,
@@ -201,7 +296,8 @@ func (s *freshControllerSuite) assertFreshController(
 		c.Check(args.ControllerUUID, tc.Equals, jujutesting.ControllerTag.Id())
 	}
 	if skipDqlite {
-		// Recovery never opens the provider: state import is a later stage.
+		// Kubernetes recovery uses an empty fence and never opens the provider.
+		writeRecoveryMarker(c, dataDir)
 		s.PatchValue(&environsNewIAAS, func(_ context.Context, _ environs.OpenParams, _ environs.CredentialInvalidator) (environs.Environ, error) {
 			c.Fatalf("recovery must not open the provider")
 			return nil, nil

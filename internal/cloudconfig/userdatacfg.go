@@ -7,8 +7,11 @@ package cloudconfig
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	stdos "os"
 	"path"
 	"path/filepath"
@@ -29,6 +32,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
+	internalrecovery "github.com/juju/juju/internal/recovery"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 )
@@ -51,6 +55,10 @@ const (
 
 	// curlCommand is the base curl command used to download tools.
 	curlCommand = "curl -sSf"
+
+	// Larger backups use the file-backed transporter rather than retaining
+	// their entire contents in the generated cloud-init configuration.
+	maxInlineRecoveryFileSize = 32 << 20
 
 	// toolsDownloadWaitTime is the number of seconds to wait between
 	// each iterations of download attempts.
@@ -264,12 +272,12 @@ func (w *userdataConfig) ConfigureJuju() error {
 	}
 
 	// To keep postruncmd at the end of any runcmd's that juju adds,
-	// this block must stay at the top.
+	// this block must stay at the top. The `set +xe` switch reverting the
+	// flags set after preruncmd (LP: #1978454) is appended with the user
+	// commands: only they run with tracing and exit-on-error disabled.
+	// Switching any earlier would mask a failed Juju setup command, such
+	// as state initialisation, behind a later successful one.
 	if postruncmds, ok := w.icfg.CloudInitUserData["postruncmd"].([]any); ok {
-
-		// revert the `set -xe` shell flag which was set after preruncmd
-		// LP: #1978454
-		w.conf.AddRunCmd("set +xe")
 		cmds := make([]string, len(postruncmds))
 		for i, v := range postruncmds {
 			cmd, err := runCmdToString(v)
@@ -278,7 +286,9 @@ func (w *userdataConfig) ConfigureJuju() error {
 			}
 			cmds[i] = cmd
 		}
-		defer w.conf.AddScripts(cmds...)
+		if len(cmds) > 0 {
+			defer w.conf.AddScripts(append([]string{"set +xe"}, cmds...)...)
+		}
 	}
 
 	// Initialise progress reporting. We need to do separately for runcmd
@@ -504,17 +514,84 @@ func (w *userdataConfig) configureBootstrap() error {
 	}
 	if w.icfg.Bootstrap.RecoveryMode {
 		// The marker must exist before jujuagentd machine starts so its
-		// dependency engine waits for the recovery import. The archived
-		// machine identity only applies to recovery too: bootstrap-state
-		// defines no --machine-id flag.
-		agentStartOptions.MachineID = w.icfg.MachineId
-		w.conf.AddRunCmd(RecoveryMarkerCommand(
-			shquote(path.Join(w.icfg.DataDir, agent.RecoveryParamsFile))))
+		// dependency engine waits for the recovery import.
+		paramsPath := path.Join(w.icfg.DataDir, agent.RecoveryParamsFile)
+		if w.icfg.Bootstrap.RecoveryArchivePath == "" {
+			w.conf.AddRunCmd(RecoveryMarkerCommand(shquote(paramsPath)))
+		} else {
+			if err := w.addRecoveryArchive(); err != nil {
+				return errors.Trace(err)
+			}
+			paramsData, err := internalrecovery.Params{
+				ArchivePath:  path.Join(w.icfg.DataDir, internalrecovery.ArchiveFile),
+				SHA256:       w.icfg.Bootstrap.RecoveryArchiveSHA256,
+				AgentVersion: w.icfg.Bootstrap.AgentVersion,
+				MachineName:  w.icfg.MachineId,
+				Node:         w.icfg.Bootstrap.StateInitializationParams,
+			}.Marshal()
+			if err != nil {
+				return errors.Annotate(err, "marshalling recovery params")
+			}
+			w.conf.AddRunTextFile(paramsPath, string(paramsData), 0600)
+		}
 	}
 	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Installing Juju machine agent"))
 	w.conf.AddScripts(AgentStartCommand(agentStartOptions))
 
 	return nil
+}
+
+// addRecoveryArchive schedules the archive with the other cloud-init files.
+// The destination is published only after its expected digest is verified.
+func (w *userdataConfig) addRecoveryArchive() error {
+	checksum := strings.TrimPrefix(w.icfg.Bootstrap.RecoveryArchiveSHA256, "sha256-")
+	if len(checksum) != sha256.Size*2 {
+		return errors.New("invalid recovery archive checksum")
+	}
+	if _, err := hex.DecodeString(checksum); err != nil {
+		return errors.Annotate(err, "invalid recovery archive checksum")
+	}
+	checksum = strings.ToLower(checksum)
+	destination := path.Join(w.icfg.DataDir, internalrecovery.ArchiveFile)
+	partial := destination + ".partial"
+	if err := w.addLocalBinaryFile(partial, w.icfg.Bootstrap.RecoveryArchivePath, 0600); err != nil {
+		return errors.Annotate(err, "staging recovery archive")
+	}
+
+	w.conf.AddScripts(
+		fmt.Sprintf("recovery_sha256=$(sha256sum %s) || exit 1", shquote(partial)),
+		fmt.Sprintf(`[ "${recovery_sha256%%%% *}" = %s ] || { echo "recovery archive checksum mismatch" >&2; exit 1; }`, shquote(checksum)),
+		fmt.Sprintf("mv -f %s %s", shquote(partial), shquote(destination)),
+	)
+	return nil
+}
+
+// addLocalBinaryFile uses the ordinary binary-file API for small files and
+// the same transporter with a file-backed source for larger ones.
+func (w *userdataConfig) addLocalBinaryFile(destination, source string, mode uint) error {
+	file, err := stdos.Open(source)
+	if err != nil {
+		return errors.Annotate(err, "opening local file")
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		return errors.Annotate(err, "reading local file metadata")
+	}
+	if !info.Mode().IsRegular() {
+		return errors.New("local file is not a regular file")
+	}
+	if info.Size() <= maxInlineRecoveryFileSize {
+		data, err := io.ReadAll(io.LimitReader(file, maxInlineRecoveryFileSize+1))
+		if err != nil {
+			return errors.Annotate(err, "reading local file")
+		}
+		if len(data) <= maxInlineRecoveryFileSize {
+			w.conf.AddRunBinaryFile(destination, data, mode)
+			return nil
+		}
+	}
+	return errors.Trace(w.conf.AddRunBinaryFileFromPath(destination, source, mode))
 }
 
 func (w *userdataConfig) addLocalControllerCharmsUpload() error {
@@ -541,11 +618,19 @@ func (w *userdataConfig) addLocalControllerCharmsUpload() error {
 func (w *userdataConfig) addDownloadToolsCmds() error {
 	tools := w.icfg.ToolsList()[0]
 	if strings.HasPrefix(tools.URL, fileSchemePrefix) {
-		toolsData, err := stdos.ReadFile(tools.URL[len(fileSchemePrefix):])
-		if err != nil {
-			return err
+		source := tools.URL[len(fileSchemePrefix):]
+		destination := path.Join(w.icfg.JujuTools(), "tools.tar.gz")
+		if w.icfg.Bootstrap != nil && w.icfg.Bootstrap.RecoveryMode {
+			if err := w.addLocalBinaryFile(destination, source, 0644); err != nil {
+				return errors.Annotate(err, "staging recovery agent")
+			}
+		} else {
+			toolsData, err := stdos.ReadFile(source)
+			if err != nil {
+				return err
+			}
+			w.conf.AddRunBinaryFile(destination, toolsData, 0644)
 		}
-		w.conf.AddRunBinaryFile(path.Join(w.icfg.JujuTools(), "tools.tar.gz"), toolsData, 0644)
 	} else {
 		curlCommand := curlCommand
 		var urls []string

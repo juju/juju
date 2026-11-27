@@ -87,7 +87,8 @@ func (s *filesSuite) TestGetFilesToBackUp(c *tc.C) {
 
 	// A dangling symlink is skipped rather than failing the backup:
 	// hook-tool symlinks dangle when a unit's tools directory is wiped
-	// and recreated, and recovery never installs archived tools.
+	// and recreated; controller tools may be restored, but hook-tool
+	// links are not.
 	c.Assert(os.Symlink("gone", filepath.Join(dataDir, "tools", "dangling")),
 		tc.ErrorIsNil)
 

@@ -64,31 +64,73 @@ func BootstrapDqlite(
 	logger logger.Logger,
 	opts ...BootstrapOpt,
 ) error {
-	return errors.Capture(WithDqlite(ctx, mgr, bindAddress, logger, func(ctx context.Context, session *DqliteSession) error {
-		controller, err := session.OpenDatabase(ctx, coredatabase.ControllerNS, schema.ControllerDDL())
-		if err != nil {
-			return errors.Errorf("running controller migration: %w", err)
-		}
-
-		// The controller node must exist before the seed operations run,
-		// as it is required for referential integrity.
-		if err := InsertControllerNodeID(ctx, controller, session.NodeID(), session.BindAddress()); err != nil {
-			return errors.Errorf("inserting controller node ID: %w", err)
-		}
-
-		model, err := session.OpenDatabase(ctx, uuid.String(), schema.ModelDDL())
-		if err != nil {
-			return errors.Errorf("running model migration: %w", err)
-		}
-
-		for i, op := range opts {
-			if err := op(ctx, controller, model); err != nil {
-				return errors.Errorf("running bootstrap operation at index %d: %w", i, err)
+	return withControllerDatabase(ctx, mgr, bindAddress, logger,
+		func(ctx context.Context, session *DqliteSession, controller coredatabase.TxnRunner) error {
+			// The controller node must exist before the seed operations run,
+			// as it is required for referential integrity.
+			if err := InsertControllerNodeID(ctx, controller, session.NodeID(), session.BindAddress()); err != nil {
+				return errors.Errorf("inserting controller node ID: %w", err)
 			}
-		}
 
-		return nil
-	}))
+			model, err := session.OpenDatabase(ctx, uuid.String(), schema.ModelDDL())
+			if err != nil {
+				return errors.Errorf("running model migration: %w", err)
+			}
+
+			for i, op := range opts {
+				if err := op(ctx, controller, model); err != nil {
+					return errors.Errorf("running bootstrap operation at index %d: %w", i, err)
+				}
+			}
+
+			return nil
+		})
+}
+
+// ControllerNodeService records the Dqlite identity of a controller.
+type ControllerNodeService interface {
+	AddDqliteNode(ctx context.Context, controllerID string, nodeID uint64, bindAddress string) error
+}
+
+// RecoverDqlite opens the replacement controller database and adds its
+// controller node row. The factory receives the session's runner after schema
+// initialisation, outside any transaction. No model database is opened and
+// no bootstrap seeding runs.
+func RecoverDqlite(
+	ctx context.Context,
+	mgr BootstrapNodeManager,
+	newControllerNodeService func(coredatabase.TxnRunner) ControllerNodeService,
+	bindAddress string,
+	machineName string,
+	logger logger.Logger,
+) error {
+	return withControllerDatabase(ctx, mgr, bindAddress, logger,
+		func(ctx context.Context, session *DqliteSession, controller coredatabase.TxnRunner) error {
+			nodes := newControllerNodeService(controller)
+			return errors.Capture(nodes.AddDqliteNode(
+				ctx, machineName, session.NodeID(), session.BindAddress(),
+			))
+		})
+}
+
+// withControllerDatabase runs fn inside a Dqlite initialisation session,
+// with the controller database open and its schema applied.
+func withControllerDatabase(
+	ctx context.Context,
+	mgr BootstrapNodeManager,
+	bindAddress string,
+	logger logger.Logger,
+	fn func(ctx context.Context, session *DqliteSession, controller coredatabase.TxnRunner) error,
+) error {
+	return errors.Capture(WithDqlite(ctx, mgr, bindAddress, logger,
+		func(ctx context.Context, session *DqliteSession) error {
+			controller, err := session.OpenDatabase(
+				ctx, coredatabase.ControllerNS, schema.ControllerDDL())
+			if err != nil {
+				return errors.Errorf("running controller migration: %w", err)
+			}
+			return fn(ctx, session, controller)
+		}))
 }
 
 // InsertControllerNodeID inserts the node ID of the controller node

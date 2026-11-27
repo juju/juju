@@ -6,6 +6,8 @@ package common_test
 import (
 	"context"
 	"crypto"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,21 +17,27 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/ssh"
 	cryptossh "golang.org/x/crypto/ssh"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/cmd/cmdtesting"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
@@ -803,6 +811,318 @@ func (s *BootstrapSuite) TestSuccess(c *tc.C) {
 		computedKnownHosts.String(),
 	)
 	c.Assert(strings.Split(hostKeyAlgos, ","), tc.SameContents, computedHostKeyAlgos)
+}
+
+// TestConfigureMachineSkipsSetupWhenCancelled verifies that a cancelled
+// bootstrap does not attempt to stage or configure the machine.
+func (s *BootstrapSuite) TestConfigureMachineSkipsSetupWhenCancelled(c *tc.C) {
+	ctx, cancel := context.WithCancel(c.Context())
+	cancel()
+	err := common.ConfigureMachine(envtesting.BootstrapContext(ctx, c), nil, "10.0.0.1",
+		&instancecfg.InstanceConfig{}, nil)
+	c.Check(err, tc.ErrorIs, bootstrap.Cancelled())
+}
+
+// TestConfigureMachineTrapCleansUpOnRemoteFailure checks that a setup
+// script that ran and failed is cleaned up by its own EXIT trap: the
+// remote failure is preserved and no fallback cleanup reconnects.
+func (s *BootstrapSuite) TestConfigureMachineTrapCleansUpOnRemoteFailure(c *tc.C) {
+	root, logPath, err := s.runConfigureWithFakeSSH(c, "remote-fail")
+	c.Check(err, tc.ErrorMatches, "subprocess encountered error code 1")
+	c.Check(readSSHLog(c, logPath), tc.DeepEquals,
+		[]string{"mkdir", "stream", "setup", "trap-cleanup", "setup-end"})
+	c.Check(stagedFiles(c, root), tc.HasLen, 0)
+}
+
+// TestConfigureMachineNoReconnectAfterSuccessfulSetup checks that a
+// completed setup leaves cleanup to the remote trap: no fallback
+// connection is made.
+func (s *BootstrapSuite) TestConfigureMachineNoReconnectAfterSuccessfulSetup(c *tc.C) {
+	root, logPath, err := s.runConfigureWithFakeSSH(c, "")
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(readSSHLog(c, logPath), tc.DeepEquals,
+		[]string{"mkdir", "stream", "setup", "trap-cleanup", "setup-end"})
+	c.Check(stagedFiles(c, root), tc.HasLen, 0)
+}
+
+// TestConfigureMachineFallsBackToCleanupWhenSetupNeverRuns checks that a
+// connection failure after files were staged leaves them to the deferred
+// fallback cleanup, which runs over a fresh connection.
+func (s *BootstrapSuite) TestConfigureMachineFallsBackToCleanupWhenSetupNeverRuns(c *tc.C) {
+	root, logPath, err := s.runConfigureWithFakeSSH(c, "conn-fail")
+	c.Check(err, tc.ErrorMatches, "subprocess encountered error code 255")
+	c.Check(readSSHLog(c, logPath), tc.DeepEquals,
+		[]string{"mkdir", "stream", "cleanup"})
+	c.Check(stagedFiles(c, root), tc.HasLen, 0)
+}
+
+// sudo can return the same status as the setup script before it starts bash.
+func (s *BootstrapSuite) TestConfigureMachineFallsBackWhenSudoFails(c *tc.C) {
+	root, logPath, err := s.runConfigureWithFakeSSH(c, "sudo-fail")
+	c.Check(err, tc.ErrorMatches, "subprocess encountered error code 1")
+	c.Check(readSSHLog(c, logPath), tc.DeepEquals, []string{"mkdir", "stream", "cleanup"})
+	c.Check(stagedFiles(c, root), tc.HasLen, 0)
+}
+
+func (s *BootstrapSuite) TestConfigureMachineFallsBackWithoutAcknowledgement(c *tc.C) {
+	root, logPath, err := s.runConfigureWithFakeSSH(c, "lost-ack")
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(readSSHLog(c, logPath), tc.DeepEquals,
+		[]string{"mkdir", "stream", "setup", "trap-cleanup", "setup-end", "cleanup"})
+	c.Check(stagedFiles(c, root), tc.HasLen, 0)
+}
+
+// TestConfigureMachineCleanupFailurePreservesSetupError checks that a
+// failing fallback cleanup is reported alongside the failure that made
+// it necessary, never replacing it.
+func (s *BootstrapSuite) TestConfigureMachineCleanupFailurePreservesSetupError(c *tc.C) {
+	root, logPath, err := s.runConfigureWithFakeSSH(c, "conn-fail-rm")
+	c.Assert(err, tc.NotNil)
+	c.Check(strings.Contains(err.Error(), "subprocess encountered error code 255"), tc.IsTrue)
+	c.Check(strings.Contains(err.Error(), "cleaning up staged files"), tc.IsTrue)
+	c.Check(readSSHLog(c, logPath), tc.DeepEquals,
+		[]string{"mkdir", "stream", "cleanup"})
+	// The failed cleanup leaves the staging directory in place; the
+	// failure is reported rather than hidden.
+	c.Check(stagedFiles(c, root), tc.HasLen, 1)
+}
+
+// TestConfigureMachineCancelledDuringDispatch checks that a context
+// cancelled while files are being transported is reported as the
+// cancellation sentinel with the transport context: the configuration
+// script never runs and the staged remainder is cleaned up.
+func (s *BootstrapSuite) TestConfigureMachineCancelledDuringDispatch(c *tc.C) {
+	fixture := s.newConfigureFixture(c, "")
+	ctx, cancel := context.WithCancel(c.Context())
+	defer cancel()
+	client, err := ssh.NewOpenSSHClient()
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = fixture.run(envtesting.BootstrapContext(ctx, c),
+		&cancellingClient{Client: client, cancelOn: "umask", cancel: cancel})
+
+	c.Check(err, tc.ErrorIs, bootstrap.Cancelled())
+	c.Check(strings.Contains(err.Error(), "transporting files to machine"), tc.IsTrue)
+	// The configure script never ran: the trailing ssh call is the
+	// fallback cleanup of the partially staged files.
+	c.Check(readSSHLog(c, fixture.logPath), tc.DeepEquals,
+		[]string{"mkdir", "cleanup"})
+}
+
+// TestConfigureMachineCancelledBeforeConfigure checks that a context
+// cancelled once the files are staged stops before the configuration
+// script: the cancellation sentinel is returned and the staged files
+// are cleaned up without running setup.
+func (s *BootstrapSuite) TestConfigureMachineCancelledBeforeConfigure(c *tc.C) {
+	fixture := s.newConfigureFixture(c, "")
+	ctx, cancel := context.WithCancel(c.Context())
+	defer cancel()
+	s.PatchValue(common.FilesDispatched, func(context.Context) { cancel() })
+	client, err := ssh.NewOpenSSHClient()
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = fixture.run(envtesting.BootstrapContext(ctx, c), client)
+
+	c.Check(err, tc.ErrorIs, bootstrap.Cancelled())
+	c.Check(readSSHLog(c, fixture.logPath), tc.DeepEquals,
+		[]string{"mkdir", "stream", "cleanup"})
+}
+
+// cancellingClient cancels the run's context synchronously when the
+// named remote command is issued, driving a cancellation mid-dispatch
+// without sleeps or timers.
+type cancellingClient struct {
+	ssh.Client
+	cancelOn string
+	cancel   context.CancelFunc
+}
+
+func (c *cancellingClient) Command(host string, command []string, options *ssh.Options) *ssh.Cmd {
+	if len(command) > 0 && command[0] == c.cancelOn {
+		c.cancel()
+	}
+	return c.Client.Command(host, command, options)
+}
+
+// runConfigureWithFakeSSH renders a replacement machine configuration
+// whose recovery archive is staged over SSH, then runs ConfigureMachine
+// against a fake ssh executable. It returns the fake machine's root,
+// the invocation log path and the ConfigureMachine result.
+func (s *BootstrapSuite) runConfigureWithFakeSSH(
+	c *tc.C, mode string,
+) (string, string, error) {
+	fixture := s.newConfigureFixture(c, mode)
+	client, err := ssh.NewOpenSSHClient()
+	c.Assert(err, tc.ErrorIsNil)
+	return fixture.root, fixture.logPath,
+		fixture.run(envtesting.BootstrapTestContext(c), client)
+}
+
+// configureFixture is a provisioned machine replacement configuration
+// staging its recovery archive over SSH against a fake machine.
+type configureFixture struct {
+	icfg    *instancecfg.InstanceConfig
+	root    string
+	logPath string
+}
+
+// run executes ConfigureMachine over the given context and client.
+func (f *configureFixture) run(ctx environs.BootstrapContext, client ssh.Client) error {
+	return common.ConfigureMachine(ctx, client, "10.0.0.1", f.icfg, nil)
+}
+
+// newConfigureFixture provisions the machine replacement configuration
+// and patches the fake ssh executable; see fakeSetupSSHScript for the
+// modes and the invocation log.
+func (s *BootstrapSuite) newConfigureFixture(c *tc.C, mode string) configureFixture {
+	remoteRoot := c.MkDir()
+	logPath := filepath.Join(c.MkDir(), "ssh.log")
+	testhelpers.PatchExecutable(c, s, "ssh", fakeSetupSSHScript(remoteRoot, logPath, mode))
+
+	localArchive := filepath.Join(c.MkDir(), "backup.tar.gz")
+	payload := []byte("recovery archive payload")
+	c.Assert(os.WriteFile(localArchive, payload, 0o600), tc.ErrorIsNil)
+	digest := sha256.Sum256(payload)
+
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+	modelConfig := coretesting.CustomModelConfig(c, coretesting.Attrs{
+		"name": "controller", "uuid": modelUUID.String(), "type": "dummy",
+		"agent-version": jujuversion.Current.String(),
+	})
+	icfg, err := instancecfg.NewBootstrapInstanceConfig(
+		coretesting.FakeControllerConfig(), constraints.Value{}, constraints.Value{},
+		corebase.MustParseBaseFromString("ubuntu@24.04"), "",
+		map[string]string{"test": "true"},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	icfg.DataDir = filepath.Join(remoteRoot, "var", "lib", "juju")
+	// Setup replaces the initial host keys, so a fallback cleanup must
+	// not expect to reconnect with them.
+	icfg.Bootstrap.InitialSSHHostKeys = instancecfg.SSHHostKeys{{
+		PublicKeyAlgorithm: "ssh-ed25519", Public: "ssh-ed25519 AAAA",
+		Private: "private",
+	}}
+	icfg.APIInfo = &api.Info{
+		ModelTag: names.NewModelTag(modelUUID.String()),
+		CACert:   coretesting.CACert,
+		Password: "secret",
+	}
+	icfg.Bootstrap.ControllerModelConfig = modelConfig
+	icfg.Bootstrap.ControllerConfig = coretesting.FakeControllerConfig()
+	icfg.Bootstrap.ControllerCloud = cloud.Cloud{Name: "manual", Type: "manual"}
+	icfg.Bootstrap.ControllerAgentInfo = controller.ControllerAgentInfo{
+		Cert: coretesting.ServerCert, PrivateKey: coretesting.ServerKey,
+		CAPrivateKey: coretesting.CAKey, APIPort: 17070,
+	}
+	icfg.Bootstrap.AgentVersion = coretesting.FakeVersionNumber
+	icfg.Bootstrap.BootstrapMachineInstanceId = "i-test"
+	c.Assert(icfg.SetTools(tools.List{{
+		Version: semversion.Binary{
+			Number: coretesting.FakeVersionNumber, Release: "ubuntu", Arch: arch.AMD64,
+		},
+		URL:    "https://example.invalid/agent.tgz",
+		SHA256: strings.Repeat("0", 64),
+	}}), tc.ErrorIsNil)
+	icfg.Bootstrap.RecoveryMode = true
+	icfg.Bootstrap.RecoveryArchivePath = localArchive
+	icfg.Bootstrap.RecoveryArchiveSHA256 = "sha256-" + hex.EncodeToString(digest[:])
+
+	return configureFixture{icfg: icfg, root: remoteRoot, logPath: logPath}
+}
+
+// fakeSetupSSHScript runs the staging commands and the real setup wrapper
+// against a local root. It substitutes a harmless script for machine setup
+// and records local and fallback cleanup separately.
+func fakeSetupSSHScript(root, log, mode string) string {
+	return fmt.Sprintf(`#!/bin/bash --norc
+set -euo pipefail
+args=()
+found=0
+for arg in "$@"; do
+	if [[ $found -eq 0 ]]; then
+		if [[ "$arg" == ubuntu@* ]]; then
+			found=1
+		fi
+	else
+		args+=("$arg")
+	fi
+done
+[[ $found == 1 ]]
+command="${args[*]}"
+command="${command//\/tmp\//%[1]s/}"
+if [[ "${args[0]}" == sudo ]]; then
+	if [[ %[2]q == conn-fail* ]]; then
+		echo 'ssh: connect to host 10.0.0.1 port 22: Connection refused' >&2
+		exit 255
+	fi
+	if [[ %[2]q == sudo-fail ]]; then
+		exit 1
+	fi
+	echo setup >> %[3]q
+	trap 'echo setup-end >> %[3]q' EXIT
+	# The wrapper uses cat to spool the configuration script.
+	cat() {
+		command cat >/dev/null
+		if [[ %[2]q == remote-fail ]]; then
+			echo 'exit 1'
+		fi
+	}
+	rm() {
+		if [[ $1 == -rf && $3 == /tmp/juju-* ]]; then
+			echo trap-cleanup >> %[3]q
+			command rm -rf -- "%[1]s/${3##*/}"
+		else
+			command rm "$@"
+		fi
+	}
+	export -f cat rm
+	if [[ %[2]q == lost-ack ]]; then
+		exec 1>/dev/null
+	fi
+	"${args[@]:1}"
+	exit
+fi
+case "${args[0]}" in
+	mkdir) echo mkdir >> %[3]q ;;
+	umask) echo stream >> %[3]q ;;
+	rm)
+		echo cleanup >> %[3]q
+		if [[ %[2]q == conn-fail-rm ]]; then
+			echo 'cannot remove staging' >&2
+			exit 1
+		fi
+		;;
+	*) echo "unexpected command: $command" >&2; exit 1 ;;
+esac
+eval "$command"
+`, root, mode, log)
+}
+
+// readSSHLog returns the tags logged by the fake ssh executable, in
+// the order the remote end saw the invocations.
+func readSSHLog(c *tc.C, path string) []string {
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	c.Assert(err, tc.ErrorIsNil)
+	log := strings.TrimSpace(string(data))
+	if log == "" {
+		return nil
+	}
+	return strings.Split(log, "\n")
+}
+
+// stagedFiles returns the names left in the fake machine's staging
+// root.
+func stagedFiles(c *tc.C, root string) []string {
+	entries, err := os.ReadDir(root)
+	c.Assert(err, tc.ErrorIsNil)
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		names = append(names, entry.Name())
+	}
+	return names
 }
 
 func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *tc.C) {
