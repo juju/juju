@@ -22,7 +22,7 @@ import (
 // compile until every method has a receiver.
 type Deltas interface {
 {{- range .Changed}}
-	// {{.Name}}: struct shape changed in {{$.To}}.
+	// {{.Name}}: {{if .ConstraintChanged}}constraints{{else}}struct shape{{end}} changed in {{$.To}}.
 	{{.Name}}(ctx context.Context, src []{{$.FromToken}}.{{.SrcType}}, model *{{$.FromToken}}.ModelExport) ([]{{$.ToToken}}.{{.DstType}}, error)
 {{- end}}
 {{- range .New}}
