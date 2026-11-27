@@ -285,10 +285,11 @@ func (m *ModelOperatorSuite) TestPrivateImageRepo(c *tc.C) {
 }
 
 // TestModelOperatorDeploymentStartUpScript verifies that the generated
-// container startup script falls back to the legacy jujud binary when
-// jujuagentd is not present in the image. This is the upgrade-compatibility
-// path: when a controller is upgraded its model operators in model namespaces
-// may still be running an older image that only ships /opt/jujud.
+// container startup script selects the FHS binaries shipped by the chiselled
+// rock and falls back to the /opt binaries shipped by the Docker image.
+// This is the upgrade-compatibility path: when a controller is
+// upgraded its model operators in model namespaces may still be running an
+// older image that only ships /opt/jujud.
 func (m *ModelOperatorSuite) TestModelOperatorDeploymentStartUpScript(c *tc.C) {
 	modelUUID := "abcd-efff-face"
 	deployment, err := modelOperatorDeployment(
@@ -316,20 +317,64 @@ func (m *ModelOperatorSuite) TestModelOperatorDeploymentStartUpScript(c *tc.C) {
 	script := args[1]
 
 	// The script must detect which binary is present and branch accordingly.
-	c.Check(strings.Contains(script, "[ -x /opt/jujuagentd ]"), tc.IsTrue,
-		tc.Commentf("script should test for /opt/jujuagentd: %s", script))
+	c.Check(strings.Contains(script, "[ -x /usr/bin/jujuagentd ]"), tc.IsTrue,
+		tc.Commentf("script should test for /usr/bin/jujuagentd: %s", script))
 
-	// New-image branch: copies and execs jujuagentd.
-	c.Check(strings.Contains(script, "cp /opt/jujuagentd $JUJU_TOOLS_DIR/jujuagentd"), tc.IsTrue,
-		tc.Commentf("script should copy jujuagentd: %s", script))
+	// Rock branch: copies and execs the FHS jujuagentd.
+	c.Check(strings.Contains(script, "cp /usr/bin/jujuagentd $JUJU_TOOLS_DIR/jujuagentd"), tc.IsTrue,
+		tc.Commentf("script should copy the FHS jujuagentd: %s", script))
 	c.Check(strings.Contains(script, fmt.Sprintf(
 		"exec $JUJU_TOOLS_DIR/jujuagentd model --model-uuid=%s", modelUUID,
 	)), tc.IsTrue, tc.Commentf("script should exec jujuagentd model: %s", script))
 
-	// Old-image fallback branch: copies and execs jujud.
+	// Docker-image branch: falls back to jujuagentd from /opt.
+	c.Check(strings.Contains(script, "[ -x /opt/jujuagentd ]"), tc.IsTrue,
+		tc.Commentf("script should test for /opt/jujuagentd: %s", script))
+	c.Check(strings.Contains(script, "cp /opt/jujuagentd $JUJU_TOOLS_DIR/jujuagentd"), tc.IsTrue,
+		tc.Commentf("script should copy jujuagentd: %s", script))
+
+	// jujud fallback branches (rock FHS then Docker /opt): copies and
+	// execs jujud.
+	c.Check(strings.Contains(script, "[ -x /usr/bin/jujud ]"), tc.IsTrue,
+		tc.Commentf("script should test for /usr/bin/jujud: %s", script))
+	c.Check(strings.Contains(script, "cp /usr/bin/jujud $JUJU_TOOLS_DIR/jujud"), tc.IsTrue,
+		tc.Commentf("script should copy the FHS jujud as fallback: %s", script))
 	c.Check(strings.Contains(script, "cp /opt/jujud $JUJU_TOOLS_DIR/jujud"), tc.IsTrue,
 		tc.Commentf("script should copy jujud as fallback: %s", script))
 	c.Check(strings.Contains(script, fmt.Sprintf(
 		"exec $JUJU_TOOLS_DIR/jujud model --model-uuid=%s", modelUUID,
 	)), tc.IsTrue, tc.Commentf("script should exec jujud model as fallback: %s", script))
+
+	// Each exec command must run inside a branch that copies the binary
+	// it executes. Ordering the first occurrences pins that binding: the
+	// jujuagentd exec leads in the first rock branch, and the jujud exec
+	// first appears only after the jujud branches open. A call site that
+	// swapped the two exec commands would leave the jujuagentd branches
+	// executing jujud, a binary they never copied, and fail this order.
+	fhsAgentdIndex := strings.Index(script, "[ -x /usr/bin/jujuagentd ]")
+	execAgentdIndex := strings.Index(script, fmt.Sprintf(
+		"exec $JUJU_TOOLS_DIR/jujuagentd model --model-uuid=%s", modelUUID,
+	))
+	optAgentdIndex := strings.Index(script, "[ -x /opt/jujuagentd ]")
+	fhsJujudIndex := strings.Index(script, "[ -x /usr/bin/jujud ]")
+	execJujudIndex := strings.Index(script, fmt.Sprintf(
+		"exec $JUJU_TOOLS_DIR/jujud model --model-uuid=%s", modelUUID,
+	))
+	optJujudIndex := strings.Index(script, "cp /opt/jujud $JUJU_TOOLS_DIR/jujud")
+	c.Assert(fhsAgentdIndex >= 0, tc.IsTrue, tc.Commentf("script should test for /usr/bin/jujuagentd: %s", script))
+	c.Assert(execAgentdIndex >= 0, tc.IsTrue, tc.Commentf("script should exec jujuagentd model: %s", script))
+	c.Assert(optAgentdIndex >= 0, tc.IsTrue, tc.Commentf("script should test for /opt/jujuagentd: %s", script))
+	c.Assert(fhsJujudIndex >= 0, tc.IsTrue, tc.Commentf("script should test for /usr/bin/jujud: %s", script))
+	c.Assert(execJujudIndex >= 0, tc.IsTrue, tc.Commentf("script should exec jujud model as fallback: %s", script))
+	c.Assert(optJujudIndex >= 0, tc.IsTrue, tc.Commentf("script should copy jujud as fallback: %s", script))
+	c.Check(fhsAgentdIndex < execAgentdIndex, tc.IsTrue,
+		tc.Commentf("the FHS jujuagentd copy must precede its exec: %s", script))
+	c.Check(execAgentdIndex < optAgentdIndex, tc.IsTrue,
+		tc.Commentf("the jujuagentd exec must lead, before the /opt branch: %s", script))
+	c.Check(optAgentdIndex < fhsJujudIndex, tc.IsTrue,
+		tc.Commentf("the /opt jujuagentd branch must precede the jujud branches: %s", script))
+	c.Check(fhsJujudIndex < execJujudIndex, tc.IsTrue,
+		tc.Commentf("the FHS jujud copy must precede its exec: %s", script))
+	c.Check(execJujudIndex < optJujudIndex, tc.IsTrue,
+		tc.Commentf("the jujud exec must precede the /opt jujud copy: %s", script))
 }

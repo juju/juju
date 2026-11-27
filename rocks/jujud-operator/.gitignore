@@ -1,0 +1,2 @@
+# Locally packed rock archives are build output, not source.
+*.rock

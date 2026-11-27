@@ -853,53 +853,24 @@ export OCI_BUILDER         ?= $(shell (which podman 2>&1 > /dev/null && echo pod
 PULL_OCI_REGISTRY          ?= ghcr.io/juju
 DOCKER_BUILDX_CONTEXT      ?= juju-make
 DOCKER_STAGING_DIR         ?= ${BUILD_DIR}/docker-staging
-JUJUAGENTD_STAGING_DIR          ?= ${DOCKER_STAGING_DIR}/jujud-operator
-JUJUAGENTD_BIN_DIR              ?= ${BIN_DIR}
-# OPERATOR_IMAGE_BUILD_SRC selects the operator-image payload provenance:
-# true (the default, local development) builds the controller snap via the
-# smart jujud-snap-build flow and stages bin/jujud plus the snap's bundled
-# native libraries into the per-platform image payload; false (the CI
-# contract set by the QA and release Jenkins jobs) trusts the payload
-# pre-staged by the QA payload unpack or the release snap extraction.
-# Either way no source-built jujud is linked against host libraries inside
-# the image: the jujud binary and its library closure always come from the
-# controller snap.
+# OPERATOR_IMAGE_BUILD_SRC selects the local operator-image producer:
+# true (the default, local development) packs the native chiselled rock from
+# the checked-out source and imports it under operator_image_path; false (the
+# CI contract set by the QA and release Jenkins jobs) trusts the payload
+# pre-staged by the QA payload unpack or the release snap extraction and
+# builds the retained Dockerfile image. Either way the push targets use the
+# Docker path.
 OPERATOR_IMAGE_BUILD_SRC   ?= true
 
 # Import shell functions from make_functions.sh
 # For the k8s operator.
 BUILD_OPERATOR_IMAGE=bash -c '. "${PROJECT_DIR}/make_functions.sh"; build_push_operator_image "$$@"' build_push_operator_image
-STAGE_OPERATOR_IMAGE_SNAP_PAYLOAD=bash -c '. "${PROJECT_DIR}/make_functions.sh"; stage_operator_image_snap_payload "$$@"' stage_operator_image_snap_payload
+PACK_OPERATOR_ROCK=bash -c '. "${PROJECT_DIR}/make_functions.sh"; pack_operator_rock "$$@"' pack_operator_rock
+IMPORT_OPERATOR_ROCK_IMAGE=bash -c '. "${PROJECT_DIR}/make_functions.sh"; import_operator_rock_image "$$@"' import_operator_rock_image
 OPERATOR_IMAGE_PATH=bash -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_path "$$@"' operator_image_path
-OPERATOR_IMAGE_RELEASE_PATH=bash -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_release_path "$$@"' operator_image_release_path
 UPDATE_MICROK8S_OPERATOR=bash -c '. "${PROJECT_DIR}/make_functions.sh"; microk8s_operator_update "$$@"' microk8s_operator_update
 SEED_REPOSITORY=bash -c '. "${PROJECT_DIR}/make_functions.sh"; seed_repository "$$@"' seed_repository
 INSTALL_DQLITE_DEV_PACKAGES=bash -c '. "${PROJECT_DIR}/make_functions.sh"; install_dqlite_dev_packages "$$@"' install_dqlite_dev_packages
-
-image_check_prereq=image-check-build
-ifneq ($(OPERATOR_IMAGE_BUILD_SRC),true)
-	image_check_prereq=image-check-build-skip
-endif
-
-.PHONY: image-check
-image-check: $(image_check_prereq)
-
-# image-check-build stages the local operator-image payload: the pure-Go
-# agent binaries (jujuagentd, jujuc, containeragent, pebble) are built for
-# the host architecture, and the jujud binary plus its bundled native
-# library closure are extracted from the locally built controller snap
-# (jujud-snap-build is the smart full/patch flow, so a jujud-only change
-# does not re-run snapcraft). The docker build then copies the payload
-# into the image; build_push_operator_image verifies it before building.
-.PHONY: image-check-build
-image-check-build: jujud-snap-build
-## image-check-build: Build the agent binaries and stage the snap payload for the operator image
-	@$(MAKE) --no-print-directory go-agent-build-no-cgo
-	@$(STAGE_OPERATOR_IMAGE_SNAP_PAYLOAD) "$(GOOS)/$(GOARCH)"
-
-.PHONY: image-check-build-skip
-image-check-build-skip:
-	@echo "skipping payload staging; using the pre-staged binaries and the pre-staged jujud library closure at ${BUILD_DIR}/<os>_<arch>/lib/"
 
 .PHONY: docker-builder
 docker-builder:
@@ -908,9 +879,29 @@ ifeq ($(OCI_BUILDER),docker)
 	-@docker buildx create --name ${DOCKER_BUILDX_CONTEXT}
 endif
 
-.PHONY: image-check
-operator-image: image-check docker-builder
-## operator-image: Build operator image via docker
+# The prerequisite and recipe selection must be defined before the
+# operator-image rule: make expands prerequisite lists immediately when
+# a rule is parsed, so a later assignment would leave the list empty.
+operator_image_prereq=operator-rock
+operator_image_command=$(IMPORT_OPERATOR_ROCK_IMAGE)
+ifneq ($(OPERATOR_IMAGE_BUILD_SRC),true)
+	operator_image_prereq=docker-builder
+	operator_image_command=${BUILD_OPERATOR_IMAGE} "$(OCI_IMAGE_PLATFORMS)" "$(PUSH_IMAGE)"
+endif
+
+.PHONY: operator-image
+operator-image: $(operator_image_prereq)
+## operator-image: Build the local operator image (native rock, or the Docker path when OPERATOR_IMAGE_BUILD_SRC=false)
+	$(operator_image_command)
+
+.PHONY: operator-rock
+operator-rock:
+## operator-rock: Pack the native chiselled operator rock from the checked-out source
+	$(PACK_OPERATOR_ROCK) "$(OCI_IMAGE_PLATFORMS)"
+
+.PHONY: docker-operator-image
+docker-operator-image: docker-builder
+## docker-operator-image: Build the operator image via docker (retained Dockerfile path)
 	${BUILD_OPERATOR_IMAGE} "$(OCI_IMAGE_PLATFORMS)" "$(PUSH_IMAGE)"
 
 push_operator_image_prereq=push-operator-image-defined
@@ -920,7 +911,7 @@ endif
 
 .PHONY: push-operator-image-defined
 push-operator-image-defined: PUSH_IMAGE=true
-push-operator-image-defined: operator-image
+push-operator-image-defined: docker-operator-image
 
 .PHONY: push-operator-image-undefined
 push-operator-image-undefined:
@@ -932,7 +923,7 @@ push-operator-image: $(push_operator_image_prereq)
 
 .PHONY: push-release-operator-image
 push-release-operator-image: PUSH_IMAGE=true
-push-release-operator-image: operator-image
+push-release-operator-image: docker-operator-image
 ## push-release-operator-image: Push up the newly built release operator image via docker
 
 .PHONY: seed-repository

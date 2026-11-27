@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
 )
@@ -27,7 +28,7 @@ func getPodSpec31() corev1.PodSpec {
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Image:           "operator/image-path:1.1.1",
 			WorkingDir:      jujuDataDir,
-			Command:         []string{"/opt/containeragent"},
+			Command:         []string{"/bin/sh", "-ec", caas.ContainerAgentStartUpSh, "containeragent"},
 			Args: []string{
 				"init",
 				"--containeragent-pebble-dir", "/containeragent/pebble",

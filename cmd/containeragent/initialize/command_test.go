@@ -75,6 +75,23 @@ func (s *initCommandSuit) setupCommand(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
+// expectFHSBinaryCopy expects the FHS binary shipped by the chiselled rock
+// to be read and copied into the charm bin directory.
+func (s *initCommandSuit) expectFHSBinaryCopy(src string, data []byte) {
+	s.fileReaderWriter.EXPECT().Reader(src).Times(1).
+		Return(io.NopCloser(bytes.NewReader(data)), nil)
+}
+
+// expectLegacyBinaryCopy expects the FHS lookup to miss and the /opt
+// binary of the Docker image to be read and copied into the charm bin
+// directory.
+func (s *initCommandSuit) expectLegacyBinaryCopy(fhs, legacy string, data []byte) {
+	s.fileReaderWriter.EXPECT().Reader(fhs).Times(1).
+		Return(nil, os.ErrNotExist)
+	s.fileReaderWriter.EXPECT().Reader(legacy).Times(1).
+		Return(io.NopCloser(bytes.NewReader(data)), nil)
+}
+
 func (s *initCommandSuit) TestRun(c *tc.C) {
 	ctrl := s.setupCommand(c)
 	defer ctrl.Finish()
@@ -137,11 +154,11 @@ checks:
 	jujucWritten := bytes.NewBuffer(nil)
 
 	s.fileReaderWriter.EXPECT().MkdirAll("/charm/bin", os.FileMode(0775)).Times(1).Return(nil)
-	s.fileReaderWriter.EXPECT().Reader("/opt/pebble").Times(1).Return(io.NopCloser(bytes.NewReader(expectedPebble)), nil)
+	s.expectFHSBinaryCopy("/usr/lib/juju/pebble", expectedPebble)
 	s.fileReaderWriter.EXPECT().Writer("/charm/bin/pebble", os.FileMode(0775)).Return(NopWriteCloser(pebbleWritten), nil)
-	s.fileReaderWriter.EXPECT().Reader("/opt/containeragent").Times(1).Return(io.NopCloser(bytes.NewReader(expectedContainerAgent)), nil)
+	s.expectFHSBinaryCopy("/usr/bin/containeragent", expectedContainerAgent)
 	s.fileReaderWriter.EXPECT().Writer("/charm/bin/containeragent", os.FileMode(0775)).Return(NopWriteCloser(containerAgentWritten), nil)
-	s.fileReaderWriter.EXPECT().Reader("/opt/jujuc").Times(1).Return(io.NopCloser(bytes.NewReader(expectedJujuc)), nil)
+	s.expectFHSBinaryCopy("/usr/bin/jujuc", expectedJujuc)
 	s.fileReaderWriter.EXPECT().Writer("/charm/bin/jujuc", os.FileMode(0775)).Return(NopWriteCloser(jujucWritten), nil)
 
 	s.applicationAPI.EXPECT().Close().Times(1).Return(nil)
@@ -228,11 +245,11 @@ checks:
 	fsInfo := struct{ os.FileInfo }{nil}
 	s.fileReaderWriter.EXPECT().Stat("/var/lib/juju/template-agent.conf").Return(&fsInfo, nil)
 	s.fileReaderWriter.EXPECT().MkdirAll("/charm/bin", os.FileMode(0775)).Return(nil)
-	s.fileReaderWriter.EXPECT().Reader("/opt/pebble").Times(1).Return(io.NopCloser(bytes.NewReader(expectedPebble)), nil)
+	s.expectLegacyBinaryCopy("/usr/lib/juju/pebble", "/opt/pebble", expectedPebble)
 	s.fileReaderWriter.EXPECT().Writer("/charm/bin/pebble", os.FileMode(0775)).Return(NopWriteCloser(pebbleWritten), nil)
-	s.fileReaderWriter.EXPECT().Reader("/opt/containeragent").Times(1).Return(io.NopCloser(bytes.NewReader(expectedContainerAgent)), nil)
+	s.expectLegacyBinaryCopy("/usr/bin/containeragent", "/opt/containeragent", expectedContainerAgent)
 	s.fileReaderWriter.EXPECT().Writer("/charm/bin/containeragent", os.FileMode(0775)).Return(NopWriteCloser(containerAgentWritten), nil)
-	s.fileReaderWriter.EXPECT().Reader("/opt/jujuc").Times(1).Return(io.NopCloser(bytes.NewReader(expectedJujuc)), nil)
+	s.expectLegacyBinaryCopy("/usr/bin/jujuc", "/opt/jujuc", expectedJujuc)
 	s.fileReaderWriter.EXPECT().Writer("/charm/bin/jujuc", os.FileMode(0775)).Return(NopWriteCloser(jujucWritten), nil)
 
 	gomock.InOrder(
@@ -270,11 +287,11 @@ func (s *initCommandSuit) TestRunConfExists(c *tc.C) {
 	jujucWritten := bytes.NewBuffer(nil)
 
 	s.fileReaderWriter.EXPECT().MkdirAll("/charm/bin", os.FileMode(0775)).Times(1).Return(nil)
-	s.fileReaderWriter.EXPECT().Reader("/opt/pebble").Times(1).Return(io.NopCloser(bytes.NewReader(expectedPebble)), nil)
+	s.expectLegacyBinaryCopy("/usr/lib/juju/pebble", "/opt/pebble", expectedPebble)
 	s.fileReaderWriter.EXPECT().Writer("/charm/bin/pebble", os.FileMode(0775)).Return(NopWriteCloser(pebbleWritten), nil)
-	s.fileReaderWriter.EXPECT().Reader("/opt/containeragent").Times(1).Return(io.NopCloser(bytes.NewReader(expectedContainerAgent)), nil)
+	s.expectLegacyBinaryCopy("/usr/bin/containeragent", "/opt/containeragent", expectedContainerAgent)
 	s.fileReaderWriter.EXPECT().Writer("/charm/bin/containeragent", os.FileMode(0775)).Return(NopWriteCloser(containerAgentWritten), nil)
-	s.fileReaderWriter.EXPECT().Reader("/opt/jujuc").Times(1).Return(io.NopCloser(bytes.NewReader(expectedJujuc)), nil)
+	s.expectLegacyBinaryCopy("/usr/bin/jujuc", "/opt/jujuc", expectedJujuc)
 	s.fileReaderWriter.EXPECT().Writer("/charm/bin/jujuc", os.FileMode(0775)).Return(NopWriteCloser(jujucWritten), nil)
 	s.fileReaderWriter.EXPECT().Stat("/var/lib/juju/template-agent.conf").Return(nil, nil)
 	s.fileReaderWriter.EXPECT().MkdirAll("/containeragent/pebble/layers", os.FileMode(0775)).Return(nil)
@@ -305,11 +322,11 @@ func (s *initCommandSuit) TestInstallProfileFunctions(c *tc.C) {
 	jujucWritten := bytes.NewBuffer(nil)
 
 	s.fileReaderWriter.EXPECT().MkdirAll("/charm/bin", os.FileMode(0775)).Times(1).Return(nil)
-	s.fileReaderWriter.EXPECT().Reader("/opt/pebble").Times(1).Return(io.NopCloser(bytes.NewReader(expectedPebble)), nil)
+	s.expectLegacyBinaryCopy("/usr/lib/juju/pebble", "/opt/pebble", expectedPebble)
 	s.fileReaderWriter.EXPECT().Writer("/charm/bin/pebble", os.FileMode(0775)).Return(NopWriteCloser(pebbleWritten), nil)
-	s.fileReaderWriter.EXPECT().Reader("/opt/containeragent").Times(1).Return(io.NopCloser(bytes.NewReader(expectedContainerAgent)), nil)
+	s.expectLegacyBinaryCopy("/usr/bin/containeragent", "/opt/containeragent", expectedContainerAgent)
 	s.fileReaderWriter.EXPECT().Writer("/charm/bin/containeragent", os.FileMode(0775)).Return(NopWriteCloser(containerAgentWritten), nil)
-	s.fileReaderWriter.EXPECT().Reader("/opt/jujuc").Times(1).Return(io.NopCloser(bytes.NewReader(expectedJujuc)), nil)
+	s.expectLegacyBinaryCopy("/usr/bin/jujuc", "/opt/jujuc", expectedJujuc)
 	s.fileReaderWriter.EXPECT().Writer("/charm/bin/jujuc", os.FileMode(0775)).Return(NopWriteCloser(jujucWritten), nil)
 	s.fileReaderWriter.EXPECT().Stat("/var/lib/juju/template-agent.conf").Return(nil, nil)
 	s.fileReaderWriter.EXPECT().MkdirAll("/containeragent/pebble/layers", os.FileMode(0775)).Return(nil)
@@ -331,6 +348,217 @@ func (s *initCommandSuit) TestInstallProfileFunctions(c *tc.C) {
 	c.Assert(jujucWritten.Bytes(), tc.SameContents, expectedJujuc)
 }
 
+func (s *initCommandSuit) TestRunCopyBinariesFailure(c *tc.C) {
+	ctrl := s.setupCommand(c)
+	defer ctrl.Finish()
+
+	expectedContainerAgent := []byte(`CONTAINERAGENT`)
+	expectedJujuc := []byte(`JUJUC`)
+
+	containerAgentWritten := bytes.NewBuffer(nil)
+	jujucWritten := bytes.NewBuffer(nil)
+
+	s.fileReaderWriter.EXPECT().Stat("/var/lib/juju/template-agent.conf").Return(nil, nil)
+	s.fileReaderWriter.EXPECT().MkdirAll("/containeragent/pebble/layers", os.FileMode(0775)).Return(nil)
+	s.fileReaderWriter.EXPECT().WriteFile("/containeragent/pebble/layers/001-container-agent.yaml", gomock.Any(), os.FileMode(0664)).Return(nil)
+	s.fileReaderWriter.EXPECT().MkdirAll("/charm/bin", os.FileMode(0775)).Times(1).Return(nil)
+
+	// Both sources of the pebble binary are unreadable: the run must fail
+	// loudly, report every attempted source in one message and never open
+	// the destination for the failed binary. No Writer expectation is
+	// registered for /charm/bin/pebble, so an attempt to write it fails
+	// the test.
+	s.fileReaderWriter.EXPECT().Reader("/usr/lib/juju/pebble").Times(1).
+		Return(nil, os.ErrNotExist)
+	s.fileReaderWriter.EXPECT().Reader("/opt/pebble").Times(1).
+		Return(nil, os.ErrPermission)
+
+	// The other binaries are still copied: the failing copy must not
+	// block the copies that can succeed.
+	s.expectFHSBinaryCopy("/usr/bin/containeragent", expectedContainerAgent)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/containeragent", os.FileMode(0775)).Return(NopWriteCloser(containerAgentWritten), nil)
+	s.expectFHSBinaryCopy("/usr/bin/jujuc", expectedJujuc)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/jujuc", os.FileMode(0775)).Return(NopWriteCloser(jujucWritten), nil)
+
+	_, err := cmdtesting.RunCommand(c, s.cmd,
+		"--containeragent-pebble-dir", "/containeragent/pebble",
+		"--data-dir", "/var/lib/juju",
+		"--bin-dir", "/charm/bin",
+	)
+	c.Assert(err, tc.ErrorMatches,
+		`copying to "/charm/bin/pebble": opening "/usr/lib/juju/pebble" for reading: file does not exist\nopening "/opt/pebble" for reading: permission denied`)
+
+	c.Check(containerAgentWritten.Bytes(), tc.DeepEquals, expectedContainerAgent)
+	c.Check(jujucWritten.Bytes(), tc.DeepEquals, expectedJujuc)
+}
+
+func (s *initCommandSuit) TestRunCopyBinariesWriteFailure(c *tc.C) {
+	ctrl := s.setupCommand(c)
+	defer ctrl.Finish()
+
+	expectedPebble := []byte(`PEBBLE`)
+	expectedJujuc := []byte(`JUJUC`)
+
+	pebbleWritten := bytes.NewBuffer(nil)
+	jujucWritten := bytes.NewBuffer(nil)
+
+	s.fileReaderWriter.EXPECT().Stat("/var/lib/juju/template-agent.conf").Return(nil, nil)
+	s.fileReaderWriter.EXPECT().MkdirAll("/containeragent/pebble/layers", os.FileMode(0775)).Return(nil)
+	s.fileReaderWriter.EXPECT().WriteFile("/containeragent/pebble/layers/001-container-agent.yaml", gomock.Any(), os.FileMode(0664)).Return(nil)
+	s.fileReaderWriter.EXPECT().MkdirAll("/charm/bin", os.FileMode(0775)).Times(1).Return(nil)
+
+	// The FHS source opens but the destination write fails: the run must
+	// fail with the copy error and must not fall back to the /opt source
+	// of the Docker image. No Reader expectation is registered for
+	// /opt/containeragent, so an attempt to read it fails the test.
+	s.expectFHSBinaryCopy("/usr/lib/juju/pebble", expectedPebble)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/pebble", os.FileMode(0775)).Return(NopWriteCloser(pebbleWritten), nil)
+	s.fileReaderWriter.EXPECT().Reader("/usr/bin/containeragent").Times(1).
+		Return(io.NopCloser(bytes.NewReader([]byte(`CONTAINERAGENT`))), nil)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/containeragent", os.FileMode(0775)).Times(1).
+		Return(nil, os.ErrPermission)
+	s.expectFHSBinaryCopy("/usr/bin/jujuc", expectedJujuc)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/jujuc", os.FileMode(0775)).Return(NopWriteCloser(jujucWritten), nil)
+
+	_, err := cmdtesting.RunCommand(c, s.cmd,
+		"--containeragent-pebble-dir", "/containeragent/pebble",
+		"--data-dir", "/var/lib/juju",
+		"--bin-dir", "/charm/bin",
+	)
+	c.Assert(err, tc.ErrorMatches,
+		`copying "/usr/bin/containeragent" to "/charm/bin/containeragent": opening "/charm/bin/containeragent" for writing: permission denied`)
+
+	// The failing copy must not block the copies that succeed.
+	c.Check(pebbleWritten.Bytes(), tc.DeepEquals, expectedPebble)
+	c.Check(jujucWritten.Bytes(), tc.DeepEquals, expectedJujuc)
+}
+
+func (s *initCommandSuit) TestRunMixedBinarySources(c *tc.C) {
+	ctrl := s.setupCommand(c)
+	defer ctrl.Finish()
+
+	expectedPebble := []byte(`PEBBLE`)
+	expectedContainerAgent := []byte(`CONTAINERAGENT`)
+	expectedJujuc := []byte(`JUJUC`)
+
+	pebbleWritten := bytes.NewBuffer(nil)
+	containerAgentWritten := bytes.NewBuffer(nil)
+	jujucWritten := bytes.NewBuffer(nil)
+
+	s.fileReaderWriter.EXPECT().Stat("/var/lib/juju/template-agent.conf").Return(nil, nil)
+	s.fileReaderWriter.EXPECT().MkdirAll("/containeragent/pebble/layers", os.FileMode(0775)).Return(nil)
+	s.fileReaderWriter.EXPECT().WriteFile("/containeragent/pebble/layers/001-container-agent.yaml", gomock.Any(), os.FileMode(0664)).Return(nil)
+	s.fileReaderWriter.EXPECT().MkdirAll("/charm/bin", os.FileMode(0775)).Times(1).Return(nil)
+
+	// The fallback is resolved per binary: pebble and jujuc come from the
+	// FHS layout of the chiselled rock, while containeragent is only
+	// available at the /opt path of the Docker image.
+	s.expectFHSBinaryCopy("/usr/lib/juju/pebble", expectedPebble)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/pebble", os.FileMode(0775)).Return(NopWriteCloser(pebbleWritten), nil)
+	s.expectLegacyBinaryCopy("/usr/bin/containeragent", "/opt/containeragent", expectedContainerAgent)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/containeragent", os.FileMode(0775)).Return(NopWriteCloser(containerAgentWritten), nil)
+	s.expectFHSBinaryCopy("/usr/bin/jujuc", expectedJujuc)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/jujuc", os.FileMode(0775)).Return(NopWriteCloser(jujucWritten), nil)
+
+	_, err := cmdtesting.RunCommand(c, s.cmd,
+		"--containeragent-pebble-dir", "/containeragent/pebble",
+		"--data-dir", "/var/lib/juju",
+		"--bin-dir", "/charm/bin",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(pebbleWritten.Bytes(), tc.DeepEquals, expectedPebble)
+	c.Check(containerAgentWritten.Bytes(), tc.DeepEquals, expectedContainerAgent)
+	c.Check(jujucWritten.Bytes(), tc.DeepEquals, expectedJujuc)
+}
+
+func (s *initCommandSuit) TestRunCopyBinariesWriterEOF(c *tc.C) {
+	ctrl := s.setupCommand(c)
+	defer ctrl.Finish()
+
+	expectedContainerAgent := []byte(`CONTAINERAGENT`)
+	expectedJujuc := []byte(`JUJUC`)
+
+	containerAgentWritten := bytes.NewBuffer(nil)
+	jujucWritten := bytes.NewBuffer(nil)
+
+	s.fileReaderWriter.EXPECT().Stat("/var/lib/juju/template-agent.conf").Return(nil, nil)
+	s.fileReaderWriter.EXPECT().MkdirAll("/containeragent/pebble/layers", os.FileMode(0775)).Return(nil)
+	s.fileReaderWriter.EXPECT().WriteFile("/containeragent/pebble/layers/001-container-agent.yaml", gomock.Any(), os.FileMode(0664)).Return(nil)
+	s.fileReaderWriter.EXPECT().MkdirAll("/charm/bin", os.FileMode(0775)).Times(1).Return(nil)
+
+	// The pebble destination signals EOF mid-copy: the run must fail
+	// instead of blessing a truncated binary, and must not fall back to
+	// the /opt source of the Docker image. No Reader expectation is
+	// registered for /opt/pebble, so an attempt to read it fails the
+	// test.
+	s.fileReaderWriter.EXPECT().Reader("/usr/lib/juju/pebble").Times(1).
+		Return(io.NopCloser(bytes.NewReader([]byte(`PEBBLE`))), nil)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/pebble", os.FileMode(0775)).Times(1).
+		Return(eofWriter{}, nil)
+
+	// The other binaries are still copied: the failing copy must not
+	// block the copies that can succeed.
+	s.expectFHSBinaryCopy("/usr/bin/containeragent", expectedContainerAgent)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/containeragent", os.FileMode(0775)).Return(NopWriteCloser(containerAgentWritten), nil)
+	s.expectFHSBinaryCopy("/usr/bin/jujuc", expectedJujuc)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/jujuc", os.FileMode(0775)).Return(NopWriteCloser(jujucWritten), nil)
+
+	_, err := cmdtesting.RunCommand(c, s.cmd,
+		"--containeragent-pebble-dir", "/containeragent/pebble",
+		"--data-dir", "/var/lib/juju",
+		"--bin-dir", "/charm/bin",
+	)
+	c.Assert(err, tc.ErrorMatches, `copying "/usr/lib/juju/pebble" to "/charm/bin/pebble": EOF`)
+
+	c.Check(containerAgentWritten.Bytes(), tc.DeepEquals, expectedContainerAgent)
+	c.Check(jujucWritten.Bytes(), tc.DeepEquals, expectedJujuc)
+}
+
+func (s *initCommandSuit) TestRunCopyBinariesCloseFailure(c *tc.C) {
+	ctrl := s.setupCommand(c)
+	defer ctrl.Finish()
+
+	expectedContainerAgent := []byte(`CONTAINERAGENT`)
+	expectedJujuc := []byte(`JUJUC`)
+
+	containerAgentWritten := bytes.NewBuffer(nil)
+	jujucWritten := bytes.NewBuffer(nil)
+
+	s.fileReaderWriter.EXPECT().Stat("/var/lib/juju/template-agent.conf").Return(nil, nil)
+	s.fileReaderWriter.EXPECT().MkdirAll("/containeragent/pebble/layers", os.FileMode(0775)).Return(nil)
+	s.fileReaderWriter.EXPECT().WriteFile("/containeragent/pebble/layers/001-container-agent.yaml", gomock.Any(), os.FileMode(0664)).Return(nil)
+	s.fileReaderWriter.EXPECT().MkdirAll("/charm/bin", os.FileMode(0775)).Times(1).Return(nil)
+
+	// The pebble copy itself succeeds but the destination Close fails:
+	// the flush error must surface instead of being swallowed.
+	s.fileReaderWriter.EXPECT().Reader("/usr/lib/juju/pebble").Times(1).
+		Return(io.NopCloser(bytes.NewReader([]byte(`PEBBLE`))), nil)
+	pebbleWriter := &closeFailWriter{}
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/pebble", os.FileMode(0775)).Times(1).
+		Return(pebbleWriter, nil)
+
+	// The other binaries are still copied: the failing copy must not
+	// block the copies that can succeed.
+	s.expectFHSBinaryCopy("/usr/bin/containeragent", expectedContainerAgent)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/containeragent", os.FileMode(0775)).Return(NopWriteCloser(containerAgentWritten), nil)
+	s.expectFHSBinaryCopy("/usr/bin/jujuc", expectedJujuc)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/jujuc", os.FileMode(0775)).Return(NopWriteCloser(jujucWritten), nil)
+
+	_, err := cmdtesting.RunCommand(c, s.cmd,
+		"--containeragent-pebble-dir", "/containeragent/pebble",
+		"--data-dir", "/var/lib/juju",
+		"--bin-dir", "/charm/bin",
+	)
+	c.Assert(err, tc.ErrorMatches,
+		`copying "/usr/lib/juju/pebble" to "/charm/bin/pebble": closing "/charm/bin/pebble": close failed`)
+
+	// The data reached the destination buffer before the failed close.
+	c.Check(pebbleWriter.buf.Bytes(), tc.DeepEquals, []byte(`PEBBLE`))
+	c.Check(containerAgentWritten.Bytes(), tc.DeepEquals, expectedContainerAgent)
+	c.Check(jujucWritten.Bytes(), tc.DeepEquals, expectedJujuc)
+}
+
 type nopWriterCloser struct {
 	io.Writer
 }
@@ -343,4 +571,36 @@ func (*nopWriterCloser) Close() error {
 
 func NopWriteCloser(w io.Writer) io.WriteCloser {
 	return &nopWriterCloser{w}
+}
+
+var errCloseFailed = errors.New("close failed")
+
+// eofWriter fails every write with io.EOF, mimicking a destination that
+// signals EOF mid-copy.
+type eofWriter struct{}
+
+var _ io.WriteCloser = eofWriter{}
+
+func (eofWriter) Write(p []byte) (int, error) {
+	return 0, io.EOF
+}
+
+func (eofWriter) Close() error {
+	return nil
+}
+
+// closeFailWriter buffers writes and fails on Close, mimicking a
+// destination whose close-time flush fails.
+type closeFailWriter struct {
+	buf bytes.Buffer
+}
+
+var _ io.WriteCloser = (*closeFailWriter)(nil)
+
+func (w *closeFailWriter) Write(p []byte) (int, error) {
+	return w.buf.Write(p)
+}
+
+func (w *closeFailWriter) Close() error {
+	return errCloseFailed
 }

@@ -1,0 +1,204 @@
+name: jujud-operator
+title: Juju model operator
+summary: Juju controller and model operator image built from source
+description: |
+  A chiselled Ubuntu 24.04 image carrying the Juju controller, machine
+  agent, hook tool and unit-agent binaries built from the checked-out
+  Juju source, together with the controller wrappers, Juju's own Pebble
+  and the native Dqlite runtime closure.
+
+  The image keeps the account contract of the Docker image: the syslog user is
+  UID/GID 999, the juju user is UID/GID 170, and the default OCI user
+  remains root. Juju binaries live in the FHS (/usr/bin), with Juju's
+  Pebble at /usr/lib/juju/pebble so it does not collide with Rockcraft's
+  own /usr/bin/pebble entrypoint.
+license: AGPL-3.0
+contact: juju@lists.canonical.com
+issues: https://github.com/juju/juju/issues
+source-code: https://github.com/juju/juju
+base: bare
+build-base: ubuntu@24.04
+platforms:
+  amd64:
+  arm64:
+  s390x:
+  ppc64el:
+adopt-info: jujud
+
+parts:
+  # accounts-and-runtime-base creates the Docker image's accounts in the
+  # rock filesystem. Rockcraft's run-user mechanism can only create the shared
+  # daemon user, so the entries are written with useradd/groupadd --root
+  # after the slices that provide /etc/passwd, /etc/group, /bin/sh and the
+  # nologin shell have been unpacked into the part.
+  accounts-and-runtime-base:
+    plugin: nil
+    stage-packages:
+      - base-files_base
+      - base-files_release-info
+      - base-passwd_data
+      - dash_bins
+      - coreutils_bins
+      - grep_bins
+      - login_bins
+      - libc-bin_nsswitch
+      - ca-certificates_data
+    override-build: |
+      set -eux
+      root="${CRAFT_PART_INSTALL}"
+
+      # Shadow databases are created before the accounts so the password
+      # fields in /etc/passwd and /etc/group stay 'x', the standard Ubuntu
+      # layout the Docker image exposes, with the locked secrets in
+      # the shadow files.
+      install -m 0640 -o 0 -g 42 /dev/null "${root}/etc/shadow"
+      install -m 0640 -o 0 -g 42 /dev/null "${root}/etc/gshadow"
+
+      groupadd --root "${root}" --system --gid 999 syslog
+      useradd --root "${root}" --system --uid 999 --gid 999 \
+        --home-dir /home/syslog --no-create-home \
+        --shell /usr/sbin/nologin syslog
+
+      groupadd --root "${root}" --gid 170 juju
+      useradd --root "${root}" --uid 170 --gid 170 \
+        --home-dir /home/juju --no-create-home \
+        --shell /usr/bin/sh juju
+
+      install -d -o 0 -g 0 -m 0755 "${root}/var/lib/juju"
+
+  # dqlite is built from the same upstream commit as the controller snap
+  # (v1.18.7) with raft support, so the image and the snap stay on the
+  # same known-compatible Dqlite line.
+  dqlite:
+    plugin: autotools
+    source: https://github.com/canonical/dqlite
+    source-type: git
+    source-commit: 91e3e2f90874e4ec3b45cde965f266342846531b # v1.18.7
+    autotools-configure-parameters:
+      - --prefix=/usr
+      - --libdir=/usr/lib/${CRAFT_ARCH_TRIPLET_BUILD_FOR}
+      - --enable-build-raft
+    build-packages:
+      - liblz4-dev
+      - libsqlite3-dev
+      - libuv1-dev
+      - xfslibs-dev
+    prime:
+      - usr/lib/${CRAFT_ARCH_TRIPLET_BUILD_FOR}/libdqlite.so.0*
+
+  # The dynamic binaries resolve their runtime closure from the standard
+  # multiarch library directories; the /opt library directory of the
+  # Docker image does not exist in this rock.
+  runtime-libraries:
+    plugin: nil
+    stage-packages:
+      - libuv1t64_libs
+      - libsqlite3-0_libs
+      - liblz4-1_libs
+
+  # shell-tools provides the standard tools the Juju CLI expects inside
+  # the pod: a bare "juju ssh" runs "bash --login" and sources
+  # /etc/profile.d/juju-introspection.sh; its function exports need
+  # bash, its shell detection uses ps and its agent lookups use find
+  # and which. "juju scp" streams files through tar run in the pod.
+  # vim, less and column keep interactive support sessions on par with
+  # the Docker image: vim ships as vim.tiny (the only vim the noble
+  # catalogue carves) exposed under the command names the Docker
+  # image's vim package provided, and column is copied from the build
+  # environment because the catalogue carves no bsdextrautils slice;
+  # its libsmartcols runtime dependency is staged explicitly.
+  shell-tools:
+    plugin: nil
+    stage-packages:
+      - bash_bins
+      - tar_bins
+      - procps_bins
+      - findutils_bins
+      - debianutils_which
+      - less_bins
+      - vim-tiny_bins
+      - libsmartcols1_libs
+    build-packages:
+      - bsdextrautils
+    override-build: |
+      set -eux
+      # The noble chisel catalogue has no bsdextrautils slice, so column
+      # is taken from the build environment's noble archive. Its only
+      # non-libc runtime dependency, libsmartcols, is staged through
+      # libsmartcols1_libs above.
+      install -Dm0755 /usr/bin/column \
+        "${CRAFT_PART_INSTALL}/usr/bin/column"
+      # Expose vim.tiny under the names operators type: the Docker
+      # image's vim package provided vi and vim through the
+      # alternatives system.
+      ln -s vim.tiny "${CRAFT_PART_INSTALL}/usr/bin/vim"
+      ln -s vim.tiny "${CRAFT_PART_INSTALL}/usr/bin/vi"
+
+  jujud:
+    plugin: nil
+    source: ../..
+    source-type: local
+    override-pull: |
+      set -eux
+      craftctl default
+      # The local source pull copies the repository root into the part
+      # source directory, including .git, which holds hundreds of
+      # megabytes of version-control history the build never uses
+      # (version stamping comes from make variables, not git). Drop it
+      # so the build instance does not carry it for the rest of the
+      # build.
+      rm -rf "${CRAFT_PART_SRC}/.git"
+    after:
+      - dqlite
+    build-snaps:
+      - go/1.27/stable
+    build-packages:
+      - gcc
+      - make
+      - git
+      - pkg-config
+      - libsqlite3-dev
+    override-build: |
+      set -eux
+      export GOTOOLCHAIN=auto
+      export CGO_CFLAGS="-I${CRAFT_STAGE}/usr/include"
+      export CGO_LDFLAGS="-L${CRAFT_STAGE}/usr/lib/${CRAFT_ARCH_TRIPLET_BUILD_FOR}"
+
+      # CGO_RPATH is a plain '=' assignment in the Makefile, so it must be
+      # overridden on the command line: an environment value would be
+      # silently ignored and the rpath of the Docker image would survive
+      # into the binary. The rock resolves its libraries from the
+      # standard loader paths instead.
+      make go-agent-build CGO_RPATH=
+
+      version="$(go run ./scripts/version)"
+      craftctl set version="${version}"
+
+      bin_dir="_build/linux_$(go env GOARCH)/bin"
+      install -Dm0755 "${bin_dir}/jujud" \
+        "${CRAFT_PART_INSTALL}/usr/bin/jujud"
+      install -Dm0755 "${bin_dir}/jujuagentd" \
+        "${CRAFT_PART_INSTALL}/usr/bin/jujuagentd"
+      install -Dm0755 "${bin_dir}/jujuc" \
+        "${CRAFT_PART_INSTALL}/usr/bin/jujuc"
+      install -Dm0755 "${bin_dir}/containeragent" \
+        "${CRAFT_PART_INSTALL}/usr/bin/containeragent"
+      install -Dm0755 "${bin_dir}/pebble" \
+        "${CRAFT_PART_INSTALL}/usr/lib/juju/pebble"
+
+      # jujud dispatches on argv[0] to run the introspect command when
+      # invoked as "juju-introspect" (see cmd/jujud/run.go). A hard link is
+      # used instead of a symlink: the controller pod bind-mounts
+      # /usr/bin/juju-introspect from the charm volume, and a mount over a
+      # symlink resolves to its target, which would replace /usr/bin/jujud.
+      ln "${CRAFT_PART_INSTALL}/usr/bin/jujud" \
+        "${CRAFT_PART_INSTALL}/usr/bin/juju-introspect"
+
+  controller-wrappers:
+    plugin: nil
+    override-build: |
+      set -eux
+      install -d "${CRAFT_PART_INSTALL}/usr/bin"
+      install -m0755 \
+        "${CRAFT_PROJECT_DIR}/../../caas/controller-wrappers/"* \
+        "${CRAFT_PART_INSTALL}/usr/bin/"

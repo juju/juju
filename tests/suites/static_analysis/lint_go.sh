@@ -115,6 +115,9 @@ run_go_fanout() {
 	done
 
 	# Ensure the following packages aren't used outside of the cmd directory.
+	# The guard intentionally checks a single package; the loop is kept for
+	# symmetry with the multi-package guard above.
+	# shellcheck disable=SC2043
 	for pkg in "modelcmd"; do
 		LIST=$(find . -type f -name "*.go" | sort -u | xargs grep -EH "github\.com\/juju\/juju\/cmd\/$pkg(\/|\")" | grep -v "^./cmd")
 		if [[ -n ${LIST} ]]; then

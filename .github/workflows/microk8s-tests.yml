@@ -74,6 +74,19 @@ jobs:
         sudo DEBIAN_FRONTEND=noninteractive apt install -y  docker-buildx >/dev/null 2>&1
         sudo usermod -a -G microk8s $USER
 
+    - name: Setup LXD for the operator rock
+      uses: canonical/setup-lxd@8c6a87bfb56aa48f3fb9b830baa18562d8bfd4ee # v1
+
+    - name: Wait for LXD
+      run: |
+        while ! ip link show lxdbr0; do
+          echo "Waiting for lxdbr0..."
+          sleep 1
+        done
+
+    - name: Install Rockcraft
+      run: sudo snap install rockcraft --classic
+
     - name: Build juju and operator image
       run: |
         sg microk8s <<EOF

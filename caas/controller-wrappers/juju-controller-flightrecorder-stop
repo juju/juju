@@ -1,2 +1,6 @@
 #!/bin/sh
-exec /opt/juju-introspect --controller-dir /var/lib/juju/controller flightrecorder/stop
+# Temporary fallback to keep Docker image working, will be removed together
+# with the Docker image.
+introspect=/usr/bin/juju-introspect
+[ -x "$introspect" ] || introspect=/opt/juju-introspect
+exec "$introspect" --controller-dir /var/lib/juju/controller flightrecorder/stop
