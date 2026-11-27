@@ -248,7 +248,6 @@ func (r *applicationRunner) handleEvent(ctx context.Context, eventName string) e
 		r.config.Logger.Errorf(
 			ctx, "executing scriptlet event %q for application %q: %v", event.Name, r.config.ApplicationUUID, err)
 		if err := r.setStatus(ctx, corestatus.Blocked, err.Error()); err != nil {
-			// The caller wraps this with the event name and application UUID.
 			return internalerrors.Errorf("setting blocked status: %w", err)
 		}
 		return nil
@@ -256,7 +255,6 @@ func (r *applicationRunner) handleEvent(ctx context.Context, eventName string) e
 	return r.applyIntents(ctx, event.Name.String(), collectors)
 }
 
-// applyIntents applies the given event's collected intents.
 func (r *applicationRunner) applyIntents(ctx context.Context, eventName string, collectors *scriptlet.IntentCollectors) error {
 	statusCollector := scriptlet.IntentCollector[*scriptlet.StatusCollector](collectors)
 	if statusCollector.Status == "" {

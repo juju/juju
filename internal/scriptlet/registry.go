@@ -46,8 +46,8 @@ func (er *EnvRegistry) AddAppMethod(method *starlark.Builtin) {
 	er.jujuMethods = append(er.jujuMethods, method)
 }
 
-// AddIntentCollector registers a zero-value struct collector, instantiated
-// fresh for each event.
+// AddIntentCollector registers the given zero-value struct collector,
+// instantiated fresh for each event.
 func (er *EnvRegistry) AddIntentCollector(collector any) {
 	collectorValue := reflect.ValueOf(collector)
 	if collectorValue.Kind() != reflect.Struct {
@@ -62,7 +62,7 @@ func (er *EnvRegistry) AddIntentCollector(collector any) {
 	})
 }
 
-// AddIntentCollectorFunc registers a collector constructor.
+// AddIntentCollectorFunc registers the given collector constructor.
 func (er *EnvRegistry) AddIntentCollectorFunc(collectorFunc func() any) {
 	if er.frozen.Load() {
 		panic("internal error: environment frozen")

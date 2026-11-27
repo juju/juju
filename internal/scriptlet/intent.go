@@ -28,8 +28,8 @@ func (ic *IntentCollectors) add(collector any) {
 	ic.collectorByType[key] = collector
 }
 
-// IntentCollector returns the collector for type T. It panics if none was
-// registered.
+// IntentCollector returns the collector for T from the given collectors.
+// It panics if none is registered.
 func IntentCollector[T any](collectors *IntentCollectors) T {
 	var zero T
 	intentCollector, ok := collectors.collectorByType[reflect.TypeFor[T]()]
@@ -39,7 +39,7 @@ func IntentCollector[T any](collectors *IntentCollectors) T {
 	return intentCollector.(T)
 }
 
-// intentCollectorForThread returns the T collector of the thread's
+// intentCollectorForThread returns the T collector of the given thread's
 // event state, or starform.ErrUnavailable without an observed event.
 func intentCollectorForThread[T any](thread *starlark.Thread) (T, error) {
 	collectors, ok := starform.Event(thread).State.(*IntentCollectors)

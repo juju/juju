@@ -99,9 +99,6 @@ func (s *scriptletSuite) TestRegistryAddIntentCollectorPanics(c *tc.C) {
 		tc.PanicMatches, ".*frozen.*")
 }
 
-// testCollector is a test-only collector type for exercising
-// registration with types other than StatusCollector; id distinguishes
-// instances.
 type testCollector struct {
 	id int
 }
