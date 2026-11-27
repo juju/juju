@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
@@ -187,4 +188,73 @@ func (s *lxdBrokerSuite) TestStartInstanceWithContainerInheritProperties(c *tc.C
 				"-----BEGIN CERTIFICATE-----\nYOUR-ORGS-TRUSTED-CA-CERT-HERE\n-----END CERTIFICATE-----\n"},
 		},
 	}, c)
+}
+
+// TestStopInstancesSuccess ensures that stopping multiple instances destroys
+// each container and releases its addresses.
+func (s *lxdBrokerSuite) TestStopInstancesSuccess(c *tc.C) {
+	b, err := s.newLXDBroker(c)
+	c.Assert(err, tc.ErrorIsNil)
+
+	ns := s.manager.Namespace()
+	id0, err := ns.Hostname("1/lxd/0")
+	c.Assert(err, tc.ErrorIsNil)
+	id1, err := ns.Hostname("1/lxd/1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = b.StopInstances(c.Context(), instance.Id(id0), instance.Id(id1))
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.manager.CheckCalls(c, []testhelpers.StubCall{{
+		FuncName: "DestroyContainer",
+		Args:     []any{instance.Id(id0)},
+	}, {
+		FuncName: "DestroyContainer",
+		Args:     []any{instance.Id(id1)},
+	}})
+	s.api.CheckCalls(c, []testhelpers.StubCall{{
+		FuncName: "ReleaseContainerAddresses",
+		Args:     []any{names.NewMachineTag("1/lxd/0")},
+	}, {
+		FuncName: "ReleaseContainerAddresses",
+		Args:     []any{names.NewMachineTag("1/lxd/1")},
+	}})
+}
+
+// TestStopInstancesPartialFailure ensures that when a container fails to stop,
+// remaining containers are still stopped and StopInstancesError names only the
+// failed ones.
+func (s *lxdBrokerSuite) TestStopInstancesPartialFailure(c *tc.C) {
+	b, err := s.newLXDBroker(c)
+	c.Assert(err, tc.ErrorIsNil)
+
+	ns := s.manager.Namespace()
+	id0, err := ns.Hostname("1/lxd/0")
+	c.Assert(err, tc.ErrorIsNil)
+	id1, err := ns.Hostname("1/lxd/1")
+	c.Assert(err, tc.ErrorIsNil)
+	id2, err := ns.Hostname("1/lxd/2")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.manager.SetErrors(errors.New("boom"), nil, errors.New("bang"))
+
+	err = b.StopInstances(c.Context(), instance.Id(id0), instance.Id(id1), instance.Id(id2))
+	var stopErr *environs.StopInstancesError
+	c.Assert(errors.As(err, &stopErr), tc.IsTrue)
+	c.Check(stopErr.Failed, tc.DeepEquals, []instance.Id{instance.Id(id0), instance.Id(id2)})
+
+	s.manager.CheckCalls(c, []testhelpers.StubCall{{
+		FuncName: "DestroyContainer",
+		Args:     []any{instance.Id(id0)},
+	}, {
+		FuncName: "DestroyContainer",
+		Args:     []any{instance.Id(id1)},
+	}, {
+		FuncName: "DestroyContainer",
+		Args:     []any{instance.Id(id2)},
+	}})
+	s.api.CheckCalls(c, []testhelpers.StubCall{{
+		FuncName: "ReleaseContainerAddresses",
+		Args:     []any{names.NewMachineTag("1/lxd/1")},
+	}})
 }
