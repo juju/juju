@@ -345,7 +345,7 @@ type MockModelDBStateMockRecorder struct {
 	getVolumeStatusExpects                                  []*gomock.Call2_2[context.Context, string, int, error]
 	isApplicationK8sResourcesManagedExpects                 []*gomock.Call2_2[context.Context, string, bool, error]
 	isControllerModelExpects                                []*gomock.Call2_2[context.Context, string, bool, error]
-	isUnitDyingAndBlockedExpects                            []*gomock.Call2_2[context.Context, string, bool, error]
+	isUnitDyingAndInErrorExpects                            []*gomock.Call2_2[context.Context, string, bool, error]
 	leaveScopeExpects                                       []*gomock.Call2_1[context.Context, string, error]
 	machineExistsExpects                                    []*gomock.Call2_2[context.Context, string, bool, error]
 	machineScheduleRemovalExpects                           []*gomock.Call5_1[context.Context, string, string, bool, time.Time, error]
@@ -1800,23 +1800,23 @@ func (mr *MockModelDBStateMockRecorder) IsControllerModel(ctx, modelUUID any) *M
 // MockModelDBStateIsControllerModelCall is the typed call wrapper for IsControllerModel.
 type MockModelDBStateIsControllerModelCall = gomock.Call2_2[context.Context, string, bool, error]
 
-// IsUnitDyingAndBlocked mocks base method.
-func (m *MockModelDBState) IsUnitDyingAndBlocked(ctx context.Context, unitName string) (bool, error) {
+// IsUnitDyingAndInError mocks base method.
+func (m *MockModelDBState) IsUnitDyingAndInError(ctx context.Context, unitName string) (bool, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.isUnitDyingAndBlockedExpects, m.ctrl, m, "IsUnitDyingAndBlocked", ctx, unitName)
+	return gomock.Dispatch2_2(&m.recorder.isUnitDyingAndInErrorExpects, m.ctrl, m, "IsUnitDyingAndInError", ctx, unitName)
 }
 
-// IsUnitDyingAndBlocked indicates an expected call of IsUnitDyingAndBlocked.
-func (mr *MockModelDBStateMockRecorder) IsUnitDyingAndBlocked(ctx, unitName any) *MockModelDBStateIsUnitDyingAndBlockedCall {
+// IsUnitDyingAndInError indicates an expected call of IsUnitDyingAndInError.
+func (mr *MockModelDBStateMockRecorder) IsUnitDyingAndInError(ctx, unitName any) *MockModelDBStateIsUnitDyingAndInErrorCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, bool, error](mr.mock.ctrl.T, mr.mock, "IsUnitDyingAndBlocked", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(unitName))
-	mr.isUnitDyingAndBlockedExpects = append(mr.isUnitDyingAndBlockedExpects, call)
+	call := gomock.NewCall2_2[context.Context, string, bool, error](mr.mock.ctrl.T, mr.mock, "IsUnitDyingAndInError", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(unitName))
+	mr.isUnitDyingAndInErrorExpects = append(mr.isUnitDyingAndInErrorExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockModelDBStateIsUnitDyingAndBlockedCall is the typed call wrapper for IsUnitDyingAndBlocked.
-type MockModelDBStateIsUnitDyingAndBlockedCall = gomock.Call2_2[context.Context, string, bool, error]
+// MockModelDBStateIsUnitDyingAndInErrorCall is the typed call wrapper for IsUnitDyingAndInError.
+type MockModelDBStateIsUnitDyingAndInErrorCall = gomock.Call2_2[context.Context, string, bool, error]
 
 // LeaveScope mocks base method.
 func (m *MockModelDBState) LeaveScope(ctx context.Context, relationUnitUUID string) error {
