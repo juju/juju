@@ -1135,6 +1135,11 @@ func (s *bootstrapSuite) TestBootstrapRecoveryK8s(c *tc.C) {
 	c.Check(env.podConfig.APIInfo.ModelTag.Id(), tc.Equals, env.cfg.UUID())
 	c.Check(env.podConfig.JujuVersion, tc.Equals, archivedVersion)
 	c.Check(env.podConfig.Bootstrap.StateInitializationParams.RecoveryMode, tc.IsTrue)
+	// The archived controller Service bootstrap configuration reaches the
+	// pod configuration the provider finaliser consumes.
+	c.Check(env.podConfig.Bootstrap.ControllerServiceType, tc.Equals, "external")
+	c.Check(env.podConfig.Bootstrap.ControllerExternalName, tc.Equals, "controller.example.com")
+	c.Check(env.podConfig.Bootstrap.ControllerExternalIPs, tc.DeepEquals, []string{"1.2.3.4", "5.6.7.8"})
 }
 
 func (s *bootstrapSuite) TestBootstrapRecoveryK8sAgentWaitFailure(c *tc.C) {
@@ -1364,9 +1369,12 @@ func recoveryK8sParams(
 				HostCloudRegion: "microk8s:localhost",
 			},
 		},
-		AgentVersion: archivedVersion,
-		CAPrivateKey: coretesting.CAKey,
-		AdminSecret:  "fake-moon-landing",
+		AgentVersion:           archivedVersion,
+		CAPrivateKey:           coretesting.CAKey,
+		AdminSecret:            "fake-moon-landing",
+		ControllerServiceType:  "external",
+		ControllerExternalName: "controller.example.com",
+		ControllerExternalIPs:  []string{"1.2.3.4", "5.6.7.8"},
 	}
 }
 

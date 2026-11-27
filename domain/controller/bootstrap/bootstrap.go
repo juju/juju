@@ -5,6 +5,7 @@ package bootstrap
 
 import (
 	"context"
+	"strings"
 
 	"github.com/canonical/sqlair"
 
@@ -45,9 +46,46 @@ SET cert=$dbController.cert,
 	}
 }
 
+// InsertInitialControllerService inserts the Kubernetes controller Service
+// bootstrap configuration into the database. It must run after the initial
+// controller row has been inserted. Empty values mean the provider default
+// service spec for the cloud type.
+func InsertInitialControllerService(controllerUUID, serviceType, externalName string, externalIPs []string) internaldatabase.BootstrapOpt {
+	return func(ctx context.Context, controller, model database.TxnRunner) error {
+		serviceData := dbK8sControllerService{
+			ControllerUUID: controllerUUID,
+			ServiceType:    serviceType,
+			ExternalName:   externalName,
+			ExternalIPs:    strings.Join(externalIPs, ","),
+		}
+		controllerStmt, err := sqlair.Prepare(`
+INSERT INTO k8s_controller_service (controller_uuid, service_type, external_name, external_ips)
+VALUES ($dbK8sControllerService.*);
+`, serviceData)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		return errors.Capture(controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			if err := tx.Query(ctx, controllerStmt, serviceData).Run(); err != nil {
+				return errors.Capture(err)
+			}
+
+			return nil
+		}))
+	}
+}
+
 type dbController struct {
 	Cert           string `db:"cert"`
 	PrivateKey     string `db:"private_key"`
 	CAPrivateKey   string `db:"ca_private_key"`
 	SystemIdentity string `db:"system_identity"`
+}
+
+type dbK8sControllerService struct {
+	ControllerUUID string `db:"controller_uuid"`
+	ServiceType    string `db:"service_type"`
+	ExternalName   string `db:"external_name"`
+	ExternalIPs    string `db:"external_ips"`
 }

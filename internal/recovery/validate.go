@@ -8,6 +8,7 @@ import (
 	"context"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/juju/juju/controller"
 	corebackups "github.com/juju/juju/core/backups"
@@ -164,6 +165,17 @@ func buildArchiveInfo(ctx context.Context, logger corelogger.Logger, meta *coreb
 		if _, ok := info.ControllerConfig[controller.SSHServerPort]; !ok {
 			info.ControllerConfig[controller.SSHServerPort] = strconv.FormatInt(
 				payload.ControllerSSHServerPort[0].Port, 10)
+		}
+	}
+	// The table is a singleton on Kubernetes controllers (with empty fields
+	// when bootstrapped with the cloud default) and absent from machine
+	// controllers and older archives.
+	if len(payload.K8sControllerService) > 0 {
+		serviceRow := payload.K8sControllerService[0]
+		info.ControllerServiceType = serviceRow.ServiceType
+		info.ControllerExternalName = serviceRow.ExternalName
+		if serviceRow.ExternalIps != "" {
+			info.ControllerExternalIPs = strings.Split(serviceRow.ExternalIps, ",")
 		}
 	}
 

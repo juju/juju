@@ -350,6 +350,19 @@ func provisioningControllerDump() string {
 		"    cloud_region_uuid: region-north\n    model_type_id: 0\n"
 }
 
+// provisioningK8sControllerDump is provisioningControllerDump plus the
+// Kubernetes controller Service bootstrap configuration row.
+func provisioningK8sControllerDump() string {
+	return strings.Replace(provisioningControllerDump(),
+		"  controller_ssh_server_port:\n  - port: 17172\n",
+		"  controller_ssh_server_port:\n  - port: 17172\n"+
+			"  k8s_controller_service:\n"+
+			"  - controller_uuid: "+testControllerUUID+"\n"+
+			"    service_type: external\n"+
+			"    external_name: controller.example.com\n"+
+			"    external_ips: 1.2.3.4,5.6.7.8\n", 1)
+}
+
 // provisioningModelDump renders a controller model dump carrying the
 // provisioning inputs a replacement controller must reuse: the model config,
 // the agent stream, the model and controller application constraints with

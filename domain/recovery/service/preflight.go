@@ -46,6 +46,8 @@ type ControllerPreflightDump struct {
 	ModelType []latest.ModelType `yaml:"model_type"`
 	// ControllerConfig holds the controller_config rows.
 	ControllerConfig []latest.ControllerConfig `yaml:"controller_config"`
+	// K8sControllerService holds the k8s_controller_service rows.
+	K8sControllerService []latest.K8sControllerService `yaml:"k8s_controller_service"`
 }
 
 // DecodeControllerPreflight unmarshals the controller database dump YAML into

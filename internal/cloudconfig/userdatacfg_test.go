@@ -875,6 +875,42 @@ jujuagentd-machine-7`, false)
 		"echo '' > '/var/lib/juju/recovery/params'")
 }
 
+// TestCloudInitConfigureBootstrapControllerService checks that the Kubernetes
+// controller Service bootstrap configuration survives StateInitializationParams
+// marshalling and unmarshalling.
+func (s *cloudinitSuite) TestCloudInitConfigureBootstrapControllerService(c *tc.C) {
+	envConfig := minimalModelConfig(c)
+	instConfig := makeBootstrapConfig(jammy, 0).maybeSetModelConfig(envConfig)
+	params := &instConfig.Bootstrap.StateInitializationParams
+	params.ControllerServiceType = "external"
+	params.ControllerExternalName = "controller.example.com"
+	params.ControllerExternalIPs = []string{"1.2.3.4", "5.6.7.8"}
+
+	data, err := params.Marshal()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(data), tc.Contains, "controller-service-type: external")
+
+	var got instancecfg.StateInitializationParams
+	c.Assert(got.Unmarshal(data), tc.ErrorIsNil)
+	c.Check(got.ControllerServiceType, tc.Equals, "external")
+	c.Check(got.ControllerExternalName, tc.Equals, "controller.example.com")
+	c.Check(got.ControllerExternalIPs, tc.DeepEquals, []string{"1.2.3.4", "5.6.7.8"})
+}
+
+// TestCloudInitConfigureBootstrapControllerServiceDefaults checks that unset
+// controller Service fields are omitted from marshalled bootstrap parameters.
+func (s *cloudinitSuite) TestCloudInitConfigureBootstrapControllerServiceDefaults(c *tc.C) {
+	envConfig := minimalModelConfig(c)
+	instConfig := makeBootstrapConfig(jammy, 0).maybeSetModelConfig(envConfig)
+
+	data, err := instConfig.Bootstrap.StateInitializationParams.Marshal()
+	c.Assert(err, tc.ErrorIsNil)
+	// Unset values mean "provider default" and must not be carried.
+	c.Check(string(data), tc.Not(tc.Contains), "controller-service-type")
+	c.Check(string(data), tc.Not(tc.Contains), "controller-external-name")
+	c.Check(string(data), tc.Not(tc.Contains), "controller-external-ips")
+}
+
 func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *tc.C) {
 	// Create a simple cloudinit config with a 'runcmd' statement.
 	cloudcfg, err := cloudinit.New("ubuntu")

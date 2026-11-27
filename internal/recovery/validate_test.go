@@ -135,6 +135,58 @@ func (s *validateSuite) TestValidateArchiveProvisioningInputs(c *tc.C) {
 	})
 }
 
+// TestValidateArchiveK8sControllerService checks that the archived Kubernetes
+// controller Service bootstrap configuration is extracted so recovery can
+// provision a replacement Service with the same exposure.
+func (s *validateSuite) TestValidateArchiveK8sControllerService(c *tc.C) {
+	files := provisioningFiles()
+	files["juju-backup/dump/controller.yaml"] = []byte(provisioningK8sControllerDump())
+	path, sum := writeArchive(c, files)
+
+	info, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.ControllerServiceType, tc.Equals, "external")
+	c.Check(info.ControllerExternalName, tc.Equals, "controller.example.com")
+	c.Check(info.ControllerExternalIPs, tc.DeepEquals, []string{"1.2.3.4", "5.6.7.8"})
+}
+
+// TestValidateArchiveK8sControllerServiceNoExternalIPs checks that an empty
+// external_ips encoding yields no addresses rather than one empty one.
+func (s *validateSuite) TestValidateArchiveK8sControllerServiceNoExternalIPs(c *tc.C) {
+	files := provisioningFiles()
+	files["juju-backup/dump/controller.yaml"] = []byte(strings.Replace(
+		provisioningK8sControllerDump(), "external_ips: 1.2.3.4,5.6.7.8", "external_ips: ''", 1))
+	path, sum := writeArchive(c, files)
+
+	info, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.ControllerServiceType, tc.Equals, "external")
+	c.Check(info.ControllerExternalName, tc.Equals, "controller.example.com")
+	c.Check(info.ControllerExternalIPs, tc.IsNil)
+}
+
+// TestValidateArchiveK8sControllerServiceDefaults checks that both a
+// Kubernetes archive with an all-empty service row (provider defaults) and an
+// archive without the table (machine controllers or older archives) yield
+// empty values so recovery keeps the cloud default.
+func (s *validateSuite) TestValidateArchiveK8sControllerServiceDefaults(c *tc.C) {
+	defaultK8sFiles := provisioningFiles()
+	defaultK8sFiles["juju-backup/dump/controller.yaml"] = []byte(strings.NewReplacer(
+		"service_type: external", "service_type: ''",
+		"external_name: controller.example.com", "external_name: ''",
+		"external_ips: 1.2.3.4,5.6.7.8", "external_ips: ''",
+	).Replace(provisioningK8sControllerDump()))
+
+	for _, files := range []map[string][]byte{defaultK8sFiles, validFiles()} {
+		path, sum := writeArchive(c, files)
+		info, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(info.ControllerServiceType, tc.Equals, "")
+		c.Check(info.ControllerExternalName, tc.Equals, "")
+		c.Check(info.ControllerExternalIPs, tc.IsNil)
+	}
+}
+
 // A minimal controller model dump records no provisioning inputs; validation
 // stays permissive so archives written without them remain recoverable.
 func (s *validateSuite) TestValidateArchiveNoProvisioningInputs(c *tc.C) {

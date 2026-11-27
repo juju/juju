@@ -315,6 +315,17 @@ func (st *State) LoadControllerDump(ctx context.Context, dump *recovery.Controll
 			},
 		})
 	}
+	if dump.Present["k8s_controller_service"] {
+		tables = append(tables, replayTable{
+			name:      "k8s_controller_service",
+			deleteSQL: `DELETE FROM "k8s_controller_service" AS t`,
+			insertSQL: `INSERT INTO "k8s_controller_service" ("controller_uuid", "service_type", "external_name", "external_ips") SELECT $K8sControllerService.controller_uuid AS "controller_uuid", $K8sControllerService.service_type AS "service_type", $K8sControllerService.external_name AS "external_name", $K8sControllerService.external_ips AS "external_ips"`,
+			sample:    exporttypes.K8sControllerService{},
+			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
+				return insertRows(ctx, tx, stmt, dump.K8sControllerService, nil)
+			},
+		})
+	}
 	if dump.Present["lease_type"] {
 		tables = append(tables, replayTable{
 			name:      "lease_type",

@@ -213,6 +213,12 @@ func decodeControllerDump(dump *dump) (*recovery.ControllerDump, error) {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
 			out.Flag = decoded
+		case "k8s_controller_service":
+			decoded, err := decodeRows[exporttypes.K8sControllerService](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.K8sControllerService = decoded
 		case "lease":
 			// Reacquire ownership on the replacement.
 			continue

@@ -123,6 +123,16 @@ type ArchiveInfo struct {
 	// that a replacement controller must allocate into.
 	ControllerModelConfig map[string]string
 
+	// ControllerServiceType, ControllerExternalName and ControllerExternalIPs
+	// are the archived Kubernetes controller Service bootstrap configuration
+	// (controller-service-type, controller-external-name,
+	// controller-external-ips). They are empty for machine controllers and for
+	// Kubernetes controllers bootstrapped without them; recovery then uses the
+	// cloud's default service spec.
+	ControllerServiceType  string
+	ControllerExternalName string
+	ControllerExternalIPs  []string
+
 	// ModelConstraints are the archived controller model constraints.
 	ModelConstraints constraints.Value
 

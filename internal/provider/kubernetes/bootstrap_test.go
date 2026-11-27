@@ -369,6 +369,23 @@ func (s *bootstrapSuite) TestControllerSpecRecoveryMode(c *tc.C) {
 	c.Check(params.RecoveryMode, tc.IsTrue)
 }
 
+// TestBootstrapParamsControllerService checks that the Kubernetes controller
+// Service bootstrap configuration is carried in the bootstrap-params content
+// the agent reads.
+func (s *bootstrapSuite) TestBootstrapParamsControllerService(c *tc.C) {
+	s.pcfg.Bootstrap.ControllerServiceType = "external"
+	s.pcfg.Bootstrap.ControllerExternalName = "controller.example.com"
+	s.pcfg.Bootstrap.ControllerExternalIPs = []string{"1.2.3.4", "5.6.7.8"}
+
+	paramsData, err := s.pcfg.Bootstrap.StateInitializationParams.Marshal()
+	c.Assert(err, tc.ErrorIsNil)
+	var params instancecfg.StateInitializationParams
+	c.Assert(params.Unmarshal(paramsData), tc.ErrorIsNil)
+	c.Check(params.ControllerServiceType, tc.Equals, "external")
+	c.Check(params.ControllerExternalName, tc.Equals, "controller.example.com")
+	c.Check(params.ControllerExternalIPs, tc.DeepEquals, []string{"1.2.3.4", "5.6.7.8"})
+}
+
 // Run the generated container entry point with stand-ins for the agent and
 // Pebble. The same data directory is mounted on each simulated restart.
 func testRecoveryContainerRestarts(c *tc.C, startup string) {

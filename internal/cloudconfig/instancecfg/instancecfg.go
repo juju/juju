@@ -277,18 +277,9 @@ type BootstrapConfig struct {
 	// server.
 	ControllerAgentInfo controller.ControllerAgentInfo
 
-	// ControllerServiceType is the service type of a k8s controller.
-	ControllerServiceType string
-
 	// IgnoreProxy tells the boostrap provider to no deploy any controller
 	// proxying resources. Currently only used in k8s
 	IgnoreProxy bool
-
-	// ControllerExternalName is the external name of a k8s controller.
-	ControllerExternalName string
-
-	// ControllerExternalIPs is the list of external ips for a k8s controller.
-	ControllerExternalIPs []string
 }
 
 // SSHHostKeys contains the SSH host keys to configure for a bootstrap host.
@@ -404,6 +395,21 @@ type StateInitializationParams struct {
 	// setup then runs recover-state and writes the recovery marker instead of
 	// running a fresh bootstrap.
 	RecoveryMode bool
+
+	// ControllerServiceType is the service type of a Kubernetes controller.
+	// It is only meaningful for Kubernetes controllers; an empty value means
+	// the provider default for the cloud type.
+	ControllerServiceType string
+
+	// ControllerExternalName is the external name of a Kubernetes controller.
+	// It is only meaningful for Kubernetes controllers; an empty value means
+	// the provider default for the cloud type.
+	ControllerExternalName string
+
+	// ControllerExternalIPs is the list of external IPs for a Kubernetes
+	// controller. It is only meaningful for Kubernetes controllers; an empty
+	// value means the provider default for the cloud type.
+	ControllerExternalIPs []string
 }
 
 type stateInitializationParamsInternal struct {
@@ -430,6 +436,9 @@ type stateInitializationParamsInternal struct {
 	ControllerCharmChannel                  charm.Channel                     `yaml:"controller-charm-channel,omitempty"`
 	SSHServerHostKey                        string                            `yaml:"ssh-server-host-key,omitempty"`
 	RecoveryMode                            bool                              `yaml:"recovery-mode,omitempty"`
+	ControllerServiceType                   string                            `yaml:"controller-service-type,omitempty"`
+	ControllerExternalName                  string                            `yaml:"controller-external-name,omitempty"`
+	ControllerExternalIPs                   []string                          `yaml:"controller-external-ips,omitempty"`
 }
 
 // Marshal marshals StateInitializationParams to an opaque byte array.
@@ -466,6 +475,9 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		ControllerCharmChannel:                  p.ControllerCharmChannel,
 		SSHServerHostKey:                        p.SSHServerHostKey,
 		RecoveryMode:                            p.RecoveryMode,
+		ControllerServiceType:                   p.ControllerServiceType,
+		ControllerExternalName:                  p.ControllerExternalName,
+		ControllerExternalIPs:                   p.ControllerExternalIPs,
 	}
 	return yaml.Marshal(&internal)
 }
@@ -517,6 +529,9 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		ControllerCharmChannel:                  internal.ControllerCharmChannel,
 		SSHServerHostKey:                        internal.SSHServerHostKey,
 		RecoveryMode:                            internal.RecoveryMode,
+		ControllerServiceType:                   internal.ControllerServiceType,
+		ControllerExternalName:                  internal.ControllerExternalName,
+		ControllerExternalIPs:                   internal.ControllerExternalIPs,
 	}
 	return nil
 }
