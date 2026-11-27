@@ -217,7 +217,10 @@ func (t *logTailer) tailFile(seekTo *tail.SeekInfo) (err error) {
 		Location: seekTo,
 		ReOpen:   follow,
 		Follow:   follow,
-		Logger:   loggerAdaptor{},
+		// hpcloud/tail's inotify watcher is shared by every tailer of a file,
+		// so the one that handles a rotation leaves the others stalled.
+		Poll:   true,
+		Logger: loggerAdaptor{},
 	})
 	if err != nil {
 		return errors.Annotate(err, "running file tailer")

@@ -188,6 +188,37 @@ func (s *TailerSuite) TestProcessReverseTail(c *tc.C) {
 	c.Assert(result, tc.DeepEquals, logRecords[1:])
 }
 
+// Each open debug-log stream tails logsink.log, so every tailer of a file
+// must keep receiving lines after the file is rotated.
+func (s *TailerSuite) TestProcessForwardTailAfterRotation(c *tc.C) {
+	logLines := strings.Split(createLogFileContent(c), "\n")
+	testFileName := filepath.Join(c.MkDir(), "test.log")
+	err := os.WriteFile(testFileName, []byte(strings.Join(logLines[:2], "\n")+"\n"), 0644)
+	c.Assert(err, tc.ErrorIsNil)
+
+	tailers := make([]logtailer.LogTailer, 3)
+	for i := range tailers {
+		tailers[i], err = logtailer.NewLogTailer(coretesting.ModelTag.Id(), testFileName, logtailer.LogTailerParams{})
+		c.Assert(err, tc.ErrorIsNil)
+		defer workertest.CleanKill(c, tailers[i])
+	}
+	for _, tailer := range tailers {
+		c.Assert(s.fetchLogs(tailer, 2), tc.DeepEquals, logRecords[:2])
+	}
+
+	// A tailer starts watching only once it reaches EOF.
+	time.Sleep(100 * time.Millisecond)
+
+	err = os.Rename(testFileName, testFileName+".1")
+	c.Assert(err, tc.ErrorIsNil)
+	err = os.WriteFile(testFileName, []byte(strings.Join(logLines[2:], "\n")), 0644)
+	c.Assert(err, tc.ErrorIsNil)
+
+	for i, tailer := range tailers {
+		c.Check(s.fetchLogs(tailer, 2), tc.DeepEquals, logRecords[2:], tc.Commentf("tailer %d", i))
+	}
+}
+
 func createLogFileContent(c *tc.C) string {
 	buffer := new(strings.Builder)
 
