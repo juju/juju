@@ -331,7 +331,7 @@ func newControllerStack(
 		portAPIServer: pcfg.Bootstrap.ControllerConfig.APIPort(),
 		portSSHServer: pcfg.Bootstrap.ControllerConfig.SSHServerPort(),
 	}
-	cs.controllerExecClientFactory = cs.controllerExecClient
+	cs.controllerExecClientFactory = broker.controllerExecClient
 	cs.resourceNameService = cs.getResourceName("service")
 	cs.resourceNameHeadlessService = cs.getResourceName("service-endpoints")
 	cs.resourceNameConfigMap = cs.getResourceName("configmap")
@@ -455,12 +455,12 @@ func (c *controllerStack) uploadLocalControllerCharmWithRetry(ctx context.Contex
 	})
 }
 
-func (c *controllerStack) controllerExecClient() (k8sexec.Executor, error) {
-	restConfig := c.broker.restConfig()
+func (k *kubernetesClient) controllerExecClient() (k8sexec.Executor, error) {
+	restConfig := k.restConfig()
 	if restConfig == nil {
 		return nil, errors.NotValidf("empty kubernetes rest config")
 	}
-	return k8sexec.New(c.broker.Namespace(), c.broker.client(), restConfig), nil
+	return k8sexec.New(k.Namespace(), k.client(), restConfig), nil
 }
 
 func (c *controllerStack) isPrivateRepo() bool {
@@ -1142,6 +1142,7 @@ func (c *controllerStack) createControllerStatefulset(ctx context.Context) error
 
 func (c *controllerStack) waitForPod(ctx context.Context, podWatcher watcher.NotifyWatcher, podName string) error {
 	timeout := c.broker.clock.NewTimer(c.timeout)
+	defer timeout.Stop()
 
 	podEventWatcher, err := c.broker.watchEvents(podName, "Pod")
 	if err != nil {
@@ -1242,7 +1243,12 @@ func (c *controllerStack) waitForPod(ctx context.Context, podWatcher watcher.Not
 
 	_ = printPodEvents()
 	for {
+		if environsbootstrap.IsContextDone(ctx) {
+			return environsbootstrap.Cancelled()
+		}
 		select {
+		case <-ctx.Done():
+			return environsbootstrap.Cancelled()
 		case <-podWatcher.Changes():
 			_ = printPodEvents()
 			pod, err := c.broker.getPod(ctx, podName)
@@ -1562,7 +1568,30 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 	// is not pre-staged by the seed container (unlike runtime.conf).
 	systemIdentityPath := path.Join("$JUJU_CONTROLLER_DIR", agent.SystemIdentity)
 	var bootstrapSetup string
-	if isLocalControllerCharmPath(c.pcfg.Bootstrap.ControllerCharmPath) {
+	if c.pcfg.Bootstrap.RecoveryMode {
+		// A recovery allocation runs recover-state instead of
+		// bootstrap-state. recover-state defines no --timeout flag: the
+		// recovery import fence bounds the wait, and passing one would
+		// crash-loop the pod on flag parse failure.
+		featureFlagsEnv := ""
+		if featureFlags != "" {
+			featureFlagsEnv = fmt.Sprintf("%s=%s", osenv.JujuFeatureFlagEnvKey, featureFlags)
+		}
+		recoverStateCmd := cloudconfig.AgentStartCommand(cloudconfig.AgentStartOptions{
+			ToolPath:        path.Join("$JUJU_TOOLS_DIR", "jujuagentd"),
+			DataDir:         "$JUJU_DATA_DIR",
+			LoggingOption:   loggingOption,
+			Timeout:         c.timeout,
+			FeatureFlagsEnv: featureFlagsEnv,
+			RecoveryMode:    true,
+		})
+		agentConfigPath := path.Join(
+			"$JUJU_DATA_DIR", "agents",
+			fmt.Sprintf("controller-%s", c.pcfg.ControllerId),
+			agentconstants.AgentConfigFilename,
+		)
+		bootstrapSetup = recoveryPodSetup(agentConfigPath, recoverStateCmd)
+	} else if isLocalControllerCharmPath(c.pcfg.Bootstrap.ControllerCharmPath) {
 		charmArchivePath := path.Join("$JUJU_CONTROLLER_DIR", "charms", environsbootstrap.ControllerCharmArchive)
 		bootstrapSetup = fmt.Sprintf(
 			"if ! test -e %s; then mkdir -p %s; until test -e %s; do sleep 1; done; %s; fi",

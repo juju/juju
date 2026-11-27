@@ -118,6 +118,34 @@ func (s *watcherSuite) TestWatchRemovals(c *tc.C) {
 		w.Check(watchertest.StringSliceAssert("job-uuid-1", "job-uuid-2"))
 	})
 
+	// Updating a job emits its UUID.
+	harness.AddTest(c, func(c *tc.C) {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, `
+UPDATE removal SET entity_uuid = "rel-uuid-3" WHERE uuid = "job-uuid-1"
+			`)
+			return err
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.StringSliceAssert("job-uuid-1"))
+	})
+
+	// Deleting a completed job also emits its UUID, so the removal
+	// worker is woken and can discover dependency-completed jobs
+	// without waiting for the next scheduled poll.
+	harness.AddTest(c, func(c *tc.C) {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, `
+DELETE FROM removal WHERE uuid = "job-uuid-1"
+			`)
+			return err
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.StringSliceAssert("job-uuid-1"))
+	})
+
 	harness.Run(c, []string(nil))
 }
 

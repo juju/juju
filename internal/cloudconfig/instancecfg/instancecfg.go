@@ -424,6 +424,11 @@ type StateInitializationParams struct {
 
 	// SSHServerHostKey holds the host key to be used within the embedded SSH server for Juju.
 	SSHServerHostKey string
+
+	// RecoveryMode marks a controller allocated from a recovery archive. Agent
+	// setup then runs recover-state and writes the recovery marker instead of
+	// running a fresh bootstrap.
+	RecoveryMode bool
 }
 
 type stateInitializationParamsInternal struct {
@@ -451,6 +456,7 @@ type stateInitializationParamsInternal struct {
 	ControllerCharmChannel                  charm.Channel                     `yaml:"controller-charm-channel,omitempty"`
 	ControllerSnapExpectedVersion           string                            `yaml:"controller-snap-expected-version,omitempty"`
 	SSHServerHostKey                        string                            `yaml:"ssh-server-host-key,omitempty"`
+	RecoveryMode                            bool                              `yaml:"recovery-mode,omitempty"`
 }
 
 // Marshal marshals StateInitializationParams to an opaque byte array.
@@ -487,6 +493,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		ControllerCharmPath:                     p.ControllerCharmPath,
 		ControllerCharmChannel:                  p.ControllerCharmChannel,
 		SSHServerHostKey:                        p.SSHServerHostKey,
+		RecoveryMode:                            p.RecoveryMode,
 	}
 	return yaml.Marshal(&internal)
 }
@@ -538,6 +545,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		ControllerCharmPath:                     internal.ControllerCharmPath,
 		ControllerCharmChannel:                  internal.ControllerCharmChannel,
 		SSHServerHostKey:                        internal.SSHServerHostKey,
+		RecoveryMode:                            internal.RecoveryMode,
 	}
 	return nil
 }
