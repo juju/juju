@@ -22,7 +22,7 @@ This document shows how to manage offers.
 See also: {ref}`Creating an offer <creating-an-offer>`, {ref}`Offer URLs <offer-urls>`
 ```
 
-To create an offer, run the `offer` command followed by the application, a colon and the endpoint to offer, and, optionally, a name for the offer. For example, to deploy `mysql` and offer its `database` endpoint as `hosted-mysql`:
+To create an offer, give `juju offer` the application and endpoint as `application:endpoint`. You can also give the offer a name. For example, to deploy `mysql` and offer its `database` endpoint as `hosted-mysql`:
 
 ```text
 juju deploy mysql
@@ -218,7 +218,7 @@ juju remove-relation 2
 ```
 
 ```{note}
-Removing a relation on the offering side will trigger a removal on the consuming side. A relation can also be removed from the consuming side, as well as the application proxy, resulting in all relations being removed.
+Removing a single relation on either side removes that relation on the other side. To remove **all** of a SAAS application's relations from the consuming side, {ref}`remove the SAAS application <remove-a-saas-application>`.
 ```
 
 ```{ibnote}
@@ -338,7 +338,7 @@ juju consume admin/default.hosted-mysql
 Added admin/default.hosted-mysql as hosted-mysql
 ```
 
-To give the SAAS application another name, for example because an application in your model already has the offer's name, add the name:
+If the offer's name is already in use in your model, choose a different local name when you consume the offer:
 
 ```text
 juju consume admin/default.hosted-mysql mysql-prod

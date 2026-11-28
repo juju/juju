@@ -15,7 +15,7 @@ See also: {ref}`manage-saas-applications`, {ref}`consume-an-offer`
 :file: ../juju.ggarch
 :view: SAAS application across models
 :caption: A SAAS application lets applications in your model integrate with an application in another model as if it were in yours. In this example, two models consume the same offer, and each holds one SAAS application for it. In the first consuming model, two applications integrate with that one SAAS application; in the other, one application does.
-:alt: A box on the left, Offering model, holds an Offer. Two arrows labelled "consumed as" fan out from the Offer to two boxes stacked on the right. The upper box, Consuming model, holds a SAAS application, in focus, and two arrows labelled "integrated with" run from it to two Applications. The lower box, Another consuming model, holds another SAAS application, in focus, and one arrow labelled "integrated with" runs from it to an Application.
+:alt: Two arrows labelled “consumed as” lead from one offer to two consuming models. Each contains one highlighted SAAS application. In the upper model two applications integrate with it; in the lower model one does.
 ```
 
 In Juju, a **SAAS application** is a local stand-in for an {ref}`application <application>` in another {ref}`model <model>`: local applications can integrate with it through the {ref}`endpoints <application-endpoint>` the remote application shares in an {ref}`offer <offer>`. When a {ref}`user <user>` first {ref}`consumes the offer <consuming-an-offer>` in a model, Juju creates one SAAS application for that offer in that model. Local applications use its {ref}`local name <saas-application-names>` to form {ref}`cross-model relations <cross-model-relation>` with the offered application. The SAAS application reports the offered application's {ref}`status <saas-application-status>` until a user {ref}`removes it <removing-a-saas-application>` or the offer goes away.
@@ -37,13 +37,13 @@ Model status lists each SAAS application with its status, its message and its of
 (removing-a-saas-application)=
 ## Removing a SAAS application
 
-Removing a SAAS application takes it, with its relations, out of the consuming model. A user gives the names of one or more SAAS applications, and may ask for a forced removal. The consuming model's controller skips a name that is not the name of a SAAS application in the consuming model, without an error.
+Removing a SAAS application removes both the application and its relations from the consuming model. A user gives the names of one or more SAAS applications and may ask for a forced removal. The consuming model's controller skips any name that does not identify a SAAS application there, without reporting an error.
 
 For each SAAS application, the consuming model's controller marks the SAAS application and each of its relations as dying, schedules their removal, and returns. It deletes the SAAS application once each of those relations has been removed, which waits for the consuming model's units to leave the relation. Until then, model status still shows the SAAS application.
 
 A forced removal removes the relations at once, without waiting for the consuming model's units to leave them. It applies only to the relations that were not already dying when the user asked: a relation that an earlier removal already made dying is not forced, and the SAAS application stays until that relation has been removed.
 
-The consuming model's controller also removes a SAAS application, with its relations, when the offering model no longer has the offer, for example because a user removed the offer or deleted the offered application. It gives the consuming model's units one minute to leave each relation, and then forces the relation's removal.
+If the offering model loses the offer (for example, when a user deletes the offered application), the consuming model's controller also removes the SAAS application and its relations. It gives the consuming model's units one minute to leave each relation and then forces the relation's removal.
 
 **Who can do this:** A user with at least {ref}`model write access <user-access-model-write>` on the consuming model.
 
