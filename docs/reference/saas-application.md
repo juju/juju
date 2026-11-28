@@ -8,7 +8,7 @@ myst:
 # SAAS application
 
 ```{ibnote}
-See also: {ref}`manage-saas-applications`, {ref}`consume-an-offer`
+See also: {ref}`Juju CLI | Manage SAAS applications <manage-saas-applications>`, {ref}`Juju CLI | Consume an offer <consume-an-offer>`, {ref}`Terraform Provider for Juju | Integrate with an offer <tfjuju:integrate-with-an-offer>`
 ```
 
 ```{ggarch}
@@ -23,10 +23,18 @@ In Juju, a **SAAS application** is a local stand-in for an {ref}`application <ap
 (saas-application-names)=
 ## SAAS application names
 
+```{ibnote}
+See also: {ref}`Juju CLI | Rename a SAAS application <rename-a-saas-application>`
+```
+
 The first time a user consumes an offer in a model, the SAAS application takes the offer's name unless the user chooses another. Consuming the same offer again in that model does not rename the existing SAAS application. The name must be a valid application name, and must not be the name of another application in the consuming model, including another SAAS application. Giving another name at first consumption lets a user avoid a name already in use.
 
 (saas-application-status)=
 ## SAAS application status
+
+```{ibnote}
+See also: {ref}`Juju CLI | Inspect a SAAS application <view-a-saas-application>`
+```
 
 A SAAS application's status tells the consuming model how the offered application is doing. When the consuming model's controller creates a SAAS application, it sets the status to `unknown`, with the message `waiting for first status update`. From then on, the SAAS application shows the status reported by the offering model, including `error` if the offered application itself is in error.
 
@@ -36,6 +44,10 @@ Model status lists each SAAS application with its status, its message and its of
 
 (removing-a-saas-application)=
 ## Removing a SAAS application
+
+```{ibnote}
+See also: {ref}`Juju CLI | Remove a SAAS application <remove-a-saas-application>`
+```
 
 Removing a SAAS application removes both the application and its relations from the consuming model. A user gives the names of one or more SAAS applications and may ask for a forced removal. The consuming model's controller skips any name that does not identify a SAAS application there, without reporting an error.
 

@@ -16,6 +16,7 @@ This document shows how to manage offers.
 (manage-an-offer-on-the-offering-side)=
 ## Manage an offer on the offering side
 
+(create-an-offer)=
 ### Create an offer
 
 ```{ibnote}
@@ -102,6 +103,7 @@ foo:admin/default.hosted-mysql:
 See more: {ref}`command-juju-show-offer`
 ```
 
+(control-access-to-an-offer)=
 ### Control access to an offer
 
 ```{ibnote}

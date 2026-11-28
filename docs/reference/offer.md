@@ -8,7 +8,7 @@ myst:
 # Offer
 
 ```{ibnote}
-See also: {ref}`manage-offers`
+See also: {ref}`Juju CLI | Manage offers <manage-offers>`, {ref}`Terraform Provider for Juju | Manage offers <tfjuju:manage-offers>`
 ```
 
 ```{ggarch}
@@ -55,6 +55,10 @@ While any connection remains, even a suspended one, ordinary removal of the offe
 (creating-an-offer)=
 ### Creating an offer
 
+```{ibnote}
+See also: {ref}`Juju CLI | Create an offer <create-an-offer>`, [Terraform Provider for Juju | Create an offer](https://documentation.ubuntu.com/terraform-provider-juju/latest/howto/manage-offers/#create-an-offer)
+```
+
 Creating an offer shares endpoints of an application in the offering model with other models. A user gives the application and at least one of its endpoints, and may give the offer a name; an offer without a name is named after the application. Every endpoint must have global scope. The offering controller refuses an endpoint with container scope, which a subordinate application uses to attach to its principal.
 
 The user who creates the offer owns it, unless they name another user as the owner. That user must also have model `admin` on the offering model or controller `superuser` on the offering controller.
@@ -77,7 +81,7 @@ An offer cannot be updated. If the offering model already has an offer with the 
 ### Viewing an offer
 
 ```{ibnote}
-See also: {ref}`View one offer's details with the Juju CLI <view-an-offers-details>`
+See also: {ref}`Juju CLI | View an offer’s details <view-an-offers-details>`, [Terraform Provider for Juju | Look up an offer by URL](https://documentation.ubuntu.com/terraform-provider-juju/latest/howto/manage-offers/#reference-an-externally-managed-offer)
 ```
 
 Viewing an offer by its exact {ref}`URL <offer-urls>` returns its description, offered endpoints and the access entries visible to the caller. Each endpoint has a name, interface and role. A user with at least model `read` on the offering model can view the offer without a grant on the offer itself. The {ref}`visibility rules <offer-access>` also determine whose access entries the caller sees.
@@ -93,6 +97,10 @@ The offering controller returns the offer's own description if it has one. Other
 
 (changing-access-to-an-offer)=
 ### Changing access to an offer
+
+```{ibnote}
+See also: {ref}`Juju CLI | Control access to an offer <control-access-to-an-offer>`, {ref}`Terraform Provider for Juju | Manage access to an offer <tfjuju:manage-access-to-an-offer>`
+```
 
 Changing access to an offer grants a user an offer access level or revokes one. A user gives the other user's name, the level and the offer URL; the other user must be a user of the offering controller.
 
@@ -112,7 +120,7 @@ If a user relies on an offer grant to consume the offer, revoking `consume` or `
 ### Listing offers and their connections
 
 ```{ibnote}
-See also: {ref}`Inspect offer connections with the Juju CLI <inspect-relations-to-an-offer>`
+See also: {ref}`Juju CLI | Inspect relations to an offer <inspect-relations-to-an-offer>`, [Terraform Provider for Juju | Query offers in a model](https://documentation.ubuntu.com/terraform-provider-juju/latest/howto/manage-models/#define-what-you-want-to-query-for)
 ```
 
 Listing offers shows the offers of one or more offering models with their {ref}`connections <offer-connections>`. A user gives one or more filters, and each filter must name an offering model; the list covers the models that the filters name.
@@ -130,6 +138,10 @@ If no offer in the selected models matches, the list is empty. To look up one kn
 
 (removing-an-offer)=
 ### Removing an offer
+
+```{ibnote}
+See also: {ref}`Juju CLI | Remove an offer <remove-an-offer>`, [Terraform Provider for Juju | Remove an offer](https://documentation.ubuntu.com/terraform-provider-juju/latest/howto/manage-offers/#remove-an-offer)
+```
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -159,7 +171,7 @@ When the offering controller deletes an application, it also deletes the applica
 ### Finding offers
 
 ```{ibnote}
-See also: {ref}`Find an offer with the Juju CLI <find-an-offer-to-use>`
+See also: {ref}`Juju CLI | Find an offer to use <find-an-offer-to-use>`
 ```
 
 Finding offers shows the offers that match a filter on their offering model, name, application or endpoints. A user gives one or more filters. A single filter that names no model searches every model on the controller that receives the request. Results include only {ref}`visible offers <offer-access>`. A user with at least model `read` on an offering model sees every matching offer in it, even without a grant on the offer itself.
@@ -178,7 +190,7 @@ If no visible offer matches, the result is empty. Use the {ref}`URL of a matchin
 ### Consuming an offer
 
 ```{ibnote}
-See also: {ref}`Juju CLI: Consume an offer <consume-an-offer>`
+See also: {ref}`Juju CLI | Consume an offer <consume-an-offer>`, {ref}`Juju CLI | Integrate with an offer <integrate-with-an-offer>`, {ref}`Terraform Provider for Juju | Integrate with an offer <tfjuju:integrate-with-an-offer>`
 ```
 
 ```{ggarch}
