@@ -21,14 +21,16 @@ See also: {ref}`Juju CLI | Manage secret backends <manage-secret-backends>`, {re
 In Juju, a **secret backend** is a {ref}`controller <controller>` registration that tells Juju where to store the value of a {ref}`secret <secret>` revision. Registering a backend makes it available to the controller's {ref}`models <model>`; it does not select it for any of them. A model's {ref}`selection <secret-backend-active>` determines where new values go. An existing revision can {ref}`remain on its previous backend <secret-backend-movement>` after that selection changes.
 
 (secret-backend-configuration-options)=
-## Backend names and types
+(backend-names-and-types)=
+## Secret backend names and types
 
 Each registration has an ID and a name unique to its controller. A model selects a registration by its name. The provider type determines where Juju stores the values: `controller` stores them in Juju's model database, while `vault` and `kubernetes` store them externally. For an external store, Juju keeps the revision and a reference to its value. Both machine and Kubernetes models can select a registered Vault backend.
 
 `internal`, `kubernetes`, `auto` and names ending in `-local` are reserved. They cannot be used to name or rename a registration. The provider settings below configure a connection, not the external service itself. The {ref}`token refresh interval <secret-backend-rotation>` is a property of the registration, not a provider setting.
 
 (secret-backend-vault-settings)=
-### Vault backend settings
+(vault-backend-settings)=
+### Vault secret backend settings
 
 Juju checks that Vault is reachable, initialized and unsealed, and that it can read key status. An endpoint is the only mandatory schema field; the credentials still need to authorize the operations Juju performs. Choose an HTTPS endpoint and trust settings appropriate for the deployment; follow [Vault's production deployment guidance](https://developer.hashicorp.com/vault/docs/concepts/production-hardening) when provisioning the store.
 
@@ -43,7 +45,8 @@ Juju checks that Vault is reachable, initialized and unsealed, and that it can r
 | `tls-server-name` | Server name to use for TLS. |
 
 (secret-backend-kubernetes-settings)=
-### Kubernetes backend settings
+(kubernetes-backend-settings)=
+### Kubernetes secret backend settings
 
 For a named Kubernetes backend, Juju checks API discovery, the existing namespace and, if configured, the service account. These checks do not write a Secret. Arrange the credentials and [Kubernetes authorization](https://kubernetes.io/docs/reference/access-authn-authz/authorization/) for the store before registering it.
 
@@ -59,17 +62,20 @@ For a named Kubernetes backend, Juju checks API discovery, the existing namespac
 | `skip-tls-verify` | Disables server certificate verification. Do not use this as a substitute for configuring trust in production. |
 
 (secret-backend-built-ins)=
-## Built-in backends
+(built-in-backends)=
+## Built-in secret backends
 
 At bootstrap Juju supplies two protected registrations. `internal`, of type `controller`, stores values in the model database. `kubernetes`, of type `kubernetes`, uses the model's cluster and namespace (the controller namespace for the controller model). A user-added Kubernetes backend instead uses its own connection settings and namespace. Juju protects the built-ins from update and removal because of their origin, not because of their provider type.
 
 (secret-backend-active)=
-## Active backend and model defaults
+(active-backend-and-model-defaults)=
+## Active secret backend and model defaults
 
 Each model selects one backend. With the default selection, `auto`, a machine model uses `internal` and a Kubernetes model uses its built-in Kubernetes store, regardless of the controller's own model type. `auto` is a selection, not another registration. New user and charm secret revisions use this active backend; their writers do not select a store per revision.
 
 (secret-backend-encryption-at-rest)=
-## Encryption at rest
+(encryption-at-rest)=
+## Encryption at rest by secret backend
 
 ```{warning}
 Whether a revision's value is encrypted at rest depends on the store that holds it. Base64 is an encoding, not encryption. TLS protects the connection to a backend, not the stored value.
@@ -120,7 +126,8 @@ An inspection probes Vault. A failed check returns status `error` and a message,
 - *Error message:* `permission denied`. *Trigger:* The caller requests sensitive settings without controller superuser access. *What to do:* Inspect the registration without requesting sensitive fields, or ask an authorized controller superuser to inspect them.
 
 (secret-backend-check-selection)=
-## Checking a model's selected backend
+(checking-a-model-s-selected-backend)=
+## Checking a model's selected secret backend
 
 ```{ibnote}
 See also: {ref}`Juju CLI | Check a model's selected backend <check-model-secret-backend>`
@@ -135,7 +142,8 @@ The model reports the registered name or `auto` for its platform default. This i
 - *Error message:* `permission denied`. *Trigger:* The caller lacks read access to the target model. *What to do:* Check the target model and ask its administrator for model read access.
 
 (secret-backend-select)=
-## Selecting a backend for a model
+(selecting-a-backend-for-a-model)=
+## Selecting a secret backend for a model
 
 ```{ibnote}
 See also: {ref}`Juju CLI | Select a backend for a model <check-model-secret-backend>`, [Terraform Provider for Juju | Set the secret backend for a model](https://documentation.ubuntu.com/terraform-provider-juju/latest/howto/manage-secret-backends/#set-the-secret-backend-for-a-model)
@@ -152,7 +160,8 @@ A model writer can select an existing registration by name, or restore the platf
 - *Error message:* `permission denied`. *Trigger:* The caller lacks write access to the model. *What to do:* Ask a user with model write access to change the selection.
 
 (secret-backend-movement)=
-## Moving revisions automatically after a backend change
+(moving-revisions-automatically-after-a-backend-change)=
+## Automatic revision movement after a secret backend change
 
 ```{ibnote}
 See also: {ref}`Juju CLI | Check where existing secret revisions are stored <check-secret-backend-movement>`
@@ -191,7 +200,8 @@ A rename preserves the registration's ID, type and model selections. To connect 
 - *Error message:* `permission denied`. *Trigger:* The caller lacks controller superuser access. *What to do:* Ask a superuser on the registration's controller to make the change.
 
 (secret-backend-rotation)=
-## Rotating a backend token
+(rotating-a-backend-token)=
+## Rotating a secret backend token
 
 ```{ibnote}
 See also: {ref}`Juju CLI | Configure token rotation <update-a-secret-backend>`
