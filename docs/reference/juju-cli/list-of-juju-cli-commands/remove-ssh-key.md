@@ -18,15 +18,17 @@ juju remove-ssh-key [options] <ssh key id> ...
 
 ## Examples
 
-    juju remove-ssh-key ubuntu@ubuntu
-    juju remove-ssh-key 45:7f:33:2c:10:4e:6c:14:e3:a1:a4:c8:b2:e1:34:b4
-    juju remove-ssh-key bob@ubuntu carol@ubuntu
+Remove the key that matches the contents of a public key file:
+
+    juju remove-ssh-key "$(cat ~/.ssh/id_ed25519.pub)"
 
 
 ## Details
-Juju maintains a per-model cache of public SSH keys which it copies to
-each unit. This command will remove a specified key (or space-separated
-list of keys) from the model cache and all current units deployed in that
-model. The keys to be removed may be specified by the key's fingerprint
-using a SHA256 sum or by the text label associated with them. Keys may also be
-removed by specifying the key verbatim.
+Pass each fingerprint, key comment, or full public key as a separate argument.
+Quote arguments containing spaces. To select one key, use its fingerprint
+from the output of juju ssh-keys.
+Check standard error for key errors even if the command exits successfully.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/ssh-key/

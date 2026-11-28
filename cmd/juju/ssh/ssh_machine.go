@@ -85,7 +85,7 @@ func (t *resolvedTarget) isAgent() bool {
 const defaultSSHPort = 22
 
 func (c *sshMachine) SetFlags(f *gnuflag.FlagSet) {
-	f.Var(&c.proxy, "proxy", "Proxy through the controller machine's OpenSSH server (requires --direct; defaults to the model's proxy-ssh setting)")
+	f.Var(&c.proxy, "proxy", "Proxy through the controller machine's OpenSSH server (requires `--direct`; defaults to the model's `proxy-ssh` setting)")
 	f.BoolVar(&c.noHostKeyChecks, "no-host-key-checks", false, "Skip host key checking (INSECURE)")
 }
 

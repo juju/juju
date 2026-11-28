@@ -108,8 +108,8 @@ type sshJump struct {
 
 // SetFlags registers flags specific to the SSH jump provider.
 func (p *sshJump) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&p.showCommand, "show-command", false, "Print the OpenSSH command instead of executing it")
-	f.StringVar(&p.jumpKey, "ssh-key", "", "SSH private key to use when connecting through the controller")
+	f.BoolVar(&p.showCommand, "show-command", false, "Print the OpenSSH command for the jump route instead of running it")
+	f.StringVar(&p.jumpKey, "ssh-key", "", "Private key to offer to the controller's SSH jump server")
 }
 
 // initRun initializes the SSH jump provider for a model command.

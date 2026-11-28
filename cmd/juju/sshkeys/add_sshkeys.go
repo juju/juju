@@ -17,27 +17,19 @@ var usageAddSSHKeySummary = `
 Adds a public SSH key to a model.`[1:]
 
 var usageAddSSHKeyDetails = `
-Juju maintains a per-model cache of public SSH keys which it copies to
-each unit (including units already deployed). All keys must be added to a model
-explicitly with this command, quoting the entire public key as an argument.
+Pass the text of each public key as a separate quoted argument, not a filename.
+Check standard error: the command can report a key error without a nonzero exit status.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/ssh-key/
 
 `[1:]
 
 const usageAddSSHKeyExamples = `
-    juju add-ssh-key "ssh-rsa qYfS5LieM79HIOr535ret6xy
-    AAAAB3NzaC1yc2EAAAADAQA6fgBAAABAQCygc6Rc9XgHdhQqTJ
-    Wsoj+I3xGrOtk21xYtKijnhkGqItAHmrE5+VH6PY1rVIUXhpTg
-    pSkJsHLmhE29OhIpt6yr8vQSOChqYfS5LieM79HIOJEgJEzIqC
-    52rCYXLvr/BVkd6yr4IoM1vpb/n6u9o8v1a0VUGfc/J6tQAcPR
-    ExzjZUVsfjj8HdLtcFq4JLYC41miiJtHw4b3qYu7qm3vh4eCiK
-    1LqLncXnBCJfjj0pADXaL5OQ9dmD3aCbi8KFyOEs3UumPosgmh
-    VCAfjjHObWHwNQ/ZU2KrX1/lv/+lBChx2tJliqQpyYMiA3nrtS
-    jfqQgZfjVF5vz8LESQbGc6+vLcXZ9KQpuYDt joe@ubuntu"
+Add the public key stored in a file:
 
-For ease of use it is possible to use shell substitution to pass the key
-to the command:
-
-    juju add-ssh-key "$(cat ~/mykey.pub)"
+    juju add-ssh-key "$(cat ~/.ssh/id_ed25519.pub)"
 
 `
 

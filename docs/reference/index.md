@@ -30,6 +30,7 @@ You interact with Juju through a client -- a command-line or web interface for m
 Clients connect to a controller -- the central management service that coordinates between clouds, [Charmhub](https://charmhub.io/), and your deployed resources. The controller records what you declare in its database and is itself deployed through the [`juju-controller` charm](https://charmhub.io/juju-controller).
 
 - {ref}`controller`
+- {ref}`ssh-server`
 - {ref}`database`
 
 ### Agents and charm runtime

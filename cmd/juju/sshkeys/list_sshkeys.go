@@ -17,20 +17,18 @@ import (
 )
 
 var usageListSSHKeysSummary = `
-Lists the currently known SSH keys for the current (or specified) model.`[1:]
+Lists your authorized SSH keys in a model.`[1:]
 
-var usageListSSHKeysDetails = `
-Juju maintains a per-model cache of SSH keys which it copies to each newly
-created unit.
+var usageListSSHKeysDetails = (`
+The command prints the model name followed by one fingerprint per line.
+To print public keys instead of fingerprints, use ` + "`--full`" + `.
+If the list is empty, the command reports that there are no keys to display.
 
-This command will display a list of all the keys currently used by Juju in
-the current model (or the model specified, if the ` + "`-m`" + ` option is used).
+Further reading:
 
-By default a minimal list is returned, showing only the fingerprint of
-each key and its text identifier. By using the ` + "`--full`" + ` option, the entire
-key may be displayed.
+- https://canonical.com/juju/docs/juju-cli/latest/reference/ssh-key/
 
-`[1:]
+`)[1:]
 
 const usageListSSHKeysExamples = `
     juju ssh-keys

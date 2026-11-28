@@ -225,7 +225,7 @@ Since `4.0`, after creating a new model, add SSH keys manually if you want `juju
 **Juju 4.1**
 ```bash
 juju add-model mymodel
-juju add-ssh-key "ssh-ed25519 AAAA... yourkeycomment"
+juju add-ssh-key "$(cat ~/.ssh/id_ed25519.pub)"
 ```
 
 ### 4. Status filtering is limited to exact names
@@ -502,9 +502,12 @@ juju create-backup
 # Plan for controller recovery without `juju create-backup`.
 ```
 
+(juju-ssh-and-juju-scp-go-through-the-controller-by-default)=
 ### 20. `juju ssh` and `juju scp` go through the controller by default
 
-New in `4.1`: `juju ssh` and `juju scp` proxy the connection through the controller's SSH server (`ssh-server-port`, default `17022`, which must be open on the controller machine). Connecting to nested containers running on machines is not supported this way. Use `--direct` to connect directly, as in `3.6`; this is required for Juju 3 controllers.
+New in `4.1`: `juju ssh` and `juju scp` use the {ref}`controller's SSH server <ssh-server-connections>` by default. The client must be able to reach the {ref}`current SSH listener port <ssh-server-listener>` on a controller node. This route refuses {ref}`nested machine IDs <ssh-server-targets>`. Use `--direct` to connect directly, as in `3.6`; this is required for Juju 3 controllers.
+
+The following examples target machine `0` in a machine model. For the default route in a Kubernetes model, use a unit name instead, for example `juju ssh mysql/0`.
 
 **Juju 3.6**
 ```bash
