@@ -8,7 +8,7 @@ myst:
 # SSH key
 
 ```{ibnote}
-See also: {ref}`manage-ssh-keys`
+See also: {ref}`Juju CLI | Manage SSH keys <manage-ssh-keys>`, {ref}`Terraform Provider for Juju | Manage SSH keys <tfjuju:manage-ssh-keys>`
 ```
 
 ```{ggarch}
@@ -31,12 +31,12 @@ At bootstrap, Juju registers any public keys supplied for the controller model u
 ## Adding an SSH key
 
 ```{ibnote}
-See also: {ref}`Add an SSH key with the Juju CLI <add-an-ssh-key>`
+See also: {ref}`Juju CLI | Add an SSH key <add-an-ssh-key>`, [Terraform Provider for Juju | Add an SSH key](https://documentation.ubuntu.com/terraform-provider-juju/latest/howto/manage-ssh-keys/#add-an-ssh-key)
 ```
 
 Adding a key authorizes it for the caller in the selected model. Each entry must contain one public key. Juju adds the keys together: if it refuses any entry, it adds none of them.
 
-**Who can do this:** A model {ref}`admin <user-access-model-admin>` or a controller {ref}`superuser <user-access-controller-superuser>`.
+**Who can do this:** A {ref}`model admin <user-access-model-admin>` or a {ref}`controller superuser <user-access-controller-superuser>`.
 
 **Errors:**
 
@@ -51,14 +51,14 @@ Adding a key authorizes it for the caller in the selected model. Each entry must
 ## Importing SSH keys
 
 ```{ibnote}
-See also: {ref}`Import SSH keys with the Juju CLI <import-an-ssh-key>`
+See also: {ref}`Juju CLI | Import SSH keys <import-an-ssh-key>`, [Terraform Provider for Juju | Add keys from GitHub or Launchpad](https://documentation.ubuntu.com/terraform-provider-juju/latest/howto/manage-ssh-keys/#add-an-ssh-key)
 ```
 
 An import authorizes public keys fetched from an external account for a Juju user in the selected model. Juju skips keys already authorized for that user. Later changes to the external account do not update the model.
 
 Juju processes each source separately. A failure at one source does not undo a successful import from another.
 
-**Who can do this:** A model {ref}`admin <user-access-model-admin>` or a controller {ref}`superuser <user-access-controller-superuser>`.
+**Who can do this:** A {ref}`model admin <user-access-model-admin>` or a {ref}`controller superuser <user-access-controller-superuser>`.
 
 **Errors:**
 
@@ -76,12 +76,12 @@ Juju processes each source separately. A failure at one source does not undo a s
 ## Listing SSH keys
 
 ```{ibnote}
-See also: {ref}`List SSH keys with the Juju CLI <view-the-available-ssh-keys>`
+See also: {ref}`Juju CLI | List SSH keys <view-the-available-ssh-keys>`, [Terraform Provider for Juju | Query SSH keys in a model](https://documentation.ubuntu.com/terraform-provider-juju/latest/howto/manage-models/#define-what-you-want-to-query-for)
 ```
 
 The list contains only the caller's keys in the selected model, even when the caller administers the model. A user can request SHA256 fingerprints or the full public keys. Both forms return the same set: to inspect one key, match its fingerprint in the list. A fingerprint identifies the key independently of its comment. If the caller has no keys in the model, the list is empty; this is not an error.
 
-**Who can do this:** A user with at least {ref}`read <user-access-model-read>` access to the model, or a controller {ref}`superuser <user-access-controller-superuser>`.
+**Who can do this:** A user with at least {ref}`model read access <user-access-model-read>` to the model, or a {ref}`controller superuser <user-access-controller-superuser>`.
 
 **Errors:**
 
@@ -92,14 +92,14 @@ The list contains only the caller's keys in the selected model, even when the ca
 ## Removing an SSH key
 
 ```{ibnote}
-See also: {ref}`Remove an SSH key with the Juju CLI <remove-an-ssh-key>`
+See also: {ref}`Juju CLI | Remove an SSH key <remove-an-ssh-key>`, [Terraform Provider for Juju | Remove an SSH key](https://documentation.ubuntu.com/terraform-provider-juju/latest/howto/manage-ssh-keys/#remove-an-ssh-key)
 ```
 
 Removal withdraws the caller's key authorization in the selected model. The same key remains authorized in any other model where the user registered it.
 
 Juju matches the exact fingerprint, full public key, or comment. A comment shared by several of the caller's keys matches all of them; an identifier that matches nothing leaves the model unchanged and does not produce an error.
 
-**Who can do this:** A model {ref}`admin <user-access-model-admin>` or a controller {ref}`superuser <user-access-controller-superuser>`.
+**Who can do this:** A {ref}`model admin <user-access-model-admin>` or a {ref}`controller superuser <user-access-controller-superuser>`.
 
 **Errors:**
 

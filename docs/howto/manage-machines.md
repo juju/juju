@@ -272,6 +272,7 @@ See also: {ref}`ssh-server-access`
 
 Before connecting, check your {ref}`access to the destination model <ssh-server-access>` and {ref}`add your public key <add-an-ssh-key>` if needed. You can connect using the Juju CLI or OpenSSH.
 
+(access-a-machine-with-the-juju-cli)=
 ### Use the `juju ssh` command
 
 To open a shell or run a command on a machine, use the machine ID or the name of a unit it hosts from `juju status`. For example, to run `echo hello` on machine 0:

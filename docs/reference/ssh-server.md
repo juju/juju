@@ -9,11 +9,11 @@ myst:
 (ssh-server)=
 # SSH server
 
-```{versionadded} 4.1.0
+```{ibnote}
+See also: {ref}`Juju CLI | Access a machine via SSH <access-a-machine-with-the-juju-cli>`, {ref}`OpenSSH | Access a machine via SSH <verify-ssh-host-fingerprints>`
 ```
 
-```{ibnote}
-See also: {ref}`Access a machine via SSH with the Juju CLI or OpenSSH <access-a-machine-via-ssh>`
+```{versionadded} 4.1.0
 ```
 
 ```{ggarch}
@@ -31,7 +31,7 @@ In Juju, the **SSH server** is the part of the {ref}`controller <controller>` th
 ## SSH server connections
 
 ```{ibnote}
-See also: {ref}`SSH and file-copy changes when upgrading from Juju 3.6 to 4.1 <juju-ssh-and-juju-scp-go-through-the-controller-by-default>`
+See also: {ref}`Juju CLI | Use SSH and file copy when upgrading from 3.6 to 4.1 <juju-ssh-and-juju-scp-go-through-the-controller-by-default>`
 ```
 
 By default, {ref}`juju ssh <command-juju-ssh>` and {ref}`juju scp <command-juju-scp>` connect first to the controller's **jump server**. It accepts client logins. An external service that authenticates to the controller API with a token can instead send the SSH connection through that API. Both paths reach the **virtual host** for the chosen target. This endpoint runs on the controller, not on the target.
@@ -46,7 +46,7 @@ When an external service uses the API, the controller checks that the service's 
 (ssh-server-listener)=
 ## SSH server listener
 
-To connect to the controller's SSH jump server, a client must reach a controller node on its current SSH port (TCP 17022 by default). A user with at least controller {ref}`login <user-access-controller-login>` access can read that port from the controller API (`Controller.SSHServerPort`) without having access to a target. Use the reported port, not the original {ref}`ssh-server-port <controller-config-ssh-server-port>` bootstrap setting, to choose where to connect.
+To connect to the controller's SSH jump server, a client must reach a controller node on its current SSH port (TCP 17022 by default). A user with at least {ref}`controller login access <user-access-controller-login>` can read that port from the controller API (`Controller.SSHServerPort`) without having access to a target. Use the reported port, not the original {ref}`ssh-server-port <controller-config-ssh-server-port>` bootstrap setting, to choose where to connect.
 
 Reaching the listener does not establish that a session can start. For a machine target, the controller asks the machine agent to open a connection back to it. Check that {ref}`the agent can reach the controller node that made the request <ssh-server-machine-sessions>`. For a pod target, check the {ref}`Kubernetes API and container readiness <ssh-server-kubernetes-sessions>`. If the machine agent cannot run, use {ref}`agent-independent recovery <recover-access-to-a-machine>`.
 
@@ -62,7 +62,7 @@ When the charm that manages the controller supplies a new SSH port in the range 
 (ssh-server-targets)=
 ## SSH server targets
 
-The controller routes a session by its *virtual hostname*, not by the workload's IP address. The name identifies the machine, unit or container within a unit, includes the model UUID, and ends in `juju.local`. A destination-model {ref}`admin <user-access-model-admin>` or controller {ref}`superuser <user-access-controller-superuser>` can request this name from the model API. Obtaining a name does not mean the target is ready.
+The controller routes a session by its *virtual hostname*, not by the workload's IP address. The name identifies the machine, unit or container within a unit, includes the model UUID, and ends in `juju.local`. A {ref}`destination-model admin <user-access-model-admin>` or {ref}`controller superuser <user-access-controller-superuser>` can request this name from the model API. Obtaining a name does not mean the target is ready.
 
 | Target | Where a shell or command runs | SFTP | Local TCP forwarding |
 |---|---|---|---|
@@ -79,9 +79,9 @@ For Kubernetes exec, a client must request a virtual hostname that includes the 
 (ssh-server-host-keys)=
 ## SSH server host keys
 
-When a client connects through the controller's SSH jump server, two endpoints present host keys: the jump server where the client logs in, and the endpoint on the controller for the chosen target (the **virtual host**). The jump server presents the **controller's host key**, shared by that controller's nodes. A user with at least controller {ref}`login <user-access-controller-login>` access can read its public key from the controller API. After a model moves to another controller, verify this first hop against the destination controller.
+When a client connects through the controller's SSH jump server, two endpoints present host keys: the jump server where the client logs in, and the endpoint on the controller for the chosen target (the **virtual host**). The jump server presents the **controller's host key**, shared by that controller's nodes. A user with at least {ref}`controller login access <user-access-controller-login>` can read its public key from the controller API. After a model moves to another controller, verify this first hop against the destination controller.
 
-The virtual host presents a **virtual host key** for the target. A machine and the units it hosts share the machine's virtual key, which is distinct from the key presented by the machine's own SSH daemon. On Kubernetes the virtual key belongs to the unit, so two containers in the same unit present the same key. A destination-model {ref}`admin <user-access-model-admin>` or controller {ref}`superuser <user-access-controller-superuser>` can read the virtual host's public key from the model API.
+The virtual host presents a **virtual host key** for the target. A machine and the units it hosts share the machine's virtual key, which is distinct from the key presented by the machine's own SSH daemon. On Kubernetes the virtual key belongs to the unit, so two containers in the same unit present the same key. A {ref}`destination-model admin <user-access-model-admin>` or {ref}`controller superuser <user-access-controller-superuser>` can read the virtual host's public key from the model API.
 
 For the Juju client's default checks, see {ref}`juju ssh <command-juju-ssh>`. When using OpenSSH yourself, {ref}`compare each fingerprint with the one for that hop <verify-ssh-host-fingerprints>` before accepting it.
 
@@ -95,14 +95,14 @@ For the Juju client's default checks, see {ref}`juju ssh <command-juju-ssh>`. Wh
 ## SSH server access
 
 ```{ibnote}
-See also: {ref}`Add a public SSH key with the Juju CLI <add-an-ssh-key>`
+See also: {ref}`Juju CLI | Use an SSH key <use-an-ssh-key>`, {ref}`Juju CLI | Add an SSH key <add-an-ssh-key>`, [Terraform Provider for Juju | Add an SSH key](https://documentation.ubuntu.com/terraform-provider-juju/latest/howto/manage-ssh-keys/#add-an-ssh-key)
 ```
 
 The jump server authenticates a Juju user before it authorizes a target. It first checks the public key offered by the client against the keys registered for that username. Once the client names a target, the server checks the user's access to the destination model and then checks the **same key** in that model. On this route the user's key authenticates to Juju, not to the machine's SSH daemon.
 
 The Juju CLI first asks the model API for the target's virtual hostname. If the API denies that lookup, check the account's model or controller grant; the CLI has not yet offered a key to the jump server.
 
-**Who can do this:** A destination-model {ref}`admin <user-access-model-admin>` or controller {ref}`superuser <user-access-controller-superuser>` using an {ref}`SSH key authorized for that user in the destination model <ssh-key-authorization>`. Model `write` alone is insufficient. Controller `superuser` does not waive the key requirement.
+**Who can do this:** A {ref}`destination-model admin <user-access-model-admin>` or {ref}`controller superuser <user-access-controller-superuser>` using an {ref}`SSH key authorized for that user in the destination model <ssh-key-authorization>`. Model `write` alone is insufficient. Controller `superuser` does not waive the key requirement.
 
 **Errors:** The jump server can refuse login or access to a target:
 
@@ -116,7 +116,7 @@ The Juju CLI first asks the model API for the target's virtual hostname. If the 
 ## SSH server machine sessions
 
 ```{ibnote}
-See also: {ref}`Access a machine via SSH <access-a-machine-via-ssh>`
+See also: {ref}`Juju CLI | Access a machine via SSH <access-a-machine-with-the-juju-cli>`, {ref}`OpenSSH | Access a machine via SSH <verify-ssh-host-fingerprints>`
 ```
 
 ```{ggarch}
@@ -140,6 +140,10 @@ The machine agent must be running and able to reach the originating controller's
 (ssh-server-kubernetes-sessions)=
 ## SSH server Kubernetes sessions
 
+```{ibnote}
+See also: {ref}`Juju CLI | Open a shell in a workload container <debug-a-k8s-charm-with-a-workload>`
+```
+
 For a Kubernetes unit, the controller looks up the unit's pod and asks the Kubernetes API to run the command in the selected container. The unit must exist, not be dead, and have an assigned pod. The controller must be able to reach the Kubernetes API. The container must be running and have `sh` to execute the command; it needs no SSH daemon.
 
 If the client sends no command, the server requests `/bin/sh`. A client can request a different shell; see {ref}`juju ssh <command-juju-ssh>` for the Juju client's default. When a command exits, the server passes its exit status back to the client.
@@ -154,7 +158,7 @@ If the client sends no command, the server requests `/bin/sh`. A client can requ
 ## SSH server file transfer
 
 ```{ibnote}
-See also: {ref}`Copy files securely between machines <copy-files-between-machines>`
+See also: {ref}`Juju CLI | Copy files securely between machines <copy-files-between-machines>`
 ```
 
 For a machine or a machine-backed unit, the SSH server forwards SFTP requests to the SFTP subsystem on the machine. It does not support SFTP for Kubernetes targets.
