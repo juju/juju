@@ -11,7 +11,7 @@ myst:
 See also: {ref}`saas-application`
 ```
 
-The first time you {ref}`consume an offer <consume-an-offer>` in a model, Juju creates a SAAS application there. Other applications in the consuming model can use that same SAAS application.
+The first time you {ref}`consume <consume-an-offer>` an {ref}`offer <offer>` in a {ref}`model <model>`, Juju creates a {ref}`SAAS application <saas-application>` there. Other {ref}`applications <application>` in the consuming model can use that same SAAS application.
 
 (view-a-saas-application)=
 ## Inspect a SAAS application
