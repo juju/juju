@@ -65,7 +65,7 @@ To see your key fingerprints in the current model, run:
 juju ssh-keys
 ```
 
-To inspect the full public keys in a different model, for example `production`, run:
+To inspect the full public keys in the `production` model:
 
 ```text
 juju ssh-keys -m production --full

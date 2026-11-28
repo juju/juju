@@ -19,7 +19,7 @@ See also: {ref}`Access a machine via SSH with the Juju CLI or OpenSSH <access-a-
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Native jump connection
-:caption: For both machine and Kubernetes targets, the client first connects to the controller's SSH server. The part that accepts this first connection is the jump server. Through it, the client opens a second SSH connection to an endpoint for the chosen target, called the virtual host. Both connections end on the same controller node.
+:caption: Both SSH connections end on the same controller node. The jump server accepts the client's first connection. Through it the client opens a second connection to the virtual host on that node. The command runs on the chosen machine or in the chosen container.
 :alt: Inside the controller's SSH server, the jump server presents the controller host key and forwards the client's inner SSH stream to the virtual host, which presents the target host key. Only one tunnel crosses from the client to the controller.
 ```
 
@@ -34,7 +34,7 @@ In Juju, the **SSH server** is the part of the {ref}`controller <controller>` th
 See also: {ref}`SSH and file-copy changes when upgrading from Juju 3.6 to 4.1 <juju-ssh-and-juju-scp-go-through-the-controller-by-default>`
 ```
 
-By default, {ref}`juju ssh <command-juju-ssh>` and {ref}`juju scp <command-juju-scp>` first connect to the part of the controller's SSH server that accepts client logins: the **jump server**. An external service that authenticates to the controller API with a token can instead send the SSH connection through that API. Both paths lead to a **virtual host**, an SSH endpoint on the controller for the chosen target.
+By default, {ref}`juju ssh <command-juju-ssh>` and {ref}`juju scp <command-juju-scp>` connect first to the controller's **jump server**. It accepts client logins. An external service that authenticates to the controller API with a token can instead send the SSH connection through that API. Both paths reach the **virtual host** for the chosen target. This endpoint runs on the controller, not on the target.
 
 At the jump server, the client authenticates as a Juju user and requests a target. Through that first connection, the client opens a second SSH connection to the virtual host. The controller terminates that connection and handles the session's commands and data rather than passing an opaque stream to the workload. Neither connection opens a shell on the controller itself.
 

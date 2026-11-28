@@ -31,9 +31,9 @@ model "Juju" {
 
     ssh_controller [type: juju-software, label: "Controller",
                     abstracts: "controller"] {
-      ssh_server [type: juju-software, label: "SSH server", padding: compact] {
-        ssh_gateway [type: juju-software, label: "Jump server\n(controller host key)"]
-        ssh_session [type: juju-software, label: "Virtual host\n(target host key)"]
+      ssh_server [type: entity, label: "SSH server", padding: compact] {
+        ssh_gateway [type: entity, label: "Jump server\n(controller host key)"]
+        ssh_session [type: entity, label: "Virtual host\n(target host key)"]
       }
     }
     ssh_machine [type: node, label: "Machine", deployed: true] {
