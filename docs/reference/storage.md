@@ -34,7 +34,7 @@ where
 - `<count>` is the storage volume count;
 - `<size>` is the size of each storage volume.
 
-The order of the arguments does not actually matter -- they are identified based on a regex (sizes must end with a unit suffix; for pool names, see {ref}`storage-pool`).
+You can give the components in any order. Juju distinguishes sizes by their unit suffix and pools by their {ref}`pool names <storage-pool-names>`.
 
 If at least one storage directive component is specified, the following default values come into effect:
 
@@ -46,7 +46,7 @@ In the absence of any explicit storage directive, the storage will be put on the
 
 ## Storage pool
 
-A storage directive names a storage pool to say where an application's storage comes from. For what a pool is, and what Juju accepts and refuses when pools are created, updated, removed and listed, see {ref}`storage-pool`.
+A storage directive can name a {ref}`storage pool <storage-pool>` to select the provider and attributes for the application's storage.
 
 (storage-provider)=
 ## Storage provider
