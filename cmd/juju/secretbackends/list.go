@@ -45,7 +45,12 @@ Further reading:
 `
 
 const listSecretBackendsExamples = `
+List the current controller's backends and count the distinct secrets that reference each one:
+
     juju secret-backends
+
+Inspect each backend's configuration and full status message in YAML:
+
     juju secret-backends --format yaml
 `
 

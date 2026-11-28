@@ -38,7 +38,12 @@ Further reading:
 `
 
 const showSecretBackendsExamples = `
+Inspect the ` + "`myvault`" + ` registration without displaying sensitive settings:
+
     juju show-secret-backend myvault
+
+Include sensitive backend settings in the output, such as the Vault access token:
+
     juju show-secret-backend myvault --reveal
 `
 

@@ -18,6 +18,8 @@ juju remove-secret-backend [options] <backend-name>
 
 ## Examples
 
+Once no secret revisions reference `myvault`, remove its registration from the controller:
+
     juju remove-secret-backend myvault
 
 

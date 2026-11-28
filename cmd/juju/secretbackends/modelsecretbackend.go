@@ -64,9 +64,12 @@ Display the secret backend for the current model:
 
     juju model-secret-backend
 
-Select an existing backend or restore this model's default:
+Select the registered backend ` + "`myvault`" + ` for the current model:
 
     juju model-secret-backend myvault
+
+Restore the current model's default backend instead:
+
     juju model-secret-backend auto
 `
 )
