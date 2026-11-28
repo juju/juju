@@ -5,7 +5,7 @@
 **Aliases:** list-ssh-keys
 
 ## Summary
-Lists the currently known SSH keys for the current (or specified) model.
+Lists your authorized SSH keys in a model.
 
 ## Usage
 ```text
@@ -21,21 +21,20 @@ juju ssh-keys [options]
 
 ## Examples
 
+List the fingerprints of your registered SSH keys in the current model:
+
     juju ssh-keys
 
-To examine the full information for each key:
+List your full public SSH keys in the `jujutest` model:
 
     juju ssh-keys -m jujutest --full
 
 
 ## Details
+The command prints the model name followed by one fingerprint per line.
+To print public keys instead of fingerprints, use `--full`.
+If the list is empty, the command reports that there are no keys to display.
 
-Juju maintains a per-model cache of SSH keys which it copies to each newly
-created unit.
+Further reading:
 
-This command will display a list of all the keys currently used by Juju in
-the current model (or the model specified, if the `-m` option is used).
-
-By default a minimal list is returned, showing only the fingerprint of
-each key and its text identifier. By using the `--full`option, the entire
-key may be displayed.
+- https://canonical.com/juju/docs/juju-cli/latest/reference/ssh-key/

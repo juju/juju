@@ -16,14 +16,14 @@ juju debug-hooks [options] <unit name> [hook or action names]
 | Flag | Default | Usage |
 | --- | --- | --- |
 | `--container` |  | the container name of the target pod |
-| `--direct` | false | Connect directly to the target (for Juju 3 controllers) |
+| `--direct` | false | Use the legacy machine SSH or Kubernetes API route instead of the SSH jump server |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--no-host-key-checks` | false | Skip host key checking (INSECURE) |
 | `--print-keys` | false | Print SHA256 fingerprints of the controller and virtual host keys |
-| `--proxy` | &lt;auto&gt; | Proxy through the controller machine's OpenSSH server (requires --direct; defaults to the model's proxy-ssh setting) |
+| `--proxy` | &lt;auto&gt; | Proxy through the controller machine's OpenSSH server (requires `--direct`; defaults to the model's `proxy-ssh` setting) |
 | `--pty` | &lt;auto&gt; | Enable pseudo-tty allocation |
-| `--show-command` | false | Print the OpenSSH command instead of executing it |
-| `--ssh-key` |  | SSH private key to use when connecting through the controller |
+| `--show-command` | false | Print the OpenSSH command for the jump route instead of running it |
+| `--ssh-key` |  | Private key to offer to the controller's SSH jump server |
 
 ## Examples
 
@@ -31,15 +31,15 @@ Debug all hooks and actions of unit `mysql/0`:
 
     juju debug-hooks mysql/0
 
-Debug all hooks and actions of unit `mysql/0`:
+Debug all hooks and actions of the current `mysql` leader:
 
     juju debug-hooks mysql/leader
 
-Debug the `config-changed`hook of unit `mysql/0`:
+Debug the `config-changed` hook of unit `mysql/1`:
 
     juju debug-hooks mysql/1 config-changed
 
-Debug the `pull-site`action and `update-status` hook of unit `hello-kubecon/0`:
+Debug the `pull-site` action and the `update-status` hook of unit `hello-kubecon/0`:
 
     juju debug-hooks hello-kubecon/0 pull-site update-status
 

@@ -14,14 +14,14 @@ juju ssh [options] <[user@]target> [openssh options] [command]
 | Flag | Default | Usage |
 | --- | --- | --- |
 | `--container` |  | the container name of the target pod |
-| `--direct` | false | Connect directly to the target (for Juju 3 controllers) |
+| `--direct` | false | Use the legacy machine SSH or Kubernetes API route instead of the SSH jump server |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--no-host-key-checks` | false | Skip host key checking (INSECURE) |
 | `--print-keys` | false | Print SHA256 fingerprints of the controller and virtual host keys |
-| `--proxy` | &lt;auto&gt; | Proxy through the controller machine's OpenSSH server (requires --direct; defaults to the model's proxy-ssh setting) |
+| `--proxy` | &lt;auto&gt; | Proxy through the controller machine's OpenSSH server (requires `--direct`; defaults to the model's `proxy-ssh` setting) |
 | `--pty` | &lt;auto&gt; | Enable pseudo-tty allocation |
-| `--show-command` | false | Print the OpenSSH command instead of executing it |
-| `--ssh-key` |  | SSH private key to use when connecting through the controller |
+| `--show-command` | false | Print the OpenSSH command for the jump route instead of running it |
+| `--ssh-key` |  | Private key to offer to the controller's SSH jump server |
 
 ## Examples
 
@@ -45,75 +45,60 @@ Print the controller and virtual host key fingerprints for a mysql unit:
 
     juju ssh --print-keys mysql/0
 
-Connect to a jenkins unit as user jenkins:
+Connect directly to a machine-backed unit as a different remote user:
 
-    juju ssh jenkins@jenkins/0
+    juju ssh --direct jenkins@jenkins/0
 
-Connect to a mysql unit with an identity not known to juju (ssh option -i):
+Select a private key for the jump server:
 
-    juju ssh mysql/0 -i ~/.ssh/my_private_key echo hello
+    juju ssh --ssh-key ~/.ssh/my_private_key mysql/0 echo hello
 
-Connect to a mysql unit using a FIDO/U2F security key (e.g. YubiKey):
-
-    juju ssh mysql/0 -i ~/.ssh/id_ed25519_sk
-
-When using the Juju snap, the u2f-devices interface must be
-connected to allow access to FIDO/U2F security keys:
+Allow the Juju snap to access FIDO/U2F security keys:
 
     sudo snap connect juju:u2f-devices
 
-**For k8s charms running the workload in a separate pod:**
+Select a FIDO/U2F security key (e.g. YubiKey) for the jump server:
 
-Connect to a k8s unit targeting the operator pod by default:
+    juju ssh --ssh-key ~/.ssh/id_ed25519_sk mysql/0
 
-	juju ssh mysql/0
-	juju ssh mysql/0 bash
-
-Connect to a k8s unit targeting the workload pod by specifying --remote:
-
-	juju ssh --remote mysql/0
-
-**For k8s charms using the sidecar pattern:**
-
-Connect to a k8s unit targeting the charm container (the default):
+Connect to the default charm container of Kubernetes unit `snappass/0`:
 
 	juju ssh snappass/0
+
+Connect to Kubernetes unit `snappass/0` by explicitly selecting its charm container:
+
 	juju ssh --container charm snappass/0
 
-Connect to a k8s unit targeting the redis container:
+Connect to the `redis` workload container of Kubernetes unit `snappass/0`:
 
 	juju ssh --container redis snappass/0
 
-Interact with the Pebble instance in the workload container via the charm container:
+Show the active Pebble plan for the `redis` container from the charm container of `snappass/0`:
 
     juju ssh snappass/0 PEBBLE_SOCKET=/charm/containers/redis/pebble.socket /charm/bin/pebble plan
 
-**For k8s controller:**
+Connect directly to the default `api-server` container of pod 0 in the Kubernetes controller model:
 
-Connect to the controller api-server container:
+    juju ssh --direct 0
 
-    juju ssh 0
+Connect directly to the charm container of pod 0 in the Kubernetes controller model:
 
-Connect to the controller charm container:
-
-    juju ssh --container charm 0
+    juju ssh --direct --container charm 0
 
 
 ## Details
 
-The SSH target is identified by the `<target>` argument which is either a unit
-name or a machine ID. Both can be obtained by examining the output to `juju status`.
+By default, this command connects through the controller's SSH jump server.
+Choose a target from `juju status`: a top-level machine number (e.g. `0`)
+or a unit name (e.g. `mysql/0` or `mysql/leader`). In a Kubernetes model,
+use a unit name, not a machine number.
 
-Valid unit identifiers are:
-  - a standard unit ID, such as `mysql/0` or;
-  - leader syntax of the form `<application>/leader`, such as `mysql/leader`.
-
-If 'user' is specified then the connection is made to that user
-account; otherwise, the default 'ubuntu' account, created by Juju, is used.
-
-The optional command is executed on the remote machine, and any output is sent
-back to the user. If no command is specified, then an interactive shell session
-will be initiated if possible.
+For a machine or machine-backed unit, a command runs as `ubuntu`; omit the
+command to open a shell. A `user@` prefix does not change this backend login.
+For a Kubernetes unit, the command runs in the `charm` container by default.
+Use `--container` to choose another container in the same pod. With no
+command the client requests a Bash login shell. If Bash is not installed,
+specify a shell the image provides, for example `juju ssh mysql/0 sh`.
 
 When `juju ssh` is executed without a terminal attached, e.g., when piping the
 output of another command into it, then the default behavior is to not allocate
@@ -121,37 +106,37 @@ a pseudo-terminal (pty) for the ssh session; otherwise a pty is allocated. This
 behavior can be overridden by explicitly specifying the behavior with
 `--pty=true` or `--pty=false`.
 
-By default, the SSH connection is proxied through the controller's SSH server for the
-ability to audit log in the future. This requires port 17022 (by default) on the 
-controller machine to be open. Use the `--direct` option for Juju 3 controllers 
-and connect directly to the target. Note that new behaviour does not support connecting
-to nested containers running on machines as the legacy behaviour did.
+Select the private key for the jump server with `--ssh-key`. To pass options
+to the local OpenSSH client, put them between the target and the remote
+command. An `-i` option there does not select the jump identity.
 
-Use `--direct --proxy` to route the connection through the controller
-machine's OpenSSH server (port 22 by default). In direct mode on machine clouds,
-if `--proxy` is omitted, Juju uses the model's `proxy-ssh` setting.
-Use `--direct --proxy=false` to connect without this proxy.
+For an older controller that does not support the jump route, specify
+`--direct`; the client does not switch automatically. On machine models this
+uses ordinary SSH, where `user@target` selects a remote account. On Kubernetes
+it uses the Kubernetes API rather than the controller's SSH server.
 
-The SSH host keys of the target are verified. The `--no-host-key-checks` option
-can be used to disable these checks. Use of this option is not recommended as
-it opens up the possibility of a man-in-the-middle attack.
+On machine models, `--direct --proxy` connects through the controller
+machine's OpenSSH server (port 22 by default). If you omit `--proxy` in
+direct mode, Juju uses the model's `proxy-ssh` setting. To bypass the
+proxy when your client can reach the machine directly, use `--direct --proxy=false`.
 
-Use `--print-keys` to print the controller SSH jump server and target virtual
-host key SHA256 fingerprints without opening an SSH session. The keys are
-retrieved through the authenticated Juju API and can be used to verify the trust prompts
-when using an alternative client like OpenSSH.
+On client build `4.1-beta3-048d091` the proxy hop fails, and
+`--proxy=false` does not override a model with `proxy-ssh=true`.
+Use the default jump route (omit both flags) if the controller supports it.
+If you need the proxy hop, use a client with the fix for Juju issue #23913.
+
+On the jump route, the client checks both server host keys against keys
+obtained from the Juju API by default. Disabling checks with `--no-host-key-checks`
+risks connecting to an impostor. Use `--show-command` to print an OpenSSH
+invocation rather than run the jump session. When you run it, OpenSSH uses its own host-key
+configuration, not the client's temporary known-hosts file.
+
+Use `--print-keys` to display both expected SHA256 fingerprints from the
+authenticated Juju API without opening a target session. Compare each
+OpenSSH trust prompt with the fingerprint for that hop.
 The `--print-keys` option cannot be combined with `--direct` or
 `--show-command`.
 
-The default identity known to Juju and used by this command is `~/.ssh/id_ed25519`.
-For models on a machine cloud, an appropriate SSH key must be added to the model first.
+Further reading:
 
-Options can be passed to the local OpenSSH client (ssh) on platforms
-where it is available. This is done by inserting them between the target and
-a possible remote command. Refer to the ssh man page for an explanation
-of those options.
-
-For Kubernetes charms, the `--container` argument is used to identity a specific
-container in the pod. For charms which run the workload in a separate pod
-to that of the charm, the default ssh target is the charm operator pod.
-The workload pod may be specified using the `--remote` argument.
+- https://canonical.com/juju/docs/juju-cli/latest/reference/ssh-server/

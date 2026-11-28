@@ -266,17 +266,16 @@ See more: {ref}`command-juju-exec`
 (access-a-machine-via-ssh)=
 ## Access a machine via SSH
 
-There are two ways you can connect to a Juju machine: via `juju ssh` or via a standard SSH client.
-
-### Use the `juju ssh` command
-
-First, make sure you have `admin` access to the model and your public SSH key has been added to the model.
-
-```{important}
-If you are the model creator, you already have `admin` access for the model. If you are not the model creator, see {ref}`manage-users` and {ref}`user-access-levels` for how to gain `admin` access to a model and {ref}`manage-ssh-keys` for how to add your SSH key to the model.
+```{ibnote}
+See also: {ref}`ssh-server-access`
 ```
 
-Then, to initiate an SSH session or execute a command on a Juju machine (or container), use the `juju ssh` command followed by the target machine (or container). This target can be specified using a machine (or container) ID or using the ID of the unit that it hosts. Both can be retrieved from the output of `juju status`. For example, below we `ssh` into machine 0 and inside of it run `echo hello`:
+Before connecting, check your {ref}`access to the destination model <ssh-server-access>` and {ref}`add your public key <add-an-ssh-key>` if needed. You can connect using the Juju CLI or OpenSSH.
+
+(access-a-machine-with-the-juju-cli)=
+### Use the `juju ssh` command
+
+To open a shell or run a command on a machine, use the machine ID or the name of a unit it hosts from `juju status`. For example, to run `echo hello` on machine 0:
 
 ```text
 juju ssh 0 echo hello
@@ -286,31 +285,44 @@ juju ssh 0 echo hello
 See more: {ref}`command-juju-ssh`
 ```
 
+(verify-ssh-host-fingerprints)=
 ### Use the OpenSSH `ssh` command
 
-First, make sure you've added a public SSH key for your user to the target model.
-
-```{important}
-If you are the model creator, you already have `admin` access for the model. If you are not the model creator, see {ref}`manage-users` and {ref}`user-access-levels` for how to gain `admin` access to a model and {ref}`manage-ssh-keys` for how to add your SSH key to the model.
-```
-
-Use the `juju ssh --show-command <target>` command to print the OpenSSH command that can be used to connect to the machine/unit. This also works with the `juju scp` command.
-The output will resemble the following,
+Before starting OpenSSH, display the two expected {ref}`host key fingerprints <ssh-server-host-keys>` for the target, for example machine 0:
 
 ```text
-ssh -o "ProxyCommand=ssh -W %h:%p -p 17022 admin@10.123.10.2" ubuntu@0.b7bfa07e-f564-4a79-88ac-173da5521a0c.juju.local
+juju ssh --print-keys 0
 ```
 
-The underlying command performs the same operation as `juju ssh`. It connects to the controller's SSH server, which by default, runs on
-port 17022 and sends the virtual hostname `0.b7bfa07e-f564-4a79-88ac-173da5521a0c.juju.local` before establishing a second SSH connection for the final host. See {ref}`juju-ssh` for a full explanation on how `juju ssh` works.
+Then print the OpenSSH command for the same target. If you use a nondefault private key for the jump server, include `--ssh-key /path/to/private-key` on this invocation so the printed command uses it:
+
+```text
+juju ssh --show-command 0
+```
+
+Run the printed command. If OpenSSH asks you to trust a key, compare the first hop with the **controller SSH jump server** fingerprint and the inner hop with the **target virtual host** fingerprint. Accept only a match for that hop.
 
 ```{ibnote}
 See more: [OpenSSH](https://www.openssh.com/)
 ```
 
+(recover-access-to-a-machine)=
+### Recover access to a machine
+
+If the machine agent cannot start, use access provided by the cloud, such as `lxc shell` for an LXD instance. To prepare a direct SSH recovery route in advance, provision machines with a separate administrator public key using {ref}`model-config-cloudinit-userdata`. Direct SSH also requires a network route to the machine.
+
+(copy-files-between-machines)=
 ## Copy files securely between machines
 
-The `scp` command copies files securely to and from machines.
+```{ibnote}
+See also: {ref}`ssh-server-file-transfer`
+```
+
+Use `juju scp` with a machine ID or the name of a machine-backed unit. For a copy between two remote machines, pass `-3` to OpenSSH `scp` to transfer the data through your client. For example:
+
+```text
+juju scp -- -3 0:/var/tmp/report.txt 1:/var/tmp/report.txt
+```
 
 ```{caution}
 Options specific to `scp` must be preceded by double dashes: `--`.
@@ -337,10 +349,6 @@ juju scp -m testing foo.txt apache2/1:
 ```
 
 ````
-
-```{important}
-Juju cannot transfer files between two remote units because it uses public key authentication exclusively and the native (OpenSSH) `scp` command disables agent forwarding by default. Either the destination or the source must be local (to the Juju client).
-```
 
 ```{ibnote}
 See more: {ref}`command-juju-scp`

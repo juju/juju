@@ -3,7 +3,7 @@
 > See also: [add-ssh-key](#command-juju-add-ssh-key), [ssh-keys](#command-juju-ssh-keys)
 
 ## Summary
-Adds a public SSH key from a trusted identity source to a model.
+Imports public SSH keys from GitHub or Launchpad into a model.
 
 ## Usage
 ```text
@@ -18,27 +18,16 @@ juju import-ssh-key [options] <lp|gh>:<user identity> ...
 
 ## Examples
 
-Import all public keys associated with user account 'phamilton' on the
-GitHub service:
+Import keys from the GitHub user named by `GITHUB_USER` for the Juju account `admin` in the current model:
 
-    juju import-ssh-key gh:phamilton
-
-Multiple identities may be specified in a space delimited list:
-
-    juju import-ssh-key gh:rheinlein lp:iasmiov gh:hharrison
+    juju import-ssh-key "gh:${GITHUB_USER:?set GITHUB_USER first}"
 
 
 ## Details
-Juju can add SSH keys to its cache from reliable public sources (currently
-Launchpad and GitHub), allowing those users SSH access to Juju machines.
+Specify each external account as gh:USERNAME for GitHub or lp:USERNAME for
+Launchpad. The command requests the import for the Juju account named admin.
+Check standard error for individual source errors even if the command exits successfully.
 
-The user identity supplied is the username on the respective service given by
-'lp:' or 'gh:'.
+Further reading:
 
-If the user has multiple keys on the service, all the keys will be added.
-
-Once the keys are imported, they can be viewed with the `juju ssh-keys`
-command, where comments will indicate which ones were imported in
-this way.
-
-An alternative to this command is the more manual `juju add-ssh-key`.
+- https://canonical.com/juju/docs/juju-cli/latest/reference/ssh-key/

@@ -21,71 +21,50 @@ var usageSCPSummary = `
 Securely transfer files within a model.`[1:]
 
 var usageSCPDetails = `
-Transfer files to, from and between Juju machine(s), unit(s) and the
-Juju client.
+By default, this command copies through the controller's SSH jump server.
+Use a local path or a remote path of the form ` + "`<target>:<path>`" + `. Choose the
+target from ` + "`juju status`" + `; ` + "`<application>/leader`" + ` selects the leader unit.
 
-The basic syntax for the command requires the location of 1 or more source
-files or directories and their intended destination:
+### Machine models
 
-    <source> <destination>
+Use a top-level machine number or a machine-backed unit. The client runs
+OpenSSH scp; specify one or more sources followed by the destination.
+The machine login is ` + "`ubuntu`" + ` on the jump route. To pass options to scp,
+put them after ` + "`--`" + `, before the paths. Use ` + "`-r`" + ` for a directory, ` + "`-C`" + `
+for compression or ` + "`-3`" + ` to copy between two remote machines through your
+client. By default the client verifies both jump and virtual host keys. Use
+` + "`--show-command`" + ` to print the OpenSSH command for a machine copy instead
+of running it. The printed command uses OpenSSH's own host-key configuration;
+compare trust prompts with ` + "`juju ssh --print-keys <target>`" + `.
 
-The <source> and <destination> arguments may either be a path to a local file
-or a remote location. Here is a fuller syntax diagram:
+### Kubernetes models
 
-    # <source>                 <destination>
-    [[<user>@]<target>:]<path> [<user>@]<target>:[<path>]
+Specify exactly one local path and one path in a unit, in either order.
+The jump route streams an archive and requires ` + "`tar`" + ` in the selected
+container. The default container is ` + "`charm`" + `; use ` + "`--container`" + ` to choose
+another in the same pod. Pod-to-pod copies, scp options and
+` + "`--show-command`" + ` are not supported on this route.
 
-` + "`<user>`" + ` is a user account that exists on the remote host. Juju defaults to the
-` + "`ubuntu`" + ` user when this is omitted.
+### Direct mode
 
-` + "`<target>`" + ` may be either a unit or machine. Units are specified in form
-` + "`'<application-name>/<n>`" + `, where ` + "`<n>`" + ` is either the unit number or the value
-` + "`leader`" + ` when targeting the leader unit for an application, e.g., ` + "`postgresql/0`" + ` or
-` + "`haproxy/leader`" + `. Machines are specified in form ` + "`<n>`" + `, e.g.,
-` + "`0`" + ` or ` + "`12`" + `. The units
-and machines in your model can be obtained from the output of ` + "`juju status`" + `.
+For an older controller without jump support, specify ` + "`--direct`" + `; the
+client does not switch automatically. A machine copy then uses ordinary SSH,
+where ` + "`user@target:path`" + ` can select a different account. A Kubernetes copy
+uses the Kubernetes API. Neither direct route supports ` + "`--show-command`" + `.
 
-` + "`<path>`" + ` is a file path. Local relative paths are resolved relative to the
-current working directory. Remote relative paths are resolved relative to the
-home directory of the remote user account.
+On machine models, ` + "`--direct --proxy`" + ` copies through the controller
+machine's OpenSSH server (port 22 by default). If you omit ` + "`--proxy`" + ` in
+direct mode, Juju uses the model's ` + "`proxy-ssh`" + ` setting. To bypass the
+proxy when your client can reach the machine directly, use ` + "`--direct --proxy=false`" + `.
 
+On client build ` + "`4.1-beta3-048d091`" + ` the proxy hop fails, and
+` + "`--proxy=false`" + ` does not override a model with ` + "`proxy-ssh=true`" + `.
+Use the default jump route (omit both flags) if the controller supports it.
+If you need the proxy hop, use a client with the fix for Juju issue #23913.
 
-### Providing arguments directly to scp
+Further reading:
 
-Send arguments directly to the underlying scp utility for full control by
-adding two hyphens to the argument list and adding arguments to the right
-(-- <arg> [...]). Common arguments to scp include
-
- - ` + "`-r`" + ` recursively copy files from a directory
- - ` + "`-3`" + ` use the client as a proxy for transfers between machines
- - ` + "`-C`" + ` enable SSH compression
-
-
-### Transfers between machines
-
-Machines do not have SSH connectivity to each other by default. Within a Juju
-model, all communication is facilitated by the Juju controller. To transfer
-files between machines, you can use the ` + "`-3`" + ` option to ` + "`scp`" + `, e.g.,
-add ` + "`-- -3`" + ` to the command-line arguments.
-
-
-## Security considerations
-
-By default, transfers are proxied through the controller's SSH server for the ability
-to audit log SSH connections in the future. This requires port 17022 (by default) to
-be open. Use the ` + "`--direct`" + ` option for Juju 3 controllers and connect directly
-to the target. Note that new behaviour does not support connecting to nested
-containers running on machines as the legacy behaviour did.
-
-Use ` + "`--direct --proxy`" + ` to route the connection through the controller
-machine's OpenSSH server (port 22 by default). For transfers to or from
-containers on machines, the connection also goes through the container's host.
-In direct mode on machine clouds, if ` + "`--proxy`" + ` is omitted, Juju uses the
-model's ` + "`proxy-ssh`" + ` setting. Use ` + "`--direct --proxy=false`" + ` to connect
-without this proxy.
-
-The SSH host keys of the target are verified by default. To disable this, add the
-` + "`--no-host-key-checks`" + ` option. Using this option is strongly discouraged.
+- https://canonical.com/juju/docs/juju-cli/latest/reference/ssh-server/
 
 `
 
@@ -104,22 +83,19 @@ Recursively copy the ` + "`/var/log/mongodb`" + ` directory from the
 
     juju scp -- -r mongodb/0:/var/log/mongodb/ remote-logs
 
-Copy ` + "`foo.txt`" + ` from the client's current working directory to a
-the ` + "`apache2/1`" + ` unit model ` + "`prod`" + ` (` + "`-m prod`" + `). Proxy the SSH connection
-through the controller machine (` + "`--direct --proxy`" + `) and enable compression
-(` + "`-- -C`" + `):
+Copy ` + "`foo.txt`" + ` to the ` + "`apache2/1`" + ` machine unit in model ` + "`prod`" + ` over the
+default jump route. Pass ` + "`-C`" + ` to scp to enable compression:
 
-    juju scp -m prod --direct --proxy -- -C foo.txt apache2/1:
+    juju scp -m prod -- -C foo.txt apache2/1:
 
 Copy multiple files from the client's current working directory to
 the ` + "`/home/ubuntu`" + ` directory of machine ` + "`2`" + `:
 
     juju scp file1 file2 2:
 
-Copy multiple files from machine ` + "`3`" + ` as user ` + "`bob`" + ` to the client's
-current working directory:
+In direct mode, download a file from machine ` + "`3`" + ` as remote user ` + "`bob`" + `:
 
-    juju scp bob@3:'file1 file2' .
+    juju scp --direct bob@3:/home/bob/report.txt .
 
 Copy ` + "`file.dat`" + ` from machine 0 to the machine hosting unit ` + "`foo/0`" + `
 (` + "`-- -3`" + `):
@@ -164,7 +140,7 @@ func (c *scpCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.sshMachine.SetFlags(f)
 	c.sshContainer.SetFlags(f)
 	c.sshJump.SetFlags(f)
-	f.BoolVar(&c.direct, "direct", false, "Connect directly to the target (for Juju 3 controllers)")
+	f.BoolVar(&c.direct, "direct", false, "Use the legacy machine SSH or Kubernetes API route instead of the SSH jump server")
 }
 
 func (c *scpCommand) Info() *cmd.Info {
