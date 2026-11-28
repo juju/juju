@@ -175,7 +175,7 @@ Activation lets the invited user set a password on the controller. The invitatio
 
 **Who can do this:** The recipient of a valid invitation for that local user.
 
-**Errors:** Activation can fail with these errors from the controller:
+**Errors:** When the controller refuses activation, the {ref}`Juju CLI <activate-a-local-user>` reports `Provided registration token may have expired.` This message does not prove the invitation expired or distinguish the following controller errors:
 
 - *Error message:* `activation key not found`. *Trigger:* No current key exists for this user. *What to do:* If the controller already accepted your password, sign in with it. Otherwise, ask a controller superuser to reset the password and issue a fresh invitation.
 - *Error message:* `activation key not valid`. *Trigger:* The activation data doesn't match the current key. *What to do:* Use the latest invitation for the intended controller and user.

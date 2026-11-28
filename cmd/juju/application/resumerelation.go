@@ -24,11 +24,20 @@ var resumeHelpDetails = `
 A relation between an application in another model and an offer in this model will be resumed.
 The ` + "`relation-joined`" + ` and ` + "`relation-changed`" + ` hooks will be run for the relation, and the relation
 status will be set to joined. The relation is specified using its ID.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/relation/
 `
 
 const resumeHelpExamples = `
-    juju resume-relation 123
-    juju resume-relation 123 456
+Resume relation 123 in the payments model:
+
+    juju resume-relation -m payments 123
+
+Resume two suspended relations in the payments model using their space-separated IDs:
+
+    juju resume-relation -m payments 123 456
 `
 
 // NewResumeRelationCommand returns a command to resume a relation.
