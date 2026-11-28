@@ -88,11 +88,12 @@ Cross-model relations enable, for example, scenarios where  your databases are h
 
 If the network topology is anything other than flat, the Juju controllers will need to be bootstrapped with `--controller-external-ips`, `--controller-external-name`, or both, so that the controllers are able to communicate. Note that these config values can only be set at bootstrap time, and are read-only thereafter.
 
-A cross-model relation has two sides: the offering side (aka "offerer") and the consume side (aka 'saas'). It does not make a difference which side of the relation (provider or requirer) is the offerer and which is the saas - the two are interchangeable. However, the endpoint type does influence on how juju sets up firewall rules: it is assumed that a requirer is the client and the provider is the server, so ports are opened on the provider side.
+The offering model shares application endpoints through an {ref}`offer <offer>`. In the consuming model, an application integrates with the {ref}`SAAS application <saas-application>` for that offer. Either side can provide or require the endpoint. Juju uses the endpoint roles to set up firewall rules: it treats the requirer as the client and opens ports on the provider side.
 
-Note that application names are obfuscated (anonymised) to the offerer side:
-- Applications that relate to the saas appear to the offerer as remote + token, e.g. `remote-76cd96ab50f146b284912afd1cc13a0e`.
-- For the consumer, the remote app names is the saas name, e.g. `prometheus`.
+The remote application name depends on which model you inspect:
+- In the offering model, an application in the consuming model appears under an anonymised name such as `remote-76cd96ab50f146b284912afd1cc13a0e`.
+- In the consuming model, the remote application appears under the {ref}`SAAS application's name <saas-application-names>` (for example, `prometheus`).
+
 ##### Non-cross-model relation
 
 A **non-cross-model** relation is a {ref}`non-subordinate <non-subordinate-relation>` relation where the applications are on  the same model.

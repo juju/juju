@@ -112,19 +112,19 @@ Abilities: Do anything that it is possible to do at the level of a model.
 
 Granted: Via {ref}`command-juju-grant`.
 
-Abilities: View offers during a search with {ref}`command-juju-find-offers`.
+Abilities: {ref}`View <viewing-an-offer>` and {ref}`find <finding-offers>` the offer.
 
 (user-access-offer-consume)=
 #### `consume`
 
 Granted: Via {ref}`command-juju-grant`.
 
-Abilities: Relate an application to the offer.
+Abilities: {ref}`Consume <consuming-an-offer>` the offer, and everything that `read` allows.
 
 (user-access-offer-admin)=
 #### `admin`
 
 Granted: Via {ref}`command-juju-grant`.
 
-Abilities: You can do anything that it is possible to do at the level of an offer.
+Abilities: {ref}`Grant and revoke <changing-access-to-an-offer>` other users' access to the offer, and everything that `consume` allows.
 

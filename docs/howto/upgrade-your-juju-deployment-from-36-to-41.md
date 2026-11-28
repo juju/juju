@@ -453,6 +453,11 @@ Juju `4.0` and `4.1` allow a maximum of one SAAS per remote offer in a consuming
 
 If importing multiple SAAS entities for the same offer, Juju will unify them into a single SAAS.
 
+If automation checks the consuming model after removing an offer, do not wait
+for the `terminated` status reported by Juju 3.6 when it detected the missing
+offer. {ref}`Check the consuming model <remove-an-offer>` until the consumed
+application disappears from `juju status`.
+
 ### 18. `add-k8s --storage` removed; `workload-storage` cloud keys ignored
 
 Juju `3.6` recorded the storage class for Kubernetes workload storage with `juju add-k8s --storage`, or with the

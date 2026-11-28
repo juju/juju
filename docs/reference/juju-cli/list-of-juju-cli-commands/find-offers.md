@@ -3,11 +3,11 @@
 > See also: [show-offer](#command-juju-show-offer)
 
 ## Summary
-Find offered application endpoints.
+Find offers visible to you on a controller.
 
 ## Usage
 ```text
-juju find-offers [options]
+juju find-offers [options] [<offer-url-term>]
 ```
 
 ### Options
@@ -18,22 +18,53 @@ juju find-offers [options]
 | `--interface` |  | Return results matching the interface name |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `-o`, `--output` |  | Specify an output file |
-| `--offer` |  | Return results matching the offer name |
-| `--url` |  | Return results matching the offer URL |
+| `--offer` |  | Match offer names containing this text |
+| `--url` |  | Specify the URL term instead of a positional argument; cannot be used with --offer |
 
 ## Examples
 
+Find offers visible to you on the current controller:
+
     juju find-offers
+
+Find offers visible to you on the controller named `mycontroller`:
+
     juju find-offers mycontroller:
+
+Find visible offers in model `staging/mymodel`:
+
     juju find-offers staging/mymodel
+
+Find visible offers with an endpoint that uses the `mysql` interface:
+
     juju find-offers --interface mysql
-    juju find-offers --url staging/mymodel.db2
+
+Find visible offers whose names contain `db2` in model `staging/mymodel` on `mycontroller`:
+
+    juju find-offers mycontroller:staging/mymodel.db2
+
+Find visible offers whose names contain `db2` on the current controller:
+
     juju find-offers --offer db2
 
 
 
 ## Details
 
-Find which offered application endpoints are available to the current user.
+Search for offers you can see. Without a URL term, the search covers all
+models on the selected controller, not just the current model. Use a
+controller name followed by a colon to search another controller, or give
+a model to limit the search to that model.
 
-This command is aimed for a user who wants to discover what endpoints are available to them.
+Use `--offer` without a URL term to search by part of an offer name.
+With a positional URL term, its offer-name component replaces `--offer`,
+even when that component is empty. To search by name in a particular
+model, include the name in the URL term. If nothing matches, the command
+returns an error.
+
+The table lists interfaces as interface:endpoint pairs. Finding an offer
+does not by itself mean you have permission to consume it.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/offer/

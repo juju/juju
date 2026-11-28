@@ -13,31 +13,31 @@ See also: {ref}`offer`
 
 This document shows how to manage offers.
 
-## Create an offer
-> Who: User with {ref}`offer admin access <user-access-offer-admin>`.
+(manage-an-offer-on-the-offering-side)=
+## Manage an offer on the offering side
 
+(create-an-offer)=
+### Create an offer
 
-An offer stems from an application endpoint. This is how an offer is created:
-
-```text
-juju offer <application>:<application endpoint>
+```{ibnote}
+See also: {ref}`Creating an offer <creating-an-offer>`, {ref}`Offer URLs <offer-urls>`
 ```
 
-
-By default, an offer is named after its underlying application but you may also choose to give it a different name:
-
-```text
-juju offer <application>:<application endpoint> <offer name>
-```
-
-Example:
+To create an offer, give `juju offer` the application and endpoint as `application:endpoint`. You can also give the offer a name. For example, to deploy `mysql` and offer its `database` endpoint as `hosted-mysql`:
 
 ```text
 juju deploy mysql
 juju offer mysql:database hosted-mysql
 ```
 
-To view the available application endpoints use `juju show-application` and  check the list below `endpoint-bindings`. Example:
+To offer several endpoints of the application, separate them with commas:
+
+```text
+juju offer mysql:database,certificates hosted-mysql
+```
+
+To find an application's endpoints, run the `show-application` command followed by the application, and check the list under `endpoint-bindings`:
+
 ```text
 juju show-application mysql
 mysql:
@@ -51,38 +51,21 @@ mysql:
     ...
 ```
 
-To offer both the `certificates` and `database`  endpoints:
-
-```text
-juju deploy mysql
-juju offer mysql:database,certificates hosted-mysql
-```
-
-Although an offer may have multiple (offer) endpoints it is always expressed as a single URL:
-
-`<user>/<model>.<offer_name`
-
-If the above mysql offer were made in the `default` model by user `admin`, the URL would be:
-
-`admin/default.hosted-mysql`
-
 ```{ibnote}
 See more: {ref}`command-juju-offer`
 ```
 
-## View an offer’s details
-> Who: User with {ref}`offer read access <user-access-offer-read>`.
+(view-an-offers-details)=
+### View an offer’s details
 
-The `show-offer` command gives details about a given offer.
-
-```text
-juju show-offer <offer name>
+```{ibnote}
+See also: {ref}`Viewing an offer <viewing-an-offer>`
 ```
 
-Example:
+To view the details of an offer, run the `show-offer` command followed by the offer URL. For example:
 
 ```text
-juju show-offer hosted-mysql
+juju show-offer admin/default.hosted-mysql
 Store        URL                         Access  Description                                    Endpoint      Interface         Role
 foo          admin/default.hosted-mysql  admin   MySQL is a widely used, open-source            certificates  tls-certificates  requirer
                                                  relational database management system          database      mysql_client      provider
@@ -91,13 +74,11 @@ foo          admin/default.hosted-mysql  admin   MySQL is a widely used, open-so
                                                  via Group Replic...
 ```
 
-For more details, including which users can access the offer, use the `yaml` format.
-
-Example:
+To see the full description and the access entries visible to you, add `--format yaml`:
 
 ```text
-juju show-offer hosted-mysql --format yaml
-serverstack:admin/default.hosted-mysql:
+juju show-offer admin/default.hosted-mysql --format yaml
+foo:admin/default.hosted-mysql:
   description: |
     MySQL is a widely used, open-source relational database management system
     (RDBMS). MySQL InnoDB cluster provides a complete high availability solution
@@ -116,82 +97,191 @@ serverstack:admin/default.hosted-mysql:
     admin:
       display-name: admin
       access: admin
-    everyone@external:
-      access: read
 ```
-
-A non-admin user with read/consume access can also view an offer's details, but they won't see the information for users with access.
 
 ```{ibnote}
 See more: {ref}`command-juju-show-offer`
 ```
 
-## Control access to an offer
-> Who: User with {ref}`offer admin access <user-access-offer-admin>`.
+(control-access-to-an-offer)=
+### Control access to an offer
 
-Offers can have one of three access levels:
-
--   read (a user can see the offer when searching)
--   consume (a user can relate an application to the offer)
--   admin (a user can manage the offer)
-
-These are applied similarly to how standard model access is applied, via the `juju grant` and `juju revoke` commands:
-
-```text
-juju grant <user> <access-level> <offer-url>
+```{ibnote}
+See also: {ref}`Changing access to an offer <changing-access-to-an-offer>`
 ```
 
-```text
-juju revoke <user> <access-level> <offer-url>
-```
-
-Revoking a user's consume access will result in all relations for that user to that offer to be suspended. If the consume access is granted anew, each relation will need to be individually resumed. Suspending and resuming relations are explained in more detail later.
-
-To grant bob consume access to an offer:
+**Grant access.** To grant a user access to an offer, run the `grant` command followed by the user, the access level and the offer URL. For example, to grant `bob` `consume` access:
 
 ```text
 juju grant bob consume admin/default.hosted-mysql
 ```
 
-To revoke bob's consume access (he will be left with read access):
+**Revoke access.** To revoke a user's access to an offer:
 
-```text
-juju revoke bob consume admin/default.hosted-mysql
-```
+1. Check the user's connections to the offer, because {ref}`revoking access <changing-access-to-an-offer>` can suspend their relations:
 
-To revoke all of bob's access:
+   ```text
+   juju offers hosted-mysql
+   ```
 
-```text
-juju revoke bob read admin/default.hosted-mysql
-```
+2. Run the `revoke` command followed by the user, the access level and the offer URL. For example, to revoke `bob`'s `consume` access:
+
+   ```text
+   juju revoke bob consume admin/default.hosted-mysql
+   ```
+
+   To remove all of `bob`'s access to the offer, revoke `read`:
+
+   ```text
+   juju revoke bob read admin/default.hosted-mysql
+   ```
 
 ```{ibnote}
 See more: {ref}`command-juju-grant`, {ref}`command-juju-revoke`
 ```
 
-## Find an offer to use
-> Who: User with {ref}`offer read access <user-access-offer-read>`.
+(inspect-relations-to-an-offer)=
+### Inspect relations to an offer
 
+```{ibnote}
+See also: {ref}`Listing offers and their connections <listing-offers-and-their-connections>`
+```
 
-Offers can be searched based on various criteria:
-
-* URL (or part thereof)
-* offer name
-* model name
-* interface
-
-The results will show information about the offer, including the level of access the user making the query has on each offer.
-
-To find all offers on a specified controller:
+To view the connections to offers in the current model, run `juju offers`. To find a connection made by a particular user, look in the `User` column. For example, to inspect connections to offers with `mysql` in the name:
 
 ```text
-$ juju find-offers foo:
+juju offers mysql
+Offer  User   Relation ID  Status  Endpoint  Interface  Role      Ingress subnets
+mysql  admin  2            joined  db        mysql      provider  69.193.151.51/32
+```
+
+To see how many connections are joined out of the total for each offer, add `--format summary`. To see the UUID of the consuming model for a connection, use `--format yaml`.
+
+```text
+juju offers --format summary
+Offer         Application  Charm        Connected  Store   URL                      Endpoint  Interface  Role
+hosted-mysql  mysql        ch:mysql-57  1/1        myctrl  admin/prod.hosted-mysql  db        mysql      provider
+```
+
+To list the offers of one application, use `--application`:
+
+```text
+juju offers --application mysql
+```
+
+To see which offers grant a user `consume` or `admin` access, use `--allowed-consumer` with `--format summary`:
+
+```text
+juju offers --format summary --allowed-consumer mary
+```
+
+```{ibnote}
+See more: {ref}`command-juju-offers`
+```
+
+(suspend-resume-or-remove-a-relation-to-an-offer)=
+### Suspend, resume, or remove a relation to an offer
+> Who: User with {ref}`offer admin access <user-access-offer-admin>`.
+
+**Find the relation ID.** Several applications can relate to the same offer, so you identify a relation by its ID. To find the ID, run the `relation-ids` hook tool on a unit of one of the related applications, followed by the endpoint:
+
+```text
+juju exec --unit $UNIT_FOR_APP1 -- relation-ids endpoint
+```
+
+The output has the form `<endpoint>:<relation ID>`.
+
+**Suspend a relation.** To suspend a relation, run the `suspend-relation` command followed by the relation ID and, optionally, a message. For example:
+
+```text
+juju suspend-relation 2 --message "reason for suspension"
+```
+
+```{note}
+Suspended relations will run the relation departed / broken hooks on either end, and any firewall ingress will be closed.
+```
+
+**Resume a relation.** To resume a suspended relation, run the `resume-relation` command followed by the relation ID:
+
+```text
+juju resume-relation 2
+```
+
+The `suspend-relation` and `resume-relation` commands also take several relation IDs, separated by spaces:
+
+```text
+juju suspend-relation 3 4 5 --message "reason for suspension"
+```
+
+**Remove a relation.** To remove a relation, run the `remove-relation` command followed by the relation ID:
+
+```text
+juju remove-relation 2
+```
+
+```{note}
+Removing a single relation on either side removes that relation on the other side. To remove **all** of a SAAS application's relations from the consuming side, {ref}`remove the SAAS application <remove-a-saas-application>`.
+```
+
+```{ibnote}
+See more: {ref}`command-juju-suspend-relation`, {ref}`command-juju-resume-relation`, {ref}`command-juju-remove-relation`
+```
+
+(remove-an-offer)=
+### Remove an offer
+
+```{ibnote}
+See also: {ref}`Removing an offer <removing-an-offer>`
+```
+
+To remove an offer:
+
+1. Check whether the offer has connections:
+
+   ```text
+   juju offers --format summary hosted-mysql
+   ```
+
+2. If the offer has connections, {ref}`remove each relation to the offer <suspend-resume-or-remove-a-relation-to-an-offer>`, and check again until it has none.
+
+3. Run the `remove-offer` command followed by the offer URL:
+
+   ```text
+   juju remove-offer admin/default.hosted-mysql
+   ```
+
+4. If another model consumed the offer, watch that consuming model. For example, for the `frontend` model on the `production` controller:
+
+   ```text
+   watch -n 1 juju status -m production:frontend
+   ```
+
+   When the offer's SAAS application disappears from the SAAS section, press {kbd}`Ctrl`+{kbd}`C` to stop watching.
+
+```{ibnote}
+See more: {ref}`command-juju-remove-offer`
+```
+
+(use-an-offer-on-the-consuming-side)=
+## Use an offer on the consuming side
+
+(find-an-offer-to-use)=
+### Find an offer to use
+
+```{ibnote}
+See also: {ref}`Finding offers <finding-offers>`
+```
+
+To find offers you can see on the current controller, run `juju find-offers`. To search another controller, give its name followed by a colon:
+
+```text
+juju find-offers foo:
 Store  URL                         Access  Interfaces
 foo    admin/default.hosted-mysql  admin   mysql:database
 foo    admin/default.postgresql    admin   pgsql:db
 ```
 
-As with the `show-offer` command, the `yaml` output will show extra information, including users who can access the offer (if an admin makes the query).
+To see the access entries visible to you for each offer, add `--format yaml`:
 
 ```text
 juju find-offers --offer hosted-mysql --format yaml
@@ -210,133 +300,129 @@ foo:admin/default.hosted-mysql:
       access: admin
     bob:
       access: read
-    everyone@external:
-      access: read
 ```
 
-To find offers in a specified model:
+To find the offers in a model, give the model, with or without a controller:
 
 ```text
 juju find-offers admin/another-model
 juju find-offers foo:admin/another-model
 ```
 
-To find offers with a specified interface on the current controller:
+To find the offers with an interface, on the current controller or on another one, add `--interface`:
 
 ```text
 juju find-offers --interface mysql_client
-juju find-offers --interface tls-certificates
-```
-
-To find offers with a specified interface on a specific controller:
-
-```text
 juju find-offers --interface mysql_client foo:
 ```
 
-To find offers with "sql" in the name:
+To find the offers with "sql" in their name, add `--offer`:
 
 ```text
-$ juju find-offers --offer sql foo:
+juju find-offers --offer sql
 ```
 
 ```{ibnote}
 See more: {ref}`command-juju-find-offers`
 ```
 
-(integrate-with-an-offer)=
-## Integrate with an offer
-> Who: User with {ref}`offer consume access <user-access-offer-consume>`.
+(consume-an-offer)=
+### Consume an offer
 
-If a user has consume access to an offer, they can deploy an application in their model and establish a relation with the offer by way of its URL.
-
-```text
-juju integrate <application>[:<application endpoint>] <offer-url>[:<offer endpoint>]
+```{ibnote}
+See also: {ref}`Consuming an offer <consuming-an-offer>`, {ref}`SAAS application names <saas-application-names>`
 ```
 
-Specifying the endpoint for the application and the offer is analogous to normal relations. They can be added but are often unnecessary:
+To consume an offer, run the `consume` command followed by the offer URL. This creates a SAAS application for the offer in your model. For example:
 
 ```text
-juju integrate <application> <offer-url>
+juju consume admin/default.hosted-mysql
+Added admin/default.hosted-mysql as hosted-mysql
 ```
 
-When you integrate with an offer, a proxy application is made in the consuming model, named after the offer.
-
-An offer can be consumed without integration. This workflow sets up the proxy application in the consuming model and creates a user-defined alias for the offer. This latter is what's used to subsequently relate to. Having an offer alias can avoid a namespace conflict with a pre-existing application.
+If the offer's name is already in use in your model, choose a different local name when you consume the offer:
 
 ```text
-juju consume <offer-url> <offer-alias>
-juju integrate <application> <offer alias>
+juju consume admin/default.hosted-mysql mysql-prod
 ```
 
-Offers which have been consumed show up in `juju status` in the SAAS section. The relations block in status shows any relevant status information about the integrations to the offer in the Message field. This includes any error information due to rejected ingress, or if the relation is suspended etc.
-
-To remove a consumed offer:
+If the offer is on another controller, put the controller name and a colon in front of the offer URL:
 
 ```text
-juju remove-saas <offer alias>
+juju consume prod:admin/default.hosted-mysql
+```
+
+To check which offers the consuming model has consumed, run `juju status`. In the SAAS section, match the offering controller (`Store`) and offer URL to the local name (`SAAS`). Use that name to {ref}`inspect the SAAS application <view-a-saas-application>`.
+
+```text
+juju status
+...
+SAAS          Status  Store  URL
+hosted-mysql  active  prod   admin/default.hosted-mysql
+...
 ```
 
 ```{ibnote}
-See more: {ref}`command-juju-integrate`, {ref}`command-juju-consume`, {ref}`command-juju-remove-saas`
+See more: {ref}`command-juju-consume`, {ref}`command-juju-status`
 ```
 
+(integrate-with-an-offer)=
+### Integrate with an offer
 
-## Allow traffic from an integrated offer
-> Who: User with {ref}`offer admin access <user-access-offer-admin>`.
+```{ibnote}
+See also: {ref}`Consuming an offer <consuming-an-offer>`, {ref}`Cross-model relation <cross-model-relation>`
+```
 
-When the consuming model is behind a NAT firewall its traffic will typically exit (egress) that firewall with a modified address/network. In this case, the `--via` option can be used with the `juju integrate` command to request the firewall on the offering side to allow this traffic. This option specifies the NATed address (or network) in CIDR notation:
+To integrate an application in your model with an offer, run the `integrate` command followed by the application and the offer URL. For example:
 
 ```text
-juju integrate <application> <offer url> --via <cidr subnet(s)>
+juju integrate mediawiki admin/default.hosted-mysql
 ```
 
-Example:
+Given an offer URL, `integrate` first consumes the offer and then adds the relation. If the relation then fails, the SAAS application stays in your model: integrate with it again, or {ref}`remove it <remove-a-saas-application>`.
+
+If you consumed the offer under another name, integrate with that name, not with the offer URL:
+
+```text
+juju integrate mediawiki mysql-prod
+```
+
+As for any relation, you can add a colon and an endpoint to either side, but you usually don't need to:
+
+```text
+juju integrate mediawiki:db admin/default.hosted-mysql:database
+```
+
+```{ibnote}
+See more: {ref}`command-juju-integrate`
+```
+
+### Allow traffic from an integrated offer
+> Who: User with {ref}`offer admin access <user-access-offer-admin>`.
+
+**Set egress subnets on the consuming side.** When the consuming model is behind NAT, its traffic leaves the network from a translated address or network. To have the offering side open its firewall to that traffic, run the `integrate` command with `--via`, followed by the translated subnets in CIDR notation, separated by commas (a single address is a `/32`). For example:
 
 ```text
 juju integrate mediawiki:db ian:admin/default.mysql --via 69.32.56.0/8
 ```
 
-The `--via` value is a comma separated list of subnets in CIDR notation. This includes the /32 case where a single NATed IP address is used for egress.
-
-It's also possible to set up egress subnets as a model config value so that all cross model relations use those subnets without needing to use the `--via` option.
-
-```text
-juju model-config egress-subnets=<cidr subnet>
-```
-
-Example:
+To use the same subnets for every cross-model relation of the consuming model, set the `egress-subnets` model configuration key in the consuming model instead:
 
 ```text
 juju model-config egress-subnets=69.32.56.0/8
 ```
 
-To be clear, the above command is applied to the **consuming** model.
-
-To allow control over what ingress can be applied to the offering model, an administrator can set up allowed ingress subnets by creating a firewall rule.
-
-```text
-juju set-firewall-rule juju-application-offer --whitelist <cidr subnet>
-```
-
-Where 'juju-application-offer' is a well-known string that denotes the firewall rule to apply to any offer in the current model. If a consumer attempts to create a relation with requested ingress outside the bounds of the whitelist subnets, the relation will fail and be marked as in error.
-
-The above command is applied to the **offering** model.
-
-Example:
+**Limit ingress on the offering side.** To limit the ingress that consumers can request, run the `set-firewall-rule` command in the offering model, for the `juju-application-offer` rule, followed by `--whitelist` and the allowed subnets. A relation that requests ingress outside these subnets fails and is marked as in error. For example:
 
 ```text
 juju set-firewall-rule juju-application-offer --whitelist 103.37.0.0/16
 ```
 
 ```{note}
-
 The `juju set-firewall-rule` command only affects subsequently created relations, not existing ones. Only new relations will be rejected if the changed firewall rules preclude the requested ingress.
 ```
 
-To see what firewall rules have currently been defined, use the list firewall-rules command.
-
-Example:
+To view the firewall rules, run the `firewall-rules` command:
 
 ```text
 juju firewall-rules
@@ -345,157 +431,9 @@ juju-application-offer  103.37.0.0/16
 ```
 
 ```{note}
-
 Beyond a certain number of firewall rules, which have been dynamically created to allow access from individual relations, Juju will revert to using the whitelist subnets as the access rules. The number of rules at which this cutover applies is cloud specific.
-
 ```
 
 ```{ibnote}
 See more: {ref}`command-juju-set-firewall-rule`, {ref}`command-juju-firewall-rules`
-```
-
-## Inspect relations to an offer
-> Who: User with {ref}`offer admin access <user-access-offer-admin>`.
-
-The `offers` command is used to see all connections to one more offers.
-
-```text
-juju offers [--format (tabular|summary|yaml|json)] [<offer name>]
-```
-
-If `offer name` is not provided, all offers are included in the result.
-
-The default `tabular` output shows each user connected (relating to) the offer, the
-relation id of the relation, and ingress subnets in use with that connection. The `summary` output shows one row per offer, with a count of active/total relations. Use the `yaml` output to see extra detail such as the UUID of the consuming model.
-
-The output can be filtered by:
- - interface: the interface name of the endpoint
- - application: the name of the offered application
- - connected user: the name of a user who has a relation to the offer
- - allowed consumer: the name of a user allowed to consume the offer
- - active only: only show offers which are in use (are related to)
-
-See `juju help offers` for more detail.
-
-Example:
-
-```text
-juju offers mysql
-Offer  User   Relation id  Status  Endpoint  Interface  Role      Ingress subnets
-mysql  admin  2            joined  db        mysql      provider  69.193.151.51/32
-
-juju offers --format summary
-Offer         Application  Charm        Connected  Store   URL                      Endpoint  Interface  Role
-hosted_mysql  mysql        ch:mysql-57  1/1        myctrl  admin/prod.hosted_mysql  db        mysql      provider
-
-```
-
-All offers for a given application:
-
-```text
-juju offers --application mysql
-```
-
-All offers for a given interface:
-
-```text
-juju offers --interface mysql
-```
-
-All offers for a given user who has related to the offer:
-
-```text
-juju offers --connected-user fred
-```
-
-All offers for a given user who can consume the offer:
-
-```text
-juju offers --format summary --allowed-consumer mary
-```
-
-The above command is best run with `--format` summary as the intent is to see, for a given user, what offers they might relate to, regardless of whether there are existing relations (which is what the tabular view shows).
-
-```{ibnote}
-See more: {ref}`command-juju-offers`
-```
-
-## Suspend, resume, or remove a relation to an offer
-> Who: User with {ref}`offer admin access <user-access-offer-admin>`.
-
-Before you can suspend, resume, or remove a relation, you need to know the relation ID. (That is because, once you've made an offer, there could potentially be many instances of the same application integrating with that offer, so the only way to identify uniquely is via the relation ID.)
-
-Given two related apps (app1: endpoint, app2), the relation ID can be found as follows:
-
-
-```text
-juju exec --unit $UNIT_FOR_APP1 -- relation-ids endpoint
-```
-
-The output, `<ENDPOINT>:<REL_ID`, gives you the relation ID.
-
-Once you have the relation ID:
-
-To suspend a relation, do:
-
-
-```text
-juju suspend-relation <id1>
-```
-
-```{note}
-Suspended relations will run the relation departed / broken hooks on either end, and any firewall ingress will be closed.
-```
-
-
-And, to resume a relation, do:
-
-```text
-juju resume-relation <id1>
-```
-
-Finally, to remove a relation entirely:
-
-```text
-juju remove-relation <id1>
-```
-
-```{note}
-
-Removing a relation on the offering side will trigger a removal on the consuming side. A relation can also be removed from the consuming side, as well as the application proxy, resulting in all relations being removed.
-```
-
-```{note}
-
-In all cases, more than one relation id can be specified, separated by spaces.
-
-```
-
-Examples:
-
-```text
-juju suspend-relation 2 --message "reason for suspension"
-juju suspend-relation 3 4 5 --message "reason for suspension"
-juju resume-relation 2
-```
-
-```{ibnote}
-See more: {ref}`command-juju-suspend-relation`, {ref}`command-juju-resume-relation`, {ref}`command-juju-remove-relation`
-```
-
-## Remove an offer
-> Who: User with {ref}`offer admin access <user-access-offer-admin>`.
-
-An offer can be removed providing it hasn't been used in any relation. To override this behaviour the `--force` option is required, in which case the relation is also removed. This is how an offer is removed:
-
-```text
-juju remove-offer [--force] <offer-url>
-```
-
-Note that, if the offer resides in the current model, then the shorter offer name can be used instead of the longer URL.
-
-Similarly, if an application is being offered, it cannot be deleted until all its offers are removed.
-
-```{ibnote}
-See more: {ref}`command-juju-remove-offer`
 ```

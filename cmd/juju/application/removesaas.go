@@ -45,19 +45,26 @@ type removeSaasCommand struct {
 }
 
 var helpSummaryRmSaas = `
-Remove consumed applications (SAAS) from the model.`[1:]
+Remove SAAS applications and their relations from the consuming model.`[1:]
 
-var helpDetailsRmSaas = `
-Removing a consumed (SAAS) application will terminate any relations that
-application has, potentially leaving any related local applications
-in a non-functional state.
+var helpDetailsRmSaas = (`
+Give the local names shown in the SAAS section of ` + "`juju status`" + `, not
+the offer URLs. On success the command prints nothing. To check whether
+removal is complete, look for the local name in that model's SAAS section.
 
-`[1:]
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/saas-application/
+`)[1:]
 
 const helpExamplesRmSaas = `
-    juju remove-saas hosted-mysql
-    juju remove-saas -m test-model hosted-mariadb
+Remove the SAAS application ` + "`hosted-mysql`" + ` and its relations from the current model:
 
+    juju remove-saas hosted-mysql
+
+Remove the SAAS applications ` + "`hosted-mysql`" + ` and ` + "`orders-db`" + ` and their relations from model ` + "`frontend`" + `:
+
+    juju remove-saas -m frontend hosted-mysql orders-db
 `
 
 func (c *removeSaasCommand) Info() *cmd.Info {
@@ -89,8 +96,8 @@ func (c *removeSaasCommand) Init(args []string) error {
 
 func (c *removeSaasCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.Force, "force", false, "Completely remove a SAAS and all its dependencies")
-	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through SAAS removal without waiting for each individual step to complete")
+	f.BoolVar(&c.Force, "force", false, "Force the removal of the SAAS applications' relations")
+	f.BoolVar(&c.NoWait, "no-wait", false, "Requires --force; the wait for forced relation removal already defaults to zero")
 	c.fs = f
 }
 

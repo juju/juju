@@ -53,6 +53,46 @@ model "Juju" {
       ssh_container [type: workload, label: "Target container"]
     }
 
+    // Offer: an application in the offering model offers chosen endpoints in
+    // an offer; a consuming model consumes the offer as a SAAS application,
+    // and applications there integrate with it. The application's endpoints
+    // are ports on its border. Generic names; the two abstraction boxes are
+    // models.
+    offer_offering_model [type: entity, label: "Offering model", abstracts: "model", padding: compact] {
+      offer_app [type: entity, label: "Application"] {
+        ports {
+          endpoint_a [label: "Endpoint A", side: right]
+          endpoint_b [label: "Endpoint B", side: right]
+          endpoint_c [label: "Endpoint C", side: right]
+        }
+      }
+      offer [type: entity, label: "Offer"]
+    }
+    offer_consuming_model [type: entity, label: "Consuming model", abstracts: "model", padding: compact] {
+      offer_saas     [type: entity, label: "SAAS application"]
+      offer_consumer [type: entity, label: "Application"]
+    }
+    // SAAS application: one offer consumed in two models. Each consuming
+    // model holds one SAAS application for the offer, and every application
+    // there that integrates with the offer does so through it.
+    saas_consuming_model_1 [type: entity, label: "Consuming model", abstracts: "model", padding: compact] {
+      saas_one       [type: entity, label: "SAAS application"]
+      saas_one_app_1 [type: entity, label: "Application"]
+      saas_one_app_2 [type: entity, label: "Application"]
+    }
+    saas_consuming_model_2 [type: entity, label: "Another consuming model", abstracts: "model", padding: compact] {
+      saas_two     [type: entity, label: "SAAS application"]
+      saas_two_app [type: entity, label: "Application"]
+    }
+    // Removing an offer: the actor, and the controllers of the two models
+    // (they can be one). The person glyph says the admin is a user.
+    offer_admin          [type: person,        label: "Offering\nmodel's admin"]
+    offer_ctrl_offering  [type: juju-software, label: "Offering model's\ncontroller"]
+    offer_ctrl_consuming [type: juju-software, label: "Consuming model's\ncontroller"]
+    // Consuming an offer: a user of the consuming model consumes the
+    // offer through the same two controllers.
+    offer_consumer_user  [type: person,        label: "Consuming\nmodel's user"]
+
     // "The insight" shows Juju as one piece between the user and the
     // applications. "The topology" opens it into a client and a controller
     // and brings in the clouds and Charmhub.
@@ -87,6 +127,26 @@ model "Juju" {
   edges {
     // The problem
     sre  -> bare_applications [type: control, label: "operates"]
+
+    // Offer: edges follow the order of the story, which is also the order of
+    // the offer operations: endpoints are offered, the offer is consumed, an
+    // application integrates; with the offering model on the left, every
+    // edge runs left to right, and each label reads "<source> is <label>
+    // <target>". One arrow per offered endpoint.
+    offer_app.endpoint_a -> offer          [type: control, label: "offered in"]
+    offer_app.endpoint_b -> offer          [type: control, label: "offered in"]
+    offer                -> offer_saas     [type: control, label: "consumed as"]
+    offer_saas           -> offer_consumer [type: control, label: "integrated with"]
+    offer_admin          -> client              [type: api]
+    client               -> offer_ctrl_offering [type: api]
+    offer_ctrl_consuming -> offer_ctrl_offering [type: stream]
+    offer_consumer_user  -> client               [type: api]
+    client               -> offer_ctrl_consuming [type: api]
+    offer                 -> saas_one       [type: control, label: "consumed as"]
+    offer                 -> saas_two       [type: control, label: "consumed as"]
+    saas_one              -> saas_one_app_1 [type: control, label: "integrated with"]
+    saas_one              -> saas_one_app_2 [type: control, label: "integrated with"]
+    saas_two              -> saas_two_app   [type: control, label: "integrated with"]
 
     // The insight
     user         -> juju              [type: api,     label: "declares intent to"]
@@ -128,6 +188,27 @@ model "Juju" {
   }
 
   behaviours {
+    // Removing an offer returns before the consuming model has cleaned up.
+    behaviour "remove-offer" {
+      offer_admin          -> client:               call "juju remove-offer"
+      client               -> offer_ctrl_offering:  call "remove the offer"
+      offer_ctrl_offering  -> offer_ctrl_offering:  self "delete the offer"
+      offer_ctrl_offering  -> client:               return "removed"
+      client               -> offer_admin:          return "done"
+      offer_ctrl_offering  -> offer_ctrl_consuming: async "watcher fires: offer terminated"
+      offer_ctrl_consuming -> offer_ctrl_consuming: self "remove the SAAS application"
+    }
+    // Consuming an offer: the offering controller gives the details and
+    // the permission; the consuming controller creates the SAAS application.
+    behaviour "consume" {
+      offer_consumer_user  -> client:               call "juju consume"
+      client               -> offer_ctrl_offering:  call "get the offer's details"
+      offer_ctrl_offering  -> client:               return "details and permission"
+      client               -> offer_ctrl_consuming: call "create the SAAS application"
+      offer_ctrl_consuming -> offer_ctrl_consuming: self "create it with status unknown"
+      offer_ctrl_consuming -> client:               return "created"
+      client               -> offer_consumer_user:  return "done"
+    }
     behaviour "add-cloud" {
       user   -> client: call "juju add-cloud"
       client -> client: self "save the cloud definition"
@@ -212,7 +293,17 @@ model "Juju" {
     }
   }
 
-  style { extends: juju }
+  style {
+    extends: juju
+    // An invisible layout group: the two stages of the story are drawn as quiet
+    // box annotations around it in the view.
+    stage { stroke: "none" fill: "none" }
+    // The dotted entity border is faint on a light page; thicken it there only.
+    entity { stroke-width: 2 }
+    @dark {
+      stage { stroke: "none" fill: "none" }
+    }
+  }
 }
 
 diagram "The problem" from "Juju" {
@@ -272,6 +363,49 @@ sequence "juju deploy"         from "Juju" { select { behaviour: "deploy" } }
 sequence "juju deploy (Kubernetes)" from "Juju" { select { behaviour: "deploy-k8s" } }
 sequence "juju config"         from "Juju" { select { behaviour: "config" } }
 sequence "juju integrate"      from "Juju" { select { behaviour: "integrate" } }
+
+diagram "Offer across models" from "Juju" {
+  select {
+    nodes: offer_offering_model offer_consuming_model
+    edges: type control
+    sizing: natural
+  }
+  positions {
+    offer right-of offer_app gap: 80
+    offer align-middle offer_app
+    offer_consuming_model right-of offer_offering_model gap: 70
+    offer_saas align-middle offer
+    offer_consumer right-of offer_saas gap: 100
+    offer_consumer align-middle offer_saas
+  }
+  emphasize { focus [offer] }
+}
+
+sequence "Offer removal" from "Juju" { select { behaviour: "remove-offer" } }
+
+diagram "SAAS application across models" from "Juju" {
+  select {
+    nodes: offer_offering_model offer saas_consuming_model_1 saas_consuming_model_2
+    edges: type control
+    sizing: natural
+    routing: orthogonal
+  }
+  positions {
+    offer align-centre offer_offering_model
+    offer align-middle offer_offering_model
+    saas_one align-middle saas_consuming_model_1
+    saas_two align-middle saas_consuming_model_2
+    fan [saas_consuming_model_1 saas_consuming_model_2] right-of offer_offering_model gap: 90
+    saas_consuming_model_2 below saas_consuming_model_1 gap: 30
+    saas_consuming_model_2 align-centre saas_consuming_model_1
+    fan [saas_one_app_1 saas_one_app_2] right-of saas_one gap: 150
+    saas_two_app right-of saas_two gap: 150
+    saas_two_app align-middle saas_two
+  }
+  emphasize { focus [saas_one saas_two] }
+}
+
+sequence "Consuming an offer" from "Juju" { select { behaviour: "consume" } }
 
 diagram "SSH proxy overview" from "Juju" {
   select {

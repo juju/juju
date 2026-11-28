@@ -33,6 +33,7 @@ Find, specify, and view charm resources <manage-charm-resources>
 Manage actions <manage-actions>
 Add, inspect, and remove relations <manage-relations>
 Share and consume offers <manage-offers>
+Inspect, rename, and remove SAAS applications <manage-saas-applications>
 Inspect, scale, and troubleshoot units <manage-units>
 Manage secrets <manage-secrets>
 Operate machines <manage-machines>
@@ -91,6 +92,7 @@ Charmed applications are deployed, configured, integrated, scaled, and more. Dep
 - {ref}`Manage actions <manage-actions>`
 - {ref}`Add, inspect, and remove relations <manage-relations>`
 - {ref}`Share and consume offers <manage-offers>`
+- {ref}`Inspect, rename, and remove SAAS applications <manage-saas-applications>`
 - {ref}`Inspect, scale, and troubleshoot units <manage-units>`
 - {ref}`Manage secrets <manage-secrets>`
 - {ref}`Operate machines <manage-machines>`

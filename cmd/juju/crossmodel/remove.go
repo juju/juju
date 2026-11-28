@@ -41,19 +41,30 @@ type removeCommand struct {
 }
 
 const destroyOfferDoc = `
-Remove one or more application offers.
+Give an offer URL without an endpoint, or just its name in the current
+model. To remove offers from different controllers, run the command once
+per controller.
 
-If the ` + "`--force`" + ` option is specified, any existing relations to the
-offer will also be removed.
+Use ` + "`--force`" + ` to remove an offer with connections. Only forced removal
+prompts for confirmation; the prompt includes the offers and warns that
+their relations will also be removed.
 
-Offers to remove are normally specified by their URL.
-It's also possible to specify just the offer name, in which case
-the offer is considered to reside in the current model.
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/offer/
 `
 
 const destroyOfferExamples = `
+Remove the ` + "`hosted-mysql`" + ` offer from model ` + "`staging/mymodel`" + ` if the offer has no connections:
+
     juju remove-offer staging/mymodel.hosted-mysql
+
+Remove the ` + "`hosted-mysql`" + ` offer from model ` + "`staging/mymodel`" + ` even if it has connections, destroying its relations:
+
     juju remove-offer staging/mymodel.hosted-mysql --force
+
+Remove the ` + "`hosted-mysql`" + ` offer from the current model if the offer has no connections:
+
     juju remove-offer hosted-mysql
 `
 
@@ -61,8 +72,8 @@ const destroyOfferExamples = `
 func (c *removeCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "remove-offer",
-		Args:     "<offer-url> ...",
-		Purpose:  "Removes one or more offers specified by their URL.",
+		Args:     "<offer-name-or-url> [<offer-name-or-url>...]",
+		Purpose:  "Remove one or more offers.",
 		Doc:      destroyOfferDoc,
 		Examples: destroyOfferExamples,
 		SeeAlso: []string{
@@ -76,7 +87,7 @@ func (c *removeCommand) Info() *cmd.Info {
 func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
 	f.BoolVar(&c.force, "force", false, "Remove the offer as well as any relations to the offer")
-	f.BoolVar(&c.assumeYes, "y", false, "Do not prompt for confirmation")
+	f.BoolVar(&c.assumeYes, "y", false, "Skip the confirmation prompt for forced removal")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
 }
 

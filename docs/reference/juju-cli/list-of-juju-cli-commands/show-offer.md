@@ -3,11 +3,11 @@
 > See also: [find-offers](#command-juju-find-offers)
 
 ## Summary
-Shows extended information about the offered application.
+Show an offer's endpoints, description and access.
 
 ## Usage
 ```text
-juju show-offer [options] [<controller>:]<offer url>
+juju show-offer [options] <offer-name-or-url>
 ```
 
 ### Options
@@ -20,28 +20,26 @@ juju show-offer [options] [<controller>:]<offer url>
 
 ## Examples
 
-To show the extended information for the application `prod` offered
-from the model `default` on the same Juju controller:
+Inspect the `hosted-mysql` offer in the current model:
 
-     juju show-offer default.prod
+    juju show-offer hosted-mysql
 
-The supplied URL can also include a model qualifier where offers require them.
-This will be given as part of the URL retrieved from the
-`juju find-offers` command. To show information for the application
-'prod' from the model 'staging/default':
+Inspect the `hosted-mysql` offer in model `staging/default`:
 
-    juju show-offer staging/default.prod
+    juju show-offer staging/default.hosted-mysql
 
-To show the information regarding the application `prod` offered from
-the model `default` on an accessible controller named `controller`:
+Inspect the `hosted-mysql` offer in model `staging/default` on `mycontroller` as YAML:
 
-    juju show-offer controller:default.prod
-
+    juju show-offer --format yaml mycontroller:staging/default.hosted-mysql
 
 
 ## Details
 
-This command is intended to enable users to learn more about the
-application offered from a particular URL. In addition to the URL of
-the offer, extra information is provided from the readme file of the
-charm being offered.
+Give an offer URL without an endpoint, or just the offer name for an offer
+in the selected model. The table shows the offer's description, access
+and endpoints. Use YAML or JSON for the full description and the user
+access entries visible to you.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/offer/

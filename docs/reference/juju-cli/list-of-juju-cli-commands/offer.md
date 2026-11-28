@@ -7,7 +7,7 @@ Offer application endpoints for use in other models.
 
 ## Usage
 ```text
-juju offer [options] [model-name.]<application-name>:<endpoint-name>[,...] [offer-name]
+juju offer [options] [[<model-qualifier>/]<model-name>.]<application-name>:<endpoint-name>[,<endpoint-name>...] [<offer-name>]
 ```
 
 ### Options
@@ -18,14 +18,25 @@ juju offer [options] [model-name.]<application-name>:<endpoint-name>[,...] [offe
 
 ## Examples
 
+Offer the `db` endpoint of `mysql` from the current model under the default offer name, `mysql`:
+
     juju offer mysql:db
-    juju offer mymodel.mysql:db
-    juju offer db2:db hosted-db2
+
+Offer the `db` endpoint of `mysql` from model `staging/mymodel` under the name `hosted-mysql`:
+
+    juju offer staging/mymodel.mysql:db hosted-mysql
+
+Offer the `db` and `log` endpoints of `db2` together under the name `hosted-db2`:
+
     juju offer db2:db,log hosted-db2
 
 
 ## Details
 
-Deployed application endpoints are offered for use by consumers.
-By default, the offer is named after the application, unless
-an offer name is explicitly specified.
+Give one or more endpoint names from the same application, separated by commas.
+Without a model prefix, Juju uses the current model on the selected controller.
+The offer name defaults to the application name. The command prints the offer URL.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/offer/

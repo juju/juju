@@ -53,6 +53,7 @@ command | `--force` | `--no-wait`
 `remove-machine` | yes | yes
 `remove-offer` | yes | no
 `remove-relation` | yes | no
+`remove-saas` | yes | yes
 `remove-storage` | yes | no
 `remove-unit` | yes | yes
 

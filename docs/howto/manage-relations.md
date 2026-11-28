@@ -87,6 +87,8 @@ Relation provider  Requirer       Interface  Type     Message
 mysql:db           mediawiki:db   mysql      regular
 ```
 
+For a cross-model relation, check the `Message` column for a rejected ingress request or a suspension.
+
 ```{ibnote}
 See more: {ref}`command-juju-status`
 ```
