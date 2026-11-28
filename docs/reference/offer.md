@@ -14,7 +14,7 @@ See also: {ref}`manage-offers`
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Offer across models
-:caption: An offer lets applications in other models use one of your applications, through only the endpoints you choose. In this minimal example, an application in the offering model offers two of its three endpoints, A and B, in an offer. A consuming model consumes the offer as a SAAS application, which stands in for it, and an application there integrates with the SAAS application; that relation is a connection of the offer. No consuming model can reach endpoint C.
+:caption: An offer lets applications in other models use one of your applications, through only the endpoints you choose. In this minimal example, an application in the offering model offers two of its three endpoints, A and B, in an offer. A consuming model consumes the offer as a SAAS application, which stands in for it, and an application there integrates with the SAAS application; that relation is a connection of the offer. No consuming model can reach endpoint C through this offer.
 :alt: Two boxes side by side, with every arrow running from left to right. The left box, Offering model, holds an Application with three ports on its right edge, Endpoint A, Endpoint B and Endpoint C; two parallel arrows, each labelled "offered in", run from Endpoint A and Endpoint B to an Offer, and Endpoint C has no arrow. An arrow labelled "consumed as" runs from the Offer to the right box, Consuming model, where it reaches a SAAS application, and an arrow labelled "integrated with" runs from the SAAS application to an Application there.
 ```
 
@@ -43,9 +43,9 @@ No list of users includes the `everyone@external` grant.
 (offer-connections)=
 ## Offer connections
 
-An offer's connections are the relations that applications in consuming models have with it, one connection for each relation. A connection records the consuming model, the user who made the relation, the endpoint, the relation, its status and the ingress subnets in use.
+An offer's connections are the relations that applications in consuming models have with it, one connection for each relation. A connection records the consuming model, the user who made the relation, the endpoint, the relation and its status. Its ingress subnets are the source networks that the consuming side reports for traffic to the offering side over that relation.
 
-An offer that has a connection, whatever the connection's status, cannot be removed unless the removal is forced.
+While any connection remains, even a suspended one, ordinary removal of the offer is blocked. To remove the offer without forcing removal, first remove the relations to it.
 
 (managing-an-offer-on-the-offering-side)=
 ## Managing an offer on the offering side
@@ -63,7 +63,7 @@ An offer cannot be updated. If the offering model already has an offer with the 
 
 **Errors:**
 
-- *Error message:* `checking user "user-<name>" has admin permission on model "<model-uuid>": permission denied`. *Trigger:* The user who creates the offer, or the user named as its owner, has neither model `admin` on the offering model nor controller `superuser` on the offering controller, or the named owner does not exist. *What to do:* Ask a model admin of the offering model to create the offer, or to grant the access.
+- *Error message:* `checking user "user-<name>" has admin permission on model "<model-uuid>": permission denied`. *Trigger:* The user who creates the offer, or the user named as its owner, has neither model `admin` on the offering model nor controller `superuser` on the offering controller, or the named owner does not exist. *What to do:* If the owner's name is wrong, correct it, or omit it to own the offer yourself. If the creator or the intended owner lacks access, ask a model admin of the offering model to grant that user model `admin` or choose a creator or owner who already has the required access.
 - *Error message:* `application name cannot be empty`. *Trigger:* The user gives no application. *What to do:* Give the name of an application in the offering model.
 - *Error message:* `endpoints cannot be empty`. *Trigger:* The user gives no endpoint. *What to do:* Give at least one of the application's endpoints.
 - *Error message:* `application "<application>" not found in model "<model-uuid>"`. *Trigger:* The offering model has no application with that name. *What to do:* Give the name of an application in the offering model.
@@ -78,7 +78,7 @@ An offer cannot be updated. If the offering model already has an offer with the 
 See also: {ref}`View one offer's details with the Juju CLI <view-an-offers-details>`
 ```
 
-Viewing an offer by its exact {ref}`URL <offer-urls>` returns its description, offered endpoints and the access entries visible to the caller. Each endpoint has a name, interface and role. The caller's {ref}`offer access <offer-access>` determines which entries they can see.
+Viewing an offer by its exact {ref}`URL <offer-urls>` returns its description, offered endpoints and the access entries visible to the caller. Each endpoint has a name, interface and role. A user with at least model `read` on the offering model can view the offer without a grant on the offer itself. The {ref}`visibility rules <offer-access>` also determine whose access entries the caller sees.
 
 The offering controller returns the offer's own description if it has one. Otherwise it returns the description from the offered application's charm metadata, not the charm's README.
 
@@ -94,7 +94,7 @@ The offering controller returns the offer's own description if it has one. Other
 
 Changing access to an offer grants a user an offer access level or revokes one. A user gives the other user's name, the level and the offer URL; the other user must be a user of the offering controller.
 
-Revoking `consume` or `read` from a user takes away the access they need to consume the offer. Before the offering controller lowers that access, it suspends each of the user's relations to the offer, with the message `offer access revoked`. A user with model `admin` on the offering model or controller `superuser` on the offering controller can still consume the offer through that access, so the offering controller leaves their relations as they are. Granting access again does not resume a suspended relation; each one stays suspended until a user resumes it.
+If a user relies on an offer grant to consume the offer, revoking `consume` or `read` takes away that ability. Before lowering the user's access, the offering controller suspends each of their relations to the offer with the message `offer access revoked`. If the user can still consume the offer as a model `admin` on the offering model or a controller `superuser` on the offering controller, their relations stay as they are. Granting access again does not resume a suspended relation; each one stays suspended until a user resumes it.
 
 **Who can do this:** A user with {ref}`offer admin access <user-access-offer-admin>` on the offer, with {ref}`model admin access <user-access-model-admin>` on the offering model, or with {ref}`controller superuser access <user-access-controller-superuser>` on the offering controller.
 
@@ -104,7 +104,7 @@ Revoking `consume` or `read` from a user takes away the access they need to cons
 - *Error message:* `permission denied`. *Trigger:* The user has neither offer `admin` on the offer, model `admin` on the offering model, nor controller `superuser` on the offering controller. *What to do:* Ask the offer's admin to change the access.
 - *Error message:* ends with `user not found`. *Trigger:* The offering controller has no user with that name. *What to do:* Ask a controller admin of the offering controller to add the user, or give the name of a user it has.
 - *Error message:* ends with `user authentication disabled`. *Trigger:* The user is disabled on the offering controller. *What to do:* Ask a controller admin of the offering controller to enable the user.
-- *Error message:* ends with `access or greater`. *Trigger:* A grant gives a level that the user already has, or a lower one. *What to do:* Grant a higher level, or revoke to lower it.
+- *Error message:* ends with `access or greater`. *Trigger:* A grant gives a level that the user already has, or a lower one. *What to do:* If the user needs at least the requested level, no change is needed. To lower their access, revoke the access they no longer need.
 
 (listing-offers-and-their-connections)=
 ### Listing offers and their connections
@@ -160,7 +160,7 @@ When the offering controller deletes an application, it also deletes the applica
 See also: {ref}`Find an offer with the Juju CLI <find-an-offer-to-use>`
 ```
 
-Finding offers shows the offers that match a filter on their offering model, name, application or endpoints. A user gives one or more filters. A single filter that names no model searches every model on the controller that receives the request. The results include only the offers that the user's {ref}`offer access <offer-access>` lets them see.
+Finding offers shows the offers that match a filter on their offering model, name, application or endpoints. A user gives one or more filters. A single filter that names no model searches every model on the controller that receives the request. Results include only {ref}`visible offers <offer-access>`. A user with at least model `read` on an offering model sees every matching offer in it, even without a grant on the offer itself.
 
 Within the models searched, an offer name matches names containing that text. A search with both a name and an interface returns offers that match either.
 
@@ -182,11 +182,11 @@ See also: {ref}`Juju CLI: Consume an offer <consume-an-offer>`
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Consuming an offer
-:caption: On the first consume, the offering model's controller authorizes access to the offer, and the consuming model's controller creates the SAAS application. The same controller can serve both models.
+:caption: The offering model's controller authorizes access to the offer. On first use in the consuming model, that model's controller creates a local stand-in for the offered application: the SAAS application. The same controller can serve both models.
 :alt: A user runs juju consume. The client gets the offer details and permission from the offering model's controller, then passes them to the consuming model's controller. That controller creates a SAAS application with status unknown and returns success to the client.
 ```
 
-The first time a user consumes an offer in a model, the consuming model's controller creates a {ref}`SAAS application <saas-application>` with the offer's endpoints and the chosen {ref}`local name <saas-application-names>`. If the models are on different controllers, it also records how to reach the offering model's controller. Applications in the consuming model can then integrate with the SAAS application in a {ref}`cross-model relation <cross-model-relation>`.
+When a user consumes an offer, the offering model's controller first authorizes access to the offer. On first use in the consuming model, the consuming model's controller creates a local stand-in for the offered application, called a {ref}`SAAS application <saas-application>`. It has the offer's endpoints and the chosen {ref}`local name <saas-application-names>`. If the models are on different controllers, the consuming model's controller also records how to reach the offering model's controller. Applications in the consuming model can then integrate with the SAAS application in a {ref}`cross-model relation <cross-model-relation>`.
 
 If the consuming model already has a SAAS application for the offer, consuming it again succeeds without creating another application or changing the existing name. This also applies while the existing SAAS application is being removed.
 
@@ -198,7 +198,7 @@ If the consuming model already has a SAAS application for the offer, consuming i
 **Errors:**
 
 - *Error message:* `application offer "<qualifier>/<model>.<offer>" not found`. *Trigger:* The offer does not exist. *What to do:* Check the offer URL.
-- *Error message:* `permission denied`. *Trigger:* The offering controller refuses access to the offer, or the consuming controller refuses the change to the consuming model. *What to do:* For the first refusal, ask an offer admin to grant `consume` on the offer. For the second, ask a model admin to grant `write` on the consuming model.
-- *Error message:* the message given when changes were blocked, or `the operation has been blocked`. *Trigger:* Changes are blocked in the consuming model. *What to do:* Ask a user who can change the consuming model to lift the block.
-- *Error message:* ends with `application name not valid`. *Trigger:* The chosen local name is not a valid application name. *What to do:* Give a valid name.
+- *Error message:* `permission denied`. *Trigger:* The offering controller refuses access to the offer, or the consuming controller refuses the change to the consuming model. *What to do:* The message alone does not identify the side that refused. Check both access requirements above. If offering-side access is missing, ask an offer admin to grant `consume` on the offer. If consuming-side access is missing, ask a model admin of the consuming model to grant `write`.
+- *Error message:* the message given when changes were blocked, or `the operation has been blocked`. *Trigger:* Changes are blocked in the consuming model. *What to do:* If changes should be enabled again, a user with at least model `write` on the consuming model can lift the block. Having `write` does not bypass it.
+- *Error message:* ends with `application name not valid`. *Trigger:* The chosen local name is not a valid application name. *What to do:* Choose an unused application name such as `remote-db`.
 - *Error message:* `application "<name>" already exists`. *Trigger:* Another application in the consuming model already has the requested name. *What to do:* Choose an unused name.
