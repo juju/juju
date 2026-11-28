@@ -560,6 +560,7 @@ For how to remove *knowledge* about a controller from a `juju` client, see {ref}
 ```
 
 
+(destroy-a-controller)=
 ### Destroy a controller
 
 ```{important}
@@ -568,20 +569,12 @@ Any model in the controller that has disabled commands will block a controller
 from being destroyed. A controller administrator is able to enable all the commands across all the models in a Juju controller so that the controller can be destroyed if desired. This can be done via the {ref}`command-juju-enable-destroy-controller` command: `juju enable-destroy-controller`.
 ```
 
-A controller can be destroyed with:
+Before destroying the controller, {ref}`check storage in each model <removing-a-unit-with-storage>`. If a storage disposition is required, the command fails before confirmation without one; it does not prompt you to choose. Select `--release-storage` to relinquish management, or `--destroy-storage` to request destruction.
 
-`juju destroy-controller <controller-name`
-
-You will always be prompted to confirm this action. Use the `-y` option to override this.
-
-As a safety measure, if there are any models (besides the 'controller' model) associated with the controller you will need to pass the `--destroy-all-models` option.
-
-Additionally, if there is persistent storage in any of the controller's models, you will be prompted to either destroy or release the storage, using the `--destroy-storage` or `--release-storage` options respectively.
-
-For example:
+Use `juju destroy-controller <controller-name>`. If there are models other than the controller model, specify `--destroy-all-models`. For example, to destroy the controller named `aws` and its models while requesting release of their storage:
 
 ```text
-juju destroy-controller -y --destroy-all-models --destroy-storage aws
+juju destroy-controller aws --destroy-all-models --release-storage
 ```
 
 ```{ibnote}

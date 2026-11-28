@@ -19,20 +19,19 @@ juju detach-storage [options] <storage> [<storage> ...]
 
 ## Examples
 
-    juju detach-storage pgdata/0
-    juju detach-storage --force pgdata/0
+Detach osd-devices/2 from all its units after stopping workload use and
+checking each unit can spare the device:
 
+    juju detach-storage osd-devices/2
 
 
 ## Details
 
-Detaches storage from units. Specify one or more storage IDs (storage_name/id),
-as output by `juju storage`. The storage will remain in the model
-until it is removed by an operator. The storage being detached will be removed
-from all units that are using it.
+Detach each specified instance from all units using it. Supply Juju storage
+IDs from juju storage. Stop workload use first. If the request fails,
+inspect each instance with show-storage to find which units still have
+attachments before retrying.
 
-Detaching storage may fail but under some circumstances, Juju user may need
-to force storage detachment despite operational errors. Storage detachments are
-not performed as a single operation, so when detaching multiple storage IDs it
-may be that some detachments succeed while others fail. In this case the command
-can be executed again to retry the failed detachments.
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/storage/

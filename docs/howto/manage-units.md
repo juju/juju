@@ -127,36 +127,38 @@ See more: {ref}`command-juju-resolved`
 (remove-a-unit)=
 ## Remove a unit
 
-To remove individual units instead of the entire application (i.e. all the units), use the `remove-unit` command followed by the unit name. For example, the code below removes unit 2 of the PostgreSQL charm. For example:
+To remove a unit, choose the procedure for its model type. Before removing a unit whose data you need, {ref}`check storage ownership and backing <choose-which-storage-to-keep>`.
 
-```{important}
-While this can be used for both machine and Kubernetes deployments, unless you care about which unit you're removing specifically, in Kubernetes you may also just run `juju scale-application <n>`, where `n` is less than the current number of units. See {ref}`control-the-number-of-units`.
+`````{tabs}
+
+````{tab} Kubernetes
+To run one fewer unit, pass the application name and the number to remove. This operation cannot select a particular unit or volume. The CLI rejects `--destroy-storage` and `--dry-run` here. For example:
+
+```text
+juju remove-unit postgresql --num-units 1
 ```
+
+To set a desired final count, {ref}`scale the application <control-the-number-of-units>`.
+````
+
+````{tab} Machines
+To remove a specific machine unit, pass its unit name. With `--destroy-storage`, Juju also requests destruction of its owned storage. If you remove the last unit, its machine and machine-local data can be lost. For example, to remove `postgresql/2`:
 
 ```text
 juju remove-unit postgresql/2
 ```
 
-```{important}
-In the case that the removed unit is the only one running, the corresponding machine will also be removed, unless any of the following is true for that machine: <br>
-
-- it was created with `juju add-machine` <br>
-- it is not being used as the only controller <br>
-- it is not hosting Juju-managed containers (KVM guests or LXD containers)
-
-```
-
-It is also possible to remove multiple units at a time by passing instead a space-separated list of unit names:
+To remove several machine units, pass their names as separate arguments:
 
 ```text
 juju remove-unit mediawiki/1 mediawiki/3 mediawiki/5 mysql/2
 ```
 
-To also destroy the storage attached to the units, add the `--destroy-storage` option.
+````
 
-As a last resort, use the `--force` option.
+`````
 
 ```{ibnote}
-See more: {ref}`command-juju-remove-unit`, {ref}`removing-things`
+See more: {ref}`command-juju-remove-unit`
 ```
 

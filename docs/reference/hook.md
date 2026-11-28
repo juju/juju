@@ -542,46 +542,31 @@ The secret owner. For application owned secrets, the owner is the unit leader.
 (storage-hooks)=
 ### Storage hooks
 
-Storage hooks are used to inform a charm about changes to storage attached to its unit.
+The unit agent delivers storage hooks when storage becomes available to a unit or is about to be detached. Each hook name starts with the charm's storage name: For storage named `database`, a charm can implement `database-storage-attached`, `database-storage-detaching`, or both.
 
-The hook names that these kinds represent will be prefixed by the storage name; for example, `database-storage-attached`.
-
-For every storage defined by a charm, storage hook events are named after the storage name:
-
-* `<storage_name>-storage-attached`
-* `<storage_name>-storage-detaching`
-
-For each charm storage, any or all of the above storage hooks can be implemented.
-
-Storage hooks operate in an environment with additional environment variables available:
+For an attachment that has been provisioned, the hook environment includes:
 
 * `JUJU_STORAGE_ID` holds the ID of the storage.
-* `JUJU_STORAGE_LOCATION` holds the path at which the storage is mounted.
+* `JUJU_STORAGE_LOCATION` is the mount point for a filesystem or the device path for block storage.
 * `JUJU_STORAGE_KIND` holds the kind of storage (`block` or `filesystem`).
 
-The `storage-attached` hook is triggered when new storage is available for the charm to use.
+On machines, the unit agent waits for initial storage attachments before `install`. For storage added later, other hooks can run while the attachment is pending. On Kubernetes, the initial hook sequence runs through `start` before the agent delivers storage-attached hooks.
 
-For machine charms, all `storage-attached` hooks will be run before the `install` event fires.
-This means that if any errors are encountered whilst performing the storage provisioning and attach operations, the charm will
-not receive the `install` event until such errors have been resolved.
-
-For Kubernetes charms, any `storage-attached` hooks are run some time after the `start` hook has completed.
-
-The `storage-detaching` hook is triggered after the `stop` hook has completed and all such hooks will be run before triggering the `remove` hook.
+A charm can {ref}`list its unit's storage IDs <hook-command-storage-list>` and {ref}`inspect an attachment <hook-command-storage-get>`. On machines, when a charm {ref}`requests more storage <hook-command-storage-add>` during a hook, Juju applies the request at hook commit. If the unit is dying by then, Juju drops the request. Kubernetes hook commit does not support these additions.
 
 (hook-storage-attached)=
 #### `<storage>-storage-attached`
 
 *What triggers it?*
 
-A storage volume having been attached to the charm's host machine or container and being ready to be interacted with.
+The unit agent runs the charm's handler once it has a provisioned attachment for the unit.
 
 (hook-storage-detaching)=
 #### `<storage>-storage-detaching`
 
 *What triggers it?*
 
-A request to detach storage having been processed.
+When Juju {ref}`detaches storage from a unit <detaching-storage-from-a-unit>`, the unit agent runs the detaching hook if it previously committed the attached hook for that attachment. This also applies to detachment from a running unit. Committing the detaching hook starts cleanup of the attachment.
 
 (workload-hooks)=
 ### Workload (Pebble) hooks

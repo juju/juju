@@ -27,7 +27,15 @@ func NewListCommand() cmd.Command {
 }
 
 const listCommandDoc = `
-List information about storage.
+List storage instances in the selected model, including detached instances.
+Use ` + "`juju show-storage`" + ` for a specific instance ID. The deprecated
+` + "`--filesystem`" + ` and ` + "`--volume`" + ` options list backing resources. Use one at a time,
+optionally followed by machine IDs. An empty result applies to that selection;
+empty JSON or YAML output has no document.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/storage/
 `
 
 const listCommandExample = `
@@ -58,7 +66,7 @@ type listCommand struct {
 func (c *listCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "storage",
-		Args:     "<filesystem|volume> ...",
+		Args:     "[<machine-id> ...]",
 		Purpose:  "Lists storage details.",
 		Doc:      listCommandDoc,
 		Aliases:  []string{"list-storage"},

@@ -208,6 +208,8 @@ The revision increases with every new version of the charm being uploaded to Cha
 
 A revision only becomes available for consumption once it's been released into a {ref}`channel <charm-channel>`. At that point, charm users will be able to see the revision at `charmhub.io/<charm/channel>` or access it via `juju info <charm>` or `juju deploy <charm> --channel`. And to inspect a specific revision of a charm, use the `--revision` flag. The syntax is `juju info <charm> --revision <revision>`.
 
+An API client with at least {ref}`model read access <user-access-model-read>` can retrieve an installed revision's metadata with `Charms.CharmInfo` and the exact charm URL. This includes its declared {ref}`storage names <storage-names-and-instance-ids>`, even if no instances have been created.
+
 (charm-channel)=
 ### Charm channel
 

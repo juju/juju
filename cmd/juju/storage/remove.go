@@ -30,28 +30,26 @@ func NewRemoveStorageCommandWithAPI() cmd.Command {
 
 const (
 	removeStorageCommandDoc = `
-Removes storage from the model. Specify one or more
-storage IDs, as output by ` + "`juju storage`" + `.
+Remove a storage instance from the model and request destruction of its
+backing. Use ` + "`--no-destroy`" + ` to release the backing. Both forms remove the
+Juju instance ID. Record the provider ID first if you need to find the backing later.
 
-By default, ` + "`remove-storage`" + ` will fail if the storage
-is attached to any units. To override this behaviour,
-you can use ` + "`juju remove-storage --force`" + `.
-Note: Forced detach is not available on container models.
+Wait for detachment to finish. On machine models, ` + "`--force`" + ` requests
+detachment before removal. Check the provider inventory to confirm what remains.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/storage/
 `
 	removeStorageCommandExamples = `
-Remove the detached storage ` + "`pgdata/0`" + `:
-
-    juju remove-storage pgdata/0
-
-Remove the possibly attached storage ` + "`pgdata/0`" + `:
-
-    juju remove-storage --force pgdata/0
-
-Remove the storage ` + "`pgdata/0`" + `, without destroying
-the corresponding cloud storage:
+Release the detached pgdata/0 filesystem after recording its provider ID:
 
     juju remove-storage --no-destroy pgdata/0
 
+Remove the detached pgdata/0 instance and request destruction of its backing
+after verifying that you no longer need its data:
+
+    juju remove-storage pgdata/0
 `
 
 	removeStorageCommandArgs = `<storage> [<storage> ...]`
@@ -89,7 +87,7 @@ func (c *removeStorageCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *removeStorageCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.StorageCommandBase.SetFlags(f)
-	f.BoolVar(&c.force, "force", false, "Remove storage even if it is currently attached")
+	f.BoolVar(&c.force, "force", false, "Request detachment before removal (machine models only)")
 	f.BoolVar(&c.noDestroy, "no-destroy", false, "Remove the storage without destroying it")
 	c.fs = f
 }

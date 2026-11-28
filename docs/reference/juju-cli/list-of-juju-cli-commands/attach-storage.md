@@ -16,11 +16,18 @@ juju attach-storage [options] <unit> <storage> [<storage> ...]
 
 ## Examples
 
-    juju attach-storage postgresql/1 pgdata/0
+Attach the detached OSD device osd-devices/2 to ceph-osd/1 after checking its placement and capacity:
 
+    juju attach-storage ceph-osd/1 osd-devices/2
 
 
 ## Details
 
-Attach existing storage to a unit. Specify a unit
-and one or more storage IDs to attach to it.
+Attach one or more detached Juju storage instances to an existing machine
+unit. Pass the instance IDs from juju storage as separate arguments.
+Check the target unit's charm storage declaration and machine placement first.
+Use show-storage to check each attachment after the request.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/storage/

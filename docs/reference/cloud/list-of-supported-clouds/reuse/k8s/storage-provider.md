@@ -4,7 +4,7 @@ See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`; {ref}`s
 
 ### Storage providers
 
-As for all Kubernetes clouds, in addition to the generic storage providers, this cloud also has access to the following {ref}`cloud-specific storage provider <storage-provider-cloud-specific>`:
+Kubernetes models support filesystem storage. The `kubernetes` provider uses persistent volumes; `rootfs` and `tmpfs` use pod [`emptyDir` volumes](https://kubernetes.io/docs/concepts/storage/volumes/#emptydir).
 
 #### `kubernetes`
 
@@ -12,7 +12,11 @@ As for all Kubernetes clouds, in addition to the generic storage providers, this
 See also: [Persistent storage and Kubernetes](https://discourse.charmhub.io/t/topic/1078)
 ```
 
-The `kubernetes` storage provider provisions storage using Kubernetes PersistentVolumeClaims (PVCs). The underlying storage is provided by the cluster's configured storage classes.
+The `kubernetes` provider uses a [PersistentVolumeClaim (PVC)](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims) to request storage from a cluster storage class. The [PersistentVolume (PV)](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistent-volumes) supplies the storage.
+
+For {ref}`filesystem import <import-a-filesystem-as-storage>`, the provider takes the PV name. Normal import requires the `Retain` reclaim policy and a PV with no claim reference. Forced import can first change the policy to `Retain`. Before deleting an existing PVC, Juju checks its ownership and binding. If import fails, inspect both objects: The policy may have changed or the old claim may have been removed.
+
+On detachment, Juju sets a bound PV's reclaim policy to `Retain` before deleting the PVC. Destroying the filesystem requests PV deletion; releasing the filesystem leaves the PV in place. To establish whether the data still exists, check the PV and the underlying storage system.
 
 Configuration options:
 

@@ -11,230 +11,312 @@ myst:
 See also: {ref}`storage`
 ```
 
-This document shows how to manage storage. This will enable you to allocate resources at a granular level and can be useful in optimizing the deployment of an application. The level of sophistication is limited by your cloud (whether it supports dynamic storage or storage configuration attributes),
- and by the charm in charge of that application (whether it supports storage persistence, additional cache, etc.).
+Use the {ref}`Juju CLI <juju-cli>` to request storage for a unit, find its filesystem or volume, and decide what to keep when the unit no longer needs it. Run the commands in the {ref}`model you want to work in <switch-to-a-different-model>`.
 
-(add-storage)=
-## Add storage
-
-Assuming the storage provider supports it, you can create and attach storage instances to units in a specific way by using `juju add-storage`.
-
-First, identify the application unit to which you wish to attach the storage. As an example, suppose we want to target unit 0 of `ceph-osd`, that is, `ceph-osd/0`.
-
-Second, prepare a storage directive for your desired storage. For example, given the `ceph-osd` charm and assuming we are in an AWS model, we might have `osd-devices=ebs, 32G, 1`.
-
-Finally, run the `add-storage` command passing as arguments the unit to which storage is to be attached and the storage directive. Drawing on our steps before, we can create a 32GiB EBS volume and attach it to unit `ceph-osd/0` as its OSD storage as below:
-
-```text
-juju add-storage ceph-osd/0 osd-devices=ebs,32G,1
-```
-
-Juju will ensure the storage is allowed to attach to the unit's machine.
-
-```{caution}
-The above only works if the volume is in the same availability zone as the instance. This is a requirement that comes from the `ebs` storage provider. See more: {ref}`storage-provider-ebs`.
-```
+(find-a-charms-storage-names)=
+## Find a charm's storage names
 
 ```{ibnote}
-See more:  {ref}`storage-directive`, {ref}`command-juju-add-storage`
+See also: {ref}`Storage names and instance IDs <storage-names-and-instance-ids>`
 ```
 
-You can also create and attach storage during deployment by running the `deploy` command with a `--storage` option followed by your desired storage directive. For example, suppose you have an AWS model, you want to deploy the `postgresql` charm on it, and you've already identified a suitable storage directive of the form `pgdata=iops,100G` (suppose `iops` is a version of `ebs` with 30 IOPS). You can use all of these in one go as below. This will create a 3000 IOPS storage volume (100GiB x 30IOPS/GiB (x 1)) and attach it to the newly deployed PostgreSQL as its database storage.
+To find the storage names a unit accepts, check the `storage:` mapping in its deployed {ref}`charm revision <charm-revision>`. First identify that revision:
 
 ```text
-juju deploy postgresql --storage pgdata=iops,100G
+juju status --format=yaml
 ```
 
-```{caution}
-Charms might specify a maximum number of storage instances. For example, in the case of the `postgresql` charm, a maximum of one is allowed for `pgdata`. If an attempt is made to exceed it, Juju will return an error.
+Under `applications`, use `charm` and `charm-rev`, not the application alias. During a refresh, use the unit's `charm` if it differs from the application's.
+
+```{ibnote}
+See more: {ref}`command-juju-status`
 ```
+
+For a published charm, download that revision and open `metadata.yaml`. For example, for PostgreSQL revision 1217 on amd64:
+
+```text
+juju download postgresql --revision 1217 --filepath postgresql-1217.charm
+unzip -p postgresql-1217.charm metadata.yaml
+```
+
+Look for the keys under `storage:`. This revision declares `pgdata` and requires exactly one filesystem per unit. For a local charm, open `metadata.yaml` in the matching `.charm` archive instead. Use the declaration even if `juju storage` lists no instances yet.
+
+```{ibnote}
+See more: {ref}`command-juju-download`
+```
+
+(request-storage-for-an-application)=
+## Request storage for an application
+
+```{ibnote}
+See also: {ref}`Storage requests <storage-requests>`
+```
+
+To request storage when deploying an application, pass `--storage` to `juju deploy` with the {ref}`charm's storage name <find-a-charms-storage-names>` and the size you need. For example, to request one 10 GiB filesystem per unit for PostgreSQL revision 1217 on Ubuntu 22.04, amd64:
+
+```text
+juju deploy postgresql --channel 14/stable --revision 1217 --storage pgdata=10G
+```
+
+For more than one name, repeat `--storage`. Within a directive, keep the source, count and size in one comma-separated argument without spaces. A bare integer specifies a count; a size has a unit suffix. {ref}`List the instances <list-storage-instances>` to find the resulting Juju IDs.
 
 ```{ibnote}
 See more: {ref}`command-juju-deploy`
 ```
 
-And you can also create and attach storage while upgrading a charm.
-
-```{note}
-Specifying new storage direectives may be necessary when upgrading to a revision of a charm that introduces new, required, storage options.
-```
-
-The logic is entirely parallel to the case where this was done while deploying a charm -- you do this by running the `refresh` command with the `--storage` option followed by a suitable  storage directive, e.g., `pgdata=10G`, as shown below. This will change any existing directives or define new ones (for example, in the case where the storage option did not exist in the version of the charm before the upgrade). If you don't specify any directives, the defaults will kick in.
-
-```text
-juju refresh postgresql --storage pgdata=10G
-```
+(add-storage)=
+(add-storage-to-a-unit)=
+## Add storage to a unit
 
 ```{ibnote}
-See more: {ref}`command-juju-refresh`
+See also: {ref}`Adding storage to a unit <adding-storage-to-a-unit>`
+```
+
+To add storage to an existing machine unit, run `juju add-storage` with the unit and a {ref}`storage name its charm accepts <find-a-charms-storage-names>`. Check that the charm allows another instance and the device can attach to the unit's machine. For EBS, check the {ref}`availability zone <storage-provider-ebs>` first. For example, to request another 32 GiB EBS device for `ceph-osd/0`:
+
+```text
+juju add-storage ceph-osd/0 osd-devices=ebs,32G,1
+```
+
+To use the unit's existing size and source, pass just `osd-devices`. Note the new ID in the output and {ref}`inspect the attachment <inspect-a-storage-instance>` before using the device.
+
+```{ibnote}
+See more: {ref}`command-juju-add-storage`
+```
+
+(reuse-storage)=
+(import-a-filesystem-as-storage)=
+## Import a filesystem as storage
+
+```{ibnote}
+See also: {ref}`Importing a filesystem as storage <importing-a-filesystem-as-storage>`
+```
+
+To bring an existing filesystem into the selected model, run `juju import-filesystem` with its pool, provider ID and the storage name expected by the destination charm. For a detached instance already listed in this model, {ref}`attach the existing instance <attach-existing-storage-to-a-unit>`.
+
+```{warning}
+Check that no other model or workload is using the filesystem. If an import fails, inspect the provider object before retrying; the provider may already have changed it.
+```
+
+`````{tabs}
+
+````{tab} Kubernetes
+Check that the PersistentVolume (PV) is unbound and its reclaim policy is `Retain`. If it has a claim reference, inspect the PersistentVolumeClaim and its owner; an idle pod does not make the PV available. For example, to import an eligible PV named `pv-data-001` for a charm that declares `pgdata`:
+
+```text
+juju import-filesystem kubernetes pv-data-001 pgdata
+```
+````
+
+````{tab} Machines
+For example, to import an unused EBS volume that contains a compatible filesystem, substitute its actual volume ID for `vol-123456` and the charm's storage name for `pgdata`:
+
+```text
+juju import-filesystem ebs vol-123456 pgdata
+```
+````
+
+`````
+
+The imported instance is detached. Use the new Juju ID in the `imported storage` message to {ref}`inspect the instance <inspect-a-storage-instance>`.
+
+```{ibnote}
+See more: {ref}`command-juju-import-filesystem`
 ```
 
 (view-the-available-storage)=
-## View the available storage
+(list-storage-instances)=
+## List storage instances
 
-TBA
+```{ibnote}
+See also: {ref}`Listing storage instances <listing-storage-instances>`
+```
+
+To list storage instances in the selected model, run:
+
+```text
+juju storage
+```
+
+Find the storage ID and the unit, if attached. Use `--format=yaml` for structured output. To look up a particular `name/number`, {ref}`inspect the instance <inspect-a-storage-instance>` instead of passing its ID to `juju storage`.
 
 ```{ibnote}
 See more: {ref}`command-juju-storage`
 ```
 
 (view-storage-details)=
-## View storage details
+(inspect-a-storage-instance)=
+## Inspect a storage instance
 
-TBA
+```{ibnote}
+See also: {ref}`Inspecting a storage instance <inspecting-a-storage-instance>`
+```
+
+To inspect a storage instance, pass its ID from the {ref}`model inventory <list-storage-instances>` to `juju show-storage`. For example, to check `osd-devices/2`:
+
+```text
+juju show-storage osd-devices/2
+```
+
+Read `status.current` and look for the intended unit under `attachments.units`. Once available, `location` gives the device path or mount point. To inspect several IDs, separate them with spaces. If an ID is missing, check its spelling and the selected model.
 
 ```{ibnote}
 See more: {ref}`command-juju-show-storage`
 ```
 
-(detach-storage)=
-## Detach storage
-
-If the storage is dynamic, you can detach it from units by running `juju detach-storage` followed by the unit you want to detach. For example, to detach OSD device `osd-devices/2` from a Ceph unit, do:
-
-```text
-juju detach-storage osd-devices/2
-```
-
-```{caution}
-Charms might define a minimum number of storage instances. For example, the `postgresql` charm specifies a minimum of zero for its `pgdata`. If detaching storage from a unit would bring the total number of storage instances below the minimum, Juju will return an error.
-```
-
-```{note}
-Detaching storage from a unit does not destroy the storage.
-```
+(identify-storage-backing)=
+## Identify storage backing
 
 ```{ibnote}
-See more: {ref}`command-juju-detach-storage`
+See also: {ref}`Listing filesystems backing storage <listing-filesystems-backing-storage>`, {ref}`Listing volumes backing storage <listing-volumes-backing-storage>`
+```
+
+To find the provider ID behind a Juju storage instance, list its filesystem or volume. The CLI marks both backing-inventory options as deprecated. For example, to find filesystems attached to machine `0` and see whether one is backed by a volume:
+
+```text
+juju storage --filesystem --format=yaml 0
+```
+
+To find the provider disk ID for a volume attached to machine `0`:
+
+```text
+juju storage --volume --format=yaml 0
+```
+
+Omit the machine ID to include unattached backing in the model-wide search. Select one kind of backing per command. Record the provider ID before releasing the storage.
+
+```{ibnote}
+See more: {ref}`command-juju-storage`
+```
+
+(refreshing-an-application-with-storage)=
+(refresh-an-application-with-storage)=
+## Refresh an application with storage
+
+```{ibnote}
+See also: {ref}`Storage requests <storage-requests>`
+```
+
+To request storage for a new charm revision, compare the `storage:` mappings in the deployed and target {ref}`charm archives <find-a-charms-storage-names>`. If the target adds a required storage name or changes its requirements, pass a compatible `--storage name=directive` to `juju refresh` for each affected name.
+
+Check the revision on each unit as the refresh proceeds. If `juju refresh` reports that the charm is already up to date, the `--storage` argument alone has not applied a new request. To move the data or increase the capacity of an existing disk, plan that work separately.
+
+```{ibnote}
+See more: {ref}`command-juju-refresh`
 ```
 
 (attach-storage)=
-## Attach storage
+(attach-existing-storage-to-a-unit)=
+## Attach existing storage to a unit
 
-Detaching storage does not destroy the storage. In addition, when a unit is removed from a model, and the unit has dynamic storage attached, the storage will be detached and left intact. This allows detached storage to be re-attached to an existing unit. This can be done during deployment / when you're adding a unit / at any time, as shown below:
+```{ibnote}
+See also: {ref}`Attaching storage to a unit <attaching-storage-to-a-unit>`
+```
 
-To deploy PostgreSQL with (detached) existing storage `pgdata/0`:
+To attach detached storage to an existing machine unit, run `juju attach-storage` with the target unit and the Juju storage ID. Check the charm's storage name, kind, size and remaining count, the device's placement, and whether the workload can use its contents.
+
+For example, to attach a compatible `osd-devices/2` to `ceph-osd/1` and check its location:
 
 ```text
-juju deploy postgresql --attach-storage pgdata/0
+juju attach-storage ceph-osd/1 osd-devices/2
+juju show-storage osd-devices/2
 ```
 
 ```{ibnote}
-See more: {ref}`command-juju-deploy`
+See more: {ref}`command-juju-attach-storage`, {ref}`command-juju-show-storage`
 ```
 
-To add a new Ceph OSD unit with (detached) existing storage `osd-devices/2`:
+To attach a detached device while adding a machine unit to an existing `ceph-osd` application, request a single unit:
 
 ```text
 juju add-unit ceph-osd --attach-storage osd-devices/2
-```
-```{note}
-
-The `--attach-storage` and `-n` flags cannot be used together.
-
 ```
 
 ```{ibnote}
 See more: {ref}`command-juju-add-unit`
 ```
 
-To attach existing storage `osd-devices/7` to existing unit `ceph-osd/1`:
+To deploy a new machine application with a retained `pgdata/0` compatible with PostgreSQL revision 1217:
 
 ```text
-juju attach-storage ceph-osd/1 osd-devices/7
+juju deploy postgresql --channel 14/stable --revision 1217 --attach-storage pgdata/0
 ```
 
 ```{ibnote}
-See more: {ref}`command-juju-attach-storage`
+See more: {ref}`command-juju-deploy`
 ```
 
-(reuse-storage)=
-## Reuse storage
-
-```{important}
-This feature is not implemented in Juju 4.0.0 but should be back in future versions.
-```
-
-If you've destroyed a model but kept the storage, you'll likely want to reuse it. You can do this by running the `juju import-filesystem` command followed by the storage provider, the provider ID, and the storage name. For example, given an AWS model (with the storage provider `ebs`), a provider ID `vol-123456`, and a storage name `pgdata`, this is as below:
-
-```text
-juju add-model default
-juju import-filesystem aws vol-123456 pgdata
-```
-
-
-Note: The determination of the provider ID  is dependent upon the cloud type. A provider ID from another cloud may look entirely different.
+(removing-a-unit-with-storage)=
+(keep-data-when-retiring-a-unit-machine-or-model)=
+(choose-which-storage-to-keep)=
+## Choose which storage to keep
 
 ```{ibnote}
-See more: {ref}`command-juju-import-filesystem`, {ref}`storage-provider-lxd`
+See also: {ref}`Storage ownership and attachments <storage-ownership-and-attachments>`, {ref}`Storage backing <storage-backing>`
+```
+
+To choose which storage to keep before removing its unit, machine or model, {ref}`identify its backing <identify-storage-backing>` while it is still visible in Juju. Record the Juju and provider IDs and verify a backup outside the resource you plan to remove.
+
+- **Unit or application**: Before {ref}`removing a machine unit <remove-a-unit>` or {ref}`its application <remove-an-application>`, check which storage the units own. Omit `--destroy-storage` for storage you intend to keep, and check whether its machine will also be removed. On Kubernetes, {ref}`scaling down <remove-a-unit>` takes a count; the operator cannot select which unit's volume to retire.
+- **Machine**: Before {ref}`removing a machine <remove-a-machine>`, inspect the model-wide backing inventory, including when the removal preview is empty. Back up machine-local files before removing their machine.
+- **Model**: When {ref}`destroying a model <destroy-a-model>`, select `--release-storage` to keep eligible backing outside Juju. Include unattached and unprovisioned storage in your check. Back up machine-local files separately.
+- **Controller**: Before {ref}`destroying a controller <destroy-a-controller>` and its models, check storage in every model. Use `--release-storage` with `--destroy-all-models` if you intend to retain eligible backing.
+
+(detach-storage)=
+## Detach storage
+
+```{ibnote}
+See also: {ref}`Detaching storage from a unit <detaching-storage-from-a-unit>`
+```
+
+To detach storage in a machine model, pass the Juju storage ID to `juju detach-storage`. It targets all units using that instance.
+
+```{warning}
+Stop the workload from using the device first and check that each unit will still have the storage its charm requires. If you are moving data, complete and verify the workload migration before detaching the original device. Detaching does not copy data.
+```
+
+For example, to detach `osd-devices/2` and monitor its attachments in the selected model:
+
+```text
+juju detach-storage osd-devices/2
+watch juju show-storage osd-devices/2
+```
+
+When the old units no longer appear under `attachments.units`, press `Ctrl+C`. To reuse the instance in this model, keep its Juju ID and leave it detached.
+
+```{ibnote}
+See more: {ref}`command-juju-detach-storage`, {ref}`command-juju-show-storage`
 ```
 
 (remove-storage)=
-## Remove storage
+(remove-or-release-a-storage-instance)=
+## Remove or release a storage instance
 
 ```{ibnote}
-See also: {ref}`removing-things`
+See also: {ref}`Removing or releasing a storage instance <removing-or-releasing-a-storage-instance>`
 ```
 
-The underlying cloud's storage resource is normally destroyed by first detaching it and then using `juju remove-storage`. For example, assuming the `osd-devices/3` storage instance has already been detached, the code below will remove it from the model. It will also be automatically destroyed on the cloud provider.
+To stop managing a storage instance, use `juju remove-storage`. Choose whether you want to keep the provider's volume or filesystem. If you intend to reattach the same Juju ID, leave the instance detached instead.
+
+```{warning}
+Before removing the instance, verify your backup or completed workload migration. Check the selected model and Juju ID, record the {ref}`provider ID <identify-storage-backing>`, and wait for {ref}`detachment <detach-storage>` to finish. Without `--no-destroy`, Juju requests destruction of the backing.
+```
+
+To release a detached `osd-devices/2` and keep its backing outside Juju:
 
 ```text
-juju remove-storage osd-devices/3
+juju remove-storage --no-destroy osd-devices/2
 ```
 
-````{dropdown} Example scenario: storage upgrade
-
-To upgrade the OSD journal of Ceph unit `ceph-osd/0` from magnetic to solid state (SSD) and dispose of the unneeded original journal `osd-journals/0`:
+To discard the backing of a detached `osd-devices/2` whose data you no longer need:
 
 ```text
-juju add-storage ceph-osd/0 osd-journals=ebs-ssd,8G,1
-juju detach-storage osd-journals/0
-juju remove-storage osd-journals/0
+juju remove-storage osd-devices/2
 ```
 
-````
-
-```{important}
-You can also remove storage from the model and prevent it being destroyed on the cloud provider by passing the `--no-destroy` flag. However, be wary of using  this option as Juju will lose sight of the volume and it will only be visible from the cloud provider.
-```
-
-If an attempt is made to either attach or remove storage that is currently in use (i.e. it is attached to a unit) Juju will return an error. To remove currently attached storage from the model the `--force` option must be used. For example,
-
-```text
-juju remove-storage --force pgdata/1
-```
+Check that the instance has left the {ref}`model inventory <list-storage-instances>`. Then check the provider inventory using the recorded ID. On Kubernetes, check the PV, its claim and its reclaim policy. A missing Juju ID is not proof of erasure.
 
 ```{ibnote}
 See more: {ref}`command-juju-remove-storage`
-```
-
-Finally, a model cannot be destroyed while storage volumes remain without passing a special option (`--release-storage` to detach all volumes and `--destroy-storage` to remove all volumes). You can handle this by either destroying the storage or releasing it (so you can later attach it to something else), as shown below:
-
-```text
-# Destroy the model along with all existing storage volumes:
-juju destroy-model default --destroy-storage
-
-# Destroy the model while keeping intact all the storage volumes:
-juju destroy-model default --release-storage
-```
-
-```{ibnote}
-See more: {ref}`command-juju-destroy-model`
-```
-
-Naturally, this applies to the removal of a controller as well.
-
-To destroy a controller (and its models) along with all existing storage volumes:
-
-```text
-# Destroy the controller along with all existing storage volumes:
-juju destroy-controller lxd-controller --destroy-all-models --destroy-storage
-
-# Destroy the controller while keeping intact all the storage volumes:
-juju destroy-controller lxd-controller --destroy-all-models --release-storage
-```
-
-```{ibnote}
-See more: {ref}`command-juju-destroy-controller`
 ```
 

@@ -73,6 +73,11 @@ model "Juju" {
       }
     }
 
+    storage_attachment [type: entity, label: "Attachment"]
+    storage_instance   [type: entity, label: "Storage instance"]
+    storage_filesystem [type: entity, label: "Filesystem"]
+    storage_volume     [type: entity, label: "Volume"]
+
     // The applications as the user sees them: on nodes from a cloud,
     // outside Juju. "The problem" and "The insight" draw them.
     bare_node [type: external, label: "Node"]
@@ -85,6 +90,11 @@ model "Juju" {
   }
 
   edges {
+    unit_node          -> storage_attachment [type: control, label: "uses"]
+    storage_attachment -> storage_instance   [type: control, label: "connects to"]
+    storage_instance   -> storage_filesystem [type: control, label: "provides"]
+    storage_filesystem -> storage_volume     [type: control, label: "built on"]
+
     // The problem
     sre  -> bare_applications [type: control, label: "operates"]
 
@@ -137,6 +147,13 @@ model "Juju" {
       user   -> client: call "juju add-credential"
       client -> client: self "save the credential"
       client -> user:   return "credential added"
+    }
+    behaviour "detach committed storage" {
+      client     -> controller: call "request detach"
+      controller -> controller: self "mark attachment dying"
+      unit_agent -> charm:      call "run detaching hook if defined"
+      unit_agent -> controller: call "commit hook; request cleanup"
+      controller -> controller: self "retire attachment, keep instance"
     }
     behaviour "bootstrap" {
       user       -> client:     call "juju bootstrap"
@@ -272,6 +289,30 @@ sequence "juju deploy"         from "Juju" { select { behaviour: "deploy" } }
 sequence "juju deploy (Kubernetes)" from "Juju" { select { behaviour: "deploy-k8s" } }
 sequence "juju config"         from "Juju" { select { behaviour: "config" } }
 sequence "juju integrate"      from "Juju" { select { behaviour: "integrate" } }
+
+sequence "Detaching a storage instance" from "Juju" {
+  select { behaviour: "detach committed storage" }
+}
+
+diagram "Storage instance and backing" from "Juju" {
+  select {
+    nodes: unit_node storage_attachment storage_instance storage_filesystem storage_volume
+    collapse: unit_node
+    edges: type control
+    sizing: natural
+  }
+  emphasize { focus [storage_instance] }
+  positions {
+    unit_node left-of storage_attachment gap: 45
+    unit_node align-middle storage_attachment
+    storage_instance right-of storage_attachment gap: 90
+    storage_instance align-middle storage_attachment
+    storage_filesystem right-of storage_instance gap: 62
+    storage_filesystem align-middle storage_instance
+    storage_volume right-of storage_filesystem gap: 75
+    storage_volume align-middle storage_filesystem
+  }
+}
 
 diagram "SSH proxy overview" from "Juju" {
   select {

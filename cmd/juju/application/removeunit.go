@@ -53,46 +53,45 @@ Remove application units from the model.
 The usage of this command differs depending on whether it is being used on a
 Kubernetes or a machine model.
 
-Removing all units of a application is not equivalent to removing the
-application itself; for that, the ` + "`juju remove-application`" + ` command
-is used.
+Removing all units leaves the application in the model. To remove the
+application itself, use ` + "`juju remove-application`" + `.
 
-For Kubernetes models only a single application can be supplied and only the
-` + "`--num-units`" + ` argument supported.
-Specific units cannot be targeted for removal as that is handled by Kubernetes;
-instead the total number of units to be removed is specified.
+On Kubernetes, supply one application name and the number of units to
+remove. Kubernetes selects the units.
 
-For cloud models specific units can be targeted for removal.
-Units of a application are numbered in sequence upon creation. For example, the
-fourth unit of wordpress will be designated ` + "`wordpress/3`" + `. These identifiers
-can be supplied in a space delimited list to remove unwanted units from the
-model.
+In a machine model, pass the names of the units to remove as separate
+arguments. For example, ` + "`wordpress/3`" + ` identifies one unit of wordpress.
 
-Juju will also remove the machine if the removed unit was the only unit left
-on that machine (including units in containers).
+Removing the last unit on a machine can also retire the machine. Check where
+its data is stored before confirming removal.
 
-Sometimes, the removal of the unit may fail as Juju encounters errors
-and failures that need to be dealt with before a unit can be removed.
-For example, Juju will not remove a unit if there are hook failures.
-However, at times, there is a need to remove a unit ignoring
-all operational errors. In these rare cases, use --force option but note
-that ` + "`--force`" + ` will remove a unit and, potentially, its machine without
-given them the opportunity to shutdown cleanly.
+A failed hook can block normal removal. If recovery has failed, the
+` + "`--force`" + ` option can remove the unit and its machine before they shut
+down cleanly. With forced removal, ` + "`--no-wait`" + ` skips the wait between steps.
 
-Unit removal is a multi-step process. Under normal circumstances, Juju will not
-proceed to the next step until the current step has finished.
-However, when using ` + "`--force`" + `, users can also specify ` + "`--no-wait`" + `
-to progress through steps without delay waiting for each step to complete.
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/unit/
 `
 
 const removeUnitExamples = `
+Remove three named machine units:
+
     juju remove-unit wordpress/2 wordpress/3 wordpress/4
+
+Remove a machine unit and request destruction of storage it owns:
 
     juju remove-unit wordpress/2 --destroy-storage
 
+Force removal of a machine unit after normal recovery has failed:
+
     juju remove-unit wordpress/2 --force
 
+Force removal of a machine unit after normal recovery has failed and skip the waits between removal steps:
+
     juju remove-unit wordpress/2 --force --no-wait
+
+Reduce a Kubernetes application's unit count by two, without choosing units:
 
     juju remove-unit wordpress --num-units 2
 `
@@ -122,7 +121,7 @@ func (c *removeUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.RemoveConfirmationCommandBase.SetFlags(f)
 	f.BoolVar(&c.DryRun, "dry-run", false, "Print what this command would remove without removing")
 	f.IntVar(&c.NumUnits, "num-units", 0, "Number of units to remove (k8s models only)")
-	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Destroy storage attached to the unit")
+	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Request destruction of storage owned by the unit (machine models only)")
 	f.BoolVar(&c.Force, "force", false, "Completely remove an unit and all its dependencies")
 	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through unit removal without waiting for each individual step to complete")
 	c.fs = f
