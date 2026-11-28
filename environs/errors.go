@@ -5,8 +5,11 @@ package environs
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/core/instance"
 )
 
 const (
@@ -68,4 +71,20 @@ func (p *PreferredStorageNotFound) Error() string {
 // Error implements the error interface
 func (n *NominatedStorageNotFound) Error() string {
 	return fmt.Sprintf("nominated storage %q not found", n.StorageName)
+}
+
+// StopInstancesError is returned by StopInstances when only some of the
+// instances could not be stopped. All other instances were stopped.
+type StopInstancesError struct {
+	// Failed holds the IDs of the instances that could not be stopped.
+	Failed []instance.Id
+}
+
+// Error implements the error interface
+func (e *StopInstancesError) Error() string {
+	ids := make([]string, len(e.Failed))
+	for i, id := range e.Failed {
+		ids[i] = string(id)
+	}
+	return fmt.Sprintf("failed to stop instances: %s", strings.Join(ids, ", "))
 }
