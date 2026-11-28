@@ -25,17 +25,28 @@ type PoolUpdateAPI interface {
 }
 
 const poolUpdateCommandDoc = `
-Update configuration attributes for a single existing storage pool.
+Give the pool name and at least one ` + "`key=value`" + ` argument. Include every
+attribute you want to keep. To check the current attributes before updating,
+use ` + "`juju storage-pools --name <name>`" + `.
+
+Use ` + "`type=<provider>`" + ` to select a provider. If that is the only argument
+after the pool name, the command sends an empty set of attributes, not the
+pool's current attributes.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/storage-pool/
 `
 
 const poolUpdateCommandExamples = `
-Update the storage-pool named ` + "`iops`" + ` with new configuration details:
+Replace the attributes of the EBS pool named ` + "`workload-storage`" + `:
 
       juju update-storage-pool workload-storage volume-type=provisioned-iops iops=40
 
-Update which provider the pool is for:
+Change the storage provider of the pool named ` + "`workload-storage`" + ` to EBS on an AWS model and
+set its attributes:
 
-      juju update-storage-pool lxd-storage type=lxd-zfs
+      juju update-storage-pool workload-storage type=ebs volume-type=gp3
 `
 
 // NewPoolUpdateCommand returns a command that replaces the named storage pools' attributes.
@@ -84,9 +95,9 @@ func (c *poolUpdateCommand) Init(args []string) (err error) {
 func (c *poolUpdateCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "update-storage-pool",
-		Purpose:  "Update storage pool attributes.",
+		Purpose:  "Replace a storage pool's attributes or change its provider.",
 		Doc:      poolUpdateCommandDoc,
-		Args:     "<name> [<key>=<value> [<key>=<value>...]]",
+		Args:     "<name> <key>=<value> [<key>=<value> ...]",
 		Examples: poolUpdateCommandExamples,
 		SeeAlso: []string{
 			"create-storage-pool",

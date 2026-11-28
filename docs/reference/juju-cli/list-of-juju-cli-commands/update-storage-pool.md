@@ -3,11 +3,11 @@
 > See also: [create-storage-pool](#command-juju-create-storage-pool), [remove-storage-pool](#command-juju-remove-storage-pool), [storage-pools](#command-juju-storage-pools)
 
 ## Summary
-Update storage pool attributes.
+Replace a storage pool's attributes or change its provider.
 
 ## Usage
 ```text
-juju update-storage-pool [options] <name> [<key>=<value> [<key>=<value>...]]
+juju update-storage-pool [options] <name> <key>=<value> [<key>=<value> ...]
 ```
 
 ### Options
@@ -18,15 +18,26 @@ juju update-storage-pool [options] <name> [<key>=<value> [<key>=<value>...]]
 
 ## Examples
 
-Update the storage-pool named `iops` with new configuration details:
+Replace the attributes of the EBS pool named `workload-storage`:
 
       juju update-storage-pool workload-storage volume-type=provisioned-iops iops=40
 
-Update which provider the pool is for:
+Change the storage provider of the pool named `workload-storage` to EBS on an AWS model and
+set its attributes:
 
-      juju update-storage-pool lxd-storage type=lxd-zfs
+      juju update-storage-pool workload-storage type=ebs volume-type=gp3
 
 
 ## Details
 
-Update configuration attributes for a single existing storage pool.
+Give the pool name and at least one `key=value` argument. Include every
+attribute you want to keep. To check the current attributes before updating,
+use `juju storage-pools --name <name>`.
+
+Use `type=<provider>` to select a provider. If that is the only argument
+after the pool name, the command sends an empty set of attributes, not the
+pool's current attributes.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/storage-pool/

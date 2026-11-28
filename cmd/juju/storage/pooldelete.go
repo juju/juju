@@ -21,13 +21,19 @@ type PoolRemoveAPI interface {
 }
 
 const poolRemoveCommandDoc = `
-Remove a single existing storage pool.
+Give one pool name. The command does not prompt for confirmation and prints
+nothing on success. If the pool is not found, the command reports the failure
+and exits with an error.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/storage-pool/
 `
 
 const poolRemoveCommandExamples = `
-Remove the storage-pool named fast-storage:
+Remove the pool named ` + "`fast-storage`" + ` from the selected model without a confirmation prompt:
 
-      juju remove-storage-pool fast-storage
+    juju remove-storage-pool fast-storage
 `
 
 // NewPoolRemoveCommand returns a command that removes the named storage pool.

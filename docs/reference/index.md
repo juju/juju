@@ -82,6 +82,7 @@ Supporting infrastructure -- machines and other compute resources, storage volum
 - {ref}`machine`
 - {ref}`resource-compute`
 - {ref}`storage`
+- {ref}`storage-pool`
 - {ref}`space`
 - {ref}`subnet`
 - {ref}`zone`
