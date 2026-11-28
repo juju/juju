@@ -3,7 +3,7 @@
 > See also: [config](#command-juju-config)
 
 ## Summary
-Sets the trust status of a deployed application to true.
+Grants or removes trust for a deployed application.
 
 ## Usage
 ```text
@@ -16,17 +16,32 @@ juju trust [options] <application name>
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--remove` | false | Remove trusted access from a trusted application |
-| `--scope` |  | (Kubernetes models only) Needs to be set to `cluster` |
+| `--scope` |  | Set to `cluster` to confirm a Kubernetes trust grant |
 
 ## Examples
 
-    juju trust media-wiki
-    juju trust metallb --scope=cluster
+Grant trust to kubernetes-control-plane in a machine model:
+
+    juju trust kubernetes-control-plane
+
+Grant cluster-wide trust to traefik in a Kubernetes model:
+
+    juju trust traefik --scope=cluster
+
+Remove trust from traefik:
+
+    juju trust traefik --remove
 
 
 ## Details
-Sets the trust configuration value to true.
+A trusted charm can request cloud connection details with the
+`credential-get` hook command. Check what access the charm needs
+before granting trust.
 
-On Kubernetes models, the `trust` operation currently grants the charm full access to the cluster.
-Until the permissions model is refined to grant more granular role-based access, the use of
-`--scope=cluster` is required to confirm this choice.
+On Kubernetes, granting trust can give the charm cluster-wide access.
+A grant requires `--scope=cluster`. Use `--remove`
+to remove trust.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/application/

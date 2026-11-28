@@ -26,13 +26,27 @@ func NewCredentialGetCommand(ctx Context) (cmd.Command, error) {
 // Info is part of the cmd.Command interface.
 func (c *CredentialGetCommand) Info() *cmd.Info {
 	doc := `
-` + "`credential-get`" + ` returns the cloud specification used by the unit's model.
+Returns cloud connection details to a unit of a trusted application.
+In a machine model, the result includes the model's credential when one
+is configured. In a Kubernetes model, it includes the in-cluster API
+endpoint and CA certificate, plus the unit's service-account token as
+an OAuth2 credential. Keep output that contains credentials private.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/credential/
+`
+	examples := `
+Read the cloud connection details as JSON from a trusted charm hook:
+
+    credential-get --format=json
 `
 	return jujucmd.Info(&cmd.Info{
-		Name:    "credential-get",
-		Args:    "",
-		Purpose: "Accesses cloud credentials.",
-		Doc:     doc,
+		Name:     "credential-get",
+		Args:     "",
+		Purpose:  "Returns cloud connection details for a trusted application.",
+		Doc:      doc,
+		Examples: examples,
 	})
 }
 

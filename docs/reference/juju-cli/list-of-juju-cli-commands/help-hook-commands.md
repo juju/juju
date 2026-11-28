@@ -26,7 +26,7 @@ The currently available charm hook commands include:
     application-version-set  Specifies which version of the application is deployed.
     close-port               Registers a request to close a port or port range.
     config-get               Prints application configuration.
-    credential-get           Accesses cloud credentials.
+    credential-get           Returns cloud connection details for a trusted application.
     goal-state               Prints the status of the charm's peers and related units.
     is-leader                Prints application leadership status.
     juju-log                 Writes a message to Juju logs.

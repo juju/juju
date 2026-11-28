@@ -55,27 +55,32 @@ The credential to be removed is specified by a credential name.
 Credential names, and optionally the corresponding authentication
 material, can be listed with `[1:] + "`juju credentials`" + `.
 
-Use the ` + "`--controller`" + ` option to remove credentials from a controller.
+Use ` + "`--controller`" + ` to remove the credential under the account signed in
+to that controller. The credential name does not select another owner.
 
-When removing cloud credential from a controller, Juju performs additional
-checks to ensure that there are no models using this credential.
-Occasionally, these check may not be desired by the user and can be by-passed using ` + "`--force`" + `.
-If force remove was performed and some models were still using the credential, these models
-will be left with unreachable machines.
-Consequently, it is not recommended as a default remove action.
-Models with unreachable machines are most commonly fixed by using another cloud credential,
-see ` + "`juju set-credential`" + ` for more information.
+A controller refuses ordinary removal while a model uses the credential.
+Switch those models to a replacement with juju set-credential, then retry.
+Forcing removal clears all remaining model bindings without replacing them.
+Removing the credential in Juju does not revoke the key at the provider.
 
+Use ` + "`--client`" + ` to remove the local copy. Supply both store flags
+to remove both copies.
 
-Use the ` + "`--client`" + ` option to remove credentials from the current client.
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/credential/
+
 
 `
 
 const usageRemoveCredentialExamples = `
-    juju remove-credential google credential_name
-    juju remove-credential google credential_name --client
-    juju remove-credential google credential_name -c mycontroller
-    juju remove-credential google credential_name -c mycontroller --force
+Remove a credential on this client:
+
+    juju remove-credential google production --client
+
+Remove an unused credential on the controller:
+
+    juju remove-credential google production -c mycontroller
 
 `
 
@@ -132,7 +137,7 @@ func (c *removeCredentialCommand) Init(args []string) (err error) {
 
 func (c *removeCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
-	f.BoolVar(&c.Force, "force", false, "Force remove controller-side credential, ignore validation errors")
+	f.BoolVar(&c.Force, "force", false, "Remove the controller credential even if models use it, clearing their credential bindings")
 }
 
 func (c *removeCredentialCommand) Run(ctxt *cmd.Context) error {

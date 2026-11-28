@@ -18,16 +18,30 @@ juju add-model [options] <model name> [cloud|region|(cloud/region)]
 | `--config` |  | Specify the path to a YAML model configuration file or individual configuration options (`--config config.yaml [--config key=value ...]`) |
 | `--credential` |  | Specify the credential to be used by the model |
 | `--no-switch` | false | Choose not to switch to the newly created model |
-| `--owner` |  | Specify the user who will own the model, if not the current user |
-| `--target-controller` |  | The name of a JAAS managed controller to add a model to |
+| `--owner` |  | Select the user qualifier for the model name (controller superuser for another user) |
+| `--target-controller` |  | Select a managed controller when using the JAAS plugin |
 
 ## Examples
 
+Create and switch to a model when one cloud is available:
+
     juju add-model mymodel
+
+Select a region when AWS is the only available cloud:
+
     juju add-model mymodel us-east-1
+
+Select a cloud and region:
+
     juju add-model mymodel aws/us-east-1
-    juju add-model mymodel --config my-config.yaml --config image-stream=daily
-    juju add-model mymodel --credential credential_name --config authorized-keys="ssh-rsa ..."
+
+Configure a model on AWS from a file and override one setting:
+
+    juju add-model mymodel aws --config my-config.yaml --config image-stream=daily
+
+Choose a named credential:
+
+    juju add-model mymodel aws --credential production
 
 
 ## Details
@@ -40,24 +54,29 @@ Alice can have only one model called "secret" in a controller.
 Model names may only contain lowercase letters, digits and hyphens, and
 may not start with a hyphen.
 
-To add a model, Juju requires a credential:
-* if you have a default (or just one) credential defined at client
-  (i.e. in `credentials.yaml`), then juju will use that;
-* if you have no default (and multiple) credentials defined at the client,
-  then you must specify one using `--credential`;
-* as the admin user you can omit the credential,
-  and the credential used to bootstrap will be used.
+A controller superuser may select another user's model-name qualifier with
+`--owner`. The signed-in creator receives model admin access. If you
+select another user's qualifier, the CLI leaves your current model unchanged.
 
-To add a credential for add-model, use one of the `juju add-credential` or
-`juju autoload-credentials` commands. These will add credentials
-to the Juju client, which `juju add-model` will upload to the controller
-as necessary.
+With `--credential NAME`, the CLI first looks for that name on this
+client. It uploads a matching local copy under the selected user's name,
+even if that replaces a controller copy. If there is no local match, it
+looks for the named credential on the controller.
 
-You may also supply model-specific configuration as well as a
-cloud/region to which this model will be deployed. The cloud/region and credentials
-are the ones used to create any future resources within the model.
+Without a credential name, if the cloud supports empty authentication,
+the CLI sends no credential identifier. The controller selects the signed-in
+user's sole valid, non-revoked credential for that cloud. If there is no
+unique match, it creates the model without a credential.
 
-If no cloud/region is specified, then the model will be deployed to
-the same cloud/region as the controller model. If a region is specified
-without a cloud qualifier, then it is assumed to be in the same cloud
-as the controller model.
+On a cloud that requires authentication, the CLI looks for a single
+credential for the selected user and cloud on the controller, then tries
+local selection. A locally selected name must already exist on the controller.
+To upload a local copy as part of model creation, name it explicitly.
+
+Supply model settings with `--config` and select a cloud and region
+with `cloud/region`. If exactly one cloud is available to you, you
+may omit the cloud or specify a region in that cloud.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/model/

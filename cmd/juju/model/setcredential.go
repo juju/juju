@@ -66,7 +66,7 @@ func (c *modelCredentialCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "set-credential",
 		Args:     "<cloud name> <credential name>",
-		Purpose:  "Relates a remote credential to a model.",
+		Purpose:  "Changes the credential used by one model.",
 		Doc:      modelCredentialDoc,
 		Examples: modelCredentialExamples,
 		SeeAlso: []string{
@@ -180,29 +180,24 @@ func (c *modelCredentialCommand) findCredentialLocally(ctx *cmd.Context) (*cloud
 }
 
 const modelCredentialDoc = `
-This command relates a credential cached on a controller to a specific model.
-It does not change/update the contents of an existing active credential. See
-command ` + "`update-credential`" + ` for that.
+Choose a credential for the model's cloud under the signed-in account.
+The CLI looks up the name on the controller first. If the lookup fails
+or finds no match, it tries the local copy and uploads it before asking
+the controller to switch the model. The upload can remain after a
+refused switch.
 
-The credential specified may exist locally (on the client), remotely (on the
-controller), or both. The command will error out if the credential is stored
-neither remotely nor locally.
+The controller requires model admin or controller superuser access and
+refuses the switch while model changes are blocked. Use
+` + "`juju update-credential`" + ` to replace material shared by several models.
 
-When remote, the credential will be related to the specified model.
+Further reading:
 
-When local and not remote, the credential will first be uploaded to the
-controller and then related.
+- https://canonical.com/juju/docs/juju-cli/latest/reference/model/
 
-This command does not affect an existing relation between the specified
-credential and another model. If the credential is already related to a model
-this operation will result in that credential being related to two models.
-
-Use the ` + "`show-credential`" + ` command to see how remote credentials are related
-to models.
 `
 
 const modelCredentialExamples = `
-For cloud ` + "`aws`" + `, relate remote credential ` + "`bob`" + ` to model ` + "`trinity`" + `:
+Switch the model trinity to the AWS credential named bob:
 
     juju set-credential -m trinity aws bob
 `

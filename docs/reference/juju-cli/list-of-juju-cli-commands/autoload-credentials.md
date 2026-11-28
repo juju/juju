@@ -3,7 +3,7 @@
 > See also: [add-credential](#command-juju-add-credential), [credentials](#command-juju-credentials), [default-credential](#command-juju-default-credential), [remove-credential](#command-juju-remove-credential)
 
 ## Summary
-Attempts to automatically detect and add credentials for a cloud.
+Discovers cloud credentials and prompts you to save or upload them.
 
 ## Usage
 ```text
@@ -19,48 +19,64 @@ juju autoload-credentials [options] [<cloud-type>]
 
 ## Examples
 
+Discover credentials interactively:
+
     juju autoload-credentials
+
+Store detected credentials on this client:
+
     juju autoload-credentials --client
+
+Upload detected credentials to a controller:
+
     juju autoload-credentials --controller mycontroller
+
+Save selected credentials on this client and upload them to mycontroller:
+
     juju autoload-credentials --client --controller mycontroller
-    juju autoload-credentials aws
+
+Search only the EC2 provider, then choose its cloud:
+
+    juju autoload-credentials ec2
 
 
 ## Details
 
-The command searches well known, cloud-specific locations on this client.
-If credential information is found, it is presented to the user
-in a series of prompts to facilitated interactive addition and upload.
-An alternative to this command is `juju add-credential`.
+Search the registered providers that support credential discovery. To
+search just one provider, supply its type, such as `ec2`. Select a
+detected credential by number and choose a compatible cloud. An existing
+credential with the same name can be replaced.
 
-After validating the contents, credentials are added to
-this Juju client if `--client` is specified.
+Use `--client` to save selections as you make them. Use
+`--controller NAME` to upload selections for clouds available on
+that controller when you finish by entering `q`. Check the result
+for each credential before retrying.
 
-To upload credentials to a controller, use `--controller` option.
-
-Below are the cloud types for which credentials may be autoloaded,
-including the locations searched.
+Common discovery sources include:
 
 - EC2
   - Credentials and regions:
-    - On Linux, `$HOME/.aws/credentials` and `$HOME/.aws/config`.
+    - `$HOME/.aws/credentials` and `$HOME/.aws/config` for the default region.
     - Environment variables: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`.
 
 - GCE
   - Credentials:
     - A JSON file whose path is specified by the
        `GOOGLE_APPLICATION_CREDENTIALS` environment variable.
-    - On Linux, `$HOME/.config/gcloud/application_default_credentials.json`.
-       Default region is specified by the `CLOUDSDK_COMPUTE_REGION` environment
-       variable.
-    - On Windows, `%APPDATA%gcloudpplication_default_credentials.json`.
+    - `$HOME/.config/gcloud/application_default_credentials.json`
+      under the user's home directory.
+    - Default region: `CLOUDSDK_COMPUTE_REGION`.
 
 - OpenStack
   - Credentials:
-    - On Linux, `$HOME/.novarc`.
-    - Environment variables: `OS_USERNAME`, `OS_PASSWORD`, `OS_TENANT_NAME`,
-	   `OS_DOMAIN_NAME`, `OS_TRUST_ID`.
+    - `$HOME/.novarc`.
+    - OpenStack environment variables, including `OS_USERNAME`,
+      `OS_PASSWORD`, `OS_PROJECT_NAME` and `OS_TRUST_ID`.
 
 - LXD
   - Credentials:
-    - On Linux, `$HOME/.config/lxc/config.yml`
+    - The local LXD socket and LXC configuration, including `$HOME/.config/lxc/config.yml`
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/credential/

@@ -14,17 +14,21 @@ See also: {ref}`model`
 (add-a-model)=
 ## Add a model
 
-To add a model to the current controller using the default credential and switch to this model, run the `add-model` command followed by the name of the model. For example:
-
-```text
-juju add-model mymodel
+```{ibnote}
+See also: {ref}`Choosing a credential for a new model <choosing-a-credential-for-a-new-model>`
 ```
 
-You can also pass various options to choose a different controller or credential, specify a configuration, designate a different model `owner`, *not* switch to the newly created model, add it to a particular cloud (for multi-cloud controllers), etc.
+To create a model on AWS and switch to it, use an account {ref}`with access to add a model on that cloud <choosing-a-credential-for-a-new-model>` and choose a {ref}`usable credential for AWS <add-a-credential>`. When you name a credential, Juju uploads any matching local copy and can replace shared material on the controller. Check which copy contains the material you intend to use before running the command.
+
+```text
+juju add-model payments aws --credential production-deploy
+```
 
 ```{ibnote}
 See more: {ref}`command-juju-add-model`
 ```
+
+You receive model admin on the model you create. If you are a controller superuser, `--owner` lets you choose another user's qualifier for the model name. To give that user access, {ref}`grant it separately <manage-user-access>`.
 
 ## View all the models available on a controller
 
@@ -166,6 +170,8 @@ By passing options you can also specify a format, an output file, etc.
 ```{ibnote}
 See more: {ref}`command-juju-show-model`
 ```
+
+To replace the credential used by an existing model, {ref}`change the model's credential <change-the-credential-a-model-uses>`.
 
 (configure-a-model)=
 ## Configure a model
@@ -472,6 +478,7 @@ A controller model cannot be migrated.
 - Verify that the source and destination controllers are both known to the Juju client (i.e., they show up in the `juju controllers` output) and located in the same cloud environment.
 - Verify that the version of Juju running on the destination controller is the same or newer than the version on the source controller.
 - Verify that the destination controller does not have any model with the same name as the name of the model you want to migrate to it.
+- **If the model uses a credential:** Record its {ref}`cloud, owner and name <credential-names-and-owners>` from the source model. For a transfer between Juju 4.1 controllers, a destination credential with that identity must have the same authentication type and attributes and must not be revoked. If the destination has no matching credential, the import can create it. If the source binding is wrong, {ref}`change the model's credential <change-the-credential-a-model-uses>` before migrating.
 - Back up the source controller.
 - **If the destination controller is on a different region or VPC:** Ensure that the destination controller has direct connectivity to the source controller.
 - **If the model is large:** Configure the destination controller to throttle the reconnection rate for the agents running for each machine and unit in the model and increase the migration agent timeout time.  For example:
@@ -508,7 +515,7 @@ $ juju add-secret-backend --config /path/to/backendcfg.yaml --import-id 63c8ad37
 **Migrate the model.** To migrate a model on the current controller to a destination controller, use the `migrate` command followed by the name of the model and the name of the destination controller, as below:
 
 ```text
-juju migrate <model> <destination controller>
+juju migrate payments production
 ```
 
 You can monitor progress from the output of the `status` command run against the source model. You may want to use a command such as `watch` to automatically refresh the status output, rather than manually running status each time:
@@ -561,9 +568,14 @@ This error occurs when the model owner does not exist on the target controller. 
 
 ```
 
-```{dropdown} Error:migration: 'aborted, removing model from target controller: model data transfer failed, failed to import model into target controller: credential "<credential>" not found (not found)'
+```{dropdown} Troubleshooting: Credential errors during model migration
 
-This error occurs when the model owner does not own the credential associated with the model. The solution is to change the credential to a credential the user owns (via `juju set-credential`).
+Read the migrating model's binding on the source controller with {ref}`juju show-model <command-juju-show-model>`, for example `juju show-model source:payments`. Under `credential`, record the cloud, owner and name. Ask **that owner** to {ref}`inspect the controller credential <view-details-about-a-credential>` on the destination. For example, if the binding is `aws`, owner `alice`, name `production-deploy`, Alice runs `juju show-credential aws production-deploy -c destination`. The command looks under the signed-in account, even for a controller superuser. A same-named credential under another account is a different record.
+
+- `is revoked on the target controller` or `is revoked` during import: the destination credential with that identity is revoked.
+- `auth type mismatch` or `attribute mismatch` during import: the destination credential with that identity has different material.
+
+To retry with different material without changing a credential shared by other models, {ref}`switch only the source model <change-the-credential-a-model-uses>` to a separately named credential that can access its resources. Verify the new binding before retrying. A credential imported on the destination before a later failure can remain there; a failed transfer alone is not a reason to remove it.
 
 ```
 

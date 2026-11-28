@@ -25,46 +25,52 @@ import (
 )
 
 var usageUpdateCredentialSummary = `
-Updates a controller credential for a cloud.`[1:]
+Updates cloud credentials on this client or on a controller.`[1:]
 
 var usageUpdateCredentialDetails = `
-Cloud credentials are used for model operations and manipulations.
-Since it is common to have long-running models, it is also common to
-have these cloud credentials become invalid during a model's lifetime.
-When this happens, a user must update the cloud credential that
-a model was created with to the new and valid details on the controller.
+Read replacement material from the client cache or a credentials YAML
+file supplied with `[1:] + "`--file`" + `. Supply a cloud name when reading the
+cache. A cloud name selects that cloud's entries. Supply a credential
+name as well to select one entry. With a file, you can omit both names
+to select entries across the file.
 
-This command allows to update an existing, already-stored, named,
-cloud-specific credential on a controller as well as the one from this client.
+Use ` + "`--client`" + ` for this client, ` + "`--controller NAME`" + ` for the
+signed-in account on that controller, or both flags for both stores. A
+local update requires existing local credentials for the cloud. Use
+` + "`juju add-credential`" + ` to add the first local entry.
 
-Use the ` + "`--controller `" + `option to update a credential definition on a controller.
+Use ` + "`--region`" + ` to select the region for credential preparation.
+A controller update replaces the material used by all models bound to
+that credential. Verify the cloud operation those models need. To
+switch one model, use ` + "`juju set-credential`" + `.
 
-When updating cloud credential on a controller, Juju performs additional
-checks to ensure that the models that use this credential can still
-access cloud instances after the update. Occasionally, these checks may not be desired
-by the user and can be by-passed using the ` + "`--force`" + ` option.
-Force update may leave some models with unreachable machines.
-Consequently, it is not recommended as a default update action.
-Models with unreachable machines are most commonly fixed by using another cloud credential,
-see ` + "`juju set-credential`" + ` for more information.
+Only a controller superuser can force a controller update. After a
+forced update, inspect the stored credential before relying on it.
+Check the result for each credential before retrying.
 
-Use ` + "`--client`" + ` to update a credential definition on this client.
-If a user will use a different client, say a different laptop,
-the update will not affect that client's (laptop's) copy.
+Further reading:
 
-Before credential is updated, the new content is validated. For some providers,
-cloud credentials are region specific. To validate the credential for a non-default region,
-use ` + "`--region`" + `.
+- https://canonical.com/juju/docs/juju-cli/latest/reference/credential/
 
-`[1:]
+
+`
 
 const usageUpdateCredentialExamples = `
-    juju update-credential aws mysecrets
-    juju update-credential -f mine.yaml
-    juju update-credential -f mine.yaml --client
-    juju update-credential aws -f mine.yaml
-    juju update-credential azure --region brazilsouth -f mine.yaml
-    juju update-credential -f mine.yaml --controller mycontroller --force
+Upload the cached material for one credential:
+
+    juju update-credential aws production --controller mycontroller
+
+Update the local AWS entry named production where AWS already has local credentials:
+
+    juju update-credential aws production --file mine.yaml --client
+
+Update the controller credentials for AWS from a file:
+
+    juju update-credential aws --file mine.yaml --controller mycontroller
+
+Update the Azure entry named production using the Brazil South region for preparation:
+
+    juju update-credential azure production --region brazilsouth --file mine.yaml --controller mycontroller
 `
 
 type updateCredentialCommand struct {
@@ -142,8 +148,8 @@ func (c *updateCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
 	f.StringVar(&c.CredentialsFile, "f", "", "The YAML file containing credential details to update")
 	f.StringVar(&c.CredentialsFile, "file", "", "The YAML file containing credential details to update")
-	f.StringVar(&c.Region, "region", "", "Cloud region that credential is valid for")
-	f.BoolVar(&c.Force, "force", false, "Force update controller side credential, ignore validation errors")
+	f.StringVar(&c.Region, "region", "", "Cloud region to use when preparing the credential")
+	f.BoolVar(&c.Force, "force", false, "Request a forced controller update (controller superuser only)")
 }
 
 type CredentialAPI interface {

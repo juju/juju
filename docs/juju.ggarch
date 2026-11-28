@@ -16,6 +16,12 @@
 model "Juju" {
 
   nodes {
+    local_credential [type: record, label: "Client copy"]
+    shared_credential [type: entity, label: "Controller credential"]
+    payments_model [type: entity, label: "Payments model"]
+    billing_model [type: entity, label: "Billing model"]
+    binding_admin [type: person, label: "Model admin"]
+    credential_owner [type: person, label: "Credential owner"]
     // Actors and systems around Juju.
     // Before Juju enters the story the person is an SRE; from "The insight"
     // on, the same person is a Juju user (the account the controller knows).
@@ -125,6 +131,11 @@ model "Juju" {
     ssh_processing_controller -> ssh_target [type: stream]
     ssh_decrypt -> ssh_proxy [type: control]
     ssh_proxy -> ssh_encrypt [type: control]
+    local_credential -> shared_credential [type: control, label: "can supply"]
+    shared_credential -> payments_model [type: control, label: "is used by"]
+    shared_credential -> billing_model [type: control, label: "is used by"]
+    binding_admin -> controller [type: api]
+    credential_owner -> controller [type: api]
   }
 
   behaviours {
@@ -210,10 +221,31 @@ model "Juju" {
       agent_foo  -> controller: call "fetch state, run relation hooks"
       agent_bar  -> controller: call "fetch state, run relation hooks"
     }
+    behaviour "credential-revocation" {
+      binding_admin -> controller: call "switch last model to replacement"
+      controller -> binding_admin: return "model credential changed"
+      credential_owner -> controller: call "revoke old credential"
+      controller -> credential_owner: return "unused credential removed"
+    }
   }
 
   style { extends: juju }
 }
+
+diagram "credential-bindings" from "Juju" {
+  select { nodes: local_credential shared_credential payments_model billing_model
+           edges: type control
+           routing: orthogonal }
+  positions {
+    local_credential left-of shared_credential gap: 70
+    local_credential align-middle shared_credential
+    fan [payments_model billing_model] right-of shared_credential gap: 96
+    payments_model same-width billing_model
+  }
+  emphasize { focus [shared_credential] }
+}
+
+sequence "credential-revocation" from "Juju" { select { behaviour: "credential-revocation" } }
 
 diagram "The problem" from "Juju" {
   // The user and the applications, which run on nodes from clouds (the

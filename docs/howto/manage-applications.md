@@ -57,27 +57,29 @@ juju deploy ubuntu --base ubuntu@20.04
 (trust-an-application-with-a-credential)=
 ## Trust an application with a credential
 
-Some applications may require access to the backing cloud in order to fulfil their purpose (e.g., storage-related tasks). In such cases, the remote credential associated with the current model would need to be shared with the application. When the Juju administrator allows this to occur the application is said to be *trusted*.
+Before granting trust, check what cloud access the charm needs. A trusted charm can request cloud connection details with the {ref}`credential-get hook command <hook-command-credential-get>`.
 
-An application can be trusted during deployment or after deployment.
-
-**Trust an application during deployment.** To trust an application during deployment, run the `deploy` command with the `--trust` flag. E.g., below we trust
+**Grant trust during deployment.** To deploy a charm you have reviewed with trusted access, supply its name and `--trust`. For example:
 
 ```text
-juju deploy --trust ...
+juju deploy kubernetes-control-plane --trust
 ```
 
 ```{ibnote}
 See more: {ref}`command-juju-deploy`
 ```
 
-**Trust an application after deployment.** To trust an application after deployment, use the `trust` command:
+**Grant trust after deployment.** On a machine model, to grant trust to the deployed `kubernetes-control-plane` application:
 
 ```text
-juju trust <application>
+juju trust kubernetes-control-plane
 ```
 
-By specifying various flags, you can also use this command to remove trust from an application, or to give an application deployed on a Kubernetes model access to the full Kubernetes cluster, etc.
+On a Kubernetes model, grant trust only if the charm needs cluster-wide access. A Kubernetes trust grant requires `--scope=cluster`.
+
+```text
+juju trust traefik --scope=cluster
+```
 
 ```{ibnote}
 See more: {ref}`command-juju-trust`
