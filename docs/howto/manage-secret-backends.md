@@ -11,7 +11,7 @@ myst:
 See also: {ref}`secret-backend`
 ```
 
-Use `-c` to target the controller that holds a registration, and `-m` to target the model whose selection or revisions you want to inspect. The examples use a controller called `prod`, its model `payments`, and a Vault registration called `myvault`. Substitute your own names.
+Use the {ref}`Juju CLI <juju-cli>` to register a secret backend on a controller and choose which backend a model uses.
 
 (configure-a-secret-backend)=
 ## Configure a secret backend
@@ -20,14 +20,14 @@ Use `-c` to target the controller that holds a registration, and `-m` to target 
 See also: {ref}`secret-backend-vault-settings`, {ref}`secret-backend-kubernetes-settings`
 ```
 
-Start with a store that is already provisioned and accessible to Juju. Prepare a private YAML file containing the connection settings for **one** backend. For example, save this mapping as `vault_config.yaml`, substituting the HTTPS endpoint and an authorized token for your Vault:
+To connect Juju to an existing store, put its connection settings in a YAML file. Make the file readable only by your account before adding credentials. For example, for a Vault store, put its HTTPS endpoint and an authorized token in `vault_config.yaml`:
 
 ```yaml
 endpoint: https://vault.example.com:8200
 token: "replace-with-your-vault-token"
 ```
 
-Restrict access to the file. If your Vault uses a private CA, include the actual PEM contents as `ca-cert`, not a path. For a Kubernetes registration, prepare the Kubernetes settings instead, including the API endpoint and an existing namespace.
+If your Vault uses a private CA, put the CA certificate's PEM contents in `ca-cert`, not the path to the certificate. For a Kubernetes store, use the {ref}`Kubernetes connection settings <secret-backend-kubernetes-settings>` instead: specify the API endpoint, an existing namespace, and the credentials and CA data your cluster requires.
 
 (add-a-secret-backend)=
 ## Add a secret backend
@@ -36,14 +36,14 @@ Restrict access to the file. If your Vault uses a private CA, include the actual
 See also: {ref}`secret-backend-register`
 ```
 
-As a superuser on `prod`, register the prepared Vault connection and check it by name:
+To register a store, run `juju add-secret-backend` with a name for the registration, the provider type, and the {ref}`connection settings file <configure-a-secret-backend>`. For example, as a controller superuser, register a Vault store as `myvault` on controller `prod` and inspect it:
 
 ```text
 juju add-secret-backend -c prod myvault vault --config vault_config.yaml
 juju show-secret-backend -c prod myvault
 ```
 
-The add command prints nothing on success. The second command should return a `myvault` entry with `backend: vault`. No model has been switched by these commands.
+The add command prints nothing on success. Look for `backend: vault` under `myvault` in the second command's output. To use it for new revisions, {ref}`select it for a model <check-model-secret-backend>`.
 
 ```{ibnote}
 See more: {ref}`command-juju-add-secret-backend`, {ref}`command-juju-show-secret-backend`
@@ -56,13 +56,13 @@ See more: {ref}`command-juju-add-secret-backend`, {ref}`command-juju-show-secret
 See also: {ref}`secret-backend-inspection`
 ```
 
-List the registrations on the controller:
+To list the backends on a controller, run `juju secret-backends`. For example, to list those on `prod`:
 
 ```text
 juju secret-backends -c prod
 ```
 
-Read `Name` and `Type` to identify a registration. `Secrets` counts secrets with a revision referencing that backend, not models selecting it. For full messages and non-sensitive configuration, add `--format yaml`.
+Find the registration in the `Name` column and its provider in `Type`. To see full status messages and non-sensitive settings, add `--format yaml`.
 
 ```{ibnote}
 See more: {ref}`command-juju-secret-backends`
@@ -75,13 +75,15 @@ See more: {ref}`command-juju-secret-backends`
 See also: {ref}`secret-backend-inspection`
 ```
 
-Inspect one name without exposing credentials:
+To inspect one registration, give its name to `juju show-secret-backend`. For example, to check `myvault` on controller `prod` without showing credentials:
 
 ```text
 juju show-secret-backend -c prod myvault
 ```
 
-If the command reports that no backends have been added, list the controller's backends and check the exact name. That message from a named lookup can mean just that **this name** did not match. If you need sensitive connection settings and are a controller superuser, use `--reveal` with named show or with list in YAML or JSON format. Keep the output private; it is backend configuration, not secret values.
+If the command says no backends have been added, {ref}`list the controller's backends <list-secret-backends>` and check the spelling. The message can mean that only the requested name was missing.
+
+If you need sensitive connection settings, run the same command with `--reveal` as a controller superuser. Keep the output private. It contains backend settings, not the secret values held in the store.
 
 ```{ibnote}
 See more: {ref}`command-juju-show-secret-backend`
@@ -94,29 +96,29 @@ See more: {ref}`command-juju-show-secret-backend`
 See also: {ref}`secret-backend-check-selection`, {ref}`secret-backend-select`
 ```
 
-With at least read access to `payments`, check its selection:
+To check which backend a model uses for new revisions, run `juju model-secret-backend` without a backend name. For example, with read access to model `payments` on controller `prod`, run:
 
 ```text
 juju model-secret-backend -m prod:payments
 ```
 
-Before selecting a backend, check {ref}`how it protects values at rest <secret-backend-encryption-at-rest>`. With at least write access to the model, select the registered name, then run the getter again:
+To switch the model to a different backend, first check {ref}`how that backend protects values at rest <secret-backend-encryption-at-rest>`. With write access to the model, pass the registration name, then check the selection. For example, to select `myvault`:
 
 ```text
 juju model-secret-backend -m prod:payments myvault
 juju model-secret-backend -m prod:payments
 ```
 
-The setter is silent on success; the getter should now print `myvault`. To return this model to its default, use `auto`, not `internal` or a name ending in `-local`:
+The first command prints nothing on success; the second should print `myvault`. If you want the platform default instead, use `auto`:
 
 ```text
 juju model-secret-backend -m prod:payments auto
 juju model-secret-backend -m prod:payments
 ```
 
-The getter should now print `auto`. That confirms the model's choice for new revisions. Before retiring the previous backend, {ref}`check where the existing revisions are stored <check-secret-backend-movement>`.
+The second command should now print `auto`. That confirms the choice for new revisions. Before retiring the previous backend, {ref}`check where the existing revisions are stored <check-secret-backend-movement>`.
 
-Use `model-secret-backend`, not the `secret-backend` key of `model-config`, on a 4.1 controller. If the dedicated command reports that an older controller does not support it, follow its compatibility instruction for that controller.
+Use `juju model-config` for this task only if an older controller reports that `model-secret-backend` is not implemented and directs you to `model-config`.
 
 ```{ibnote}
 See more: {ref}`command-juju-model-secret-backend`
@@ -129,19 +131,27 @@ See more: {ref}`command-juju-model-secret-backend`
 See also: {ref}`secret-backend-movement`, {ref}`secret-revision-backend`
 ```
 
-After selecting a different backend, inspect the affected model's revisions without revealing their values:
+To follow a backend change, list revisions in the affected model without revealing their values. For example, for model `payments` on controller `prod`, run:
 
 ```text
 juju secrets -m prod:payments --revisions --format yaml
 ```
 
-For a single secret, use its name or ID instead:
+To check just one secret, give its name or ID to `juju show-secret`. For example:
 
 ```text
 juju show-secret -m prod:payments db-password --revisions
 ```
 
-Look at `backend` under each `revisions` entry. Repeat the read to follow a move; the revision number stays the same. When retiring `myvault`, also run `juju show-secret-backend -c prod myvault`: other models can account for references that remain in its `secrets` count. A zero count does not verify provider-side deletion.
+Check the `backend` field of each revision you expect to move. Repeat the command until those revisions show the intended backend.
+
+If you plan to retire the old backend, also check its count across the controller. For example, if `myvault` is the old backend on `prod`, run:
+
+```text
+juju show-secret-backend -c prod myvault
+```
+
+If `secrets` is nonzero, revisions still reference `myvault`, possibly in another model. A zero count does not prove that old copies were deleted from the store.
 
 ```{ibnote}
 See more: {ref}`command-juju-secrets`, {ref}`command-juju-show-secret`
@@ -154,14 +164,16 @@ See more: {ref}`command-juju-secrets`, {ref}`command-juju-show-secret`
 See also: {ref}`secret-backend-update`, {ref}`secret-backend-rotation`
 ```
 
-As a controller superuser, prepare a private file with the settings you want to change. For example, after updating the token in `vault_config.yaml`, apply it and request a two-hour token lifetime:
+To change a registration's settings, give `juju update-secret-backend` its current name and the settings to change. For example, as a superuser on controller `prod`, use `--config` to supply a new Vault token from a private YAML file and `token-rotate` to request a two-hour token lifetime for `myvault`:
 
 ```text
 juju update-secret-backend -c prod myvault --config vault_config.yaml token-rotate=2h
 juju show-secret-backend -c prod myvault
 ```
 
-Check the rotation interval in the result; sensitive settings remain hidden. To disable automatic token refresh for this Vault backend, use `token-rotate=0`. To restore a provider setting to its default, pass `--reset KEY` once for each key, not a comma-separated list. Only reset a credential if the remaining configuration still provides access. To rename a backend, supply `name=NEW` and use the new name for subsequent lookups.
+Check `token-rotate-interval` in the output of `juju show-secret-backend`. To turn off token refresh, run the update with `token-rotate=0`.
+
+To reset several provider settings, pass `--reset KEY` once per key, not a comma-separated list. Reset a credential only if the remaining configuration still provides access. To rename the registration, pass `name=NEW` and use the new name when you inspect it.
 
 ```{ibnote}
 See more: {ref}`command-juju-update-secret-backend`
@@ -174,14 +186,16 @@ See more: {ref}`command-juju-update-secret-backend`
 See also: {ref}`secret-backend-remove`
 ```
 
-Before retiring a user-added backend, choose the intended replacement for **each affected model**, then {ref}`check where its revisions are stored <check-secret-backend-movement>`. Keep the old store and credentials available during the move. As a controller superuser, once no references remain, request ordinary removal:
+To retire a backend you added:
 
-```text
-juju remove-secret-backend -c prod myvault
-juju secret-backends -c prod
-```
+1. In each model that uses it, {ref}`select the replacement backend <check-model-secret-backend>`.
+2. Keep the old store and its credentials available while you {ref}`check revision locations and the old backend's controller-wide count <check-secret-backend-movement>`. Wait until the count is zero.
+3. As a controller superuser, remove the registration and list the backends to confirm its name is gone. For example, to remove `myvault` from `prod`:
 
-Removal is silent on success. Check that `myvault` is absent from the inventory.
+   ```text
+   juju remove-secret-backend -c prod myvault
+   juju secret-backends -c prod
+   ```
 
 If Juju reports that the backend still contains secret content, check the name you tried to remove. For the {ref}`built-in backends <secret-backend-built-ins>` (`internal` and `kubernetes`), that message does not tell you whether they hold any values. Leave them in place. For a user-added backend, {ref}`check for remaining revision references <check-secret-backend-movement>` before retrying ordinary removal. Do not force removal to finish a move.
 
