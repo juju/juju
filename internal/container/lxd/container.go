@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/network"
 )
 
@@ -391,15 +392,15 @@ func (s *Server) RemoveContainers(names []string) error {
 		return nil
 	}
 
-	var failed []string
+	var failed []instance.Id
 	for _, name := range names {
 		if err := s.RemoveContainer(name); err != nil {
-			failed = append(failed, name)
+			failed = append(failed, instance.Id(name))
 			logger.Errorf(context.TODO(), "removing container %q: %v", name, err)
 		}
 	}
 	if len(failed) != 0 {
-		return errors.Errorf("failed to remove containers: %s", strings.Join(failed, ", "))
+		return &environs.StopInstancesError{Failed: failed}
 	}
 	return nil
 }

@@ -43,24 +43,42 @@ func (st *State) ModelUUID() model.UUID {
 }
 
 func (st *State) checkApplicationNotDead(ctx context.Context, tx *sqlair.TX, appUUID string) error {
+	appLife, err := st.getApplicationLife(ctx, tx, appUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if appLife == domainlife.Dead {
+		return applicationerrors.ApplicationIsDead
+	}
+	return nil
+}
+
+func (st *State) checkApplicationAlive(ctx context.Context, tx *sqlair.TX, appUUID string) error {
+	appLife, err := st.getApplicationLife(ctx, tx, appUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if appLife != domainlife.Alive {
+		return applicationerrors.ApplicationNotAlive
+	}
+	return nil
+}
+
+func (st *State) getApplicationLife(ctx context.Context, tx *sqlair.TX, appUUID string) (domainlife.Life, error) {
 	stmt, err := st.Prepare(`
 SELECT &lifeID.*
 FROM   application
 WHERE  uuid = $uuid.uuid
 `, lifeID{}, uuid{})
 	if err != nil {
-		return errors.Capture(err)
+		return 0, errors.Capture(err)
 	}
 
 	var life lifeID
 	if err := tx.Query(ctx, stmt, uuid{UUID: appUUID}).Get(&life); errors.Is(err, sqlair.ErrNoRows) {
-		return applicationerrors.ApplicationNotFound
+		return 0, applicationerrors.ApplicationNotFound
 	} else if err != nil {
-		return errors.Capture(err)
+		return 0, errors.Capture(err)
 	}
-
-	if life.Life == int(domainlife.Dead) {
-		return applicationerrors.ApplicationIsDead
-	}
-	return nil
+	return domainlife.Life(life.Life), nil
 }
