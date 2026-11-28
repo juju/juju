@@ -35,6 +35,6 @@ Changing the grant updates an enabled user's direct access on the offering contr
 
 **Errors:** The controller can refuse this operation with these errors:
 
-- Ends with `user not found`: The offering controller has no record for the recipient. Check the username and offering controller.
-- Ends with `user authentication disabled`: The recipient is disabled on the offering controller. Confirm whether to enable the account before retrying.
+- *Error message:* ends with `user not found`. *Trigger:* The offering controller has no record for the recipient. *What to do:* Check the username and offering controller.
+- *Error message:* ends with `user authentication disabled`. *Trigger:* The recipient is disabled on the offering controller. *What to do:* Confirm whether to re-enable the account before retrying.
 

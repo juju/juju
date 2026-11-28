@@ -36,9 +36,9 @@ The model user list reports enabled users with direct grants and their last reco
 
 **Who can do this:** A signed-in user with at least {ref}`model read access <user-access-model-read>` or {ref}`controller superuser access <user-access-controller-superuser>`.
 
-**Errors:** The controller can refuse this operation with these errors:
+**Errors:** Listing users with model access can fail with this error:
 
-- Ends with `user not found on model`: The caller can read the model but has no direct entry to return. Ask a model admin to check the roster.
+- *Error message:* ends with `user not found on model`. *Trigger:* The caller can read the model but has no direct entry to return. *What to do:* Ask a model admin to check the roster.
 
 (changing-model-access)=
 ### Changing model access
@@ -51,9 +51,9 @@ Changing the grant updates the user's direct access to this model. An external u
 
 **Who can do this:** A {ref}`model admin <user-access-model-admin>` on this model or a {ref}`controller superuser <user-access-controller-superuser>`.
 
-**Errors:** The controller can refuse this operation with these errors:
+**Errors:** Changing model access can fail with this error:
 
-- Ends with `model would be left without an admin user`: The model administrator check failed. Grant another enabled user model `admin` on this model before retrying.
+- *Error message:* ends with `model would be left without an admin user`. *Trigger:* Revocation would leave the model without an enabled user with an explicit `admin` grant. *What to do:* Grant another enabled user model `admin` on this model before retrying.
 
 (keeping-an-active-model-administrator)=
 ### Keeping an active model administrator

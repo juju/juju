@@ -153,9 +153,9 @@ Adding a local user creates a controller account with {ref}`controller login acc
 
 **Errors:** Adding a local user can fail with these errors:
 
-- Ends with `user already exists`: An active or disabled user has that name. Look up the existing user to decide whether to enable it, reset its password or choose a different name.
-- Ends with `not valid` after `creating user: user name`: The supplied name doesn't meet the controller's {ref}`username requirements <user-names>`. Choose a valid local username.
-- Ends with `username not valid` after `cannot add external user`: The administrator supplied an external name. Use the external identity provider for sign-in and grant the identity access to the intended resource.
+- *Error message:* ends with `user already exists`. *Trigger:* An active or disabled user has that name. *What to do:* Look up the existing user before choosing whether to enable it, reset its password or use a different name.
+- *Error message:* ends with `creating user: user name "<name>" not valid`. *Trigger:* The name doesn't meet the controller's {ref}`username requirements <user-names>`. *What to do:* Choose a valid local username.
+- *Error message:* ends with `cannot add external user "<name>": username not valid`. *Trigger:* The administrator supplied an external name when adding a local user. *What to do:* Use the external identity provider for sign-in and grant that identity access to the intended resource.
 
 (activating-a-local-user)=
 ## Activating a local user
@@ -177,9 +177,9 @@ Activation lets the invited user set a password on the controller. The invitatio
 
 **Errors:** Activation can fail with these errors from the controller:
 
-- `activation key not found`: No current key exists for this user. If the password was accepted earlier, sign in with it; otherwise ask a controller superuser to reset the password and issue a fresh invitation.
-- `activation key not valid`: The supplied activation data doesn't match the current key. Use the latest invitation for the intended controller and user.
-- Ends with `user authentication disabled`: The account is disabled. Ask a controller superuser to confirm that the account should be enabled before retrying.
+- *Error message:* `activation key not found`. *Trigger:* No current key exists for this user. *What to do:* If the controller already accepted your password, sign in with it. Otherwise, ask a controller superuser to reset the password and issue a fresh invitation.
+- *Error message:* `activation key not valid`. *Trigger:* The activation data doesn't match the current key. *What to do:* Use the latest invitation for the intended controller and user.
+- *Error message:* ends with `user authentication disabled`. *Trigger:* The account is disabled. *What to do:* Ask a controller superuser whether the account should be re-enabled before retrying.
 
 (listing-users-on-a-controller)=
 ## Listing users on a controller
@@ -205,8 +205,8 @@ Looking up a known username returns its record even if the user is disabled. The
 
 **Errors:** Looking up a controller user can fail with these errors:
 
-- `permission denied`: The caller asked for someone else's record without controller superuser access. Look up your own name or ask a controller superuser to make the lookup.
-- `user "alex" not found`: An authorized lookup didn't find that name on this controller. Check the spelling, domain and controller; a removed user no longer has a visible record.
+- *Error message:* `permission denied`. *Trigger:* The caller asked for another user's record without controller superuser access. *What to do:* Look up your own name or ask a controller superuser to look up the other user.
+- *Error message:* `user "<name>" not found`. *Trigger:* An authorized lookup found no current user by that name on this controller. *What to do:* Check the spelling, domain and controller. A removed user no longer has a visible record.
 
 (changing-a-local-users-password)=
 ## Changing a local user's password
@@ -221,9 +221,9 @@ Changing a password sets the chosen password for an enabled local user. The new 
 
 **Errors:** Changing a local user's password can fail with these errors:
 
-- `cannot use an empty password`: The supplied password is empty or consists only of whitespace. Supply a nonblank password.
-- Starts with `failed to set password: password not valid`: The password is too long. Use at most 1,024 bytes.
-- Ends with `user authentication disabled`: The target user is disabled. An administrator must enable the user before setting its password.
+- *Error message:* `cannot use an empty password`. *Trigger:* The supplied password is empty or consists only of whitespace. *What to do:* Supply a password with at least one non-whitespace character.
+- *Error message:* ends with `password not valid, size must be less then 1024 bytes`. *Trigger:* The password exceeds 1,024 bytes. *What to do:* Use at most 1,024 bytes.
+- *Error message:* ends with `user authentication disabled`. *Trigger:* The target user is disabled. *What to do:* Ask a controller superuser to re-enable the user before setting its password.
 
 (resetting-a-local-users-password)=
 ## Resetting a local user's password
@@ -238,8 +238,8 @@ Resetting a local user's password discards the current password and replaces any
 
 **Errors:** Resetting a local user's password can fail with these errors:
 
-- `permission denied`: The caller isn't a controller superuser or is trying to reset their own account. Change your own password, or have a different controller superuser reset it.
-- Ends with `user authentication disabled`: The target user is disabled. Decide whether the account should be enabled before issuing a new invitation.
+- *Error message:* `permission denied`. *Trigger:* The caller isn't a controller superuser or is trying to reset their own account. *What to do:* Change your own password, or ask a different controller superuser to reset it.
+- *Error message:* ends with `user authentication disabled`. *Trigger:* The target user is disabled. *What to do:* Decide whether to re-enable the account before issuing a new invitation.
 
 (disabling-and-re-enabling-a-user)=
 ## Disabling and re-enabling a user
@@ -254,8 +254,8 @@ Disabling a user stops new sign-ins to this controller and preserves the account
 
 **Errors:** Changing a user's enabled status can fail with these errors:
 
-- Ends with `model(s) would be left without an admin user`: The {ref}`model administrator check <keeping-an-active-model-administrator>` failed. Grant another enabled user model `admin` on each affected model before retrying.
-- Ends with `user not found`: The user does not exist on this controller or was removed. Verify the controller and username. A removed account cannot be re-enabled.
+- *Error message:* ends with `model(s) would be left without an admin user`. *Trigger:* Disabling the user would leave a model without an {ref}`enabled model administrator <keeping-an-active-model-administrator>`. *What to do:* Grant another enabled user model `admin` on each affected model before retrying.
+- *Error message:* ends with `user not found`. *Trigger:* The user does not exist on this controller or was removed. *What to do:* Verify the controller and username. A removed account cannot be re-enabled.
 
 (removing-a-user)=
 ## Removing a user
@@ -270,6 +270,6 @@ Removal permanently retires the user's identity on this controller. The controll
 
 **Errors:** Removing a user can fail with these errors:
 
-- `cannot delete controller owner "admin"`: The target is the built-in controller owner. Keep that account. To withdraw a grant on a particular resource, change access to that resource instead.
-- Ends with `model(s) would be left without an admin user`: The {ref}`model administrator check <keeping-an-active-model-administrator>` failed. Grant another enabled user model `admin` on each affected model before retrying.
-- Ends with `user not found`: No current user matches the name. Verify the controller and username before treating removal as successful.
+- *Error message:* `cannot delete controller owner "admin"`. *Trigger:* The target is the built-in controller owner. *What to do:* Keep that account. To withdraw a grant on a particular resource, change access to that resource instead.
+- *Error message:* ends with `model(s) would be left without an admin user`. *Trigger:* Removing the user would leave a model without an {ref}`enabled model administrator <keeping-an-active-model-administrator>`. *What to do:* Grant another enabled user model `admin` on each affected model before retrying.
+- *Error message:* ends with `user not found`. *Trigger:* No current user matches the name. *What to do:* Verify the controller and username before treating removal as successful.

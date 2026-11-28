@@ -34,9 +34,9 @@ Changing the grant updates the user's direct access to this cloud.
 
 **Who can do this:** A {ref}`cloud admin <user-access-cloud-admin>` on this cloud or a {ref}`controller superuser <user-access-controller-superuser>`.
 
-**Errors:** The controller can refuse this operation with these errors:
+**Errors:** Changing cloud access can fail with this error:
 
-- `cannot change your own cloud access`: Ask a different authorised administrator to change your grant.
+- *Error message:* `cannot change your own cloud access`. *Trigger:* The caller is changing their own grant. *What to do:* Ask a different authorized administrator to change it.
 
 (cloud-types)=
 ## Types of clouds

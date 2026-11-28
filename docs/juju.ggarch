@@ -82,8 +82,12 @@ model "Juju" {
     // Two unit agents, for integration.
     agent_foo [type: juju-software, label: "Unit agent\n(foo/0)"]
     agent_bar [type: juju-software, label: "Unit agent\n(bar/0)"]
-    saved_account [type: record, label: "Saved account"]
-    controller_user [type: entity, label: "User"]
+    account_client [type: juju-software, label: "Juju client", abstracts: "client"] {
+      saved_account [type: record, label: "Saved account"]
+    }
+    account_controller [type: juju-software, label: "Controller", abstracts: "controller"] {
+      controller_user [type: entity, label: "User"]
+    }
     inviter [type: person, label: "Administrator\nwith Juju CLI"]
     invitee [type: person, label: "Invited user\nwith Juju CLI"]
     grant_admin_model [type: entity, label: "Staging model"]
@@ -376,17 +380,11 @@ diagram "SSH proxy machine reverse tunnel" from "Juju" {
 }
 
 diagram "user-account" from "Juju" {
-  select { nodes: saved_account controller_user
+  select { nodes: account_client account_controller saved_account controller_user
            edges: type control
            zoom: 1.35 }
-  positions { saved_account left-of controller_user gap: 140
-              saved_account align-middle controller_user }
-  annotations {
-    box [nodes: "saved_account", label: "Juju client", style: solid, padding: 20,
-         label-style: italic, label-color: text]
-    box [nodes: "controller_user", label: "Controller", style: solid, padding: 20,
-         label-style: italic, label-color: text]
-  }
+  positions { account_client left-of account_controller gap: 116
+              account_client align-middle account_controller }
   emphasize { focus [controller_user] }
 }
 
