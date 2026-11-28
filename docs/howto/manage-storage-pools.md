@@ -35,6 +35,7 @@ juju create-storage-pool iops ebs volume-type=provisioned-iops iops=30
 See more: {ref}`command-juju-create-storage-pool`
 ```
 
+(view-the-available-storage-pools)=
 ## View the available storage pools
 
 ```{ibnote}
@@ -59,6 +60,12 @@ tmpfs    tmpfs
 ```
 
 ````
+
+To inspect a single pool's provider and attributes, give its name with `--name`. For example:
+
+```text
+juju storage-pools --name rootfs
+```
 
 ```{ibnote}
 See more: {ref}`command-juju-storage-pools`

@@ -32,6 +32,8 @@ The controller refuses a name that breaks these rules when a user creates or upd
 
 A new model already contains the default pools of its storage providers, such as `rootfs` and `tmpfs`. For the cloud-specific providers, see {ref}`List of supported clouds <list-of-supported-clouds>` > your cloud > Storage.
 
+To identify which pool the model is configured to use, check its default source for {ref}`block storage <model-config-storage-default-block-source>` or {ref}`filesystem storage <model-config-storage-default-filesystem-source>`.
+
 (storage-pools-in-use)=
 ## Storage pools in use
 
@@ -62,11 +64,15 @@ Creating a pool adds a set of attributes for a storage provider to the model. A 
 (listing-storage-pools)=
 ## Listing storage pools
 
-Listing pools shows the pools of a model. Without a filter, the list contains every pool in the model, including the default pools of its storage providers.
+```{ibnote}
+See also: {ref}`View storage pools with the Juju CLI <view-the-available-storage-pools>`
+```
+
+Listing pools returns each matching pool's name, storage provider and attributes. Without a filter, the list contains every pool in the model, including the default pools of its storage providers.
 
 A user may give a filter that names pools, providers, or both. The list includes a pool if its name is any of the names and its provider is any of the providers; a filter that gives only names, or only providers, applies only that condition.
 
-A valid name that matches no pool is not an error. The list is empty.
+To inspect one pool, select it by its exact name. The result contains that pool's details, or is empty if the name is valid but no pool has it. An empty list is not an error.
 
 **Who can do this:** A user with at least {ref}`model read access <user-access-model-read>`, or with {ref}`controller superuser access <user-access-controller-superuser>`.
 
