@@ -90,14 +90,15 @@ See also: {ref}`Juju CLI | Add a secret backend <add-a-secret-backend>`, [Terraf
 
 The controller validates the provider settings and checks the proposed store before recording the registration. Unless the client supplies an ID, the controller allocates a UUID. Reusing a mutable registration's ID can update its name and rotation interval instead of creating a second backend; it does not change its type. {ref}`Preparing a model migration <migrate-a-model>` does not normally require copying an ID.
 
-**Who can do this:** A controller {ref}`superuser <user-access-controller-superuser>`.
+**Who can do this:** A {ref}`controller superuser <user-access-controller-superuser>`.
 
-**Errors:**
+**Errors:** Registering a backend can fail with these errors:
 
-- `secret backend "…" already exists`: another registration has the name. Inspect it before choosing a different name.
-- `reserved name "…"`: choose a nonreserved {ref}`backend name <secret-backend-configuration-options>`.
-- `config for provider` identifies invalid settings. Correct the named provider's configuration. If the connection check fails instead, correct connectivity, credentials or provider state before retrying.
-- `permission denied`: ask a superuser on the controller where the backend is needed to register it.
+- *Error message:* `secret backend "<name>" already exists`. *Trigger:* Another registration on this controller has the requested name. *What to do:* Inspect that registration. If you need a separate backend, choose a different name.
+- *Error message:* ends with `reserved name "<name>"`. *Trigger:* The requested registration name is reserved. *What to do:* Choose a nonreserved {ref}`backend name <secret-backend-configuration-options>`.
+- *Error message:* depends on the provider and setting; for example, it ends with `vault config missing client key not valid`. *Trigger:* The settings fail provider validation. In this example, the Vault configuration supplies a client certificate without its key. *What to do:* Correct the setting identified by the message. For Vault client-certificate authentication, supply the matching key with the certificate.
+- *Error message:* depends on the store; for example, `vault is sealed`. *Trigger:* The controller cannot use the proposed connection; in this example it reached Vault, but Vault is sealed. *What to do:* Have the Vault operator unseal it before retrying. For a connection or authentication error instead, check the endpoint, trust settings and credentials.
+- *Error message:* `permission denied`. *Trigger:* The caller lacks controller superuser access. *What to do:* Ask a superuser on the intended controller to register the backend.
 
 (secret-backend-inspection)=
 ## Listing and inspecting secret backends
@@ -112,9 +113,11 @@ The secret count is the number of **distinct secrets** with revisions referencin
 
 An inspection probes Vault. A failed check returns status `error` and a message, such as `vault is sealed`. The controller does not probe a Kubernetes or controller backend on this read: `active` is neither a test write nor an indication that a model selected the registration.
 
-**Who can do this:** An authenticated controller user. Only a controller {ref}`superuser <user-access-controller-superuser>` can request sensitive configuration fields. Even that result contains backend settings, not the secret values in the store.
+**Who can do this:** An authenticated controller user. Only a {ref}`controller superuser <user-access-controller-superuser>` can request sensitive configuration fields. Even that result contains backend settings, not the secret values in the store.
 
-**Errors:** `permission denied` on a revealed read: inspect without requesting sensitive fields, or use a superuser account authorized to see them.
+**Errors:** Requesting sensitive backend settings can fail with this error:
+
+- *Error message:* `permission denied`. *Trigger:* The caller requests sensitive settings without controller superuser access. *What to do:* Inspect the registration without requesting sensitive fields, or ask an authorized controller superuser to inspect them.
 
 (secret-backend-check-selection)=
 ## Checking a model's selected backend
@@ -125,9 +128,11 @@ See also: {ref}`Juju CLI | Check a model's selected backend <check-model-secret-
 
 The model reports the registered name or `auto` for its platform default. This is the choice for future writes. It does not list revision locations or tell the reader whether a move has finished.
 
-**Who can do this:** A user with at least model {ref}`read <user-access-model-read>` access to that model.
+**Who can do this:** A user with at least {ref}`model read access <user-access-model-read>` to that model.
 
-**Errors:** `permission denied`: check the target model and ask its administrator for read access.
+**Errors:** Reading a model's selection can fail with this error:
+
+- *Error message:* `permission denied`. *Trigger:* The caller lacks read access to the target model. *What to do:* Check the target model and ask its administrator for model read access.
 
 (secret-backend-select)=
 ## Selecting a backend for a model
@@ -138,13 +143,13 @@ See also: {ref}`Juju CLI | Select a backend for a model <check-model-secret-back
 
 A model writer can select an existing registration by name, or restore the platform default with `auto`. Success changes only that model's selection. The controller does not check provider health or wait for any values to move before accepting the selection.
 
-**Who can do this:** A user with at least model {ref}`write <user-access-model-write>` access to that model.
+**Who can do this:** A user with at least {ref}`model write access <user-access-model-write>` to that model.
 
-**Errors:**
+**Errors:** Selecting a backend can fail with these errors:
 
-- `secret backend "…" not found`: check the name and controller. If necessary, ask a controller superuser to register the store first.
-- `secret backend "…" not valid`: `internal`, `kubernetes` and model-local display names cannot be selected explicitly. Use `auto` for the default.
-- `permission denied`: model read access is not enough to change the selection; ask a model writer.
+- *Error message:* `secret backend "<name>" not found`. *Trigger:* The model's controller has no registration with that name. *What to do:* Check the controller and registration name. If the store is not registered, ask a controller superuser to register it first.
+- *Error message:* `secret backend "<name>" not valid`. *Trigger:* The caller explicitly selected `internal`, `kubernetes` or a model-local display name ending in `-local`. *What to do:* Select `auto` for the model's platform default, or give the name of a user-added backend.
+- *Error message:* `permission denied`. *Trigger:* The caller lacks write access to the model. *What to do:* Ask a user with model write access to change the selection.
 
 (secret-backend-movement)=
 ## Moving revisions automatically after a backend change
@@ -175,14 +180,15 @@ An update identifies an existing registration by its current name. Juju overlays
 
 A rename preserves the registration's ID, type and model selections. To connect to a different immutable endpoint, register a separate backend and select it for the intended models instead.
 
-**Who can do this:** A controller {ref}`superuser <user-access-controller-superuser>`.
+**Who can do this:** A {ref}`controller superuser <user-access-controller-superuser>`.
 
-**Errors:**
+**Errors:** Updating a backend can fail with these errors:
 
-- `secret backend "…" not found`: use the current name on the correct controller.
-- `cannot rename secret backend` with a name conflict: choose a free, nonreserved name.
-- `cannot change immutable field`: keep the existing value, including on reset, or register a different backend. A {ref}`built-in registration <secret-backend-built-ins>` cannot itself be updated.
-- `permission denied`: ask a superuser on the registration's controller to make the change.
+- *Error message:* `secret backend "<name>" not found`. *Trigger:* No registration on this controller has the current name supplied in the update. *What to do:* List the controller's backends and retry with the current name.
+- *Error message:* ends with `secret backend already exists: name "<new-name>"`. *Trigger:* Another registration already uses the requested new name. *What to do:* Choose an unused, nonreserved name.
+- *Error message:* ends with `cannot change immutable field "<field>"`. *Trigger:* The proposed settings change an immutable provider field, such as the Vault endpoint. *What to do:* Keep the existing value. To use a different endpoint, register another backend and select it for the intended models.
+- *Error message:* ends with `secret backend "<id>" is immutable`. *Trigger:* The update targets a {ref}`built-in registration <secret-backend-built-ins>`. *What to do:* Leave the built-in unchanged. Register a separate backend if you need different settings.
+- *Error message:* `permission denied`. *Trigger:* The caller lacks controller superuser access. *What to do:* Ask a superuser on the registration's controller to make the change.
 
 (secret-backend-rotation)=
 ## Rotating a backend token
@@ -191,13 +197,19 @@ A rename preserves the registration's ID, type and model selections. To connect 
 See also: {ref}`Juju CLI | Configure token rotation <update-a-secret-backend>`
 ```
 
-Vault and Kubernetes support refreshing the credential Juju uses to access the backend. This does not rotate the value of any stored secret. A positive interval requests a token lifetime of at least one hour. Juju initially schedules a refresh attempt at three quarters of that interval, or after 24 hours, whichever is earlier. On success Juju saves the replacement credentials; a configured interval is not evidence that a refresh succeeded.
+For a Vault or Kubernetes secret backend, Juju can refresh the token it uses to connect to the store. For a Vault backend, Juju requests a new Vault token. For a Kubernetes backend, it requests a token for the configured {ref}`service account <secret-backend-kubernetes-settings>`. Neither operation changes any secret value in the store.
 
-An update that omits the interval keeps the current setting. An explicit zero disables refresh. Kubernetes still requires the {ref}`service account <secret-backend-kubernetes-settings>` when an interval is supplied.
+The refresh interval specifies the token lifetime Juju requests. For a positive interval, Juju schedules its first refresh attempt at three quarters of that interval or after 24 hours, whichever comes first. On success, Juju saves the new token in the backend configuration. The configured interval is not confirmation that a refresh succeeded.
 
-**Who can do this:** A controller {ref}`superuser <user-access-controller-superuser>` configures the interval; Juju attempts the refresh.
+Omitting the interval on update keeps the current setting; setting it to zero disables refresh. A Kubernetes secret backend requires the service account whenever an interval is supplied, including zero.
 
-**Errors:** `less than 1h` means the requested positive interval is too short. Supply at least one hour. A provider that does not support token refresh cannot accept a positive interval.
+**Who can do this:** A {ref}`controller superuser <user-access-controller-superuser>` configures the interval; Juju attempts the refresh.
+
+**Errors:** Configuring token refresh can fail with these errors:
+
+- *Error message:* `token rotate interval "<duration>" less than 1h not valid`. *Trigger:* The requested interval is positive but shorter than one hour. *What to do:* Set an interval of at least one hour, or set it to zero on update to disable refresh.
+- *Error message:* contains `token refresh on secret backend of type "<type>"`. *Trigger:* The caller requested a positive interval on a backend whose provider does not support refreshing its token. *What to do:* Omit the interval for that backend.
+- *Error message:* ends with `k8s config missing service account not valid`. *Trigger:* The Kubernetes backend configuration specifies an interval without a service account. *What to do:* Supply the existing service account that Juju should use to request tokens.
 
 (secret-backend-remove)=
 ## Removing a secret backend
@@ -210,10 +222,10 @@ Ordinary removal refuses a registration while any revision on the controller ref
 
 Forced removal skips the revision-reference check, not {ref}`built-in protection <secret-backend-built-ins>`. It discards tracking references without moving or deleting remote values. User and charm revisions still dependent on the registration can become unreadable through Juju.
 
-**Who can do this:** A controller {ref}`superuser <user-access-controller-superuser>`.
+**Who can do this:** A {ref}`controller superuser <user-access-controller-superuser>`.
 
-**Errors:**
+**Errors:** Removing a backend can fail with these errors:
 
-- `deleting in use secret backend not supported`: leave a built-in in place. For a user-added registration, {ref}`check where revisions are stored <check-secret-backend-movement>` and retry ordinary removal after references are gone.
-- `secret backend "…" not found`: inspect the controller inventory for the current name.
-- `permission denied`: ask a superuser on that controller to retire the registration.
+- *Error message:* `deleting in use secret backend not supported` (the Juju CLI reports `backend "<name>" still contains secret content`). *Trigger:* The registration is built in, or ordinary removal found a revision that still references a user-added backend. The message alone does not establish that the store contains values. *What to do:* Leave a built-in in place. For a user-added backend, {ref}`check the revision locations and controller-wide count <check-secret-backend-movement>` and retry ordinary removal once no references remain.
+- *Error message:* `secret backend "<name>" not found`. *Trigger:* No registration on this controller has that name. *What to do:* Check the controller and list its registrations for the current name.
+- *Error message:* `permission denied`. *Trigger:* The caller lacks controller superuser access. *What to do:* Ask a superuser on that controller to retire the registration.
