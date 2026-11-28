@@ -8,7 +8,7 @@ myst:
 # Storage pool
 
 ```{ibnote}
-See also: {ref}`manage-storage-pools`
+See also: {ref}`Juju CLI | Manage storage pools <manage-storage-pools>`, {ref}`Terraform Provider for Juju | Manage storage pools <tfjuju:manage-storage-pools>`
 ```
 
 ```{ggarch}
@@ -32,6 +32,10 @@ The controller refuses a name that breaks these rules when a user creates or upd
 (default-storage-pools)=
 ## Default storage pools
 
+```{ibnote}
+See also: {ref}`Juju CLI | View the default storage pool <view-the-default-storage-pool>`
+```
+
 A new model already contains pools supplied by its storage providers. For example, a new machine model includes pools named `rootfs` and `tmpfs`. The cloud-specific providers are listed under {ref}`List of supported clouds <list-of-supported-clouds>` > your cloud > Storage.
 
 A pool being present does not make it the one Juju uses when an application's storage directive names no pool. The model selects a default separately for {ref}`block storage <model-config-storage-default-block-source>` and {ref}`filesystem storage <model-config-storage-default-filesystem-source>`. Check the default source for the kind of storage the application requests.
@@ -51,6 +55,10 @@ A user cannot remove an in-use pool or change its provider, but can still replac
 (creating-a-storage-pool)=
 ## Creating a storage pool
 
+```{ibnote}
+See also: {ref}`Juju CLI | Create a storage pool <create-a-storage-pool>`, [Terraform Provider for Juju | Create a storage pool](https://documentation.ubuntu.com/terraform-provider-juju/latest/howto/manage-storage-pools/#create-a-storage-pool)
+```
+
 Creating a pool adds a set of attributes for a storage provider to the model. A user gives the pool's name and its storage provider, and may add attributes. The available providers depend on the model's {ref}`cloud <cloud>`. On a machine cloud they also include `rootfs`, `tmpfs` and `loop`. The provider defines which attributes it accepts and validates them. For the attributes of a cloud-specific provider, see {ref}`List of supported clouds <list-of-supported-clouds>` > your cloud > Storage.
 
 **Who can do this:** A user with at least {ref}`model write access <user-access-model-write>`.
@@ -67,7 +75,7 @@ Creating a pool adds a set of attributes for a storage provider to the model. A 
 ## Listing storage pools
 
 ```{ibnote}
-See also: {ref}`View storage pools with the Juju CLI <view-the-available-storage-pools>`
+See also: {ref}`Juju CLI | View the available storage pools <view-the-available-storage-pools>`, [Terraform Provider for Juju | List storage pools](https://documentation.ubuntu.com/terraform-provider-juju/latest/howto/manage-storage-pools/#list-storage-pools)
 ```
 
 Listing pools returns each matching pool's name, storage provider and attributes. Without a filter, the list contains every pool in the model, including the default pools of its storage providers.
@@ -86,6 +94,10 @@ To inspect one pool, select it by its exact name. A valid name that matches no p
 (updating-a-storage-pool)=
 ## Updating a storage pool
 
+```{ibnote}
+See also: {ref}`Juju CLI | Update a storage pool <update-a-storage-pool>`, [Terraform Provider for Juju | Update a storage pool](https://documentation.ubuntu.com/terraform-provider-juju/latest/howto/manage-storage-pools/#update-a-storage-pool)
+```
+
 Updating a pool replaces its attributes and can change its provider. A user gives the pool's name and the attributes it should have, and may also give a different storage provider. The update replaces the pool's attributes with the attributes the user gives, so the pool keeps no attribute that the user omits; the controller accepts an update that gives none, as long as the provider accepts an empty set. The pool keeps its storage provider unless the user gives a different one. The provider validates the resulting attributes as it does at creation.
 
 **Who can do this:** A user with at least {ref}`model write access <user-access-model-write>`.
@@ -98,6 +110,10 @@ Updating a pool replaces its attributes and can change its provider. A user give
 
 (removing-a-storage-pool)=
 ## Removing a storage pool
+
+```{ibnote}
+See also: {ref}`Juju CLI | Remove a storage pool <remove-a-storage-pool>`, [Terraform Provider for Juju | Remove a storage pool](https://documentation.ubuntu.com/terraform-provider-juju/latest/howto/manage-storage-pools/#remove-a-storage-pool)
+```
 
 Removing a pool deletes its settings from the model, not the storage provisioned from it. Juju refuses removal while any such storage still exists or the pool is otherwise {ref}`in use <storage-pools-in-use>`. A user gives the pool's name.
 

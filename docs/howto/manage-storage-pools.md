@@ -13,6 +13,7 @@ See also: {ref}`storage-pool`
 
 This document shows how to work with storage pools.
 
+(create-a-storage-pool)=
 ## Create a storage pool
 
 ```{ibnote}
@@ -71,7 +72,12 @@ juju storage-pools --name rootfs
 See more: {ref}`command-juju-storage-pools`
 ```
 
+(view-the-default-storage-pool)=
 ## View the default storage pool
+
+```{ibnote}
+See also: {ref}`default-storage-pools`
+```
 
 To find out the default storage pool for your block-type / filesystem-type, run the `model-config` command followed by the `storage-default-block-source` / `storage-default-filesystem-source` key. For example:
 
@@ -83,6 +89,7 @@ juju model-config storage-default-block-source
 See more: {ref}`command-juju-model-config`, {ref}`model-config-storage-default-block-source`, {ref}`model-config-storage-default-filesystem-source`
 ```
 
+(update-a-storage-pool)=
 ## Update a storage pool
 
 ```{ibnote}
@@ -117,6 +124,7 @@ See more: {ref}`command-juju-update-storage-pool`
 
 ---
 
+(remove-a-storage-pool)=
 ## Remove a storage pool
 
 ```{ibnote}
