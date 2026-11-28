@@ -95,30 +95,40 @@ found is still added, with a warning: the storage class is nominated at
 bootstrap time, by scheduling a Kubernetes storage pool and setting the
 ` + "`storage-default-filesystem-source` " + `model configuration to that pool.
 
-If the cluster does not have a storage provisioning capability, use the
-` + "`--skip-storage` " + `option to add the cluster without any workload storage configured.
+The kubeconfig context must let Juju prepare an administrative
+credential in the cluster. The new credential has the same name as the
+cloud. Use ` + "`--client`" + ` for the client, ` + "`--controller NAME`" + ` for the
+controller, or both. Specify a destination when piping kubeconfig data.
+
+For a cluster without workload storage, use ` + "`--skip-storage`" + ` to skip
+the cluster metadata and storage lookup. Juju still prepares the credential.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/cloud/
 
 `
 
 const usageAddCAASExamples = `
-When your kubeconfig file is in the default location:
+Register the staging context and its credential on this client:
 
-    juju add-k8s myk8scloud
-    juju add-k8s myk8scloud --client
-    juju add-k8s myk8scloud --controller mycontroller
-    juju add-k8s --context-name mycontext myk8scloud
-    juju add-k8s myk8scloud --region cloudNameOrCloudType/someregion
-    juju add-k8s myk8scloud --cloud cloudNameOrCloudType
-    juju add-k8s myk8scloud --cloud cloudNameOrCloudType --region=someregion
+    juju add-k8s staging-k8s --context-name staging --client
 
-To add a Kubernetes cloud using data from your kubeconfig file, when this file is not in the default location:
+Register the current context and its credential on mycontroller:
 
-    KUBECONFIG=path-to-kubeconfig-file juju add-k8s myk8scloud --cluster-name=my_cluster_name
+    juju add-k8s staging-k8s --controller mycontroller
 
-To add a Kubernetes cloud using data from kubectl, when your kubeconfig file is not in the default location:
+Register a Kubernetes cloud hosted in the AWS us-east-1 region:
 
-    kubectl config view --raw | juju add-k8s myk8scloud --cluster-name=my_cluster_name
+    juju add-k8s staging-k8s --region aws/us-east-1 --client
 
+Register a cluster named staging from another kubeconfig file:
+
+    KUBECONFIG=staging-kubeconfig.yaml juju add-k8s staging-k8s --cluster-name=staging --client
+
+Register the current context from kubeconfig data on standard input:
+
+    kubectl config view --raw --minify --flatten | juju add-k8s staging-k8s --client
 `
 
 // AddCAASCommand is the command that allows you to add a caas and credential
@@ -234,8 +244,8 @@ func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.contextName, "context-name", "", "Specify the Kubernetes context to import")
 	f.StringVar(&c.hostCloudRegion, "region", "", "Specify the Kubernetes cluster region or cloud/region")
 	f.StringVar(&c.hostCloud, "cloud", "", "Specify the Kubernetes cluster cloud")
-	f.BoolVar(&c.skipStorage, "skip-storage", false, "Skip storage provisioning for clusters that don't have storage")
-	f.StringVar(&c.credential, "credential", "", "Specify the credential to use when accessing the cluster")
+	f.BoolVar(&c.skipStorage, "skip-storage", false, "Skip cluster metadata and workload storage lookup")
+	f.StringVar(&c.credential, "credential", "", "Reserved for GKE discovery; unavailable for kubeconfig imports")
 	// TODO(k8s) - support k8s tooling in strict snap
 	// f.StringVar(&c.project, "project", "", "project to which the cluster belongs")
 	// f.StringVar(&c.resourceGroup, "resource-group", "", "the Azure resource group of the AKS cluster")

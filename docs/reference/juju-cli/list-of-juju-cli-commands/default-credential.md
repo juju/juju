@@ -21,7 +21,7 @@ juju default-credential [options] <cloud name> [<credential name>]
 
 Set the default credential for the `google` cloud:
 
-    juju default-credential google <credential>
+    juju default-credential google production
 
 View the default credential for the `google` cloud:
 
@@ -38,3 +38,7 @@ This command sets a locally stored credential to be used as a default.
 
 Default credentials avoid the need to specify a particular set of
 credentials when more than one credential is available on the client for a given cloud.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/credential/

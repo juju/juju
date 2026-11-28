@@ -26,6 +26,15 @@ On Microsoft Windows, the directory is in a different place (usually `C:\Users\{
 
 ```
 
+(credential-stores-and-defaults)=
+## Credential stores and defaults
+
+The client stores named credentials and its per-cloud default in `credentials.yaml` in its data directory. The default applies only to that client. Selecting a different local default neither changes another workstation nor switches an existing model.
+
+For credential commands that accept both destinations, `--client` targets the local store and `--controller NAME` targets that controller; the two flags together select both. Specify the destination for a non-interactive write. To compare independent copies, {ref}`inspect the credential in each store <view-details-about-a-credential>`.
+
+The lookup order depends on the command. {ref}`Creating a model <command-juju-add-model>` and {ref}`switching a model's credential <command-juju-set-credential>` use different lookup rules.
+
 ## Backward compatibility
 
 `juju` has been designed to be backward compatible and can talk to older or newer existing controllers if the controller and the client are on the same major version (e.g., 4.0 and 4.1). As such, performing simple commands can be achieved without upgrading the client. At the same time, it is always recommended to be up-to-date with the client and controller where possible.

@@ -12,9 +12,9 @@ See also: {ref}`manage-models`
 
 In Juju, a **model**  is an abstraction that holds {ref}`applications <application>` and application supporting components -- {ref}`machines <machine>`, {ref}`storage <storage>`, {ref}`network spaces <space>`, {ref}`relations <relation>`, etc.
 
-A model is created by a {ref}`user <user>`, and owned in perpetuity by that user (or a new user with the same name), though it may also be used by any other user with model access level, within the limits of their level.
+A model has a qualified name. The user qualifier distinguishes models with the same name; it does not confer {ref}`model admin access <user-access-model-admin>`.
 
-A model is created on a {ref}`controller <controller>`.  Both the model and the controller are associated with a {ref}`cloud <cloud>` (and a cloud {ref}`credential <credential>`), though they do not both have to be on the same cloud (this is a scenario where you have a 'multicloud controller' and where you may have 'cross-model relations'). Any entities added to the model will use resources from that cloud.
+A model runs on a {ref}`cloud <cloud>` managed by its {ref}`controller <controller>`. That cloud may differ from the controller's own cloud. When a model uses cloud credentials, it draws its authentication material from a {ref}`controller credential <model-credentials>` for that cloud.
 
 One can deploy multiple applications to the same model. Thus, models allow the logical grouping of applications and infrastructure that work together to deliver a service or product.  Moreover, one can apply common {ref}`configurations <configuration>` to a whole model. As such, models allow the low-level storage, compute, network and software components to be reasoned about as a single entity as well.
 
@@ -33,3 +33,37 @@ A model configuration is a rule or a set of rules that define the behavior of a 
 ```{ibnote}
 See more: {ref}`list-of-model-configuration-keys`,  {ref}`configure-a-model`
 ```
+
+(choosing-a-credential-for-a-new-model)=
+## Choosing a credential for a new model
+
+```{ibnote}
+See also: {ref}`Juju CLI | Add a model <add-a-model>`, [Terraform Provider for Juju | Add a credential to a model](https://canonical.com/juju/docs/terraform-provider-juju/latest/howto/manage-credentials/#add-a-credential-to-a-model)
+```
+
+When a client omits the credential identifier, the controller looks for the signed-in user's sole {ref}`valid <credential-validity>`, non-revoked credential on the target cloud. With no unique match, the controller can create the model without a credential if the cloud supports empty authentication.
+
+**Who can do this:** A user with at least {ref}`cloud add-model access <user-access-cloud-add-model>` on the target cloud or a {ref}`controller superuser <user-access-controller-superuser>`.
+
+**Errors:** Model creation can fail with these errors:
+
+- *Error message:* `permission denied`. *Trigger:* The caller lacks access to add a model on the target cloud. *What to do:* Ask for cloud `add-model` access.
+- *Error message:* ends with `a credential needs to be specified`. *Trigger:* The cloud requires authentication and the controller found no unique credential. *What to do:* Supply a credential identifier for the target cloud.
+
+(changing-a-models-credential)=
+## Changing a model's credential
+
+```{ibnote}
+See also: {ref}`Juju CLI | Change the credential a model uses <change-the-credential-a-model-uses>`, [Terraform Provider for Juju | Add a credential to a model](https://canonical.com/juju/docs/terraform-provider-juju/latest/howto/manage-credentials/#add-a-credential-to-a-model)
+```
+
+Changing a model's credential binds that model to another credential on the same cloud. {ref}`Updating a credential's material <updating-a-credential>` changes what all models bound to that credential use.
+
+**Who can do this:** A {ref}`model admin <user-access-model-admin>` on this model or a {ref}`controller superuser <user-access-controller-superuser>`.
+
+**Errors:** The controller can refuse a model credential change with these errors:
+
+- *Error message:* `the operation has been blocked` or the configured block message. *Trigger:* A change block is active. The controller checks the block before model access. *What to do:* Have the change block lifted before retrying.
+- *Error message:* `permission denied`. *Trigger:* The caller lacks access to make the switch. *What to do:* Ask a model admin or controller superuser to switch the model.
+- *Error message:* contains `has different cloud to credential`. *Trigger:* The replacement belongs to another cloud. *What to do:* Choose a credential for the model's cloud.
+- *Error message:* contains `not found` and `cloud credential`. *Trigger:* The replacement is absent from the controller. *What to do:* Check its cloud, owner and name.

@@ -71,7 +71,7 @@ clouds:
 (lxd-cloud-localhost-vs-remote)=
 ### Localhost vs. remote LXD
 
-- **Local LXD cloud**: Recognized as `localhost` cloud. Credential pre-defined for admin users.
+- **Local LXD cloud**: Juju recognises it as `localhost`.
 - **Clustered LXD cloud**: In Juju, this counts as a remote cloud. You must add its definition to Juju explicitly.
 - **Remote LXD cloud**: Requires the API endpoint URL for the remote LXD server.
 
@@ -79,23 +79,23 @@ clouds:
 ## Credentials
 
 ```{ibnote}
-See also: {ref}`credential`, {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
+See also: {ref}`Juju CLI | Add a credential for a machine cloud <add-a-credential-for-a-machine-cloud>`, [Terraform Provider for Juju | Define a credential](https://canonical.com/juju/docs/terraform-provider-juju/latest/howto/manage-credentials/#define-a-credential)
 ```
 
 As for all machine clouds, credentials are stored in `credentials.yaml` on the client and follow this schema:
 
 ```yaml
 credentials:
-  localhost                       # or user-defined for remote
+  localhost:                       # Use the registered cloud name for remote LXD
     <credential-name>:             # User-defined credential name
       auth-type: <auth-type>       # certificate | interactive (see Authentication types below)
       <attribute>: <value>         # Auth-type-specific attributes (see below)
 ```
 
 
-**Local LXD cloud:** If you are a Juju admin user, the credential is already known to Juju. Run `juju bootstrap`, then `juju credentials` to confirm. (Pre-defined credential name in Juju: `localhost`.) Otherwise, add manually as you would a remote.
+**Local LXD cloud.** During bootstrap to `localhost`, Juju can obtain a credential through the local LXD socket. The account running the client needs access to that socket. Run `juju credentials --client` to check the local store.
 
-**Remote LXD cloud:** Requires the API endpoint URL for the remote LXD server.
+**Remote LXD cloud.** Use a certificate or an interactive trust credential for the remote endpoint.
 
 ```{ibnote}
 See more: [LXD | How to add remote servers](https://documentation.ubuntu.com/lxd/en/latest/remotes/), {ref}`lxd-appendix-remote-bootstrap`
@@ -111,7 +111,7 @@ LXD supports the following authentication types:
 
 Attributes:
 
-- `server-cert`: The path to the PEM-encoded LXD server certificate file (required).
+- `server-cert`. The path to the PEM-encoded LXD server certificate file. Supply it at the interactive prompt. When importing from a file for a remote server that already trusts the client certificate, Juju can fetch the server certificate if this field is omitted.
 - `client-cert`: The path to the PEM-encoded LXD client certificate file (required).
 - `client-key`: The path to the PEM-encoded LXD client key file (required).
 
@@ -120,8 +120,10 @@ Attributes:
 
 Attributes:
 
-- `trust-token`: The LXD server trust token (optional, required if `trust-password` is not set). This is the recommended method for authenticating with a remote LXD server. Added in Juju 3.6.4.
-- `trust-password`: The LXD server trust password (optional, required if `trust-token` is not set).
+- `trust-token`. The LXD server trust token. Use this for current LXD versions.
+- `trust-password`. The trust password for an LXD server that supports password-based trust.
+
+Supply only one of these fields. Juju uses it to establish certificate trust with the remote server.
 
 ```{ibnote}
 See more: [LXD | Adding client certificates using tokens](https://documentation.ubuntu.com/lxd/en/stable-5.0/authentication/#adding-client-certificates-using-tokens)

@@ -69,23 +69,20 @@ Source the OpenStack RC file (`source <path to file>`) before running `juju add-
 ## Credentials
 
 ```{ibnote}
-See also: {ref}`credential`, {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
+See also: {ref}`Juju CLI | Add a credential for a machine cloud <add-a-credential-for-a-machine-cloud>`, [Terraform Provider for Juju | Define a credential](https://canonical.com/juju/docs/terraform-provider-juju/latest/howto/manage-credentials/#define-a-credential)
 ```
 
-As for all machine clouds, credentials are stored in `credentials.yaml` on the client and follow this schema:
+An OpenStack {ref}`credential <credential-definition>` in a client credential file has this structure:
 
 ```yaml
 credentials:
-  <your-openstack-cloud>  # Cloud name as defined above
+  <your-openstack-cloud>:          # Registered cloud name
     <credential-name>:             # User-defined credential name
-      auth-type: <auth-type>       # userpass (see Authentication types below)
+      auth-type: <auth-type>       # userpass | access-key (see Authentication types below)
       <attribute>: <value>         # Auth-type-specific attributes (see below)
 ```
 
-
-```{important}
-**If you want to use environment variables (recommended):** Source the OpenStack RC file. Run `juju add-credential` and accept the suggested defaults.
-```
+To discover credential values from the OpenStack environment or `$HOME/.novarc`, use {ref}`juju autoload-credentials <command-juju-autoload-credentials>`. Interactive `add-credential` prompts for the attributes.
 
 (openstack-credential-authentication-types)=
 ### Authentication types
@@ -106,6 +103,8 @@ Attributes:
 - `project-domain-name`: The OpenStack project domain name (optional).
 - `user-domain-name`: The OpenStack user domain name (optional).
 - `trust-id`: The OpenStack Keystone trust ID (optional; requires Keystone v3).
+
+For Keystone v3 project scope, identify the project with `tenant-name` or `tenant-id`. Use `user-domain-name` for the user's domain and `project-domain-name` for the project's domain. Use `domain-name` to select domain scope.
 
 For Keystone v3 trust authentication, use `userpass` with `username`,
 `password`, `user-domain-name`, `version: "3"`, and `trust-id`. The trust
