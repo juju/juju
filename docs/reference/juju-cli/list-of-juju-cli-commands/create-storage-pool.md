@@ -18,11 +18,11 @@ juju create-storage-pool [options] <name> [<provider>] [<key>=<value> ...]
 
 ## Examples
 
-On an AWS model, create an EBS pool:
+Create an EBS pool named `workload-storage` for gp3 volumes on an AWS model:
 
     juju create-storage-pool workload-storage ebs volume-type=gp3
 
-On a Kubernetes model with a storage class named `fast`:
+Create a pool named `fast-storage` using the `fast` storage class on a Kubernetes model:
 
     juju create-storage-pool fast-storage storage-class=fast storage-mode=RWO
 

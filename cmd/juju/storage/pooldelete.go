@@ -31,6 +31,8 @@ Further reading:
 `
 
 const poolRemoveCommandExamples = `
+Remove the pool named ` + "`fast-storage`" + ` from the selected model without a confirmation prompt:
+
     juju remove-storage-pool fast-storage
 `
 
