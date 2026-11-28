@@ -54,7 +54,7 @@ To drill down into a (user or charm) secret, run the `show-secret` command follo
 juju show-secret 9m4e2mr0ui3e8a215n4g
 ```
 
-You can also add options to specify the format, the revision, whether to reveal the value of a secret, etc.
+To inspect the {ref}`recorded backend of each revision <secret-revision-backend>`, add `--revisions`. You do not need `--reveal`; the two options cannot be combined.
 
 ```{ibnote}
 See more: {ref}`command-juju-show-secret`

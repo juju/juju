@@ -122,6 +122,8 @@ To view detailed information about a specific model, use the `show-model`  comma
 juju show-model test
 ```
 
+Use the {ref}`model's backend summary <model-secret-backend-summary>` for model details, or {ref}`check the selected backend <check-model-secret-backend>` to find where new revisions will go.
+
 ````{dropdown} Example output for an empty model called 'test'
 
 ```text
@@ -487,23 +489,21 @@ See more: {ref}`controller-config-agent-ratelimit-rate`, {ref}`controller-config
 ```
 
 - **If the model has multiple users:** Ensure that all the users have been set up on the destination controller. The operation will be aborted, and an advisory message displayed, if this is not the case.
-- **If the model contains secrets:** Set up the target controller to use the same secret bank end as the source controller. For example, for a backend called `myvault`, as below. This will ensure that any secrets are correctly migrated with the model.
+- **Check secret backends, even for a model with no secrets yet.** On the source, {ref}`check the model's selection <check-model-secret-backend>` and {ref}`inspect existing revision locations <check-secret-backend-movement>`. The target controller must have the selected backend by name and be able to resolve every named backend still referenced by a revision. During a backend change these names can differ.
 
+  For each named external backend, check the registration on the target. For example:
 
-```text
-$ juju switch sourcecontroller
-$ juju show-secret-backend myvault
-myvault:
-  backend: vault
-  config:
-    endpoint: http://10.0.0.77:8200
-  secrets: 0
-  status: active
-  id: 63c8ad37c906eb278540e942
+  ```text
+  juju show-secret-backend -c targetcontroller myvault
+  ```
 
-$ juju switch targetcontroller
-$ juju add-secret-backend --config /path/to/backendcfg.yaml --import-id 63c8ad37c906eb278540e942
-```
+  If it is missing, have a target controller superuser {ref}`register the same store <add-a-secret-backend>`. For a Vault registration called `myvault`, use a configuration file that connects the target to the existing values:
+
+  ```text
+  juju add-secret-backend -c targetcontroller myvault vault --config vault_config.yaml
+  ```
+
+  Migration from Juju 4.1 matches backend names and rewrites revision references to the target's IDs. It does not copy external values. Matching IDs were a requirement of the legacy importer, not a reason to pass `--import-id` here. A successful `migrate --dry-run` does not perform the migration worker's target backend checks.
 
 **Migrate the model.** To migrate a model on the current controller to a destination controller, use the `migrate` command followed by the name of the model and the name of the destination controller, as below:
 

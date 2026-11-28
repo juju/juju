@@ -14,7 +14,7 @@ juju migrate [options] <model-name> <target-controller-name>
 | Flag | Default | Usage |
 | --- | --- | --- |
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--dry-run` | false | Runs the migration prechecks, but does not start the migration. Returns nothing if the migration can proceed. |
+| `--dry-run` | false | Report whether initial checks pass without starting migration; this does not verify target secret backends |
 
 ## Details
 

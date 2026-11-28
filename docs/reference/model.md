@@ -33,3 +33,8 @@ A model configuration is a rule or a set of rules that define the behavior of a 
 ```{ibnote}
 See more: {ref}`list-of-model-configuration-keys`,  {ref}`configure-a-model`
 ```
+
+(model-secret-backend-summary)=
+## Model secret backend summary
+
+Detailed model information includes the model's built-in {ref}`secret backend <secret-backend-built-ins>` and the external registrations referenced by its secrets. A user with at least model {ref}`write <user-access-model-write>` access can see this section; a read-only viewer cannot. An absent entry does not mean the backend is unavailable. The summary is neither the {ref}`model's selected backend <secret-backend-check-selection>` nor the {ref}`controller inventory <secret-backend-inspection>`; do not use its `num-secrets` field to decide when to remove a registration.

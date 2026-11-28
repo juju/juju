@@ -33,11 +33,24 @@ type listSecretBackendsCommand struct {
 }
 
 var listSecretBackendsDoc = `
-Displays the secret backends available for storing secret content.
+Lists registrations on the specified controller. The table shows Name, Type,
+Secrets and Message, ordered by type and name. Use YAML or JSON for configuration
+and full status messages. Only these formats accept ` + "`--reveal`" + `; the table ignores
+it with a notice. An empty result prints a notice and no formatted collection.
+To inspect one name, use show-secret-backend instead.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/secret-backend/
 `
 
 const listSecretBackendsExamples = `
+List the current controller's backends and count the distinct secrets that reference each one:
+
     juju secret-backends
+
+Inspect each backend's configuration and full status message in YAML:
+
     juju secret-backends --format yaml
 `
 
@@ -83,7 +96,7 @@ func (c *listSecretBackendsCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.SetFlags.
 func (c *listSecretBackendsCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.revealSecrets, "reveal", false, "Include sensitive backend config content")
+	f.BoolVar(&c.revealSecrets, "reveal", false, "Include sensitive backend settings in YAML or JSON (controller superusers only)")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,
