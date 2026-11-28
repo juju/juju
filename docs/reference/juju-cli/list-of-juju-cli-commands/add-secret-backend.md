@@ -23,7 +23,7 @@ Register a Vault backend named `myvault` using the settings in a private YAML fi
 
     juju add-secret-backend myvault vault --config vault_config.yaml
 
-To request a two-hour lifetime for Juju's Vault access token at registration, use this version instead:
+Register a Vault backend named `myvault` using the settings in a private YAML file and request a two-hour lifetime for Juju's Vault access token:
 
     juju add-secret-backend myvault vault --config vault_config.yaml token-rotate=2h
 

@@ -68,7 +68,7 @@ Select the registered backend ` + "`myvault`" + ` for the current model:
 
     juju model-secret-backend myvault
 
-Restore the current model's default backend instead:
+Restore the current model's default secret backend:
 
     juju model-secret-backend auto
 `

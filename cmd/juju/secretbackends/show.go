@@ -42,7 +42,7 @@ Inspect the ` + "`myvault`" + ` registration without displaying sensitive settin
 
     juju show-secret-backend myvault
 
-Include sensitive backend settings in the output, such as the Vault access token:
+Inspect the ` + "`myvault`" + ` registration with sensitive settings visible, including the Vault access token:
 
     juju show-secret-backend myvault --reveal
 `
