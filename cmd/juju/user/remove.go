@@ -25,21 +25,31 @@ Deletes a Juju user from a controller.`[1:]
 
 // TODO(redir): Get updated copy for add-user as that may need updates, too.
 var removeUsageDetails = `
-This removes a user permanently.
+Remove a user permanently as a controller superuser. The command uses the
+current controller by default. Before removing the user, give another
+enabled user explicit model admin access on each model that would lose
+its last enabled administrator. Arrange any credential handover first.
 
-By default, the controller is the current controller.
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/user/
 
 `[1:]
 
 const removeUsageExamples = `
+Remove Bob from the current controller and verify the name at the prompt:
+
     juju remove-user bob
-    juju remove-user bob --yes
+
+Remove Bob from the operations controller after verifying the account:
+
+    juju remove-user -c operations bob
 `
 
 var removeUserMsg = `
 WARNING! This command will permanently archive the user %q on the %q
-controller. This action is irreversible and you WILL NOT be able to reuse
-username %q.
+controller. This action is irreversible. Reusing username %q creates a new
+user with a separate identity.
 
 If you wish to temporarily disable the user please use the`[1:] + " `juju disable-user`\n" + `command. See
 ` + " `juju help disable-user` " + `for more details.

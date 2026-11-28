@@ -223,68 +223,15 @@ To add / remove details of a controller to / from your Juju client, you need to 
 (register-a-controller)=
 ### Register a controller
 
-The procedure for how to make an external controller known to your local client varies slightly depending on whether the controller is private or public.
+To register using an invitation, {ref}`activate your local user <activate-a-local-user>`.
 
-**Register a private controller.** To register a private controller, use the `register` command followed by your unique registration key -- that is, copy-paste and run the line of code provided to you by the person who has added you to the controller via the `juju add-user` command. For example:
-
-```text
-juju register MFATA3JvZDAnExMxMDQuMTU0LjQyLjQ0OjE3MDcwExAxMC4xMjguMC4yOjE3MDcwBCBEFCaXerhNImkKKabuX5ULWf2Bp4AzPNJEbXVWgraLrAA=
-
-```
-
-This will start an interactive session prompting you to supply a local name for the controller as well as a username and a password for you as a new `juju` user on the controller.
-
-````{dropdown} Example session
-
-Admin adding a new user 'alex' to the controller:
-
-```text
-# Add a user named `alex`:
-$ juju add-user alex
-User "alex" added
-Please send this command to alex:
-    juju register MFUTBGFsZXgwFRMTMTAuMTM2LjEzNi4xOToxNzA3MAQghBj6RLW5VgmCSWsAesRm5unETluNu1-FczN9oVfNGuYTFGxvY2FsaG9zdC1jb250cm9sbGVy
-
-"alex" has not been granted access to any models. You can use "juju grant" to grant access.
-```
-
-New user 'alex' accessing the controller:
-
-```text
-$ juju register MFUTBGFsZXgwFRMTMTAuMTM2LjEzNi4xOToxNzA3MAQghBj6RLW5VgmCSWsAesRm5unETluNu1-FczN9oVfNGuYTFGxvY2FsaG9zdC1jb250cm9sbGVy
-Enter a new password: ********
-Confirm password: ********
-Enter a name for this controller [localhost-controller]: localhost-controller
-Initial password successfully set for alex.
-
-Welcome, alex. You are now logged into "localhost-controller".
-
-There are no models available. You can add models with
-"juju add-model", or you can ask an administrator or owner
-of a model to grant access to that model with "juju grant".
-
-```
-````
-
-The command also has a flag that allows you to overwrite existing information, for cases where you need to reregister a controller.
-
-```{ibnote}
-See more: {ref}`command-juju-register`, {ref}`add-a-user`
-```
-
-**Register a public controller.**
-
-First, check that your public controller meets the prerequisites: Your client must be able to connect to the controller API over port `17070`. Note: Juju takes care of everything else, and in most cases it takes care of this requirement too: for all clouds except for OpenStack Juju defaults to provisioning the controller with a public IP, and even for OpenStack you can choose to bootstrap with a floating IP as well.
-
-Then, to register the public controller, use the  `register` command followed by the DNS host name of the public controller. For example:
+To register a public controller, make sure your client can reach its API. The CLI uses port `443` unless you supply a port with the hostname. For example:
 
 ```text
 juju register public-controller.example.com
 ```
 
-This will open a login window in your browser.
-
-By specifying various flags you can also use this to reregister a controller or to type in your login information in your terminal rather than the browser.
+Follow the controller's sign-in prompts. If the public endpoint is already saved on this client, {ref}`sign in using its saved controller name <sign-in-as-a-user>`.
 
 ```{ibnote}
 See more: {ref}`command-juju-register`

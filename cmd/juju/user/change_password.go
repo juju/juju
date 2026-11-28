@@ -27,26 +27,40 @@ import (
 )
 
 const userChangePasswordDoc = `
-The user is, by default, the current user. The latter can be confirmed with
-the ` + "`juju show-user`" + ` command.
+Change the password for the local user signed in on the current controller.
+Use ` + "`--controller`" + ` to select a different controller. A controller superuser
+can provide a username to set another local user's password.
 
-If no controller is specified, the current controller will be used.
+Use ` + "`--reset`" + ` as a controller superuser to invalidate another local user's
+password and replace any outstanding invitation. With no username or with
+your own username, the CLI prints guidance and makes no change. Reset reads
+no password from standard input.
 
-A controller administrator can change the password for another user
-by providing desired username as an argument.
+Further reading:
 
-A controller administrator can also reset the password with a ` + "`--reset`" + ` option.
-This will invalidate any passwords that were previously set
-and registration strings that were previously issued for a user.
-This option will issue a new registration string to be used with
-` + "`juju register`" + `.`
+- https://canonical.com/juju/docs/juju-cli/latest/reference/user/
+`
 
 const userChangePasswordExamples = `
+Change your own local password on the current controller:
+
     juju change-user-password
+
+Set Bob's password on the current controller as a controller superuser:
+
     juju change-user-password bob
-    juju change-user-password bob --reset
-    juju change-user-password -c another-known-controller
-    juju change-user-password bob --controller another-known-controller
+
+Issue Bob a fresh registration invitation on the current controller as a controller superuser:
+
+    juju change-user-password --reset bob
+
+Change your own local password on the operations controller:
+
+    juju change-user-password -c operations
+
+Set Bob's local password on the operations controller as a controller superuser:
+
+    juju change-user-password -c operations bob
 `
 
 func NewChangePasswordCommand() cmd.Command {
@@ -74,8 +88,8 @@ type changePasswordCommand struct {
 }
 
 func (c *changePasswordCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.Reset, "reset", false, "Reset user password.")
-	f.BoolVar(&c.noPrompt, "no-prompt", false, "Don't prompt for password; instead, read a line from stdin.")
+	f.BoolVar(&c.Reset, "reset", false, "Issue a new registration invitation for another named local user")
+	f.BoolVar(&c.noPrompt, "no-prompt", false, "Read a new password from a newline-terminated line on standard input when changing a password")
 }
 
 // Info implements Command.Info.

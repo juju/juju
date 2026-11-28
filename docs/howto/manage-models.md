@@ -89,6 +89,7 @@ The command also allows you to specify the target controller in an abbreviated f
 See more: {ref}`command-juju-switch`
 ```
 
+(view-the-status-of-a-model)=
 ## View the status of a model
 
 To see the status of a model and everything inside of it, run the `status` command:
@@ -486,7 +487,7 @@ juju controller-config migration-agent-wait-time=30m
 See more: {ref}`controller-config-agent-ratelimit-rate`, {ref}`controller-config-agent-ratelimit-max`, {ref}`controller-config-migration-agent-wait-time`
 ```
 
-- **If the model has multiple users:** Ensure that all the users have been set up on the destination controller. The operation will be aborted, and an advisory message displayed, if this is not the case.
+- Check the destination accounts before migrating. The CLI checks that the source model's local usernames exist on the destination. If the source model reports external users, the CLI requires matching identity-provider URLs. The destination rejects imported users with disabled accounts. Arrange access for the intended users. Migration does not copy their local passwords.
 - **If the model contains secrets:** Set up the target controller to use the same secret bank end as the source controller. For example, for a backend called `myvault`, as below. This will ensure that any secrets are correctly migrated with the model.
 
 
@@ -553,11 +554,9 @@ See more: {ref}`command-juju-migrate`
 
 ````{dropdown} Troubleshooting
 
-```{dropdown} Error: migration: 'aborted, removing model from target controller: model data transfer failed, failed to import model into target controller: granting admin permission to the owner: user "<user>" is permanently deleted'
+```{dropdown} Error: model users are disabled on the target controller
 
-This error occurs when the model owner does not exist on the target controller. The solution is to create a user with that name on the target controller.
-
-**Note:** The underlying cause is because a model is tightly coupled with the user who has created it. Starting with Juju 4, it will be possible to identify models independently of the user.
+If the error ends with `are disabled on the target controller`, check the usernames in the message. {ref}`Enable the intended accounts <re-enable-a-user>` on the destination or {ref}`withdraw the corresponding model access <change-a-users-model-access>` on the source before retrying.
 
 ```
 

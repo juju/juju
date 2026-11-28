@@ -1,323 +1,423 @@
 ---
 myst:
   html_meta:
-    description: "Manage users in Juju: add, disable, enable, remove users, change passwords, and control access levels to controllers and models."
+    description: "Use the Juju CLI to invite and sign in users, inspect accounts, grant or revoke resource access, reset passwords, and safely suspend or remove users."
 ---
 
 (manage-users)=
 # How to manage users
 
 ```{ibnote}
-See also: {ref}`user`
+See also: {ref}`User <user>`
 ```
+
+To manage a user, first choose the controller that holds the account. The examples use `operations` as the controller name, `alex` as a local username and `payments` as a model name. Substitute the names from your deployment. Where a command takes `-c`, use it to select a controller other than the current one.
 
 (add-a-user)=
 ## Add a user
 
-```{tip}
-**If you're the controller creator:** <br> Juju has already set up a user for you. Your username is `admin` and your access level is that of controller `superuser`. Run `juju logout` to be prompted to set up a password. Use `juju change-user-password` to set the password.
+```{ibnote}
+See also: {ref}`Adding a local user <adding-a-local-user>`
 ```
 
-To add a user to a controller, run the `add-user` command followed by the username you want to assign to this user. For example:
+To invite a local user, sign in as a {ref}`controller superuser <user-access-controller-superuser>` and run `juju add-user` with the username. You may give the user a display name as a second argument. For example, invite Alex Morgan to the `operations` controller:
 
 ```text
-juju add-user alex
+juju add-user -c operations alex "Alex Morgan"
 ```
 
-This will create a user with username 'alex' and a controller `login` access level.
+Send Alex the complete `juju register` command printed by the CLI using a private channel. It contains Alex's invitation. Alex can now {ref}`activate the local user <activate-a-local-user>`; an administrator must separately {ref}`grant model access <change-a-users-model-access>` if Alex needs an existing model. If the CLI reports an error generating the invitation, {ref}`look up the username <view-details-about-a-user>` before adding it again: the controller may already have created it.
 
 ```{ibnote}
-See more: {ref}`user-access-levels`
+See more: {ref}`juju add-user <command-juju-add-user>`
 ```
 
-It will also print a line of code that you must give this user to run using their Juju client -- this will register the controller with their client and also prompt them to set up a password for the user.
+For someone who signs in through an external identity provider, use their {ref}`external username in a grant <users-eligible-for-an-access-grant>`. Adding a local account with a similar spelling would create a different identity.
 
-````{dropdown} Example user setup
+(activate-a-local-user)=
+## Activate a local user
 
-Admin adding a new user 'alex' to the controller:
+```{ibnote}
+See also: {ref}`Activating a local user <activating-a-local-user>`
+```
+
+To activate your user, run the `juju register` command exactly as the administrator sent it. Your client must be able to reach the **controller API** at the advertised endpoint, through its configured proxy if applicable. Being able to SSH to a host used to provision a manual cloud does not establish that connection.
+
+Choose and confirm a new password, then accept or enter the local name for the controller. Registration signs you in. If you can access one model, the CLI selects it; if several are available, choose one with {ref}`juju switch <switch-to-a-different-model>`. If none are available, ask an administrator for access to the model you need. Creating your own model is a separate {ref}`cloud-authorized task <add-a-model>`.
+
+If the CLI recognizes the controller address, follow the message for the local name it found. Sign out the saved user before replacing its account. Use `--replace` for an intended update to the local controller entry, not to rename the same controller or obtain a new invitation.
+
+If the controller refuses registration, the CLI reports `Provided registration token may have expired.` That message doesn't establish an expiry time. Check that you used the latest invitation for the intended account. If registration failed **after** the controller accepted your password, use that password for your next login. If you cannot sign in and need a fresh invitation, ask a {ref}`controller superuser <user-access-controller-superuser>` to {ref}`reset your local user's password <reset-another-local-users-password>`.
+
+```{ibnote}
+See more: {ref}`juju register <command-juju-register>`
+```
+
+If the administrator gave you a public controller hostname instead of an invitation, {ref}`register the public controller <register-a-controller>` with that hostname. This starts its sign-in flow; it does not activate a local password with an invitation.
+
+(view-all-the-known-users)=
+(list-users-on-a-controller)=
+## List users on a controller
+
+```{ibnote}
+See also: {ref}`Listing users on a controller <listing-users-on-a-controller>`
+```
+
+To list the controller users visible to your account, run:
 
 ```text
-# Add a user named `alex`:
-$ juju add-user alex
-User "alex" added
-Please send this command to alex:
-    juju register MFUTBGFsZXgwFRMTMTAuMTM2LjEzNi4xOToxNzA3MAQghBj6RLW5VgmCSWsAesRm5unETluNu1-FczN9oVfNGuYTFGxvY2FsaG9zdC1jb250cm9sbGVy
-
-"alex" has not been granted access to any models. You can use "juju grant" to grant access.
+juju users -c operations
 ```
 
-New user 'alex' accessing the controller:
+A controller superuser sees enabled users by default; other users see themselves. In the table, `*` marks the current user. To include disabled accounts in the superuser's directory, run:
 
 ```text
-$ juju register MFUTBGFsZXgwFRMTMTAuMTM2LjEzNi4xOToxNzA3MAQghBj6RLW5VgmCSWsAesRm5unETluNu1-FczN9oVfNGuYTFGxvY2FsaG9zdC1jb250cm9sbGVy
-Enter a new password: ********
-Confirm password: ********
-Enter a name for this controller {ref}`localhost-controller]: localhost-controller
-Initial password successfully set for alex.
-
-Welcome, alex. You are now logged into "localhost-controller".
-
-There are no models available. You can add models with
-"juju add-model", or you can ask an administrator or owner
-of a model to grant access to that model with "juju grant".
-
-```
-
-````
-
-```{note}
-Controller registration (and any other Juju operations that involves communication between a client and a controller) requires that the client be able to contact the controller over the network on TCP port 17070. In particular, if using a LXD-based cloud, network routes need to be in place (i.e. to contact the controller LXD container the client traffic must be routed through the LXD host).
+juju users -c operations --all
 ```
 
 ```{ibnote}
-See more: {ref}`command-juju-add-user`, {ref}`register-a-controller`
+See more: {ref}`juju users <command-juju-users>`
 ```
 
-## View all the known users
-
-To view a list of all the users known (i.e., allowed to log in) to the current controller, run the `users` command:
-
-
-```text
-juju users
-```
-
-The command also has flags that will allow you to specify a different controller, an output file, an output format, whether to print the full timestamp for connection times, etc.
+(list-users-of-a-model)=
+### List users of a model
 
 ```{ibnote}
-See more: {ref}`command-juju-users`
+See also: {ref}`Listing users with model access <listing-users-with-model-access>`
 ```
 
+To list the users visible to you on the `payments` model, give `users` the model name:
+
+```text
+juju users -c operations payments
+```
+
+The table shows model access and the last recorded connection to that model. The CLI uses `--all` and `--exact-time` only for controller listings. An empty roster prints `No users to display.` If you receive `user not found on model`, ask a model administrator to check the roster.
+
+```{ibnote}
+See more: {ref}`juju users <command-juju-users>`
+```
+
+(view-details-about-a-user)=
 ## View details about a user
 
-To view details about a specific user, run the `show-user` command followed by the name of the user. For example:
-
-```text
-juju show-user alice
+```{ibnote}
+See also: {ref}`Looking up a controller user <looking-up-a-controller-user>`
 ```
 
-This will display the user's username, display name (if available), access level, creation date, and last connection time, in a YAML format.
-
-
-````{dropdown} Example output for user 'admin'
+To look up your own record on the current controller, run `juju show-user` without a username. To inspect Alex's record on `operations` as a controller superuser, name both:
 
 ```text
-user-name: admin
-display-name: admin
-access: superuser
-date-created: 8 minutes ago
-last-connection: just now
+juju show-user -c operations alex
 ```
 
-````
+The CLI prints one YAML record by default. For local users, it includes the creation time and reports `never connected` when there is no recorded connection. Use `--exact-time` for full timestamps. The CLI omits both dates for external users. A controller superuser can look up disabled users by name. A `permission denied` error leaves the user's existence unresolved.
 
 ```{ibnote}
-See more: {ref}`command-juju-show-user`
+See more: {ref}`juju show-user <command-juju-show-user>`
 ```
 
+(view-details-about-the-current-user)=
 ## View details about the current user
 
-To see details about the current user, run the `whoami` command:
+```{ibnote}
+See also: {ref}`The CLI account for a controller <cli-accounts-by-controller>`
+```
+
+To see which account and model this client has selected, run:
 
 ```text
 juju whoami
 ```
 
-This will print the current controller, model, and user username.
-
-````{dropdown} Example output
-
-```text
-Controller:  microk8s-controller
-Model:       <no-current-model>
-User:        admin
-```
-
-````
+The client reads its local state. It can show a signed-in user with `<no-current-model>`, or report that there is no current controller or no saved login. To ask the controller for the current user's record, use {ref}`juju show-user <view-details-about-a-user>` instead.
 
 ```{ibnote}
-See more: {ref}`command-juju-whoami`
+See more: {ref}`juju whoami <command-juju-whoami>`
 ```
 
 (manage-user-access)=
 ## Manage user access
 
 ```{ibnote}
-See also: {ref}`user-access-levels`
+See also: {ref}`User access levels <user-access-levels>`; {ref}`Changes to a user's access grant <changes-to-a-users-access-grant>`
 ```
 
-The procedure for how to control a user's access level depends on whether you want to grant access at the level of the controller, model, application, or application offer or rather at the level of a cloud.
+To change a user's access, choose the target first. Use `grant` or `revoke` without a target argument for a **controller**, with model names for **models**, or with offer URLs for **offers**. Use `grant-cloud` or `revoke-cloud` for **clouds**. A bare application name does not select an application-level user grant.
 
-```{important}
-This division doesn't currently align perfectly with the scope hierarchy, which is rather controller > cloud > model > application > offer (because the cloud scope is designed as a restriction on the controller scope for cases where multiple clouds are managed via the same controller).
-```
+Before revoking, check the user's direct grant on each target and {ref}`choose the level they hold or a lower one <changes-to-a-users-access-grant>`. Check whether any {ref}`shared external access <shared-access-for-external-users>` still applies.
 
-### Manage access at the controller, model, application, or offer level
+Use separate arguments of the same kind for multiple targets. A model name-resolution error stops submission. After submission, one target can change even if another fails. Inspect each target before retrying.
 
-**Grant access.** To grant a user access at the controller, model, application, or offer level, run the `grant` command, specifying the user, applicable desired access level, and the target controller, model, application, or offer. For example:
-
-```text
-juju grant jim write mymodel
-```
-
-The command also has a flag that allows you to specify a different controller to operate in.
+(manage-access-at-the-controller-model-application-or-offer-level)=
+(change-a-users-controller-access)=
+### Change a user's controller access
 
 ```{ibnote}
-See more: {ref}`command-juju-grant`
+See also: {ref}`Changing controller access <changing-controller-access>`
 ```
 
-**Revoke access.** To revoke a user's access at the controller, model, application, or offer level, run the `revoke` command, specifying the user, access level to be revoked, and the controller, model, application, or offer to be revoked from. For example:
+To grant the external user `riley@example.com` login on `operations`, run the grant as a {ref}`controller superuser <user-access-controller-superuser>` and omit a positional target:
 
 ```text
-juju revoke joe read mymodel
-```
-
-The command also has a flag that allows you to specify a different controller to operate in.
-
-```{ibnote}
-See more: {ref}`command-juju-revoke`
-```
-
-### Manage access at the cloud level
-
-**Grant access.** To grant a user's access at the cloud level, run the `grant-cloud` command followed by the name of the user, the access level, and the name of the cloud. For example:
-
-```text
-juju grant-cloud joe add-model fluffy
+juju grant -c operations riley@example.com login
 ```
 
 ```{ibnote}
-See more: {ref}`command-juju-grant-cloud`
+See more: {ref}`juju grant <command-juju-grant>`
 ```
 
-**Revoke access.** To revoke a user's access at the cloud level, run the `revoke-cloud` command followed by the name of the user, the access level to be revoked, and the name of the cloud. For example:
+To reduce Riley's **existing direct controller superuser grant** to login, revoke `superuser` on that controller:
 
 ```text
-juju revoke-cloud joe add-model fluffy
+juju revoke -c operations riley@example.com superuser
 ```
 
 ```{ibnote}
-See more: {ref}`command-juju-revoke-cloud`
+See more: {ref}`juju revoke <command-juju-revoke>`
 ```
+
+(manage-access-at-the-cloud-level)=
+(change-a-users-cloud-access)=
+### Change a user's cloud access
+
+```{ibnote}
+See also: {ref}`Changing cloud access <changing-cloud-access>`
+```
+
+To change your own cloud grant, ask a different authorised administrator.
+
+To let Alex add models on the `engineering` cloud, name that cloud after the level. Act as a {ref}`cloud administrator <user-access-cloud-admin>` on `engineering` or a {ref}`controller superuser <user-access-controller-superuser>`:
+
+```text
+juju grant-cloud -c operations alex add-model engineering
+```
+
+Alex may also need to {ref}`add a cloud credential <add-a-credential>` before creating a model. This grant does not let Alex assign access on an existing model.
+
+```{ibnote}
+See more: {ref}`juju grant-cloud <command-juju-grant-cloud>`
+```
+
+To withdraw Alex's direct grant on `engineering`, check that Alex holds a direct grant there and revoke the lowest cloud level:
+
+```text
+juju revoke-cloud -c operations alex add-model engineering
+```
+
+```{ibnote}
+See more: {ref}`juju revoke-cloud <command-juju-revoke-cloud>`
+```
+
+(change-a-users-model-access)=
+### Change a user's model access
+
+```{ibnote}
+See also: {ref}`Changing model access <changing-model-access>`
+```
+
+To let Alex change workloads in `payments`, use `grant` with the model name. Act as a {ref}`model administrator <user-access-model-admin>` on `payments` or a {ref}`controller superuser <user-access-controller-superuser>`:
+
+```text
+juju grant -c operations alex write payments
+```
+
+```{ibnote}
+See more: {ref}`juju grant <command-juju-grant>`
+```
+
+To remove Alex's direct access to `payments`, check Alex's grant in the {ref}`model user list <list-users-of-a-model>`. If Alex is the {ref}`last active administrator <keeping-an-active-model-administrator>`, grant another enabled user model `admin` first. Revoke the lowest level:
+
+```text
+juju revoke -c operations alex read payments
+```
+
+To keep Alex as a reader when Alex directly holds `write`, revoke `write`:
+
+```text
+juju revoke -c operations alex write payments
+```
+
+If the error ends with `model would be left without an admin user`, grant another enabled user model `admin` on that model before retrying. {ref}`Check the affected models before retrying a multi-model request <manage-user-access>`.
+
+```{ibnote}
+See more: {ref}`juju revoke <command-juju-revoke>`
+```
+
+(change-a-users-offer-access)=
+### Change a user's offer access
+
+```{ibnote}
+See also: {ref}`Changing access to an offer <changing-access-to-an-offer>`
+```
+
+To {ref}`change a user's offer grant <control-access-to-an-offer>`, identify the offer URL and the recipient's username on the offering controller. To use the offer, {ref}`integrate with it from the consuming model <integrate-with-an-offer>`.
 
 (manage-a-users-login-details)=
 ## Manage a user's login details
 
-**Set a password.** The procedure for how to set a password depends on whether you are the controller creator or rather some other user.
+```{ibnote}
+See also: {ref}`Changing a local user's password <changing-a-local-users-password>`; {ref}`Resetting a local user's password <resetting-a-local-users-password>`
+```
 
--  To set a password as a controller creator user ('admin'), run the `change-user-password` command, optionally followed by your username, 'admin'.
+Change a password to choose the new value now. Reset another user's password to give that person a new invitation instead. For an external identity, use the identity provider's password procedure.
+
+(change-a-local-users-password)=
+### Change a local user's password
+
+```{ibnote}
+See also: {ref}`Changing a local user's password <changing-a-local-users-password>`
+```
+
+To set or change your own local password on `operations`, including for the bootstrap user `admin`, run:
 
 ```text
-juju change-user-password
+juju change-user-password -c operations
 ```
 
-This will prompt you to type, and then re-type, your desired password.
+Enter the new password twice. A controller superuser can give another local username to set that user's password. With `--no-prompt`, supply one newline-terminated password on standard input. Keep it out of shell history. If a self-change reports `recording macaroon` or `failed to update client credentials`, the controller has accepted the new password. Use it to sign in.
 
 ```{ibnote}
-See more: {ref}`command-juju-change-user-password`
+See more: {ref}`juju change-user-password <command-juju-change-user-password>`
 ```
 
-- To set a password as a non-controller-creator user, follow the prompt you get when registering the controller via the `register` command.
+(reset-another-local-users-password)=
+### Reset another local user's password
 
 ```{ibnote}
-See more: {ref}`register-a-controller`
+See also: {ref}`Resetting a local user's password <resetting-a-local-users-password>`
 ```
 
-**Change a password.** To change the current user's password, run the `change-user-password` command:
+To give Alex a fresh invitation, sign in as a different controller superuser. Confirm Alex is the intended user: resetting the password replaces both the old password and any outstanding activation key.
 
 ```text
-juju change-user-password
+juju change-user-password -c operations --reset alex
 ```
 
-This will prompt you to type, and then re-type, your desired password.
-
-The command also allows an optional username argument, and flags, allowing an admin to change / reset the password for another user.
+Pass the new registration command privately to Alex to {ref}`activate the local user <activate-a-local-user>` again. With `--reset` and your own username, or without a target username, the CLI tells you to change your own password and sends no reset.
 
 ```{ibnote}
-See more: {ref}`command-juju-change-user-password`
+See more: {ref}`juju change-user-password <command-juju-change-user-password>`
 ```
 
+(manage-a-user-s-login-status)=
 ## Manage a user's login status
 
-**Log in.**
-
-```{important}
-**If you're the controller creator:** <br> You've already been logged in as the `admin` user. To verify, run `juju whoami` or `juju show-user admin`; to set a password, run `juju change-user-password`; to log out, run `juju logout`.
+```{ibnote}
+See also: {ref}`The CLI account for a controller <cli-accounts-by-controller>`
 ```
 
-```{important}
-**If you've just registered an external controller with your client (via `juju register`):** <br> You're already logged in. Run `juju whoami` or `juju show-user <username>` to view your user details.
-```
+One client can be signed in to different controllers under different usernames. To switch users **on the same controller**, sign out the saved user first.
 
-To log in as a user on the current controller, run the `login` command, using the `-u` flag to specify the user you want to log in as. For example:
-
-```text
-juju login -u alice
-```
-
-This will prompt you to enter the password.
-
-The command also has flags that allow you to specify a controller, etc.
+(sign-in-as-a-user)=
+### Sign in as a user
 
 ```{ibnote}
-See more: {ref}`command-juju-login`
+See also: {ref}`Types of users <types-of-users>`; {ref}`Controller access levels <controller-access-levels>`
 ```
 
-**Log out.**
-
-```{important}
-**If you're the controller creator, and you haven't set a password yet:** <br> You will be prompted to set a password. Make sure to set it before logging out.
-```
-
-To log a user out of the current controller, run the `logout` command:
+To sign in as local user `alex` on the registered controller `operations`, run:
 
 ```text
-juju logout
+juju login -c operations --user alex
 ```
+
+Enter Alex's password when prompted. On a controller configured for OpenID Connect, omit `--user` and follow the identity provider's sign-in flow. For a local non-interactive login, `cannot deduce user, please pass --user with --no-prompt` means the CLI needs the local username explicitly. If a public controller presents an unverified certificate, confirm its fingerprint with the administrator before accepting it; don't enable unattended trust merely to bypass the prompt.
 
 ```{ibnote}
-See more: {ref}`command-juju-logout`
+See more: {ref}`juju login <command-juju-login>`
 ```
 
+(sign-out-as-a-user)=
+### Sign out as a user
+
+```{ibnote}
+See also: {ref}`The CLI account for a controller <cli-accounts-by-controller>`
+```
+
+To sign this client out of `operations` while keeping it registered, run:
+
+```text
+juju logout -c operations
+```
+
+If the CLI reports `preventing account loss`, it has a password saved for this account and has refused to clear the credentials. {ref}`Set a password you know <change-a-local-users-password>`, then repeat the ordinary logout; logout does not prompt you to set one. Use `--force` only if you mean to discard the saved credentials and have a way to sign in again. To remove the controller entry from this client, {ref}`unregister the controller <unregister-a-controller>` instead. Neither action disables the user on the controller.
+
+```{ibnote}
+See more: {ref}`juju logout <command-juju-logout>`
+```
+
+(manage-a-user-s-enabled-status)=
 ## Manage a user's enabled status
 
-To disable a user on the current controller, run the `disable-user` command followed by the name of the user. For example:
+```{ibnote}
+See also: {ref}`Disabling and re-enabling a user <disabling-and-re-enabling-a-user>`
+```
+
+Use disable and re-enable when the user should stop signing in to this controller temporarily. To withdraw access to one model, cloud or offer while retaining other access, {ref}`change the user's resource grant <manage-user-access>` instead.
+
+(disable-a-user)=
+### Disable a user
+
+```{ibnote}
+See also: {ref}`Disabling and re-enabling a user <disabling-and-re-enabling-a-user>`
+```
+
+To suspend Alex's sign-in on `operations`, sign in as a {ref}`controller superuser <user-access-controller-superuser>` and check the models Alex administers. If Alex is a model's {ref}`last active administrator <keeping-an-active-model-administrator>`, {ref}`grant another enabled user model admin access <change-a-users-model-access>` on that model. Then disable Alex:
 
 ```text
-juju disable-user mike
+juju disable-user -c operations alex
+```
+
+If the controller reports that `model(s) would be left without an admin user`, make that replacement grant on every affected model before retrying. As a controller superuser, you can {ref}`list disabled users <list-users-on-a-controller>` with `--all` or look up Alex by name.
+
+```{ibnote}
+See more: {ref}`juju disable-user <command-juju-disable-user>`
+```
+
+(re-enable-a-user)=
+### Re-enable a user
+
+```{ibnote}
+See also: {ref}`Disabling and re-enabling a user <disabling-and-re-enabling-a-user>`
+```
+
+To restore Alex's sign-in on `operations`, sign in as a {ref}`controller superuser <user-access-controller-superuser>` and check that Alex's retained grants are still appropriate. Then re-enable Alex:
+
+```text
+juju enable-user -c operations alex
 ```
 
 ```{ibnote}
-See more: {ref}`command-juju-disable-user`
+See more: {ref}`juju enable-user <command-juju-enable-user>`
 ```
 
-```{tip}
-**To view disabled users in the output of `juju users`:** Use the `--all` flag.
-```
-
-To re-enable a disabled user on a controller, run the `enable-user` command followed by the name of the user. For example:
-
-```text
-juju enable-user mike
-```
-
-```{ibnote}
-See more: {ref}`command-juju-enable-user`
-```
-
+(remove-a-user)=
 ## Remove a user
 
-To remove a user from the current controller, run the `remove-user` command followed by the name of the user. For example:
-
-```text
-juju remove-user bob
+```{ibnote}
+See also: {ref}`Removing a user <removing-a-user>`
 ```
 
-This will prompt you to confirm, and then proceed to remove.
+To remove Alex permanently, sign in as a {ref}`controller superuser <user-access-controller-superuser>` on `operations`, verify the account and arrange the handover before confirming removal:
 
-The command also has flags that allow you to specify a different controller, skip the confirmation, etc.
+1. If the suspension is temporary, {ref}`disable Alex <disable-a-user>` instead. The built-in controller owner `admin` cannot be removed.
+2. Give a different enabled user an explicit {ref}`model admin grant <change-a-users-model-access>` on every model that would otherwise fail the {ref}`model administrator check <keeping-an-active-model-administrator>`.
+3. Identify models using Alex's cloud credentials. Have their administrators switch each model to a replacement with {ref}`juju set-credential <command-juju-set-credential>`. If Alex's old controller credential is to be retired, have Alex run {ref}`juju remove-credential <command-juju-remove-credential>` for the named cloud and credential with `-c operations` while still able to sign in. Running that command from your account targets your credential, not Alex's.
+
+```{warning}
+Removal clears Alex's sign-in material, direct grants and registered SSH keys on this controller. Adding the same username later creates a new user; it won't restore Alex's previous access.
+```
+
+To remove the verified account, run:
+
+```text
+juju remove-user -c operations alex
+```
+
+Confirm the username and controller at the prompt, then answer `y` or `yes`. Skipping confirmation with `-y` does not bypass the controller's checks.
 
 ```{ibnote}
-See more: {ref}`command-juju-remove-user`
+See more: {ref}`juju remove-user <command-juju-remove-user>`
 ```
 

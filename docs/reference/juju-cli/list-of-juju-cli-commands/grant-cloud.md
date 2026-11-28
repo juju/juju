@@ -24,6 +24,13 @@ Grant user `joe` `add-model` access to cloud `fluffy`:
 
 
 ## Details
+Grant access on the named clouds registered with the selected controller.
+Ask a different authorised administrator to change your own cloud grant.
+
 Valid access levels are:
     admin
     add-model
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/cloud/

@@ -18,6 +18,26 @@ cloud/list-of-supported-clouds/index
 
 To Juju, a **cloud** (or backing cloud) is any entity that has an API that can provide compute, networking, and optionally storage resources in order for application units to be deployed on them. This includes public clouds such as Amazon Web Services, Google Compute Engine, Microsoft Azure and Kubernetes as well as private OpenStack-based clouds. Juju can also make use of environments which are not clouds per se, but which Juju can nonetheless treat as a cloud. MAAS and LXD fit into this last category. Because of this, in Juju a cloud is sometimes also called, more generally, a **substrate**.
 
+(cloud-access-levels)=
+## Cloud access levels
+
+On a cloud registered with a controller, {ref}`cloud add-model access <user-access-cloud-add-model>` permits creating a model there; {ref}`cloud admin <user-access-cloud-admin>` also permits administering that cloud. The cloud owner receives cloud admin at creation. A cloud grant does not include provider credentials or give access to existing models.
+
+(changing-cloud-access)=
+### Changing cloud access
+
+```{ibnote}
+See also: {ref}`Juju CLI | Change a user's cloud access <change-a-users-cloud-access>`
+```
+
+Changing the grant updates the user's direct access to this cloud.
+
+**Who can do this:** A {ref}`cloud admin <user-access-cloud-admin>` on this cloud or a {ref}`controller superuser <user-access-controller-superuser>`.
+
+**Errors:** The controller can refuse this operation with these errors:
+
+- `cannot change your own cloud access`: Ask a different authorised administrator to change your grant.
+
 (cloud-types)=
 ## Types of clouds
 

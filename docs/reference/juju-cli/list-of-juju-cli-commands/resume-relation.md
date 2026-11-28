@@ -7,7 +7,7 @@ Resumes a suspended relation to an application offer.
 
 ## Usage
 ```text
-juju resume-relation [options] <relation-id>[,<relation-id>]
+juju resume-relation [options] <relation-id>[ <relation-id>...]
 ```
 
 ### Options

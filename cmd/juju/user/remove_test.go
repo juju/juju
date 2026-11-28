@@ -76,17 +76,10 @@ func (s *RemoveUserCommandSuite) TestRemove(c *tc.C) {
 }
 
 func (s *RemoveUserCommandSuite) TestRemovePrompts(c *tc.C) {
-	username := "testing"
-	expected := `WARNING! This command will permanently archive the user "testing" on the "testing"
-controller. This action is irreversible and you WILL NOT be able to reuse
-username "testing".
-
-If you wish to temporarily disable the user please use the` + " `juju disable-user`\n" + `command. See
-` + " `juju help disable-user` " + `for more details.
-
-Continue (y/N)? `
+	username := "alex"
 	command, _ := user.NewRemoveCommandForTest(s.mockAPI, s.store)
-	ctx, _ := cmdtesting.RunCommand(c, command, username)
-	c.Assert(cmdtesting.Stdout(ctx), tc.DeepEquals, expected)
-
+	ctx, err := cmdtesting.RunCommand(c, command, username)
+	c.Assert(err, tc.ErrorMatches, "user deletion aborted")
+	c.Check(cmdtesting.Stdout(ctx), tc.Matches, `(?s).*"alex".*"testing".*Continue \(y/N\)\? `)
+	c.Check(s.mockAPI.username, tc.Equals, "")
 }

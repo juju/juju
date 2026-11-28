@@ -45,11 +45,10 @@ Grant user `sam` `read` access to application offers `fred/prod.hosted-mysql` an
 
 
 ## Details
-
 By default, the controller is the current controller.
 
-Users with read access are limited in what they can do with models:
-`juju models`, `juju machines`, and `juju status`
+With no target, change access on the controller. Otherwise specify model names
+or offer URLs, not both. To change cloud access, use grant-cloud.
 
 Valid access levels for models are:
     read
@@ -64,3 +63,7 @@ Valid access levels for application offers are:
     read
     consume
     admin
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/user/

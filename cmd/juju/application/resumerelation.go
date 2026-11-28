@@ -54,7 +54,7 @@ type resumeRelationCommand struct {
 func (c *resumeRelationCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "resume-relation",
-		Args:     "<relation-id>[,<relation-id>]",
+		Args:     "<relation-id>[ <relation-id>...]",
 		Purpose:  resumeHelpSummary,
 		Doc:      resumeHelpDetails,
 		Examples: resumeHelpExamples,

@@ -24,15 +24,27 @@ var helpSummary = `
 Show information about a user.`[1:]
 
 var helpDetails = `
-By default, the ` + "`YAML`" + ` format is used and the user name is the current
-user.
+By default, the CLI prints one YAML record for the account saved on the
+selected controller. Give a username to look up that user. A controller
+superuser can look up another user, including a disabled user.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/user/
 `[1:]
 
 const helpExamples = `
+Look up your account on the current controller:
+
     juju show-user
+
+Look up jsmith on the current controller as a controller superuser:
+
     juju show-user jsmith
+
+Print your account on the current controller as JSON:
+
     juju show-user --format json
-    juju show-user --format yaml
 `
 
 // UserInfoAPI defines the API methods that the info command uses.
@@ -51,7 +63,7 @@ type infoCommandBase struct {
 }
 
 func (c *infoCommandBase) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.exactTime, "exact-time", false, "Use full timestamp for connection times")
+	f.BoolVar(&c.exactTime, "exact-time", false, "Use full timestamps for local user records on the controller")
 }
 
 func NewShowUserCommand() cmd.Command {

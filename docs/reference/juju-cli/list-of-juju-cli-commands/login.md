@@ -15,14 +15,22 @@ juju login [options] [controller host name or alias]
 | --- | --- | --- |
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
 | `-c`, `--controller` |  | Controller to operate in |
-| `--no-prompt` | false | Don't prompt for password just read a line from `stdin` |
-| `--trust` | false | Automatically trust controller CA certificate |
+| `--no-prompt` | false | Skip interactive prompts and read a local password from standard input when needed |
+| `--trust` | false | Trust an unverified public controller CA in non-interactive mode only |
 | `-u`, `--user` |  | Log in as this local user |
 
 ## Examples
 
+Sign in to a public controller by its directory alias:
+
     juju login somepubliccontroller
-    juju login jimm.jujucharms.com
+
+Sign in to a public controller by hostname:
+
+    juju login public-controller.example.com
+
+Sign in to the current controller as the local user bob:
+
     juju login -u bob
 
 
@@ -39,15 +47,19 @@ if that's not provided.
 On success, the current controller is switched to the logged-in
 controller.
 
-If the user is already logged in, the `juju login` command does nothing
-except verify that fact.
+To sign in as a specific local user, pass `--user NAME`. If this client
+has saved a different account for the controller, run `juju logout` there
+first. For a saved OpenID Connect controller, omit `--user` and sign in
+through its identity provider.
 
-If the `-u` option is provided, the `juju login` command will attempt to log
-into the controller as that user.
+For non-interactive local password login, supply `--user NAME` if the CLI
+cannot determine the username. For an unverified public controller CA,
+verify its fingerprint when prompted. The `--trust` option applies only
+with `--no-prompt`.
 
-After login, a token ('macaroon') will become active. It has an expiration
-time of 24 hours. Upon expiration, no further `juju` commands can be issued
-and the user will be prompted to log in again.
+For a local password login, the controller issues a token valid for 24 hours.
+If a controller request needs fresh authentication, log in again. Commands
+that only read the client store do not require an active token.
 
 ### Aliases
 
@@ -55,3 +67,7 @@ Public controller aliases are provided by a directory service
 that is queried to find the host name for a given alias.
 The URL for the directory service may be configured
 by setting the environment variable `JUJU_DIRECTORY`.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/user/
