@@ -7,7 +7,7 @@ Adds storage to a unit after it has been deployed.
 
 ## Usage
 ```text
-juju add-storage [options] <unit> <storage-directive>
+juju add-storage [options] <unit> <storage-directive> [<storage-directive> ...]
 ```
 
 ### Options
@@ -18,69 +18,28 @@ juju add-storage [options] <unit> <storage-directive>
 
 ## Examples
 
-Add a 100MiB tmpfs storage instance for `pgdata` storage to unit `postgresql/0:`
+Request an additional 32 GiB EBS device if the Ceph OSD revision on ceph-osd/0
+declares osd-devices and has room for one more instance:
 
-    juju add-storage postgresql/0 pgdata=tmpfs,100M
+    juju add-storage ceph-osd/0 osd-devices=ebs,32G,1
 
-Add 10 1TiB storage instances to `osd-devices` storage to unit `ceph-osd/0` from
-the model's default storage pool:
+Request one additional OSD device for ceph-osd/0 using its current source and size:
 
-    juju add-storage ceph-osd/0 osd-devices=1T,10
-
-Add a storage instance from the (AWS-specific) ebs-ssd storage pool for "brick" storage to unit gluster/0:
-
-    juju add-storage gluster/0 brick=ebs-ssd
-
-Deploy PostgreSQL with one instance (count) of 100GiB, via the charm's `pgdata` storage label,
-using the default count (`1`) and storage pool
-(e.g., on AWS, the `ebs` pool; equivalent to spelling out `pgdata=ebs,100G,1`):
-
-    juju deploy postgresql --storage pgdata=100G
+    juju add-storage ceph-osd/0 osd-devices
 
 
 ## Details
 
-Add storage to a pre-existing unit within a model.
+Request additional instances of a storage name declared by the unit's charm
+revision. The command reports the new storage IDs, not a completed attachment.
+Inspect each ID with show-storage before using the storage.
 
-Storage is allocated from
-a storage pool, using parameters provided within a "storage directive". (Use
-`juju deploy --storage=<storage-name>=<storage-directive>` to provision storage during the
-deployment process).
+Pass one or more directives as separate arguments. A bare storage name requests
+one instance using the unit's current source and size. To override the request,
+use name=pool,count,size without spaces. Components may be omitted or reordered;
+use a positive integer for count and a size suffix such as G for GiB.
+Existing and requested instances together must fit the charm's count range.
 
-	juju add-storage <unit> <storage-name>=<storage-directive>
+Further reading:
 
-`<unit>` is the ID of a unit that is already in the model.
-
-`<storage-directive>` describes to the charm how to refer to the storage,
-and where to provision it from. `<storage-directive>` takes the following form:
-
-    <storage-name>[=<storage-configuration>]
-
-`<storage-name>` is defined in the charm's `metadata.yaml` file.
-
-`<storage-configuration>` is a description of how Juju should provision storage
-instances for the unit. They are made up of up to three parts: `<pool>`,
-`<count>`, and `<size>`. They can be provided in any order, but we recommend the
-following:
-
-    <pool>,<count>,<size>
-
-Each parameter is optional, so long as at least one is present. So the following
-storage directives are also valid:
-
-    <pool>,<size>
-    <count>,<size>
-    <size>
-
-`<pool>` is the storage pool to provision storage instances from. Must
-be a name from `juju storage-pools`.  The default pool is available via
-executing `juju model-config storage-default-block-source` or `storage-default-filesystem-source`.
-
-`<count>` is the number of storage instances to provision from `<storage-pool>` of
-`<size>`. Must be a positive integer. The default count is `1`. May be restricted
-by the charm, which can specify a maximum number of storage instances per unit.
-
-`<size>` is the number of bytes to provision per storage instance. Must be a
-positive number, followed by a size suffix.  Valid suffixes include M, G, T,
-and P.  Defaults to "1024M", or the which can specify a minimum size required
-by the charm.
+- https://canonical.com/juju/docs/juju-cli/latest/reference/storage/

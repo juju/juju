@@ -28,17 +28,19 @@ func NewShowCommand() cmd.Command {
 }
 
 const showCommandDoc = `
-Show extended information about storage instances.
+Inspect storage instances by their Juju IDs in the selected model. Pass
+each ID as a separate argument. Check the attachment and location for
+the intended unit.
 
-Storage instances to display are specified by storage IDs.
+Further reading:
 
-Storage IDs are positional arguments to the command and do not need to be comma
-separated when more than one ID is desired.
-
+- https://canonical.com/juju/docs/juju-cli/latest/reference/storage/
 `
 
 const showCommandExample = `
-    juju show-storage storage-id
+Inspect an instance listed by juju storage:
+
+    juju show-storage osd-devices/2
 `
 
 // showCommand attempts to release storage instance.

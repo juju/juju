@@ -574,11 +574,14 @@ This error occurs when the machines known by Juju differ from the ones the under
 ```
 ````
 
+(destroy-a-model)=
 ## Destroy a model
 
 ```{ibnote}
 See also: {ref}`removing-things`
 ```
+
+{ref}`Check storage before destroying the model <removing-a-unit-with-storage>`. Even unprovisioned or unattached model-scoped backing can require a decision: `--release-storage` releases it from Juju, whereas `--destroy-storage` requests destruction. `--force` makes neither choice.
 
 To remove a model, along with any associated machines and applications, use the `destroy-model` command followed by the name of the model:
 

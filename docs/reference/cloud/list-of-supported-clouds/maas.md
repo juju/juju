@@ -229,6 +229,8 @@ In addition to generic storage providers, MAAS provides the following {ref}`clou
 
 **Type:** Physical/virtual disks on MAAS machines
 
+The `maas` provider does not supply block or filesystem instances for ordinary dynamic workload storage. This does not rule out other eligible providers on a MAAS machine. Check the source before {ref}`adding storage to a unit <add-storage-to-a-unit>`.
+
 **Configuration options:**
 
 - `tags`: A comma-separated list of tags to match on the disks in MAAS. For example, tag some disks as `fast` and create a Juju storage pool that draws from disks with that tag.

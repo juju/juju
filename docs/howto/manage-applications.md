@@ -398,20 +398,10 @@ See more: {ref}`command-juju-set-constraints`
 ## Manage storage for an application
 
 ```{ibnote}
-See also: {ref}`storage`
+See also: {ref}`Storage requests <storage-requests>`
 ```
 
-**Set values.** You can set storage directives for an application during deployment or later.
-
-- To set storage directives for an application during deployment, run the `deploy` command with the `--storage` flag followed by the relevant key-value pair or a quotes-enclosed list of key-value pairs. For example, to deploy MySQL with a storage volume that has at least 6 GiB of memory using the `rootfs` pool:
-
-``` text
-juju deploy mysql --storage pgdata=6G,rootfs,1
-```
-
-```{ibnote}
-See more: {ref}`command-juju-deploy`
-```
+To configure storage for an application, {ref}`find the storage names declared by its charm <find-a-charms-storage-names>`, then {ref}`request storage during deployment <request-storage-for-an-application>` or {ref}`supply storage directives during a charm refresh <refreshing-an-application-with-storage>`.
 
 ## Change space bindings for an application
 
@@ -453,6 +443,8 @@ See more: {ref}`update-a-charm`
 See also: {ref}`removing-things`
 ```
 
+Before confirming, {ref}`check storage ownership and backing <removing-a-unit-with-storage>`. Removing the application removes its units' attachments. `--destroy-storage` additionally requests destruction of storage those units own; machine-local data can also be lost when a machine is retired.
+
 To remove an application, run the `remove-application` command followed by the name of the application. For example:
 
 
@@ -463,8 +455,6 @@ juju remove-application kafka
 This will issue a warning with a list of all the pieces to be removed and a request to confirm removal; once you've confirmed, this will remove all of the application's units.
 
 All associated resources will also be removed, provided they are not hosting containers or another application's units.
-
-If persistent storage is in use by the application, it will be detached and left in the model; however, if you wish to destroy that as well, you can use the `--destroy-storage` option.
 
 If the application has relations with another application, this relation will be terminated (which may adversely affect the other application). Removal of a subordinate relation will remove units of the subordinate application as well.
 

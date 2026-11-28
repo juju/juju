@@ -34,3 +34,14 @@ See more: [GitHub | `mysql-operator` > `metadata.yaml`](https://github.com/canon
 ```
 
 All charms have an implicit (not in their `metadata.yaml` / `charmcraft.yaml`) endpoint with name `juju-info`, interface `juju-info`, and role `provides`. This endpoint can be used to form {ref}`subordinate relations <subordinate-relation>` with subordinate charms that have an explicit endpoint with interface `juju-info` and role `requires`. See {ref}`the-implicit-juju-info-relation-endpoint` for details. Examples: [`ntp`](https://charmhub.io/ntp/integrations#juju-info), [`mysql-router`](https://charmhub.io/mysql-router/integrations#juju-info)
+
+(reading-an-applications-storage-requests)=
+## Reading an application's storage requests
+
+The Application API's `GetApplicationStorage` method (v22) returns each application's {ref}`storage requests <storage-requests>` keyed by the charm's storage names. Each entry gives the count per unit, size in MiB and source. Each requested application has its own result. The separate `UpdateApplicationStorage` method returns a not-implemented error for each submitted change.
+
+**Who can do this:** A user with at least {ref}`model read access <user-access-model-read>` can read the requests.
+
+**Errors:** Reading an application's storage requests can return this error:
+
+- *Error message:* `application "<name>" not found`. *Trigger:* The selected model has no application with that name. *What to do:* Check the application name in that model.

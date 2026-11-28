@@ -346,11 +346,14 @@ Juju cannot transfer files between two remote units because it uses public key a
 See more: {ref}`command-juju-scp`
 ```
 
+(remove-a-machine)=
 ## Remove a machine
 
 ```{ibnote}
 See also: {ref}`removing-things`
 ```
+
+Before retiring a machine, {ref}`identify the backing <identify-storage-backing>` for any data you need to keep. Look in the model-wide inventory, not just at attachments on this machine. Verify a backup outside the machine if its data could be lost. The removal preview reports selected units' attachments, not all machine-owned storage; an empty preview does not establish that the data will survive.
 
 To remove a machine, use the `remove-machine` command followed by the machine ID. For example:
 
