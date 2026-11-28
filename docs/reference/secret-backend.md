@@ -8,7 +8,7 @@ myst:
 # Secret backend
 
 ```{ibnote}
-See also: {ref}`Manage secret backends with the Juju CLI <manage-secret-backends>`
+See also: {ref}`Juju CLI | Manage secret backends <manage-secret-backends>`, {ref}`Terraform Provider for Juju | Manage secret backends <tfjuju:manage-secret-backends>`
 ```
 
 ```{ggarch}
@@ -85,7 +85,7 @@ If the model's selection is `auto`, see {ref}`secret-backend-active`. If the sel
 ## Registering a secret backend
 
 ```{ibnote}
-See also: {ref}`Add a secret backend with the Juju CLI <add-a-secret-backend>`
+See also: {ref}`Juju CLI | Add a secret backend <add-a-secret-backend>`, [Terraform Provider for Juju | Add a secret backend](https://documentation.ubuntu.com/terraform-provider-juju/latest/howto/manage-secret-backends/#add-a-secret-backend)
 ```
 
 The controller validates the provider settings and checks the proposed store before recording the registration. Unless the client supplies an ID, the controller allocates a UUID. Reusing a mutable registration's ID can update its name and rotation interval instead of creating a second backend; it does not change its type. {ref}`Preparing a model migration <migrate-a-model>` does not normally require copying an ID.
@@ -103,7 +103,7 @@ The controller validates the provider settings and checks the proposed store bef
 ## Listing and inspecting secret backends
 
 ```{ibnote}
-See also: {ref}`List secret backends with the Juju CLI <list-secret-backends>`, {ref}`Inspect one backend with the Juju CLI <inspect-a-secret-backend>`
+See also: {ref}`Juju CLI | List secret backends <list-secret-backends>`, {ref}`Juju CLI | View details about a secret backend <inspect-a-secret-backend>`
 ```
 
 The controller inventory includes unused named registrations. For the built-in Kubernetes store it lists `<model>-local` where revisions reference that store, not one `kubernetes` row for every model. Looking up an exact name filters this same inventory. No match yields an empty result, not proof that the controller has no backends.
@@ -120,7 +120,7 @@ An inspection probes Vault. A failed check returns status `error` and a message,
 ## Checking a model's selected backend
 
 ```{ibnote}
-See also: {ref}`Check a model's selected backend with the Juju CLI <check-model-secret-backend>`
+See also: {ref}`Juju CLI | Check a model's selected backend <check-model-secret-backend>`
 ```
 
 The model reports the registered name or `auto` for its platform default. This is the choice for future writes. It does not list revision locations or tell the reader whether a move has finished.
@@ -133,7 +133,7 @@ The model reports the registered name or `auto` for its platform default. This i
 ## Selecting a backend for a model
 
 ```{ibnote}
-See also: {ref}`Select a backend for a model with the Juju CLI <check-model-secret-backend>`
+See also: {ref}`Juju CLI | Select a backend for a model <check-model-secret-backend>`, [Terraform Provider for Juju | Set the secret backend for a model](https://documentation.ubuntu.com/terraform-provider-juju/latest/howto/manage-secret-backends/#set-the-secret-backend-for-a-model)
 ```
 
 A model writer can select an existing registration by name, or restore the platform default with `auto`. Success changes only that model's selection. The controller does not check provider health or wait for any values to move before accepting the selection.
@@ -150,7 +150,7 @@ A model writer can select an existing registration by name, or restore the platf
 ## Moving revisions automatically after a backend change
 
 ```{ibnote}
-See also: {ref}`Check revision locations with the Juju CLI <check-secret-backend-movement>`
+See also: {ref}`Juju CLI | Check where existing secret revisions are stored <check-secret-backend-movement>`
 ```
 
 ```{ggarch}
@@ -168,7 +168,7 @@ Juju workers move eligible revisions in the background. If a worker records a ne
 ## Updating a secret backend
 
 ```{ibnote}
-See also: {ref}`Update a secret backend with the Juju CLI <update-a-secret-backend>`
+See also: {ref}`Juju CLI | Update a secret backend <update-a-secret-backend>`, [Terraform Provider for Juju | Update a secret backend](https://documentation.ubuntu.com/terraform-provider-juju/latest/howto/manage-secret-backends/#update-a-secret-backend)
 ```
 
 An update identifies an existing registration by its current name. Juju overlays supplied settings on the existing configuration, then removes keys requested for reset, restoring provider defaults where defined. Juju validates the result and normally checks the connection. Skipping that check does not bypass validation, built-in protection, access checks or name conflicts.
@@ -188,7 +188,7 @@ A rename preserves the registration's ID, type and model selections. To connect 
 ## Rotating a backend token
 
 ```{ibnote}
-See also: {ref}`Configure token rotation with the Juju CLI <update-a-secret-backend>`
+See also: {ref}`Juju CLI | Configure token rotation <update-a-secret-backend>`
 ```
 
 Vault and Kubernetes support refreshing the credential Juju uses to access the backend. This does not rotate the value of any stored secret. A positive interval requests a token lifetime of at least one hour. Juju initially schedules a refresh attempt at three quarters of that interval, or after 24 hours, whichever is earlier. On success Juju saves the replacement credentials; a configured interval is not evidence that a refresh succeeded.
@@ -203,7 +203,7 @@ An update that omits the interval keeps the current setting. An explicit zero di
 ## Removing a secret backend
 
 ```{ibnote}
-See also: {ref}`Remove a secret backend with the Juju CLI <remove-a-secret-backend>`
+See also: {ref}`Juju CLI | Remove a secret backend <remove-a-secret-backend>`, [Terraform Provider for Juju | Remove a secret backend](https://documentation.ubuntu.com/terraform-provider-juju/latest/howto/manage-secret-backends/#remove-a-secret-backend)
 ```
 
 Ordinary removal refuses a registration while any revision on the controller references it. A model selecting an otherwise empty backend does not block removal. On success Juju removes the registration, its configuration and its token refresh schedule. **All** models selecting it revert to their own platform defaults.
