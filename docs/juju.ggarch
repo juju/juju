@@ -284,7 +284,10 @@ diagram "Native jump connection" from "Juju" {
     edges: type stream type ipc
     routing: orthogonal
   }
-  emphasize { focus [ssh_server] }
+  emphasize {
+    nodes [ssh_server]
+    focus [ssh_server]
+  }
   positions {
     client left-of ssh_controller gap: 125
     client align-middle ssh_gateway
