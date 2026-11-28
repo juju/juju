@@ -75,7 +75,8 @@ Each model selects one backend. With the default selection, `auto`, a machine mo
 
 (secret-backend-encryption-at-rest)=
 (encryption-at-rest)=
-## Encryption at rest by secret backend
+(encryption-at-rest-by-secret-backend)=
+## Are values in my secret backend encrypted at rest?
 
 ```{warning}
 Whether a revision's value is encrypted at rest depends on the store that holds it. Base64 is an encoding, not encryption. TLS protects the connection to a backend, not the stored value.
