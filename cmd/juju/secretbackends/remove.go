@@ -26,15 +26,23 @@ type removeSecretBackendCommand struct {
 }
 
 var removeSecretBackendsDoc = `
-Removes a secret backend, used for storing secret content.
-If the backend is being used to store secrets currently in use,
-the ` + "`--force`" + ` option can be supplied to force the removal, but be
-warned, this will affect charms which use those secrets.
+Removes the named registration without a confirmation prompt. For the built-in
+backends (internal and kubernetes), the message that the backend still contains
+secret content means removal is not allowed, even when the backend is empty.
+Leave these backends in place. For a user-added backend, the same message means
+revisions still reference it. Check those references before retrying.
+
+With ` + "`--force`" + `, Juju can lose access to user and charm secret revisions without
+moving or erasing the remote values. Force cannot remove a built-in. On success
+this command prints nothing; models selecting the removed backend revert to auto.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/secret-backend/
 `
 
 const removeSecretBackendExamples = `
     juju remove-secret-backend myvault
-    juju remove-secret-backend myvault --force
 `
 
 // RemoveSecretBackendsAPI is the secrets client API.
@@ -79,7 +87,7 @@ func (c *removeSecretBackendCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.SetFlags.
 func (c *removeSecretBackendCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.Force, "force", false, "Force removal even if the backend stores in-use secrets")
+	f.BoolVar(&c.Force, "force", false, "Remove a user-added backend even if revisions still reference it")
 }
 
 func (c *removeSecretBackendCommand) Init(args []string) error {

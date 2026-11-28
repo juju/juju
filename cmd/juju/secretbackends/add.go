@@ -41,22 +41,23 @@ type addSecretBackendCommand struct {
 }
 
 var addSecretBackendsDoc = `
-Adds a new secret backend for storing secret content.
+Registers a store on the controller; it does not select a backend for a model.
+Supply configuration as key=value arguments, a YAML mapping with ` + "`--config`" + `, or
+both. Use ` + "`--config -`" + ` to read stdin. Arguments override keys from the file.
+For a provider that supports token refresh, token-rotate takes a duration
+of at least one hour. Omit it to register without requesting refresh.
 
-You must specify a name for the backend and its type,
-followed by any necessary backend specific config values.
-Config may be specified as key values ot read from a file.
-Any key values override file content if both are specified.
+The command prints no ID on success. Omit ` + "`--import-id`" + ` for a new registration;
+supplying an existing ID can update that registration instead.
 
-To rotate the backend access credential/token (if specified), use
-the ` + "`token-rotate` " + `config and supply a duration.
+Further reading:
 
+- https://canonical.com/juju/docs/juju-cli/latest/reference/secret-backend/
 `
 
 const addSecretBackendsExamples = `
-    juju add-secret-backend myvault vault --config /path/to/cfg.yaml
-    juju add-secret-backend myvault vault token-rotate=10m --config /path/to/cfg.yaml
-    juju add-secret-backend myvault vault endpoint=https://vault.io:8200 token=s.1wshwhw
+    juju add-secret-backend myvault vault --config vault_config.yaml
+    juju add-secret-backend myvault vault --config vault_config.yaml token-rotate=2h
 `
 
 // AddSecretBackendsAPI is the secrets client API.
@@ -88,7 +89,7 @@ func (c *addSecretBackendCommand) Info() *cmd.Info {
 		Name:     "add-secret-backend",
 		Purpose:  "Add a new secret backend to the controller.",
 		Doc:      addSecretBackendsDoc,
-		Args:     "<backend-name> <backend-type>",
+		Args:     "<backend-name> <backend-type> (--config <file> | <key>=<value> ...) [<key>=<value> ...]",
 		Examples: addSecretBackendsExamples,
 		SeeAlso: []string{
 			"secret-backends",
@@ -101,7 +102,7 @@ func (c *addSecretBackendCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.SetFlags.
 func (c *addSecretBackendCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.Var(&c.ConfigFile, "config", "Path to yaml-formatted configuration file")
+	f.Var(&c.ConfigFile, "config", "YAML configuration file, or - for stdin")
 	f.StringVar(&c.ImportID, "import-id", "", "Add the backend with the specified ID")
 }
 

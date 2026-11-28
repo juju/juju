@@ -18,7 +18,7 @@ juju secret-backends [options]
 | `-c`, `--controller` |  | Controller to operate in |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
 | `-o`, `--output` |  | Specify an output file |
-| `--reveal` | false | Include sensitive backend config content |
+| `--reveal` | false | Include sensitive backend settings in YAML or JSON (controller superusers only) |
 
 ## Examples
 
@@ -28,4 +28,12 @@ juju secret-backends [options]
 
 ## Details
 
-Displays the secret backends available for storing secret content.
+Lists registrations on the specified controller. The table shows Name, Type,
+Secrets and Message, ordered by type and name. Use YAML or JSON for configuration
+and full status messages. Only these formats accept `--reveal`; the table ignores
+it with a notice. An empty result prints a notice and no formatted collection.
+To inspect one name, use show-secret-backend instead.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/secret-backend/

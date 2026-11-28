@@ -26,12 +26,20 @@ type showSecretBackendCommand struct {
 }
 
 var showSecretBackendsDoc = `
-Displays the specified secret backend.
+Displays the registration matching the exact name, as YAML by default or JSON.
+Ordinary UUIDs are not printed. Use ` + "`--reveal`" + ` only if you need sensitive backend
+settings, not secret values. If no name matches, the command reports that no
+backends have been added and succeeds without writing formatted output.
+Other backends can still exist on the controller.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/secret-backend/
 `
 
 const showSecretBackendsExamples = `
     juju show-secret-backend myvault
-    juju secret-backends myvault --reveal
+    juju show-secret-backend myvault --reveal
 `
 
 // ShowSecretBackendsAPI is the secrets client API.

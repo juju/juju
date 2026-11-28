@@ -29,6 +29,18 @@ model "Juju" {
 
     controller [type: juju-software, label: "Controller"]
 
+    backend_catalog [type: juju-software, label: "Controller", abstracts: "controller"] {
+      named_backend [type: entity, label: "Secret backend\nmyvault"]
+      default_backend [type: entity, label: "Built-in backend\ninternal"]
+    }
+    payments_model [type: entity, label: "Payments model"]
+    ledger_model [type: entity, label: "Ledger model"]
+    vault_store [type: external, label: "Vault"]
+    backend_db [type: database, label: "Model database"]
+    drain_worker [type: juju-software, label: "Juju worker"]
+    old_store [type: external, label: "Old store"]
+    new_store [type: external, label: "New store"]
+
     ssh_controller [type: juju-software, label: "Controller",
                     abstracts: "controller"] {
       ssh_gateway [type: juju-software,
@@ -85,6 +97,13 @@ model "Juju" {
   }
 
   edges {
+    payments_model -> named_backend [type: control, label: "selects"]
+    ledger_model -> default_backend [type: control, label: "uses by default"]
+    named_backend -> vault_store [type: data, label: "locates values in"]
+    default_backend -> backend_db [type: data, label: "locates values in"]
+    drain_worker -> controller [type: api, label: "tracks revision locations"]
+    drain_worker -> old_store [type: api, label: "reads old values"]
+    drain_worker -> new_store [type: api, label: "writes moved values"]
     // The problem
     sre  -> bare_applications [type: control, label: "operates"]
 
@@ -128,6 +147,18 @@ model "Juju" {
   }
 
   behaviours {
+    behaviour "move revision" {
+      client -> controller: call "select backend"
+      controller -> controller: self "record selection"
+      par {
+        controller -> client: return "selection saved"
+        controller -> drain_worker: async "selection changed"
+      }
+      drain_worker -> old_store: call "read revision value"
+      drain_worker -> new_store: call "save value"
+      drain_worker -> controller: call "record new location"
+      drain_worker -> old_store: call "attempt cleanup"
+    }
     behaviour "add-cloud" {
       user   -> client: call "juju add-cloud"
       client -> client: self "save the cloud definition"
@@ -351,4 +382,28 @@ diagram "SSH proxy machine reverse tunnel" from "Juju" {
     box [nodes: "ssh_machine_server ssh_machine_agent", label: "Machine",
          style: "solid", color: "#E95420", padding: 24]
   }
+}
+
+diagram "Secret backend selection" from "Juju" {
+  select {
+    nodes: payments_model ledger_model backend_catalog vault_store backend_db
+    edges: type control type data
+  }
+  emphasize { focus [named_backend] }
+  positions {
+    backend_catalog direction: down
+    default_backend below named_backend gap: 35
+    payments_model left-of backend_catalog gap: 95
+    payments_model align-middle named_backend
+    ledger_model align-centre payments_model
+    ledger_model align-middle default_backend
+    vault_store right-of backend_catalog gap: 110
+    vault_store align-middle named_backend
+    backend_db align-centre vault_store
+    backend_db align-middle default_backend
+  }
+}
+
+sequence "Moving a secret revision" from "Juju" {
+  select { behaviour: "move revision" }
 }

@@ -105,7 +105,7 @@ func (c *migrateCommand) Info() *cmd.Info {
 func (c *migrateCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 
-	f.BoolVar(&c.DryRun, "dry-run", false, "Runs the migration prechecks, but does not start the migration. Returns nothing if the migration can proceed.")
+	f.BoolVar(&c.DryRun, "dry-run", false, "Report whether initial checks pass without starting migration; this does not verify target secret backends")
 }
 
 // Init implements cmd.Command.

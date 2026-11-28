@@ -22,11 +22,20 @@ Display the secret backend for the current model:
 
     juju model-secret-backend
 
-Set the secret backend to myVault for the current model:
+Select an existing backend or restore this model's default:
 
-    juju model-secret-backend myVault
+    juju model-secret-backend myvault
+    juju model-secret-backend auto
 
 
 ## Details
 
-Sets or displays the secret backend for the current model.
+With no argument, prints the selected backend name or auto. To change it,
+pass the exact name of a registered backend, or auto for the model default.
+A successful change prints nothing. Read back the selection with this command.
+To see the recorded backend for each revision of a secret, run
+`juju show-secret NAME --revisions`.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/secret-backend/

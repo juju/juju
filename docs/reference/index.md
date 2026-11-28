@@ -72,6 +72,7 @@ Within a controller, deployments are organized into models -- logical containers
 - {ref}`configuration`
 - {ref}`charm-resource`
 - {ref}`secret`
+- {ref}`secret-backend`
 - {ref}`action`
 - {ref}`script`
 

@@ -7,7 +7,7 @@ Update an existing secret backend on the controller.
 
 ## Usage
 ```text
-juju update-secret-backend [options] <backend-name>
+juju update-secret-backend [options] <backend-name> (--config <file> | <key>=<value> | --reset <key>) ...
 ```
 
 ### Options
@@ -16,29 +16,28 @@ juju update-secret-backend [options] <backend-name>
 | `-c`, `--controller` |  | Controller to operate in |
 | `--config` |  | Path to yaml-formatted configuration file |
 | `--force` | false | Force update even if the backend is unreachable |
-| `--reset` |  | Reset the provided comma delimited config keys |
+| `--reset` |  | Reset one provider configuration key; repeat for each key |
 
 ## Examples
 
-    juju update-secret-backend myvault --config /path/to/cfg.yaml
-    juju update-secret-backend myvault name=myvault2
-    juju update-secret-backend myvault token-rotate=10m --config /path/to/cfg.yaml
-    juju update-secret-backend myvault endpoint=https://vault.io:8200 token=s.1wshwhw
+    juju update-secret-backend myvault --config vault_config.yaml
+    juju update-secret-backend myvault token-rotate=2h
     juju update-secret-backend myvault token-rotate=0
-    juju update-secret-backend myvault --reset namespace,ca-cert
+    juju update-secret-backend myvault --reset client-cert --reset client-key
+    juju update-secret-backend myvault name=team-vault
 
 
 ## Details
 
-Updates a new secret backend for storing secret content.
+Updates a backend by its current name. Supply a YAML mapping with `--config`
+(use - for stdin), key=value arguments, or `--reset`. Arguments override file
+entries. Repeat `--reset` once per provider key; commas do not separate keys.
+Resets are applied last. To disable backend token refresh, use token-rotate=0,
+not `--reset token-rotate`. Use name=NEW to rename the registration.
 
-You must specify a name for the backend to update,
-followed by any necessary backend specific config values.
-Config may be specified as key values ot read from a file.
-Any key values override file content if both are specified.
+The examples below are alternatives. On success the command prints nothing;
+use show-secret-backend with the resulting name to inspect the change.
 
-Config attributes may be reset back to the default value using `--reset`.
+Further reading:
 
-To rotate the backend access credential/token (if specified), use
-the `token-rotate` config and supply a duration. To reset any existing
-token rotation period, supply a value of `0`.
+- https://canonical.com/juju/docs/juju-cli/latest/reference/secret-backend/
