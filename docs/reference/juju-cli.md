@@ -14,6 +14,13 @@ juju-cli/plugin-juju-metadata
 
 `juju` is the main CLI client of Juju that you can use to manage Juju {ref}`controllers <controller>`, whether as an administrator or as a regular user.
 
+(cli-accounts-by-controller)=
+## CLI accounts by controller
+
+The CLI keeps an active account separately for each saved controller. `juju whoami` reads that local selection: it is not a live test of sign-in or access to any model. Signing out on this client does not disable the controller user. Connecting requires a route to the controller’s advertised API endpoint, or its configured proxy, not an SSH session.
+
+After registration, a sole available model can become current. If none are available, ask an administrator for {ref}`model access <change-a-users-model-access>`; if several are available, {ref}`switch to the intended model <switch-to-a-different-model>`.
+
 ## Directory
 
 The `juju` directory is located, on Ubuntu, at `~/.local/share/juju`.

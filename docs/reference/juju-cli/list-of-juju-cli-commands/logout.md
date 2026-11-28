@@ -19,20 +19,19 @@ juju logout [options]
 
 ## Examples
 
+Clear the saved account for the current controller on this client:
+
     juju logout
 
 
 ## Details
 
-If another client has logged in as the same user, they will remain logged
-in. This command only affects the local client.
+This command clears the saved account for the selected controller on this
+client. It uses the current controller by default. If the client still
+stores a password for the account, logout reports `preventing account loss`.
+Set a password you know before logging out. Use `--force` when you can
+sign in again and intend to clear the saved credentials.
 
-The command will fail if the user has not yet set a password
-(`juju change-user-password`). This scenario is only possible after
-`juju bootstrap`since `juju register` sets a password. The
-failing behaviour can be overridden with the `--force` option.
+Further reading:
 
-If the same user is logged in with another client system, that user session
-will not be affected by this command; it only affects the local client.
-
-By default, the controller is the current controller.
+- https://canonical.com/juju/docs/juju-cli/latest/reference/user/

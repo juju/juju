@@ -18,10 +18,16 @@ juju disable-user [options] <user name>
 
 ## Examples
 
+Disable bob on the current controller:
+
     juju disable-user bob
 
 
 ## Details
-A disabled Juju user is one that cannot log in to any controller.
-This command has no affect on models that the disabled user may have
-created and/or shared nor any applications associated with that user.
+Disabling a user prevents new sign-ins to this controller. Their access grants
+are retained. Give another active user explicit admin access on each model
+where the user is the last active model administrator.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/user/

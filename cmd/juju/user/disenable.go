@@ -18,13 +18,20 @@ var usageDisableUserSummary = `
 Disables a Juju user.`[1:]
 
 var usageDisableUserDetails = `
-A disabled Juju user is one that cannot log in to any controller.
-This command has no affect on models that the disabled user may have
-created and/or shared nor any applications associated with that user.
+Disabling a user prevents new sign-ins to this controller. Their access grants
+are retained. Give another active user explicit admin access on each model
+where the user is the last active model administrator.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/user/
+
 
 `[1:]
 
 const usageDisableUserExamples = `
+Disable bob on the current controller:
+
     juju disable-user bob
 `
 
@@ -32,10 +39,18 @@ var usageEnableUserSummary = `
 Re-enables a previously disabled Juju user.`[1:]
 
 var usageEnableUserDetails = `
-An enabled Juju user is one that can log in to a controller.
+Re-enable an existing user as a controller superuser. Check the user's
+retained grants before restoring sign-in. The command uses the current
+controller by default.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/user/
 `[1:]
 
 const usageEnableUserExamples = `
+Restore Bob's sign-in on the current controller:
+
     juju enable-user bob
 `
 

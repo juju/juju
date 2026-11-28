@@ -82,9 +82,26 @@ model "Juju" {
     // Two unit agents, for integration.
     agent_foo [type: juju-software, label: "Unit agent\n(foo/0)"]
     agent_bar [type: juju-software, label: "Unit agent\n(bar/0)"]
+    account_client [type: juju-software, label: "Juju client", abstracts: "client"] {
+      saved_account [type: record, label: "Saved account"]
+    }
+    account_controller [type: juju-software, label: "Controller", abstracts: "controller"] {
+      controller_user [type: entity, label: "User"]
+    }
+    inviter [type: person, label: "Administrator\nwith Juju CLI"]
+    invitee [type: person, label: "Invited user\nwith Juju CLI"]
+    grant_admin_model [type: entity, label: "Staging model"]
+    grant_read_model [type: entity, label: "Production model"]
   }
 
   edges {
+    saved_account -> controller_user [type: control, label: "identifies"]
+    controller_user -> grant_admin_model [type: control, label: "holds admin on"]
+    controller_user -> grant_read_model [type: control, label: "holds read on"]
+    inviter -> controller [type: api]
+    inviter -> invitee [type: control]
+    invitee -> controller [type: api]
+
     // The problem
     sre  -> bare_applications [type: control, label: "operates"]
 
@@ -128,6 +145,15 @@ model "Juju" {
   }
 
   behaviours {
+    behaviour "user-registration" {
+      inviter -> controller: call "add local user"
+      controller -> inviter: return "activation key"
+      inviter -> invitee: async "hand over invitation privately"
+      invitee -> controller: call "register with new password"
+      controller -> controller: self "consume activation key"
+      controller -> invitee: return "registration accepted"
+      invitee -> invitee: self "save account on client"
+    }
     behaviour "add-cloud" {
       user   -> client: call "juju add-cloud"
       client -> client: self "save the cloud definition"
@@ -350,5 +376,27 @@ diagram "SSH proxy machine reverse tunnel" from "Juju" {
          style: "solid", color: "#E95420", padding: 24]
     box [nodes: "ssh_machine_server ssh_machine_agent", label: "Machine",
          style: "solid", color: "#E95420", padding: 24]
+  }
+}
+
+diagram "user-account" from "Juju" {
+  select { nodes: account_client account_controller saved_account controller_user
+           edges: type control
+           zoom: 1.35 }
+  positions { account_client left-of account_controller gap: 116
+              account_client align-middle account_controller }
+  emphasize { focus [controller_user] }
+}
+
+sequence "user-registration" from "Juju" { select { behaviour: "user-registration" } }
+
+diagram "user-grants" from "Juju" {
+  select { nodes: controller_user grant_admin_model grant_read_model
+           edges: type control
+           routing: orthogonal
+           zoom: 1.35 }
+  positions {
+    fan [grant_admin_model grant_read_model] right-of controller_user gap: 146
+    grant_admin_model same-width grant_read_model
   }
 }

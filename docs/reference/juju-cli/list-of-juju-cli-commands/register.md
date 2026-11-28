@@ -14,38 +14,41 @@ juju register [options] <registration string>|<controller host name>
 | Flag | Default | Usage |
 | --- | --- | --- |
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--replace` | false | replace any existing controller |
+| `--replace` | false | Replace a saved controller entry under its local name |
 
 ## Examples
 
-    juju register MFATA3JvZDAnExMxMDQuMTU0LjQyLjQ0OjE3MDcwExAxMC4xMjguMC4yOjE3MDcwBCBEFCaXerhNImkKKabuX5ULWf2Bp4AzPNJEbXVWgraLrAA=
+Activate your local account. Set INVITATION to the argument in the
+administrator's juju register command:
 
-    juju register --replace MFATA3JvZDAnExMxMDQuMTU0LjQyLjQ0OjE3MDcwExAxMC4xMjguMC4yOjE3MDcwBCBEFCaXerhNImkKKabuX5ULWf2Bp4AzPNJEbXVWgraLrAA=
+    juju register "$INVITATION"
+
+Update a signed-out controller entry under its existing local name. Set
+INVITATION to the argument in the administrator's new juju register command:
+
+    juju register --replace "$INVITATION"
+
+Register a public controller by hostname:
 
     juju register public-controller.example.com
 
 
 ## Details
 
-The register command adds details of a controller to the local system.
-This is done either by completing the user registration process that
-began with the `juju add-user` command, or by providing the DNS host
-name of a public controller.
+Register a controller to save its connection details on this client.
 
-To complete the user registration process, you should have been provided
-with a `base64`-encoded blob of data (the output of `juju add-user`)
-which can be copied and pasted as the &lt;string&gt; argument to 'register'.
-You will be prompted for a password, which, once set, causes the
-registration string to be voided. In order to start using Juju the user
-can now either add a model or wait for a model to be shared with them.
-Some machine providers will require the user to be in possession of
-certain credentials in order to add a model.
+To activate a local account, use the argument from the administrator's
+`juju register` command. Choose a password when prompted. The controller
+consumes the invitation when it accepts the password. Ask a model
+administrator for access to an existing model if you need one.
 
-If a new controller has been spun up to replace an existing one, and you want
-to start using that replacement controller instead of the original one,
-use the `--replace` option to overwrite any existing controller details based
-on either a name or UUID match.
+Use `--replace` to update a saved controller entry under its existing local
+name. If this client has an account saved for that controller, sign out first.
 
-When adding a controller at a public address, authentication via some
-external third party (for example Ubuntu SSO) will be required, usually
-by using a web browser.
+For a public controller, give its hostname and follow the sign-in prompts.
+The CLI uses port 443 unless you specify another port. If the public endpoint
+is already saved on this client, use `juju login -c NAME` with its saved name.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/user/

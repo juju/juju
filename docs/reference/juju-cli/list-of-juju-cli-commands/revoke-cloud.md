@@ -18,11 +18,11 @@ juju revoke-cloud [options] <user name> <permission> <cloud name> ...
 
 ## Examples
 
-Revoke `add-model` (and 'admin') access from user `joe` for cloud `fluffy`:
+Remove Joe's direct grant on fluffy after checking that Joe holds cloud access directly:
 
     juju revoke-cloud joe add-model fluffy
 
-Revoke `admin` access from user `sam` for clouds `fluffy` and `rainy`:
+Reduce Sam's direct grant to add-model on fluffy and rainy, where Sam holds admin on both:
 
     juju revoke-cloud sam admin fluffy rainy
 
@@ -30,10 +30,15 @@ Revoke `admin` access from user `sam` for clouds `fluffy` and `rainy`:
 
 ## Details
 
-Revoking admin access, from a user who has that permission, will leave
-that user with `add-model` access. Revoking `add-model`access, however, also revokes
-admin access.
+Check the user's direct grant on each cloud and choose the level they hold
+or a lower one. Revoking `admin` from a cloud administrator leaves `add-model`
+access. Revoking `add-model`removes the direct grant. Ask a different
+authorised administrator to change your own cloud grant.
 
 Valid access levels are:
     admin
     add-model
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/cloud/

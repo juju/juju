@@ -27,21 +27,33 @@ var usageListUsersSummary = `
 Lists Juju users allowed to connect to a controller or model.`[1:]
 
 var usageListUsersDetails = `
-When used without a model name argument, users relevant to a controller are printed.
-When used with a model name, users relevant to the specified model are printed.
+To list users on the selected controller, omit the model name. A controller
+superuser sees enabled users by default and can include disabled users with
+` + "`--all`" + `. Other users see their own record.
+
+To list visible direct grants on a model, provide its name. A model admin
+or controller superuser sees the model roster. Other users who can read the
+model see their own direct entry. If the CLI reports ` + "`user not found on model`" + `,
+ask a model admin to check the roster. The model listing uses relative
+connection times and shows enabled users regardless of ` + "`--exact-time`" + `
+and ` + "`--all`" + `.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/user/
 
 `[1:]
 
 const usageListUsersExamples = `
-Print the users relevant to the current controller:
+List the users visible to you on the current controller:
 
     juju users
-    
-Print the users relevant to the controller "another":
 
-    juju users -c another
+Include disabled users on the operations controller as a controller superuser:
 
-Print the users relevant to the model "mymodel":
+    juju users -c operations --all
+
+List the users visible to you on the mymodel model:
 
     juju users mymodel
 `

@@ -46,10 +46,15 @@ Valid access levels for application offers are:
 var usageGrantDetails = `
 By default, the controller is the current controller.
 
-Users with read access are limited in what they can do with models:
-` + "`juju models`, `juju machines`, and `juju status`" + `.
+With no target, change access on the controller. Otherwise specify model names
+or offer URLs, not both. To change cloud access, use grant-cloud.
 
-`[1:] + validAccessLevels
+`[1:] + validAccessLevels + `
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/user/
+`
 
 const usageGrantExamples = `
 Grant user ` + "`joe`" + ` ` + "`read`" + ` access to model ` + "`mymodel`" + `:
@@ -84,26 +89,35 @@ Revokes access from a Juju user for a model, controller, or application offer.`[
 var usageRevokeDetails = `
 By default, the controller is the current controller.
 
-Revoking write access, from a user who has that permission, will leave
-that user with read access. Revoking read access, however, also revokes
-write access.
+Omit the target to revoke controller access. To revoke model or offer access,
+list either model names or offer URLs. Use juju revoke-cloud for clouds.
 
-`[1:] + validAccessLevels
+Check the user's direct grant on each target and choose the level they hold
+or a lower one. Revoking the lowest level removes the direct grant. Before
+lowering offer access below consume, have an admin of the offering model or
+a superuser on its controller check the user's direct grant and connections.
+
+`[1:] + validAccessLevels + `
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/user/
+`
 
 const usageRevokeExamples = `
-Revoke ` + "`read`" + ` (and ` + "`write`" + `) access from user ` + "`joe`" + ` for model ` + "`mymodel`" + `:
+Remove Joe's direct grant on mymodel after checking that Joe holds model access directly:
 
     juju revoke joe read mymodel
 
-Revoke ` + "`write`" + ` access from user ` + "`sam`" + ` for models ` + "`model1`" + ` and ` + "`model2`" + `:
+Reduce Sam's direct grant to read on model1 and model2, where Sam holds at least write:
 
     juju revoke sam write model1 model2
 
-Revoke ` + "`read`" + ` (and ` + "`write`" + `) access from user ` + "`joe`" + ` for application offer ` + "`fred/prod.hosted-mysql`" + `:
+Remove Joe's direct grant on fred/prod.hosted-mysql after checking Joe's grant and relations:
 
     juju revoke joe read fred/prod.hosted-mysql
 
-Revoke ` + "`consume`" + ` access from user ` + "`sam`" + ` for models ` + "`fred/prod.hosted-mysql`" + ` and ` + "`mary/test.hosted-mysql`" + `:
+Reduce Sam's direct grant to read on fred/prod.hosted-mysql and mary/test.hosted-mysql, where Sam holds at least consume. Check Sam's relations to both offers first:
 
     juju revoke sam consume fred/prod.hosted-mysql mary/test.hosted-mysql
 `

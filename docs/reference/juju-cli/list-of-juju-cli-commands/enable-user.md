@@ -18,8 +18,16 @@ juju enable-user [options] <user name>
 
 ## Examples
 
+Restore Bob's sign-in on the current controller:
+
     juju enable-user bob
 
 
 ## Details
-An enabled Juju user is one that can log in to a controller.
+Re-enable an existing user as a controller superuser. Check the user's
+retained grants before restoring sign-in. The command uses the current
+controller by default.
+
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/user/

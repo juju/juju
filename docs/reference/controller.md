@@ -21,6 +21,24 @@ In software design, a **controller** is an architectural component responsible f
 - It is responsible for implementing all the changes defined by a Juju {ref}`user <user>` via a Juju client post-bootstrap.
 - It stores state in the internal Dqlite {ref}`database <database>`.
 
+(controller-access-levels)=
+## Controller access levels
+
+From least to most privileged, the levels are {ref}`controller login access <user-access-controller-login>` and {ref}`controller superuser access <user-access-controller-superuser>`. Bootstrap grants the initial local `admin` user superuser access and a separate administrator grant on the controller model. Adding a local user grants controller login.
+
+By default, a model sign-in requires controller access as well as access to the model, unless the caller is a controller superuser. Enabling {ref}`allow-model-access <controller-config-allow-model-access>` permits a user with model access to sign in to that model without a controller grant. It does not grant access to another model or to the controller endpoint alone.
+
+(changing-controller-access)=
+### Changing controller access
+
+```{ibnote}
+See also: {ref}`Juju CLI | Change a user's controller access <change-a-users-controller-access>`
+```
+
+Changing the grant updates the user's direct access to this controller.
+
+**Who can do this:** A {ref}`controller superuser <user-access-controller-superuser>`.
+
 (controller-storage)=
 ## Controller storage
 

@@ -70,6 +70,7 @@ If the above mysql offer were made in the `default` model by user `admin`, the U
 See more: {ref}`command-juju-offer`
 ```
 
+(view-an-offers-details)=
 ## View an offer’s details
 > Who: User with {ref}`offer read access <user-access-offer-read>`.
 
@@ -91,7 +92,7 @@ foo          admin/default.hosted-mysql  admin   MySQL is a widely used, open-so
                                                  via Group Replic...
 ```
 
-For more details, including which users can access the offer, use the `yaml` format.
+Use `--format yaml` for more detail. A {ref}`model admin <user-access-model-admin>` on the offering model or a {ref}`controller superuser <user-access-controller-superuser>` on its controller sees the offer's user grants under `users`. Other callers see only their own entry.
 
 Example:
 
@@ -120,57 +121,53 @@ serverstack:admin/default.hosted-mysql:
       access: read
 ```
 
-A non-admin user with read/consume access can also view an offer's details, but they won't see the information for users with access.
-
 ```{ibnote}
 See more: {ref}`command-juju-show-offer`
 ```
 
+(control-access-to-an-offer)=
 ## Control access to an offer
-> Who: User with {ref}`offer admin access <user-access-offer-admin>`.
 
-Offers can have one of three access levels:
-
--   read (a user can see the offer when searching)
--   consume (a user can relate an application to the offer)
--   admin (a user can manage the offer)
-
-These are applied similarly to how standard model access is applied, via the `juju grant` and `juju revoke` commands:
-
-```text
-juju grant <user> <access-level> <offer-url>
+```{ibnote}
+See also: {ref}`Changing access to an offer <changing-access-to-an-offer>`
 ```
 
-```text
-juju revoke <user> <access-level> <offer-url>
-```
-
-Revoking a user's consume access will result in all relations for that user to that offer to be suspended. If the consume access is granted anew, each relation will need to be individually resumed. Suspending and resuming relations are explained in more detail later.
-
-To grant bob consume access to an offer:
+To grant or restore `consume` for the enabled user `bob`, use an account {ref}`authorised to change this offer's grants <changing-access-to-an-offer>` on the offering controller:
 
 ```text
-juju grant bob consume admin/default.hosted-mysql
-```
-
-To revoke bob's consume access (he will be left with read access):
-
-```text
-juju revoke bob consume admin/default.hosted-mysql
-```
-
-To revoke all of bob's access:
-
-```text
-juju revoke bob read admin/default.hosted-mysql
+juju grant -c foo bob consume admin/default.hosted-mysql
 ```
 
 ```{ibnote}
-See more: {ref}`command-juju-grant`, {ref}`command-juju-revoke`
+See more: {ref}`command-juju-grant`
 ```
 
+```{warning}
+Before revoking, ask a {ref}`model admin <user-access-model-admin>` on the offering model or a {ref}`controller superuser <user-access-controller-superuser>` on its controller to {ref}`inspect Bob's direct grant and connections <inspect-relations-to-an-offer>`. Offer admin alone cannot inspect another user's grant or connections. Lowering Bob's direct grant below `consume` can suspend his relations. Record their offering-model IDs before changing the grant.
+```
+
+To lower Bob's direct grant to `read` when he holds `consume` or `admin`, revoke `consume`:
+
+```text
+juju revoke -c foo bob consume admin/default.hosted-mysql
+```
+
+To remove Bob's direct grant when he has one, revoke `read`:
+
+```text
+juju revoke -c foo bob read admin/default.hosted-mysql
+```
+
+```{ibnote}
+See more: {ref}`command-juju-revoke`
+```
+
+After restoring Bob's `consume` access, have someone with at least {ref}`model write access <user-access-model-write>` on the offering model {ref}`resume the suspended relations <manage-relations-to-an-offer>` using the recorded IDs. Restoring the grant does not resume them.
+
+(find-an-offer-to-use)=
 ## Find an offer to use
-> Who: User with {ref}`offer read access <user-access-offer-read>`.
+
+To find an offer, search using at least {ref}`offer read access <user-access-offer-read>` on the offer, at least {ref}`model read access <user-access-model-read>` on the offering model or {ref}`controller superuser access <user-access-controller-superuser>` on the offering controller.
 
 
 Offers can be searched based on various criteria:
@@ -246,9 +243,8 @@ See more: {ref}`command-juju-find-offers`
 
 (integrate-with-an-offer)=
 ## Integrate with an offer
-> Who: User with {ref}`offer consume access <user-access-offer-consume>`.
 
-If a user has consume access to an offer, they can deploy an application in their model and establish a relation with the offer by way of its URL.
+To integrate with an offer, use an account with at least {ref}`model write access <user-access-model-write>` on the consuming model. On the offering side, the account needs at least {ref}`offer consume access <user-access-offer-consume>` on the offer, {ref}`model admin access <user-access-model-admin>` on the offering model or {ref}`controller superuser access <user-access-controller-superuser>` on the offering controller.
 
 ```text
 juju integrate <application>[:<application endpoint>] <offer-url>[:<offer endpoint>]
@@ -354,24 +350,20 @@ Beyond a certain number of firewall rules, which have been dynamically created t
 See more: {ref}`command-juju-set-firewall-rule`, {ref}`command-juju-firewall-rules`
 ```
 
+(inspect-relations-to-an-offer)=
 ## Inspect relations to an offer
-> Who: User with {ref}`offer admin access <user-access-offer-admin>`.
 
-The `offers` command is used to see all connections to one more offers.
+To inspect an offer's grants and connections, use a {ref}`model admin <user-access-model-admin>` account on the offering model or a {ref}`controller superuser <user-access-controller-superuser>` account on its controller. For example, inspect `hosted-mysql` in model `admin/default` on controller `foo`:
 
 ```text
-juju offers [--format (tabular|summary|yaml|json)] [<offer name>]
+juju offers -m foo:admin/default hosted-mysql --format yaml
 ```
 
-If `offer name` is not provided, all offers are included in the result.
-
-The default `tabular` output shows each user connected (relating to) the offer, the
-relation id of the relation, and ingress subnets in use with that connection. The `summary` output shows one row per offer, with a count of active/total relations. Use the `yaml` output to see extra detail such as the UUID of the consuming model.
+Check `users.bob.access` for Bob's direct grant. Under `connections`, match each `username` to `bob` and record its `relation-id`. These IDs belong to the offering model; `source-model-uuid` identifies the consuming model. Omit the offer name to list offers in the selected model. The default table shows connected users and relation IDs; `--format summary` shows counts rather than individual connections.
 
 The output can be filtered by:
  - interface: the interface name of the endpoint
  - application: the name of the offered application
- - connected user: the name of a user who has a relation to the offer
  - allowed consumer: the name of a user allowed to consume the offer
  - active only: only show offers which are in use (are related to)
 
@@ -402,12 +394,6 @@ All offers for a given interface:
 juju offers --interface mysql
 ```
 
-All offers for a given user who has related to the offer:
-
-```text
-juju offers --connected-user fred
-```
-
 All offers for a given user who can consume the offer:
 
 ```text
@@ -420,64 +406,32 @@ The above command is best run with `--format` summary as the intent is to see, f
 See more: {ref}`command-juju-offers`
 ```
 
+(manage-relations-to-an-offer)=
 ## Suspend, resume, or remove a relation to an offer
-> Who: User with {ref}`offer admin access <user-access-offer-admin>`.
 
-Before you can suspend, resume, or remove a relation, you need to know the relation ID. (That is because, once you've made an offer, there could potentially be many instances of the same application integrating with that offer, so the only way to identify uniquely is via the relation ID.)
+To suspend, resume or remove a relation, use an account with at least {ref}`model write access <user-access-model-write>` on the model where you run the command. Select that model with `-m` and use **its** relation ID. The examples use ID `2` from the {ref}`offering model's connection list <inspect-relations-to-an-offer>`.
 
-Given two related apps (app1: endpoint, app2), the relation ID can be found as follows:
-
+To suspend that relation:
 
 ```text
-juju exec --unit $UNIT_FOR_APP1 -- relation-ids endpoint
+juju suspend-relation -m foo:admin/default 2 --message "maintenance"
 ```
 
-The output, `<ENDPOINT>:<REL_ID`, gives you the relation ID.
+Suspension triggers the `relation-departed` and `relation-broken` hooks on both sides and closes firewall ingress for the relation.
 
-Once you have the relation ID:
-
-To suspend a relation, do:
-
+To resume it after a revocation, first {ref}`restore the user's offer access <control-access-to-an-offer>`. Then resume the relation in the same offering model:
 
 ```text
-juju suspend-relation <id1>
+juju resume-relation -m foo:admin/default 2
 ```
 
-```{note}
-Suspended relations will run the relation departed / broken hooks on either end, and any firewall ingress will be closed.
-```
-
-
-And, to resume a relation, do:
+To remove the relation instead:
 
 ```text
-juju resume-relation <id1>
+juju remove-relation -m foo:admin/default 2
 ```
 
-Finally, to remove a relation entirely:
-
-```text
-juju remove-relation <id1>
-```
-
-```{note}
-
-Removing a relation on the offering side will trigger a removal on the consuming side. A relation can also be removed from the consuming side, as well as the application proxy, resulting in all relations being removed.
-```
-
-```{note}
-
-In all cases, more than one relation id can be specified, separated by spaces.
-
-```
-
-Examples:
-
-```text
-juju suspend-relation 2 --message "reason for suspension"
-juju suspend-relation 3 4 5 --message "reason for suspension"
-juju resume-relation 2
-```
+Removing the relation from either side also removes it on the other. If you remove it from the consuming model, use that model's relation ID, not the offering model's. Suspending or resuming can take several space-separated IDs; removing by ID takes one.
 
 ```{ibnote}
 See more: {ref}`command-juju-suspend-relation`, {ref}`command-juju-resume-relation`, {ref}`command-juju-remove-relation`

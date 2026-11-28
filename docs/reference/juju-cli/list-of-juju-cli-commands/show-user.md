@@ -14,19 +14,30 @@ juju show-user [options] [<user name>]
 | Flag | Default | Usage |
 | --- | --- | --- |
 | `-c`, `--controller` |  | Controller to operate in |
-| `--exact-time` | false | Use full timestamp for connection times |
+| `--exact-time` | false | Use full timestamps for local user records on the controller |
 | `--format` | yaml | Specify output format (json&#x7c;yaml) |
 | `-o`, `--output` |  | Specify an output file |
 
 ## Examples
 
+Look up your account on the current controller:
+
     juju show-user
+
+Look up jsmith on the current controller as a controller superuser:
+
     juju show-user jsmith
+
+Print your account on the current controller as JSON:
+
     juju show-user --format json
-    juju show-user --format yaml
 
 
 ## Details
+By default, the CLI prints one YAML record for the account saved on the
+selected controller. Give a username to look up that user. A controller
+superuser can look up another user, including a disabled user.
 
-By default, the `YAML`format is used and the user name is the current
-user.
+Further reading:
+
+- https://canonical.com/juju/docs/juju-cli/latest/reference/user/
