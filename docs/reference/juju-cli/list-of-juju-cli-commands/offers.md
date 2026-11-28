@@ -27,13 +27,36 @@ juju offers [options] [<offer-name>]
 
 ## Examples
 
+List offers and their connections in the current model:
+
     juju offers
+
+List offers and their connections in the model named `model`:
+
     juju offers -m model
+
+List offers with an endpoint that uses the `db2` interface:
+
     juju offers --interface db2
+
+List offers for endpoints of the `mysql` application:
+
     juju offers --application mysql
+
+Show a summary with one row per offered endpoint and connection counts for its offer:
+
     juju offers --format summary
+
+List offers on which `mary` has a consume or admin grant:
+
     juju offers --allowed-consumer mary
+
+List offers whose names contain `hosted-mysql`:
+
     juju offers hosted-mysql
+
+List offers whose names contain `hosted-mysql` and that have at least one connection:
+
     juju offers hosted-mysql --active-only
 
 

@@ -20,7 +20,12 @@ juju remove-saas [options] <saas-application-name> [<saas-application-name>...]
 
 ## Examples
 
+Remove the SAAS application `hosted-mysql` and its relations from the current model:
+
     juju remove-saas hosted-mysql
+
+Remove the SAAS applications `hosted-mysql` and `orders-db` and their relations from model `frontend`:
+
     juju remove-saas -m frontend hosted-mysql orders-db
 
 

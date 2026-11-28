@@ -18,8 +18,16 @@ juju offer [options] [[<model-qualifier>/]<model-name>.]<application-name>:<endp
 
 ## Examples
 
+Offer the `db` endpoint of `mysql` from the current model under the default offer name, `mysql`:
+
     juju offer mysql:db
+
+Offer the `db` endpoint of `mysql` from model `staging/mymodel` under the name `hosted-mysql`:
+
     juju offer staging/mymodel.mysql:db hosted-mysql
+
+Offer the `db` and `log` endpoints of `db2` together under the name `hosted-db2`:
+
     juju offer db2:db,log hosted-db2
 
 

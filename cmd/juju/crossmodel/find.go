@@ -38,11 +38,28 @@ Further reading:
 `
 
 const findCommandExamples = `
+Find offers visible to you on the current controller:
+
     juju find-offers
+
+Find offers visible to you on the controller named ` + "`mycontroller`" + `:
+
     juju find-offers mycontroller:
+
+Find visible offers in model ` + "`staging/mymodel`" + `:
+
     juju find-offers staging/mymodel
+
+Find visible offers with an endpoint that uses the ` + "`mysql`" + ` interface:
+
     juju find-offers --interface mysql
+
+Find visible offers whose names contain ` + "`db2`" + ` in model ` + "`staging/mymodel`" + ` on ` + "`mycontroller`" + `:
+
     juju find-offers mycontroller:staging/mymodel.db2
+
+Find visible offers whose names contain ` + "`db2`" + ` on the current controller:
+
     juju find-offers --offer db2
 
 `

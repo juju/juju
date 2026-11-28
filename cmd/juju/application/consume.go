@@ -44,7 +44,12 @@ Further reading:
 `)[1:]
 
 const usageConsumeExamples = `
+Consume the ` + "`mysql`" + ` offer from ` + "`othermodel`" + ` in the current model:
+
     juju consume othermodel.mysql
+
+Consume the ` + "`mysql`" + ` offer from ` + "`prod/othermodel`" + ` on ` + "`anothercontroller`" + ` in model ` + "`frontend`" + ` under the local name ` + "`orders-db`" + `:
+
     juju consume -m frontend anothercontroller:prod/othermodel.mysql orders-db
 `
 

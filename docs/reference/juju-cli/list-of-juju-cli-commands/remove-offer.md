@@ -20,8 +20,16 @@ juju remove-offer [options] <offer-name-or-url> [<offer-name-or-url>...]
 
 ## Examples
 
+Remove the `hosted-mysql` offer from model `staging/mymodel` if the offer has no connections:
+
     juju remove-offer staging/mymodel.hosted-mysql
+
+Remove the `hosted-mysql` offer from model `staging/mymodel` even if it has connections, destroying its relations:
+
     juju remove-offer staging/mymodel.hosted-mysql --force
+
+Remove the `hosted-mysql` offer from the current model if the offer has no connections:
+
     juju remove-offer hosted-mysql
 
 

@@ -20,8 +20,16 @@ juju show-offer [options] <offer-name-or-url>
 
 ## Examples
 
+Inspect the `hosted-mysql` offer in the current model:
+
     juju show-offer hosted-mysql
+
+Inspect the `hosted-mysql` offer in model `staging/default`:
+
     juju show-offer staging/default.hosted-mysql
+
+Inspect the `hosted-mysql` offer in model `staging/default` on `mycontroller` as YAML:
+
     juju show-offer --format yaml mycontroller:staging/default.hosted-mysql
 
 

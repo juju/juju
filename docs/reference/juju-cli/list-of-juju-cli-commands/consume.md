@@ -18,7 +18,12 @@ juju consume [options] <offer-url> [<local-application-name>]
 
 ## Examples
 
+Consume the `mysql` offer from `othermodel` in the current model:
+
     juju consume othermodel.mysql
+
+Consume the `mysql` offer from `prod/othermodel` on `anothercontroller` in model `frontend` under the local name `orders-db`:
+
     juju consume -m frontend anothercontroller:prod/othermodel.mysql orders-db
 
 
