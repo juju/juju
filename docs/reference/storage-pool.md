@@ -18,7 +18,7 @@ See also: {ref}`manage-storage-pools`
 :alt: An example configuration, drawn as a box labelled Model with two layers. The top layer, What you declare, holds Application, Storage directive, Storage pool and Model default. The application has a storage directive, which refers to the storage pool, and the model default also refers to the pool. The lower layer, What Juju provisions, holds Unit and Storage instance. The application runs as a unit, the storage pool supplies the storage instance, and the unit has the storage instance attached.
 ```
 
-In Juju, a **storage pool** is a set of attributes for a {ref}`storage provider <storage-provider>`, kept in one {ref}`model <model>`. A {ref}`user <user>` {ref}`creates <creating-a-storage-pool>` a pool once. When a {ref}`client <client>` asks Juju to provide an {ref}`application <application>` with {ref}`storage <storage>`, it gives a {ref}`pool name <storage-pool-names>` in a {ref}`storage directive <storage-directive>`, and Juju provisions the storage with that pool's provider and attributes. A pool is considered {ref}`in use <storage-pools-in-use>` while a storage directive or a {ref}`model default <default-storage-pools>` refers to it, or while storage provisioned from it exists; a user cannot remove such a pool or change its provider. A user can also {ref}`list <listing-storage-pools>`, {ref}`update <updating-a-storage-pool>` and {ref}`remove <removing-a-storage-pool>` pools.
+In Juju, a **storage pool** is a set of attributes for a {ref}`storage provider <storage-provider>`, kept in one {ref}`model <model>`. A {ref}`user <user>` {ref}`creates <creating-a-storage-pool>` a pool once. When a {ref}`client <client>` requests {ref}`storage <storage>` for an {ref}`application <application>`, it can give a {ref}`pool name <storage-pool-names>` in the application's {ref}`storage directive <storage-directive>`. If the directive names no pool, Juju uses the {ref}`model default <default-storage-pools>` for the requested kind of storage. Juju provisions the storage with the selected pool's provider and attributes. A pool is {ref}`in use <storage-pools-in-use>` while a storage directive or model default refers to it, or while storage provisioned from it exists; a user cannot remove such a pool or change its provider. A user can also {ref}`list <listing-storage-pools>`, {ref}`update <updating-a-storage-pool>` and {ref}`remove <removing-a-storage-pool>` pools.
 
 (storage-pool-names)=
 ## Storage pool names
@@ -30,9 +30,9 @@ The controller refuses a name that breaks these rules when a user creates or upd
 (default-storage-pools)=
 ## Default storage pools
 
-A new model already contains the default pools of its storage providers, such as `rootfs` and `tmpfs`. For the cloud-specific providers, see {ref}`List of supported clouds <list-of-supported-clouds>` > your cloud > Storage.
+A new model already contains pools supplied by its storage providers. For example, a new machine model includes pools named `rootfs` and `tmpfs`. The cloud-specific providers are listed under {ref}`List of supported clouds <list-of-supported-clouds>` > your cloud > Storage.
 
-To identify which pool the model is configured to use, check its default source for {ref}`block storage <model-config-storage-default-block-source>` or {ref}`filesystem storage <model-config-storage-default-filesystem-source>`.
+A pool being present does not make it the one Juju uses when an application's storage directive names no pool. The model selects a default separately for {ref}`block storage <model-config-storage-default-block-source>` and {ref}`filesystem storage <model-config-storage-default-filesystem-source>`. Check the default source for the kind of storage the application requests.
 
 (storage-pools-in-use)=
 ## Storage pools in use
@@ -49,13 +49,13 @@ A user cannot remove an in-use pool or change its provider, but can still replac
 (creating-a-storage-pool)=
 ## Creating a storage pool
 
-Creating a pool adds a set of attributes for a storage provider to the model. A user gives the pool's name and its storage provider, and may add attributes. A model has the storage providers of its {ref}`cloud <cloud>` (to Juju, any entity with an API that provides compute, networking and, optionally, storage resources), and Juju manages their storage from outside the machine. On a machine cloud it also has `rootfs`, `tmpfs` and `loop`, whose storage Juju manages from within the machine. The provider defines which attributes it accepts and validates them. For the attributes of a cloud-specific provider, see {ref}`List of supported clouds <list-of-supported-clouds>` > your cloud > Storage.
+Creating a pool adds a set of attributes for a storage provider to the model. A user gives the pool's name and its storage provider, and may add attributes. The available providers depend on the model's {ref}`cloud <cloud>`. On a machine cloud they also include `rootfs`, `tmpfs` and `loop`. The provider defines which attributes it accepts and validates them. For the attributes of a cloud-specific provider, see {ref}`List of supported clouds <list-of-supported-clouds>` > your cloud > Storage.
 
 **Who can do this:** A user with at least {ref}`model write access <user-access-model-write>`.
 
 **Errors:**
 
-- *Error message:* `storage pool name is either not set or is not a valid name`. *Trigger:* The name is not a valid {ref}`pool name <storage-pool-names>`. *What to do:* Use a name that follows the rules.
+- *Error message:* `storage pool name is either not set or is not a valid name`. *Trigger:* The name is missing or is not a valid {ref}`pool name <storage-pool-names>`. *What to do:* Choose an unused name such as `workload-storage`.
 - *Error message:* `provider type is not a valid value that can be used for a new storage pool`. *Trigger:* The provider name is not a valid provider name. *What to do:* Give the name of a storage provider that the model has.
 - *Error message:* `no storage provider "<provider>" exists in the current model`. *Trigger:* The model does not have the storage provider. *What to do:* Give the name of a storage provider that the model has.
 - *Error message:* `storage pool for name "<name>" already exists in the model`. *Trigger:* The model already has a pool with that name. *What to do:* Use another name, or update the existing pool.
@@ -72,13 +72,13 @@ Listing pools returns each matching pool's name, storage provider and attributes
 
 A user may give a filter that names pools, providers, or both. The list includes a pool if its name is any of the names and its provider is any of the providers; a filter that gives only names, or only providers, applies only that condition.
 
-To inspect one pool, select it by its exact name. The result contains that pool's details, or is empty if the name is valid but no pool has it. An empty list is not an error.
+To inspect one pool, select it by its exact name. A valid name that matches no pool contributes no result; it does not exclude pools that match other names in the filter. If nothing matches, the list is empty, not an error.
 
 **Who can do this:** A user with at least {ref}`model read access <user-access-model-read>`, or with {ref}`controller superuser access <user-access-controller-superuser>`.
 
 **Errors:**
 
-- *Error message:* `pool name "<name>" not valid`. *Trigger:* The user gives a filter with an invalid {ref}`pool name <storage-pool-names>`. *What to do:* Use a name that follows the rules.
+- *Error message:* `pool name "<name>" not valid`. *Trigger:* The user gives a filter with an invalid {ref}`pool name <storage-pool-names>`. *What to do:* List the pools without a name filter and use the intended pool's listed name.
 - *Error message:* `storage provider "<provider>" not found`. *Trigger:* The user gives a filter with a provider that the model does not have. *What to do:* Give the name of a storage provider that the model has.
 
 (updating-a-storage-pool)=
@@ -91,17 +91,17 @@ Updating a pool replaces its attributes and can change its provider. A user give
 **Errors:**
 
 - *Error message:* ends with `storage pool "<name>" not found`. *Trigger:* The model has no pool with that name. *What to do:* List the pools and use the name of one.
-- *Error message:* `pool name "<name>" not valid`. *Trigger:* The name is not a valid {ref}`pool name <storage-pool-names>`. *What to do:* Use a name that follows the rules.
+- *Error message:* `pool name "<name>" not valid`. *Trigger:* The name is not a valid {ref}`pool name <storage-pool-names>`. *What to do:* List the pools and retry with the intended pool's listed name.
 - *Error message:* ends with `storage pool is in use`. *Trigger:* The user changes the provider of a pool that is {ref}`in use <storage-pools-in-use>`. *What to do:* Keep the pool's provider, or create a new pool with the other provider.
 
 (removing-a-storage-pool)=
 ## Removing a storage pool
 
-Removing a pool deletes it from the model together with its attributes. A user gives the pool's name.
+Removing a pool deletes its settings from the model, not the storage provisioned from it. Juju refuses removal while any such storage still exists or the pool is otherwise {ref}`in use <storage-pools-in-use>`. A user gives the pool's name.
 
 **Who can do this:** A user with at least {ref}`model write access <user-access-model-write>`.
 
 **Errors:**
 
 - *Error message:* ends with `storage pool "<name>" not found`. *Trigger:* The model has no pool with that name. *What to do:* List the pools and use the name of one.
-- *Error message:* ends with `storage pool is in use`. *Trigger:* The pool is {ref}`in use <storage-pools-in-use>`. *What to do:* Remove or change whatever refers to the pool, then remove the pool.
+- *Error message:* ends with `storage pool is in use`. *Trigger:* The pool is still in use. *What to do:* Check for storage instances provisioned from the pool, application and unit storage directives that name it, and model defaults for block or filesystem storage that select it. Keep the pool if its storage is still needed. Retry removal only when no storage instance, directive or default refers to it.
