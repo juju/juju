@@ -18,7 +18,7 @@ juju import-ssh-key [options] <lp|gh>:<user identity> ...
 
 ## Examples
 
-With GITHUB_USER set to the GitHub account whose keys you want to authorize:
+Import keys from the GitHub user named by `GITHUB_USER` for the Juju account `admin` in the current model:
 
     juju import-ssh-key "gh:${GITHUB_USER:?set GITHUB_USER first}"
 

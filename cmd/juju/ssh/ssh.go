@@ -115,8 +115,7 @@ Select a private key for the jump server:
 
     juju ssh --ssh-key ~/.ssh/my_private_key mysql/0 echo hello
 
-When using the Juju snap, the u2f-devices interface must be
-connected to allow access to FIDO/U2F security keys:
+Allow the Juju snap to access FIDO/U2F security keys:
 
     sudo snap connect juju:u2f-devices
 
@@ -124,24 +123,28 @@ Select a FIDO/U2F security key (e.g. YubiKey) for the jump server:
 
     juju ssh --ssh-key ~/.ssh/id_ed25519_sk mysql/0
 
-Connect to a k8s unit targeting the charm container (the default):
+Connect to the default charm container of Kubernetes unit ` + "`snappass/0`" + `:
 
 	juju ssh snappass/0
+
+Connect to Kubernetes unit ` + "`snappass/0`" + ` by explicitly selecting its charm container:
+
 	juju ssh --container charm snappass/0
 
-Connect to a k8s unit targeting the redis container:
+Connect to the ` + "`redis`" + ` workload container of Kubernetes unit ` + "`snappass/0`" + `:
 
 	juju ssh --container redis snappass/0
 
-Interact with the Pebble instance in the workload container via the charm container:
+Show the active Pebble plan for the ` + "`redis`" + ` container from the charm container of ` + "`snappass/0`" + `:
 
     juju ssh snappass/0 PEBBLE_SOCKET=/charm/containers/redis/pebble.socket /charm/bin/pebble plan
 
-**For the Kubernetes controller model in direct mode only:**
-
-Connect to controller pod 0 in the api-server or charm container:
+Connect directly to the default ` + "`api-server`" + ` container of pod 0 in the Kubernetes controller model:
 
     juju ssh --direct 0
+
+Connect directly to the charm container of pod 0 in the Kubernetes controller model:
+
     juju ssh --direct --container charm 0
 `
 

@@ -21,9 +21,11 @@ juju ssh-keys [options]
 
 ## Examples
 
+List the fingerprints of your registered SSH keys in the current model:
+
     juju ssh-keys
 
-To examine the full information for each key:
+List your full public SSH keys in the `jujutest` model:
 
     juju ssh-keys -m jujutest --full
 

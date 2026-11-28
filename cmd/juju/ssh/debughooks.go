@@ -69,15 +69,15 @@ Debug all hooks and actions of unit ` + "`mysql/0`" + `:
 
     juju debug-hooks mysql/0
 
-Debug all hooks and actions of unit ` + "`mysql/0`" + `:
+Debug all hooks and actions of the current ` + "`mysql`" + ` leader:
 
     juju debug-hooks mysql/leader
 
-Debug the ` + "`config-changed`" + `hook of unit ` + "`mysql/0`" + `:
+Debug the ` + "`config-changed`" + ` hook of unit ` + "`mysql/1`" + `:
 
     juju debug-hooks mysql/1 config-changed
 
-Debug the ` + "`pull-site`" + `action and ` + "`update-status`" + ` hook of unit ` + "`hello-kubecon/0`" + `:
+Debug the ` + "`pull-site`" + ` action and the ` + "`update-status`" + ` hook of unit ` + "`hello-kubecon/0`" + `:
 
     juju debug-hooks hello-kubecon/0 pull-site update-status
 `
