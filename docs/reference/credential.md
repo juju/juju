@@ -60,8 +60,8 @@ Registering a credential stores its authentication type and attributes on the co
 
 **Errors:** Registration can fail with these errors:
 
-- `permission denied`: The credential names a different owner and the caller is not a controller superuser. Register the credential under your account or ask a controller superuser to register it.
-- Contains `supported auth-types`: The authentication type is not supported on that cloud. Check the registered cloud, choose a type it accepts, and provide that type's attributes.
+- *Error message:* `permission denied`. *Trigger:* The credential names a different owner and the caller isn't a controller superuser. *What to do:* Register it under your account or ask a controller superuser to register it.
+- *Error message:* contains `supported auth-types`. *Trigger:* The credential specifies an authentication type the registered cloud doesn't support. *What to do:* Choose a type listed for that cloud and supply its attributes.
 
 (listing-credential-names)=
 ## Listing credential names
@@ -72,7 +72,7 @@ A client can request credential identifiers for one user on one cloud. No matche
 
 **Errors:** Listing credential names can fail with this error:
 
-- `permission denied`. The caller lacks access to list another owner's credentials. Request your own records or ask a controller superuser.
+- *Error message:* `permission denied`. *Trigger:* The caller lacks access to list another owner's credentials. *What to do:* Request your own records or ask a controller superuser.
 
 (reading-a-named-credential)=
 ## Reading a named credential
@@ -81,10 +81,10 @@ A client that knows a credential's tag (the API identifier for its cloud, owner 
 
 **Who can do this:** The credential owner or a {ref}`controller superuser <user-access-controller-superuser>`.
 
-**Errors:** A named read distinguishes these failures:
+**Errors:** Reading a named credential can fail with these errors:
 
-- `permission denied`: The caller cannot inspect this owner's tag. Ask the owner to check the record.
-- For example, `credential "production" not found`: An authorized lookup did not find the name. Check the cloud and owner as well as the credential name.
+- *Error message:* `permission denied`. *Trigger:* The caller cannot inspect this owner's tag. *What to do:* Ask the owner to check the record.
+- *Error message:* `credential "<name>" not found`. *Trigger:* An authorized lookup did not find that name. *What to do:* Check the cloud and owner as well as the credential name.
 
 (inspecting-your-credential-contents)=
 ## Inspecting your credential contents
@@ -101,9 +101,9 @@ The result also identifies active models using the credential for which the owne
 
 **Errors:** Inspecting credential contents can return these errors:
 
-- Begins with `cloud credential ID` and ends with `not valid`. The cloud or credential name is empty. Supply both names for named inspection.
-- Begins with `cloud credential` and ends with `not found` for a named result. The account has stored credentials, but none matches the requested cloud and name. Check the account and both names.
-- Begins with `cloud credentials for` and ends with `not found` for the whole request. The account has no stored credentials, so the collection lookup failed before any named inspection. Verify which account is signed in.
+- *Error message:* `cloud credential ID "<key>" not valid`. *Trigger:* The cloud or credential name is empty. *What to do:* Supply both names for named inspection.
+- *Error message:* `cloud credential "<key>" not found`. *Trigger:* The account has stored credentials, but none matches the requested cloud and name. *What to do:* Check the account and both names.
+- *Error message:* `cloud credentials for "<user>" not found`. *Trigger:* The account has no stored credentials, so the whole request fails before any named inspection. *What to do:* Verify which account is signed in.
 
 (checking-a-credential)=
 ## Checking a credential
@@ -114,8 +114,8 @@ A client can submit proposed credential material for checking without storing it
 
 **Errors:** Checking a credential can fail with these errors:
 
-- `permission denied`. The caller lacks access to another owner's credential. Check your own credential or ask a controller superuser.
-- Contains `supported auth-types`. The cloud rejects the proposed authentication type. Choose a type listed for that cloud and check again.
+- *Error message:* `permission denied`. *Trigger:* The caller lacks access to another owner's credential. *What to do:* Check your own credential or ask a controller superuser.
+- *Error message:* contains `supported auth-types`. *Trigger:* The registered cloud doesn't support the proposed authentication type. *What to do:* Choose a type listed for that cloud and check again.
 
 (updating-a-credential)=
 ## Updating a credential
@@ -134,9 +134,9 @@ A forced update can omit a write error from its reply. Inspect the stored creden
 
 **Errors:** Updating a credential can fail with these errors:
 
-- Contains `supported auth-types` during an ordinary update. The cloud rejects the supplied authentication type. Supply a supported type and its attributes.
-- Begins with `unexpected force specified`. The controller refuses the whole request when the caller asks for force without controller superuser access. Retry with an ordinary update.
-- `permission denied`. The caller lacks access to another owner's credential. Update your own credential or ask a controller superuser.
+- *Error message:* contains `supported auth-types`. *Trigger:* An ordinary update specifies an authentication type the cloud doesn't support. *What to do:* Supply a supported type and its attributes.
+- *Error message:* `unexpected force specified: invalid request`. *Trigger:* The caller requests a forced update without controller superuser access. The controller refuses the whole request. *What to do:* Retry with an ordinary update.
+- *Error message:* `permission denied`. *Trigger:* The caller lacks access to another owner's credential. *What to do:* Update your own credential or ask a controller superuser.
 
 (revoking-a-credential)=
 ## Revoking a credential
@@ -162,6 +162,6 @@ Forced revocation clears the credential association from **every model** that st
 
 **Errors:** Revocation can fail with these errors:
 
-- Contains `still used by`. At least one model still refers to the credential. Arrange to {ref}`switch each dependent model to a replacement <changing-a-models-credential>` for the same cloud, then retry ordinary revocation.
-- Begins with `credential` and ends with `not found`. The named credential is absent from this controller. Check the cloud, owner and name.
-- `permission denied`. The caller lacks access to another owner's credential. Ask the owner or a controller superuser to revoke it.
+- *Error message:* contains `it is still used by`. *Trigger:* At least one model still refers to the credential. *What to do:* Arrange to {ref}`switch each dependent model to a replacement <changing-a-models-credential>` for the same cloud, then retry ordinary revocation.
+- *Error message:* ends with `not found`. *Trigger:* The named credential is absent from this controller. *What to do:* Check its cloud, owner and name.
+- *Error message:* `permission denied`. *Trigger:* The caller lacks access to another owner's credential. *What to do:* Ask the owner or a controller superuser to revoke it.

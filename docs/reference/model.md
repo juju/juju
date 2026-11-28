@@ -47,8 +47,8 @@ When a client omits the credential identifier, the controller looks for the sign
 
 **Errors:** Model creation can fail with these errors:
 
-- `permission denied`. The caller lacks access to add a model on the target cloud. Ask for cloud add-model access.
-- Ends with `a credential needs to be specified`. The cloud requires authentication and the controller found no unique credential. Supply a credential identifier for the target cloud.
+- *Error message:* `permission denied`. *Trigger:* The caller lacks access to add a model on the target cloud. *What to do:* Ask for cloud `add-model` access.
+- *Error message:* ends with `a credential needs to be specified`. *Trigger:* The cloud requires authentication and the controller found no unique credential. *What to do:* Supply a credential identifier for the target cloud.
 
 (changing-a-models-credential)=
 ## Changing a model's credential
@@ -63,7 +63,7 @@ Changing a model's credential binds that model to another credential on the same
 
 **Errors:** The controller can refuse a model credential change with these errors:
 
-- `the operation has been blocked` or the configured block message. A change block is active. The controller checks the block before model access. Have the change block lifted before retrying.
-- `permission denied`. The caller lacks access to make the switch. Ask a model admin or controller superuser.
-- Contains `has different cloud to credential`. The replacement belongs to another cloud. Choose a credential for the model's cloud.
-- Contains `not found` and `cloud credential`. The replacement is absent from the controller. Check its cloud, owner and name.
+- *Error message:* `the operation has been blocked` or the configured block message. *Trigger:* A change block is active. The controller checks the block before model access. *What to do:* Have the change block lifted before retrying.
+- *Error message:* `permission denied`. *Trigger:* The caller lacks access to make the switch. *What to do:* Ask a model admin or controller superuser to switch the model.
+- *Error message:* contains `has different cloud to credential`. *Trigger:* The replacement belongs to another cloud. *What to do:* Choose a credential for the model's cloud.
+- *Error message:* contains `not found` and `cloud credential`. *Trigger:* The replacement is absent from the controller. *What to do:* Check its cloud, owner and name.
