@@ -112,10 +112,15 @@ For an older controller that does not support the jump route, specify
 uses ordinary SSH, where `user@target` selects a remote account. On Kubernetes
 it uses the Kubernetes API rather than the controller's SSH server.
 
-On machine models, use `--direct --proxy` to route the connection through
-the controller machine's OpenSSH server (port 22 by default). In direct mode,
-if `--proxy` is omitted, Juju uses the model's `proxy-ssh` setting.
-Use `--direct --proxy=false` to connect without this proxy.
+On machine models, `--direct --proxy` connects through the controller
+machine's OpenSSH server (port 22 by default). If you omit `--proxy` in
+direct mode, Juju uses the model's `proxy-ssh` setting. To bypass the
+proxy when your client can reach the machine directly, use `--direct --proxy=false`.
+
+On client build `4.1-beta3-048d091` the proxy hop fails, and
+`--proxy=false` does not override a model with `proxy-ssh=true`.
+Use the default jump route (omit both flags) if the controller supports it.
+If you need the proxy hop, use a client with the fix for Juju issue #23913.
 
 On the jump route, the client checks both server host keys against keys
 obtained from the Juju API by default. Disabling checks with `--no-host-key-checks`

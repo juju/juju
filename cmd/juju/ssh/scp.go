@@ -52,10 +52,15 @@ client does not switch automatically. A machine copy then uses ordinary SSH,
 where ` + "`user@target:path`" + ` can select a different account. A Kubernetes copy
 uses the Kubernetes API. Neither direct route supports ` + "`--show-command`" + `.
 
-On machine clouds, ` + "`--direct --proxy`" + ` uses the controller machine's
-OpenSSH server (port 22 by default). If ` + "`--proxy`" + ` is omitted in direct mode,
-the model's ` + "`proxy-ssh`" + ` setting applies; use ` + "`--direct --proxy=false`" + ` to
-bypass that proxy.
+On machine models, ` + "`--direct --proxy`" + ` copies through the controller
+machine's OpenSSH server (port 22 by default). If you omit ` + "`--proxy`" + ` in
+direct mode, Juju uses the model's ` + "`proxy-ssh`" + ` setting. To bypass the
+proxy when your client can reach the machine directly, use ` + "`--direct --proxy=false`" + `.
+
+On client build ` + "`4.1-beta3-048d091`" + ` the proxy hop fails, and
+` + "`--proxy=false`" + ` does not override a model with ` + "`proxy-ssh=true`" + `.
+Use the default jump route (omit both flags) if the controller supports it.
+If you need the proxy hop, use a client with the fix for Juju issue #23913.
 
 Further reading:
 
@@ -78,12 +83,10 @@ Recursively copy the ` + "`/var/log/mongodb`" + ` directory from the
 
     juju scp -- -r mongodb/0:/var/log/mongodb/ remote-logs
 
-Copy ` + "`foo.txt`" + ` from the client's current working directory to
-the ` + "`apache2/1`" + ` unit in model ` + "`prod`" + ` (` + "`-m prod`" + `). Proxy the SSH connection
-through the controller machine (` + "`--direct --proxy`" + `) and enable compression
-(` + "`-- -C`" + `):
+Copy ` + "`foo.txt`" + ` to the ` + "`apache2/1`" + ` machine unit in model ` + "`prod`" + ` over the
+default jump route. Pass ` + "`-C`" + ` to scp to enable compression:
 
-    juju scp -m prod --direct --proxy -- -C foo.txt apache2/1:
+    juju scp -m prod -- -C foo.txt apache2/1:
 
 Copy multiple files from the client's current working directory to
 the ` + "`/home/ubuntu`" + ` directory of machine ` + "`2`" + `:
