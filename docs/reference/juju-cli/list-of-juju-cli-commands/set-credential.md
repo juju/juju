@@ -26,10 +26,13 @@ Switch the model trinity to the AWS credential named bob:
 ## Details
 
 Choose a credential for the model's cloud under the signed-in account.
-The CLI looks up the name on the controller first. If the lookup fails
-or finds no match, it tries the local copy and uploads it before asking
-the controller to switch the model. The upload can remain after a
-refused switch.
+The CLI uses a matching controller copy first. If the lookup fails or
+finds no match, it tries to upload the local copy before requesting
+the switch. A failed lookup does not mean the name is unused: the upload
+can replace the material for every model using that cloud, owner and name,
+even if the controller refuses the switch. Check both copies before
+running this command. To change only one model, use a separately named
+credential whose contents you have verified.
 
 The controller requires model admin or controller superuser access and
 refuses the switch while model changes are blocked. Use

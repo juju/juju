@@ -126,44 +126,22 @@ To view detailed information about a specific model, use the `show-model`  comma
 juju show-model test
 ```
 
-````{dropdown} Example output for an empty model called 'test'
+````{dropdown} Example output: model name and credential owner
 
 ```text
 test:
   name: admin/test
   short-name: test
-  model-uuid: 3850c8cc-0cd0-4d53-8a6d-591b63024141
-  model-type: iaas
-  controller-uuid: f06afa86-3461-42bb-86ed-6c2f5d7b0ac7
-  controller-name: localhost-localhost
-  is-controller: false
-  owner: admin
-  cloud: localhost
-  region: localhost
-  type: lxd
-  life: alive
-  status:
-    current: available
-    since: 5 hours ago
-  users:
-    admin:
-      display-name: admin
-      access: admin
-      last-connection: 2 minutes ago
-  sla: unsupported
-  agent-version: 4.0.15
   credential:
     name: localhost
-    owner: admin
+    owner: alice
     cloud: localhost
     validity-check: valid
-  supported-features:
-  - name: juju
-    description: the version of Juju used by the model
-    version: 4.0.15
 ```
 
 ````
+
+In `admin/test`, `admin` qualifies the model name. Under `credential`, `owner: alice` identifies the user who owns the credential on this controller.
 
 By passing options you can also specify a format, an output file, etc.
 
@@ -560,22 +538,20 @@ See more: {ref}`command-juju-migrate`
 
 ````{dropdown} Troubleshooting
 
-```{dropdown} Error: migration: 'aborted, removing model from target controller: model data transfer failed, failed to import model into target controller: granting admin permission to the owner: user "<user>" is permanently deleted'
+```{dropdown} Error: model users are disabled on the target controller
 
-This error occurs when the model owner does not exist on the target controller. The solution is to create a user with that name on the target controller.
-
-**Note:** The underlying cause is because a model is tightly coupled with the user who has created it. Starting with Juju 4, it will be possible to identify models independently of the user.
+If the error ends with `are disabled on the target controller`, check the usernames in the message. Have an administrator {ref}`re-enable the intended accounts <command-juju-enable-user>` on the destination or {ref}`withdraw their model access <command-juju-revoke>` on the source before retrying. Creating a user with the model's name qualifier does not resolve a disabled account.
 
 ```
 
 ```{dropdown} Troubleshooting: Credential errors during model migration
 
-Read the migrating model's binding on the source controller with {ref}`juju show-model <command-juju-show-model>`, for example `juju show-model source:payments`. Under `credential`, record the cloud, owner and name. Ask **that owner** to {ref}`inspect the controller credential <view-details-about-a-credential>` on the destination. For example, if the binding is `aws`, owner `alice`, name `production-deploy`, Alice runs `juju show-credential aws production-deploy -c destination`. The command looks under the signed-in account, even for a controller superuser. A same-named credential under another account is a different record.
+Read the migrating model's binding on the source with {ref}`juju show-model <command-juju-show-model>`, for example `juju show-model source:payments`. Under `credential`, record the cloud, owner and name. Ask **that owner** to inspect the destination with {ref}`juju show-credential <command-juju-show-credential>`. For example, for the AWS credential `production-deploy` owned by Alice, Alice runs `juju show-credential aws production-deploy -c destination`. A controller superuser running the same command under a different account cannot verify Alice's record.
 
 - `is revoked on the target controller` or `is revoked` during import: the destination credential with that identity is revoked.
 - `auth type mismatch` or `attribute mismatch` during import: the destination credential with that identity has different material.
 
-To retry with different material without changing a credential shared by other models, {ref}`switch only the source model <change-the-credential-a-model-uses>` to a separately named credential that can access its resources. Verify the new binding before retrying. A credential imported on the destination before a later failure can remain there; a failed transfer alone is not a reason to remove it.
+If only this model needs different material, choose a separately named credential that can access its existing resources. Verify its name and contents on the source controller before using {ref}`juju set-credential <command-juju-set-credential>` to switch the source model. Verify the model's new binding before retrying migration. A credential imported on the destination before a later failure can remain there; a failed transfer alone is not a reason to remove it.
 
 ```
 

@@ -184,7 +184,13 @@ See more: {ref}`command-juju-default-credential`
 See also: {ref}`Changing a model's credential <changing-a-models-credential>`, [Terraform Provider for Juju | Add a credential to a model](https://canonical.com/juju/docs/terraform-provider-juju/latest/howto/manage-credentials/#add-a-credential-to-a-model)
 ```
 
-To switch one model, use an account {ref}`authorised to change that model's credential <changing-a-models-credential>` and check that model changes are enabled. Choose a separately named credential under that account for the model's cloud, or {ref}`add one <add-a-credential>`. Confirm it can access the model's existing resources. Juju uses a matching controller copy first and tries to upload the local copy if the lookup finds no match or fails. Check which material the switch will use. For example, switch the AWS model `trinity` to `trinity-deploy` and inspect the model:
+To switch one model, use an account {ref}`authorised to change that model's credential <changing-a-models-credential>` and check that model changes are enabled. Choose a separately named credential under that account for the model's cloud, or {ref}`add one <add-a-credential>`. Confirm it can access the model's existing resources.
+
+```{warning}
+Check the controller and client copies before switching. If Juju cannot find the controller copy **or the lookup fails**, it tries to upload the local copy before requesting the switch. A failed lookup does not mean the name is unused: an upload under the same cloud, owner and name replaces the material for **every model** using that credential, even if the controller then refuses the switch. If you cannot verify which credential the name identifies, resolve the lookup problem before running the command.
+```
+
+For example, switch the AWS model `trinity` to `trinity-deploy` and inspect the model:
 
 ```text
 juju set-credential -m trinity aws trinity-deploy
