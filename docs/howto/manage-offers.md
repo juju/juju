@@ -54,6 +54,7 @@ mysql:
 See more: {ref}`command-juju-offer`
 ```
 
+(view-an-offers-details)=
 ### View an offer’s details
 
 ```{ibnote}
@@ -137,6 +138,7 @@ juju grant bob consume admin/default.hosted-mysql
 See more: {ref}`command-juju-grant`, {ref}`command-juju-revoke`
 ```
 
+(inspect-relations-to-an-offer)=
 ### Inspect relations to an offer
 
 ```{ibnote}
@@ -261,6 +263,7 @@ See more: {ref}`command-juju-remove-offer`
 (use-an-offer-on-the-consuming-side)=
 ## Use an offer on the consuming side
 
+(find-an-offer-to-use)=
 ### Find an offer to use
 
 ```{ibnote}

@@ -74,7 +74,11 @@ An offer cannot be updated. If the offering model already has an offer with the 
 (viewing-an-offer)=
 ### Viewing an offer
 
-Viewing an offer shows its details, such as its endpoints and who has access to it. A user gives the offer URL. The user's {ref}`offer access <offer-access>` decides whether they see the offer and whose access it lists.
+```{ibnote}
+See also: {ref}`View one offer's details with the Juju CLI <view-an-offers-details>`
+```
+
+Viewing an offer by its exact {ref}`URL <offer-urls>` returns its description, offered endpoints and the access entries visible to the caller. Each endpoint has a name, interface and role. The caller's {ref}`offer access <offer-access>` determines which entries they can see.
 
 The offering controller returns the offer's own description if it has one. Otherwise it returns the description from the offered application's charm metadata, not the charm's README.
 
@@ -83,6 +87,7 @@ The offering controller returns the offer's own description if it has one. Other
 **Errors:**
 
 - *Error message:* `application offer "<qualifier>/<model>.<offer>" not found`. *Trigger:* The offer does not exist, or the user cannot see it. *What to do:* Check the offer URL, or ask the offer's admin for `read` access.
+- *Error message:* `saas application "<url>" shouldn't include endpoint`. *Trigger:* The URL identifies an endpoint rather than the offer alone. *What to do:* Omit the endpoint from the offer URL.
 
 (changing-access-to-an-offer)=
 ### Changing access to an offer
@@ -104,9 +109,15 @@ Revoking `consume` or `read` from a user takes away the access they need to cons
 (listing-offers-and-their-connections)=
 ### Listing offers and their connections
 
+```{ibnote}
+See also: {ref}`Inspect offer connections with the Juju CLI <inspect-relations-to-an-offer>`
+```
+
 Listing offers shows the offers of one or more offering models with their {ref}`connections <offer-connections>`. A user gives one or more filters, and each filter must name an offering model; the list covers the models that the filters name.
 
 An offer name matches names containing that text. An application name must match exactly. When both are given, the offer must match both. An interface match or a user's explicit `consume` or `admin` grant adds offers to those results rather than narrowing them. On a 4.1 controller, specifying a connected user does not restrict the results.
+
+If no offer in the selected models matches, the list is empty. To look up one known offer instead, {ref}`view it by URL <viewing-an-offer>`.
 
 **Who can do this:** A user with {ref}`model admin access <user-access-model-admin>` on each offering model that the filters name, or with {ref}`controller superuser access <user-access-controller-superuser>` on the offering controller.
 
@@ -145,9 +156,15 @@ When the offering controller deletes an application, it also deletes the applica
 (finding-offers)=
 ### Finding offers
 
+```{ibnote}
+See also: {ref}`Find an offer with the Juju CLI <find-an-offer-to-use>`
+```
+
 Finding offers shows the offers that match a filter on their offering model, name, application or endpoints. A user gives one or more filters. A single filter that names no model searches every model on the controller that receives the request. The results include only the offers that the user's {ref}`offer access <offer-access>` lets them see.
 
 Within the models searched, an offer name matches names containing that text. A search with both a name and an interface returns offers that match either.
+
+If no visible offer matches, the result is empty. Use the {ref}`URL of a matching offer <offer-urls>` to {ref}`view that offer's details <viewing-an-offer>`.
 
 **Who can do this:** Any user who can log in to the controller that receives the request.
 
